@@ -17,7 +17,7 @@ const OnboardingNextButton = ({
     type="button"
     onClick={onClick}
     disabled={disabled || loading}
-    className="w-full py-2.5 btn-primary text-sm font-medium rounded-xl border transition-colors border-stone-600 hover:border-sage-500 hover:bg-sage-500/10">
+    className="w-full py-2.5 btn-primary text-sm font-medium rounded-xl border transition-colors border-transparent hover:border-sage-400 hover:bg-sage-500/10">
     {loading ? (loadingLabel ?? label) : label}
   </button>
 );
