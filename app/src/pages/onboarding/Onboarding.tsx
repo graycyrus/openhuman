@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-import ProgressIndicator from '../../components/ProgressIndicator';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { userApi } from '../../services/api/userApi';
 import { getDefaultEnabledTools } from '../../utils/toolDefinitions';
@@ -99,7 +98,6 @@ const Onboarding = ({ onComplete, onDefer }: OnboardingProps) => {
         </div>
       )}
       <div className="relative z-10 max-w-lg w-full mx-4">
-        <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
         {renderStep()}
       </div>
     </div>
