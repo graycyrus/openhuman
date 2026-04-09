@@ -189,7 +189,7 @@ const ModelStatusSection = ({
               />
               <button
                 onClick={onSetOllamaPath}
-                disabled={isSettingPath}
+                disabled={isSettingPath || !ollamaPathInput.trim()}
                 className="px-2 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white whitespace-nowrap">
                 {isSettingPath ? 'Setting...' : 'Set Path'}
               </button>
@@ -292,7 +292,7 @@ const ModelStatusSection = ({
                 <div className="rounded-md border border-stone-200 p-2">
                   <div className="text-stone-400 uppercase tracking-wide text-[10px]">Binary</div>
                   <div
-                    className="mt-1 text-stone-200 truncate"
+                    className="mt-1 text-stone-600 truncate"
                     title={diagnostics.ollama_binary_path ?? 'Not found'}>
                     {diagnostics.ollama_binary_path ?? 'Not found'}
                   </div>

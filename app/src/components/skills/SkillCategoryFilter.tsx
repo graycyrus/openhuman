@@ -15,17 +15,18 @@ interface SkillCategoryFilterProps {
   onChange: (category: SkillCategory) => void;
 }
 
-export default function SkillCategoryFilter({
+const SkillCategoryFilter = ({
   categories,
   selected,
   onChange,
-}: SkillCategoryFilterProps) {
+}: SkillCategoryFilterProps) => {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
       {categories.map(cat => (
         <button
           key={cat}
           type="button"
+          aria-pressed={selected === cat}
           onClick={() => onChange(cat)}
           className={`flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
             selected === cat
@@ -37,4 +38,6 @@ export default function SkillCategoryFilter({
       ))}
     </div>
   );
-}
+};
+
+export default SkillCategoryFilter;

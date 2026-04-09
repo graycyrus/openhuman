@@ -117,7 +117,9 @@ const DeviceCapabilitySection = ({
         </div>
       )}
 
-      {presetError && <div className="text-xs text-red-600">{presetError}</div>}
+      {presetError && !(!presetsLoading && !presetsData) && (
+        <div className="text-xs text-red-600">{presetError}</div>
+      )}
       {presetSuccess && (
         <div className="text-xs text-green-700">
           Applied {presetSuccess.applied_tier} tier: {presetSuccess.chat_model_id}

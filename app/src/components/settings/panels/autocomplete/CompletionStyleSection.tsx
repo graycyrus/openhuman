@@ -183,7 +183,7 @@ const CompletionStyleSection = ({
             {historyEntries.map((entry, idx) => (
               <div
                 key={`${String(entry.timestamp_ms)}-${String(idx)}`}
-                className="flex flex-col gap-0.5 rounded-lg bg-white px-2 py-1.5 text-xs border border-stone-100 text-xs">
+                className="flex flex-col gap-0.5 rounded-lg bg-white px-2 py-1.5 text-xs border border-stone-100">
                 <div className="flex items-center gap-2 text-stone-500">
                   <span className="shrink-0">{new Date(entry.timestamp_ms).toLocaleString()}</span>
                   {entry.app_name && (

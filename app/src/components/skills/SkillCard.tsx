@@ -272,7 +272,7 @@ export function ThirdPartySkillCard({ skill, onSetup }: ThirdPartySkillCardProps
                 />
               </svg>
             ),
-            onClick: handleSync,
+            onClick: () => void handleSync(),
             disabled: isSyncing,
             testId: `skill-sync-button-${skill.id}`,
           },
@@ -305,14 +305,7 @@ export function ThirdPartySkillCard({ skill, onSetup }: ThirdPartySkillCardProps
         statusColor={statusDisplay.color}
         ctaLabel={ctaLabel()}
         ctaVariant={ctaVariant()}
-        onCtaClick={() => {
-          if (connectionStatus === 'offline' && !skill.hasSetup) {
-            // SkillActionButton handles enable — reuse by calling onSetup which triggers install
-            onSetup();
-          } else {
-            onSetup();
-          }
-        }}
+        onCtaClick={() => onSetup()}
         secondaryActions={secondaryActions}
         syncProgress={
           isSyncing

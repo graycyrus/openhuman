@@ -140,9 +140,14 @@ function BrowserAccessToggle() {
   const [browserBusy, setBrowserBusy] = useState(false);
 
   useEffect(() => {
-    openhumanGetRuntimeFlags()
-      .then(res => setBrowserAllowAll(res.result.browser_allow_all))
-      .catch(() => {});
+    (async () => {
+      try {
+        const res = await openhumanGetRuntimeFlags();
+        setBrowserAllowAll(res.result.browser_allow_all);
+      } catch {
+        // Silently ignore — toggle defaults to false
+      }
+    })();
   }, []);
 
   const handleToggle = async () => {

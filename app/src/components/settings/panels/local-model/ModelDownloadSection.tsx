@@ -223,7 +223,7 @@ const ModelDownloadSection = ({
             className="w-full min-h-28 rounded-md bg-white border border-stone-200 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-xs text-stone-300">
+            <label className="flex items-center gap-2 text-xs text-stone-700">
               <input
                 type="checkbox"
                 checked={promptNoThink}

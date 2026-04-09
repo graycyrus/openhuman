@@ -1,13 +1,13 @@
 import type { RuntimeSkillOption } from '../../../../utils/tauriCommands';
 
-type CronSkillConfig = {
+interface CronSkillConfig {
   skillId: string;
   name: string;
   enabled: boolean;
   manifestTickInterval: number | null;
   options: RuntimeSkillOption[];
   optionsError: string | null;
-};
+}
 
 interface RuntimeSkillCronListProps {
   loading: boolean;
@@ -140,7 +140,7 @@ const RuntimeSkillCronList = ({
                           <input
                             type={option.type === 'number' ? 'number' : 'text'}
                             value={draft}
-                            disabled={busy}
+                            disabled={busy || !skill.enabled}
                             onChange={event =>
                               onSetDraftValues(prev => ({
                                 ...prev,
