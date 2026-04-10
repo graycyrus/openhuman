@@ -1,10 +1,5 @@
 import type { PlanTier } from '../../../../types/api';
-import {
-  annualSavings,
-  isUpgrade as checkIsUpgrade,
-  displayPrice,
-  PLANS,
-} from '../billingHelpers';
+import { annualSavings, isUpgrade as checkIsUpgrade, displayPrice, PLANS } from '../billingHelpers';
 
 interface SubscriptionPlansProps {
   currentTier: PlanTier;
@@ -84,23 +79,17 @@ const SubscriptionPlans = ({
             <div className="flex items-start justify-between">
               <div>
                 <h4 className="text-sm font-bold text-stone-900">{plan.name}</h4>
-                {plan.tagline && (
-                  <p className="text-xs text-stone-400 mt-0.5">{plan.tagline}</p>
-                )}
+                {plan.tagline && <p className="text-xs text-stone-400 mt-0.5">{plan.tagline}</p>}
               </div>
               <div className="text-right flex-shrink-0">
                 <div className="flex items-baseline gap-0.5 justify-end">
                   <span className="text-2xl font-bold text-stone-900">
                     {displayPrice(plan, billingInterval)}
                   </span>
-                  {plan.tier !== 'FREE' && (
-                    <span className="text-xs text-stone-400">/mo</span>
-                  )}
+                  {plan.tier !== 'FREE' && <span className="text-xs text-stone-400">/mo</span>}
                 </div>
                 {plan.tier !== 'FREE' && billingInterval === 'annual' && (
-                  <p className="text-[11px] text-stone-400 mt-0.5">
-                    billed ${plan.annualPrice}/yr
-                  </p>
+                  <p className="text-[11px] text-stone-400 mt-0.5">billed ${plan.annualPrice}/yr</p>
                 )}
                 {savings && (
                   <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-sage-500/20 text-sage-500 border border-sage-500/30">

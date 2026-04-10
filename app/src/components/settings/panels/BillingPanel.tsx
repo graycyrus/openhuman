@@ -504,7 +504,6 @@ const BillingPanel = () => {
             onDeleteCard={handleDeleteCard}
             onAddCard={handleAddCard}
           />
-
         </div>
       </div>
     </div>
