@@ -71,8 +71,7 @@ const AutoRechargeSection = ({
   onDeleteCard,
   onAddCard,
 }: AutoRechargeSectionProps) => (
-  <div className="px-4 pt-2">
-    <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+  <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
       {/* Header row */}
       <div className="flex items-center justify-between p-3">
         <div>
@@ -396,7 +395,6 @@ const AutoRechargeSection = ({
         )}
       </div>
     </div>
-  </div>
 );
 
 export default AutoRechargeSection;
