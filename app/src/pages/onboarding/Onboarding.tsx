@@ -132,7 +132,8 @@ const Onboarding = ({ onComplete, onDefer }: OnboardingProps) => {
     const sources = connectedSourcesOverride ?? draft.connectedSources;
     console.debug('[onboarding:handleContextNext]', { connectedSources: sources });
     await setOnboardingTasks({
-      accessibilityPermissionGranted: false,
+      accessibilityPermissionGranted:
+        snapshot.localState.onboardingTasks?.accessibilityPermissionGranted ?? false,
       localModelConsentGiven: false,
       localModelDownloadStarted: false,
       enabledTools: getDefaultEnabledTools(),

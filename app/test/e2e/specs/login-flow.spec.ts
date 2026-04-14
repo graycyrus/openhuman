@@ -9,12 +9,11 @@
  *     3. App receives JWT, dispatches to Redux authSlice
  *     4. UserProvider calls GET /auth/me  (mock server)
  *
- *   Phase 2 — Onboarding steps (5 steps in Onboarding.tsx):
- *     Step 0: WelcomeStep       — "Continue"
- *     Step 1: LocalAIStep       — "Continue"
- *     Step 2: ToolsStep         — "Continue"
- *     Step 3: SkillsStep        — "Finish Setup"
- *     Step 4: MnemonicStep      — checkbox + "Finish Setup"
+ *   Phase 2 — Onboarding steps (4 steps in Onboarding.tsx):
+ *     Step 0: WelcomeStep            — "Continue"
+ *     Step 1: ReferralApplyStep      — "Apply code" or "Skip for now" (conditional)
+ *     Step 2: SkillsStep             — "Continue" or "Skip for Now"
+ *     Step 3: ContextGatheringStep   — "Continue" (skipped if no sources connected)
  *
  *   Phase 3 — Completion verification:
  *     - App calls POST /settings/onboarding-complete (from SkillsStep)
@@ -198,11 +197,10 @@ describe('Login flow — complete with mock data (Linux)', () => {
   // browser.execute() works, so we can interact with the WebView DOM.
   //
   // Steps in order:
-  //   0: WelcomeStep       — "Continue" button
-  //   1: LocalAIStep       — "Continue"
-  //   2: ToolsStep         — "Continue" button
-  //   3: SkillsStep        — "Finish Setup" button (fires onboarding-complete)
-  //   4: MnemonicStep      — checkbox + "Finish Setup" button
+  //   0: WelcomeStep            — "Continue" button
+  //   1: ReferralApplyStep      — "Apply code" or "Skip for now" (conditional)
+  //   2: SkillsStep             — "Continue" or "Skip for Now"
+  //   3: ContextGatheringStep   — "Continue" (skipped if no sources connected)
   // -----------------------------------------------------------------------
 
   it('onboarding overlay or home page is visible', async () => {
@@ -254,32 +252,23 @@ describe('Login flow — complete with mock data (Linux)', () => {
       await browser.pause(2_000);
     }
 
-    // Step 1: LocalAIStep — "Continue" button
+    // Step 1: ReferralApplyStep — "Skip for now" (conditional, may be skipped automatically)
     {
-      const clicked = await clickFirstMatch(['Continue'], 10_000);
-      if (clicked) {
-        console.log(`[LoginFlow] LocalAIStep: clicked "${clicked}"`);
-        await browser.pause(2_000);
-      }
-    }
-
-    // Step 2: ToolsStep — click "Continue" (keep defaults)
-    {
-      const toolsVisible = await textExists('Enable Tools');
-      if (toolsVisible) {
-        const clicked = await clickFirstMatch(['Continue'], 10_000);
+      const referralVisible = await textExists('Referral code');
+      if (referralVisible) {
+        const clicked = await clickFirstMatch(['Skip for now', 'Continue'], 10_000);
         if (clicked) {
-          console.log(`[LoginFlow] ToolsStep: clicked "${clicked}"`);
+          console.log(`[LoginFlow] ReferralApplyStep: clicked "${clicked}"`);
           await browser.pause(2_000);
         }
       }
     }
 
-    // Step 3: SkillsStep — click "Continue" (no skills connected in E2E)
+    // Step 2: SkillsStep — click "Skip for Now" (no skills connected in E2E)
     {
-      const skillsVisible = await textExists('Install Skills');
+      const skillsVisible = await textExists('Connect Gmail');
       if (skillsVisible) {
-        const clicked = await clickFirstMatch(['Continue'], 10_000);
+        const clicked = await clickFirstMatch(['Skip for Now', 'Continue'], 10_000);
         if (clicked) {
           console.log(`[LoginFlow] SkillsStep: clicked "${clicked}"`);
           await browser.pause(3_000);
@@ -287,31 +276,13 @@ describe('Login flow — complete with mock data (Linux)', () => {
       }
     }
 
-    // Step 4: MnemonicStep — tick the checkbox and click "Finish Setup"
+    // Step 3: ContextGatheringStep — click "Continue" (skipped when no sources connected)
     {
-      const mnemonicVisible = await textExists('Your Recovery Phrase');
-      if (mnemonicVisible) {
-        console.log('[LoginFlow] MnemonicStep: visible');
-
-        // Tick the "I have saved my recovery phrase" checkbox
-        try {
-          const checked = await browser.execute(() => {
-            const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
-            if (checkbox && !checkbox.checked) {
-              checkbox.click();
-              return true;
-            }
-            return checkbox?.checked ?? false;
-          });
-          console.log(`[LoginFlow] MnemonicStep: checkbox checked=${checked}`);
-        } catch (err) {
-          console.log('[LoginFlow] MnemonicStep: checkbox click failed:', err);
-        }
-
-        await browser.pause(1_000);
-        const clicked = await clickFirstMatch(['Finish Setup'], 10_000);
+      const contextVisible = await textExists('Preparing Your Context');
+      if (contextVisible) {
+        const clicked = await clickFirstMatch(['Continue'], 10_000);
         if (clicked) {
-          console.log(`[LoginFlow] MnemonicStep: clicked "${clicked}"`);
+          console.log(`[LoginFlow] ContextGatheringStep: clicked "${clicked}"`);
           await browser.pause(3_000);
         }
       }
