@@ -894,7 +894,12 @@ mod tests {
     fn register_agent_persists_agent_id_and_name() {
         let router = WebhookRouter::new(None);
         router
-            .register_agent("uuid-a1", Some("agent-42".into()), Some("My Agent".into()), None)
+            .register_agent(
+                "uuid-a1",
+                Some("agent-42".into()),
+                Some("My Agent".into()),
+                None,
+            )
             .unwrap();
 
         let reg = router.registration("uuid-a1").unwrap();
@@ -911,7 +916,12 @@ mod tests {
             .unwrap();
         // Re-register with the same agent_id should succeed.
         router
-            .register_agent("uuid-a2", Some("agent-1".into()), Some("Updated".into()), None)
+            .register_agent(
+                "uuid-a2",
+                Some("agent-1".into()),
+                Some("Updated".into()),
+                None,
+            )
             .unwrap();
 
         let reg = router.registration("uuid-a2").unwrap();
