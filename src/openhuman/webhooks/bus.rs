@@ -117,10 +117,7 @@ impl EventHandler for WebhookRequestSubscriber {
                     // Spawn the triage pipeline so we don't block the
                     // broadcast channel's dispatch task during LLM calls.
                     let corr = correlation_id.clone();
-                    let skill = reg
-                        .agent_id
-                        .clone()
-                        .or_else(|| Some(reg.skill_id.clone()));
+                    let skill = reg.agent_id.clone().or_else(|| Some(reg.skill_id.clone()));
                     tokio::spawn(async move {
                         let result =
                             tokio::time::timeout(std::time::Duration::from_secs(60), async {
@@ -128,9 +125,7 @@ impl EventHandler for WebhookRequestSubscriber {
                             })
                             .await;
                         let (resp, err) = match result {
-                            Ok(Ok(output)) => {
-                                (build_agent_response(&corr, 200, &output), None)
-                            }
+                            Ok(Ok(output)) => (build_agent_response(&corr, 200, &output), None),
                             Ok(Err(e)) => {
                                 tracing::error!("[webhook] agent trigger failed: {}", e);
                                 (
@@ -155,10 +150,7 @@ impl EventHandler for WebhookRequestSubscriber {
                                 "body": resp.body,
                             });
                             if let Err(e) = mgr.emit("webhook:response", response_data).await {
-                                tracing::error!(
-                                    "[webhook] failed to emit spawned response: {}",
-                                    e
-                                );
+                                tracing::error!("[webhook] failed to emit spawned response: {}", e);
                             }
                         }
                         if let Some(e) = err {
@@ -173,8 +165,7 @@ impl EventHandler for WebhookRequestSubscriber {
                         headers: HashMap::new(),
                         body: serde_json::json!({"status": "accepted", "message": "Agent triage started"}).to_string(),
                     };
-                    let skill_id =
-                        reg.agent_id.clone().or_else(|| Some(reg.skill_id.clone()));
+                    let skill_id = reg.agent_id.clone().or_else(|| Some(reg.skill_id.clone()));
                     (resp, skill_id, None)
                 }
             }
