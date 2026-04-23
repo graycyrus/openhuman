@@ -62,7 +62,9 @@ fn now_ms() -> u64 {
 pub fn event_to_notification(event: &DomainEvent) -> Option<CoreNotificationEvent> {
     let ts = now_ms();
     match event {
-        DomainEvent::CronJobCompleted { job_id, success, .. } => Some(CoreNotificationEvent {
+        DomainEvent::CronJobCompleted {
+            job_id, success, ..
+        } => Some(CoreNotificationEvent {
             id: format!("cron:{}:{}", job_id, ts),
             category: CoreNotificationCategory::Agents,
             title: if *success {
