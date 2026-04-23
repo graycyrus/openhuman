@@ -114,23 +114,68 @@ impl EventHandler for WebhookRequestSubscriber {
                         &path,
                         payload,
                     );
-                    match run_agent_trigger(&envelope).await {
-                        Ok(output) => {
-                            let resp = build_agent_response(&correlation_id, 200, &output);
-                            let skill_id =
-                                reg.agent_id.clone().or_else(|| Some(reg.skill_id.clone()));
-                            (resp, skill_id, None)
+                    // Spawn the triage pipeline so we don't block the
+                    // broadcast channel's dispatch task during LLM calls.
+                    let corr = correlation_id.clone();
+                    let skill = reg
+                        .agent_id
+                        .clone()
+                        .or_else(|| Some(reg.skill_id.clone()));
+                    tokio::spawn(async move {
+                        let result =
+                            tokio::time::timeout(std::time::Duration::from_secs(60), async {
+                                run_agent_trigger(&envelope).await
+                            })
+                            .await;
+                        let (resp, err) = match result {
+                            Ok(Ok(output)) => {
+                                (build_agent_response(&corr, 200, &output), None)
+                            }
+                            Ok(Err(e)) => {
+                                tracing::error!("[webhook] agent trigger failed: {}", e);
+                                (
+                                    build_agent_response(&corr, 500, &format!("Agent error: {e}")),
+                                    Some(e),
+                                )
+                            }
+                            Err(_) => {
+                                tracing::error!("[webhook] agent trigger timed out (60s)");
+                                (
+                                    build_agent_response(&corr, 504, "Agent triage timed out"),
+                                    Some("timed out after 60s".to_string()),
+                                )
+                            }
+                        };
+                        // Emit response from the spawned task.
+                        if let Some(mgr) = global_socket_manager() {
+                            let response_data = serde_json::json!({
+                                "correlationId": resp.correlation_id,
+                                "statusCode": resp.status_code,
+                                "headers": resp.headers,
+                                "body": resp.body,
+                            });
+                            if let Err(e) = mgr.emit("webhook:response", response_data).await {
+                                tracing::error!(
+                                    "[webhook] failed to emit spawned response: {}",
+                                    e
+                                );
+                            }
                         }
-                        Err(e) => {
-                            tracing::error!("[webhook] agent trigger failed: {}", e);
-                            let resp = build_agent_response(
-                                &correlation_id,
-                                500,
-                                &format!("Agent error: {e}"),
-                            );
-                            (resp, None, Some(e))
+                        if let Some(e) = err {
+                            tracing::warn!("[webhook] agent trigger error: {}", e);
                         }
-                    }
+                    });
+                    // Return 202 Accepted immediately so the event handler
+                    // doesn't block the broadcast channel.
+                    let resp = WebhookResponseData {
+                        correlation_id: correlation_id.clone(),
+                        status_code: 202,
+                        headers: HashMap::new(),
+                        body: serde_json::json!({"status": "accepted", "message": "Agent triage started"}).to_string(),
+                    };
+                    let skill_id =
+                        reg.agent_id.clone().or_else(|| Some(reg.skill_id.clone()));
+                    (resp, skill_id, None)
                 }
             }
             Some(ref reg) => {

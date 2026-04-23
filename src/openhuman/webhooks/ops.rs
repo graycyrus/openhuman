@@ -179,13 +179,21 @@ pub async fn trigger_agent(
         }
     };
 
-    let run = crate::openhuman::agent::triage::run_triage(&envelope)
-        .await
-        .map_err(|e| format!("triage failed: {e}"))?;
+    let run = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        crate::openhuman::agent::triage::run_triage(&envelope),
+    )
+    .await
+    .map_err(|_| "triage timed out after 60s".to_string())?
+    .map_err(|e| format!("triage failed: {e}"))?;
 
-    crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope)
-        .await
-        .map_err(|e| format!("apply_decision failed: {e}"))?;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        crate::openhuman::agent::triage::apply_decision(run.clone(), &envelope),
+    )
+    .await
+    .map_err(|_| "apply_decision timed out after 60s".to_string())?
+    .map_err(|e| format!("apply_decision failed: {e}"))?;
 
     Ok(RpcOutcome::single_log(
         serde_json::json!({
