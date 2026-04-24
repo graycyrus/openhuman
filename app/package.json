@@ -65,7 +65,6 @@
     "@tauri-apps/plugin-deep-link": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-os": "^2.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@types/three": "^0.183.1",
     "buffer": "^6.0.3",
     "cmdk": "^1.1.1",
