@@ -998,7 +998,8 @@ const Conversations = ({ variant = 'page' }: ConversationsProps = {}) => {
                     )}
                   <div
                     className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`relative ${msg.sender === 'user' ? 'w-fit max-w-[75%]' : 'w-full md:max-w-[75%]'}`}>
+                    <div
+                      className={`relative ${msg.sender === 'user' ? 'w-fit max-w-[75%]' : 'w-full md:max-w-[75%]'}`}>
                       {msg.sender === 'agent' ? (
                         <div className="space-y-1">
                           {splitAgentMessageIntoBubbles(msg.content).map(
