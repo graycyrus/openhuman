@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChatEventListeners } from '../../services/chatService';
+import { EMOTION_HOLD_MS } from './emotionInference';
 import { VISEMES } from './Mascot/visemes';
 import { ACK_FACE_HOLD_MS, pickViseme, useHumanMascot } from './useHumanMascot';
 import { playBase64Audio } from './voice/audioPlayer';
@@ -184,8 +185,9 @@ describe('useHumanMascot state machine', () => {
       );
     });
     expect(result.current.face).toBe('happy');
+    // single-round success → delighted emotion → EMOTION_HOLD_MS.delighted hold
     act(() => {
-      vi.advanceTimersByTime(ACK_FACE_HOLD_MS + 1);
+      vi.advanceTimersByTime(EMOTION_HOLD_MS.delighted + 1);
     });
     expect(result.current.face).toBe('idle');
   });
@@ -311,8 +313,9 @@ describe('useHumanMascot TTS playback', () => {
     });
     expect(result.current.face).toBe('happy');
 
+    // single-round success → delighted emotion → EMOTION_HOLD_MS.delighted hold
     act(() => {
-      vi.advanceTimersByTime(ACK_FACE_HOLD_MS + 1);
+      vi.advanceTimersByTime(EMOTION_HOLD_MS.delighted + 1);
     });
     expect(result.current.face).toBe('idle');
   });
@@ -417,5 +420,131 @@ describe('useHumanMascot TTS playback', () => {
       vi.advanceTimersByTime(ACK_FACE_HOLD_MS + 1);
     });
     expect(result.current.face).toBe('idle');
+  });
+});
+
+describe('useHumanMascot emotion layer', () => {
+  beforeEach(() => {
+    capturedListeners = null;
+    vi.useFakeTimers();
+    (synthesizeSpeech as ReturnType<typeof vi.fn>).mockReset();
+    (playBase64Audio as ReturnType<typeof vi.fn>).mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function fakeEvent<T>(extra: T): T & { thread_id: string; request_id: string } {
+    return { thread_id: 't', request_id: 'r', ...extra };
+  }
+
+  function fakeDoneEmotion(text: string, rounds_used = 1, reaction_emoji?: string | null) {
+    return {
+      thread_id: 't',
+      request_id: 'r',
+      full_response: text,
+      rounds_used,
+      total_input_tokens: 1,
+      total_output_tokens: 1,
+      reaction_emoji,
+    };
+  }
+
+  it('emotion starts as neutral', () => {
+    const { result } = renderHook(() => useHumanMascot());
+    expect(result.current.emotion).toBe('neutral');
+  });
+
+  it('apology text triggers concerned face on done', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    // Stream the apology text via text_delta so it accumulates into accumulatedTextRef,
+    // then fire onDone. The text signal (apologetic, 0.7) vs outcome (delighted, 0.8) —
+    // outcome wins unless we also add a tool failure. Instead, use rounds_used=2 so
+    // outcome becomes proud (0.7), and text apologetic (0.7) ties — first-in-array wins.
+    // To make apologetic clearly dominate: fire a tool failure too so concerned (0.6)
+    // from outcome. Actually apologetic (text) at 0.7 > concerned (outcome) at 0.6.
+    // Simplest path: send the apology text via text_delta then onDone with a failed tool.
+    const apologyText = 'sorry, I could not complete the task as requested';
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onTextDelta?.(fakeEvent({ round: 1, delta: apologyText }));
+      capturedListeners?.onToolResult?.(
+        fakeEvent({ tool_name: 'lookup', skill_id: 's', output: 'err', success: false, round: 1 })
+      );
+      capturedListeners?.onDone?.(fakeDoneEmotion(apologyText, 1));
+    });
+    // apologetic (text, 0.7) > concerned (outcome, 0.6) → apologetic → concerned face
+    expect(result.current.face).toBe('concerned');
+  });
+
+  it('excitement text triggers happy face on done', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onDone?.(fakeDoneEmotion('successfully completed the task', 1));
+    });
+    // excited → happy face
+    expect(result.current.face).toBe('happy');
+  });
+
+  it('single-round success triggers delighted emotion', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onDone?.(fakeDoneEmotion('Here is the answer.', 1));
+    });
+    expect(result.current.emotion).toBe('delighted');
+    expect(result.current.face).toBe('happy');
+  });
+
+  it('multi-round success triggers proud emotion', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onDone?.(fakeDoneEmotion('Here is the answer.', 3));
+    });
+    expect(result.current.emotion).toBe('proud');
+    expect(result.current.face).toBe('happy');
+  });
+
+  it('tool failure triggers concerned emotion', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onToolResult?.(
+        fakeEvent({ tool_name: 'lookup', skill_id: 's', output: 'err', success: false, round: 1 })
+      );
+      capturedListeners?.onDone?.(fakeDoneEmotion('Here is the answer.', 1));
+    });
+    expect(result.current.emotion).toBe('concerned');
+    expect(result.current.face).toBe('concerned');
+  });
+
+  it('emotion resets on new inference_start', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    // First turn — get a non-neutral emotion.
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onDone?.(fakeDoneEmotion('Great news, done!', 1));
+    });
+    expect(result.current.emotion).not.toBe('neutral');
+    // Second turn begins — emotion should reset to neutral.
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+    });
+    expect(result.current.emotion).toBe('neutral');
+  });
+
+  it('positive reaction_emoji triggers delighted emotion', () => {
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
+    act(() => {
+      capturedListeners?.onInferenceStart?.(fakeEvent({}));
+      capturedListeners?.onDone?.(fakeDoneEmotion('Here is the answer.', 1, '🎉'));
+    });
+    // emoji delighted (intensity 0.9) beats outcome delighted (intensity 0.8)
+    // but both resolve to 'delighted' — verify the face and emotion
+    expect(result.current.emotion).toBe('delighted');
+    expect(result.current.face).toBe('happy');
   });
 });

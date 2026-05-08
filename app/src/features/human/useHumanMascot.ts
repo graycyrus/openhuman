@@ -2,6 +2,16 @@ import debug from 'debug';
 import { useEffect, useRef, useState } from 'react';
 
 import { subscribeChatEvents } from '../../services/chatService';
+import {
+  EMOTION_HOLD_MS,
+  emotionToFace,
+  inferEmotionFromAssistantText,
+  inferEmotionFromOutcome,
+  inferEmotionFromReactionEmoji,
+  type MascotEmotion,
+  resolveEmotion,
+  TEXT_SCAN_INTERVAL,
+} from './emotionInference';
 import type { MascotFace } from './Mascot';
 import { lerpViseme, VISEMES, type VisemeShape } from './Mascot/visemes';
 import { type PlaybackHandle, playBase64Audio } from './voice/audioPlayer';
@@ -86,6 +96,7 @@ export interface UseHumanMascotOptions {
 export interface UseHumanMascotResult {
   face: MascotFace;
   viseme: VisemeShape;
+  emotion: MascotEmotion;
 }
 
 /**
@@ -126,11 +137,24 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
 
   const [, force] = useState(0);
 
+  // Emotion layer — inferred from conversation content and outcomes.
+  const [emotion, setEmotion] = useState<MascotEmotion>('neutral');
+  const emotionRef = useRef<MascotEmotion>('neutral');
+  const accumulatedTextRef = useRef('');
+  const hadToolFailureRef = useRef(false);
+  const lastScanLenRef = useRef(0);
+
   function clearAckTimer() {
     if (ackTimerRef.current != null) {
       window.clearTimeout(ackTimerRef.current);
       ackTimerRef.current = null;
     }
+  }
+
+  /** Keeps emotionRef in sync so async TTS callbacks read a fresh value. */
+  function updateEmotion(e: MascotEmotion) {
+    emotionRef.current = e;
+    setEmotion(e);
   }
 
   function holdThenIdle(ackFace: MascotFace, ms = ACK_FACE_HOLD_MS) {
@@ -147,6 +171,10 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       onInferenceStart: () => {
         clearAckTimer();
         setFace('thinking');
+        updateEmotion('neutral');
+        accumulatedTextRef.current = '';
+        hadToolFailureRef.current = false;
+        lastScanLenRef.current = 0;
       },
       onIterationStart: e => {
         // Subsequent iterations mean the agent is grinding through tool rounds.
@@ -161,6 +189,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       },
       onToolResult: e => {
         if (!e.success) {
+          hadToolFailureRef.current = true;
           // Don't fully derail — let the next inference step take over.
           setFace('concerned');
         } else {
@@ -174,11 +203,44 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
         setFace('speaking');
         targetRef.current = pickViseme(e.delta);
         lastDeltaAtRef.current = window.performance.now();
+        accumulatedTextRef.current += e.delta;
+        const len = accumulatedTextRef.current.length;
+        if (len - lastScanLenRef.current >= TEXT_SCAN_INTERVAL) {
+          lastScanLenRef.current = len;
+          const signal = inferEmotionFromAssistantText(accumulatedTextRef.current);
+          if (signal.emotion !== 'neutral') {
+            mascotLog(
+              '[emotion] mid-stream scan: %s (intensity %.2f)',
+              signal.emotion,
+              signal.intensity
+            );
+            updateEmotion(signal.emotion);
+          }
+        }
       },
       onDone: e => {
+        // Final emotion inference from all signals.
+        const textSignal = inferEmotionFromAssistantText(accumulatedTextRef.current);
+        const outcomeSignal = inferEmotionFromOutcome({
+          rounds_used: e.rounds_used,
+          hadToolFailures: hadToolFailureRef.current,
+        });
+        const emojiSignal = inferEmotionFromReactionEmoji(e.reaction_emoji);
+        const resolved = resolveEmotion([emojiSignal, outcomeSignal, textSignal]);
+        mascotLog(
+          '[emotion] resolved: %s (emoji=%s outcome=%s text=%s)',
+          resolved,
+          emojiSignal.emotion,
+          outcomeSignal.emotion,
+          textSignal.emotion
+        );
+        updateEmotion(resolved);
+
         if (!speakRef.current || !e.full_response?.trim()) {
-          // Soft acknowledgement beat instead of snapping back to idle.
-          holdThenIdle('happy');
+          const emotionFace = emotionToFace(resolved);
+          const ackFace = emotionFace ?? 'happy';
+          const holdMs = EMOTION_HOLD_MS[resolved];
+          holdThenIdle(ackFace, holdMs);
           return;
         }
         // Fire-and-forget — startTtsPlayback owns its cleanup via finally.
@@ -190,6 +252,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
         playbackRef.current?.stop();
         playbackRef.current = null;
         visemeFramesRef.current = [];
+        updateEmotion('concerned');
         holdThenIdle('concerned');
       },
     });
@@ -284,11 +347,17 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       if (isStillCurrent()) {
         playbackRef.current = null;
         visemeFramesRef.current = [];
-        if (degraded) {
-          holdThenIdle('concerned');
-        } else {
-          holdThenIdle('happy');
-        }
+        const currentEmotion = emotionRef.current;
+        const emotionFace = emotionToFace(currentEmotion);
+        const ackFace = degraded ? 'concerned' : (emotionFace ?? 'happy');
+        const holdMs = degraded ? ACK_FACE_HOLD_MS : EMOTION_HOLD_MS[currentEmotion];
+        mascotLog(
+          '[emotion] tts finally — emotion=%s face=%s holdMs=%d',
+          currentEmotion,
+          ackFace,
+          holdMs
+        );
+        holdThenIdle(ackFace, holdMs);
       }
     }
   }
@@ -330,5 +399,5 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
   // can reflect mic-on without racing the chat event subscription.
   const effectiveFace: MascotFace = listening && face !== 'speaking' ? 'listening' : face;
 
-  return { face: effectiveFace, viseme };
+  return { face: effectiveFace, viseme, emotion };
 }
