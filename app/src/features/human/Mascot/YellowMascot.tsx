@@ -122,7 +122,11 @@ export const YellowMascot: FC<YellowMascotProps> = ({
       <style>{`
         .mascot-yellow-host svg { width: 100% !important; height: 100% !important; }
       `}</style>
-      <FrameProvider fps={FPS} width={CANVAS} height={CANVAS} durationInFrames={DURATION_FRAMES}>
+      <FrameProvider
+        fps={FPS}
+        width={CANVAS}
+        height={CANVAS}
+        durationInFrames={face === 'sleep' ? FPS * 600 : DURATION_FRAMES}>
         <Component {...inputProps} />
       </FrameProvider>
     </div>

@@ -152,6 +152,8 @@ Quick reference for anyone starting with Claude on this project. Updated by the 
 - **`MascotCharacter` `sleeping` prop** — Drives the sleep animation (eye close + Zzz). `sleepStartSec` and `sleepFullSec` are hardcoded at 2.5s and 4.0s — they are NOT configurable props. Only toggle `sleeping: boolean`.
 - **`FACE_PRESETS` is a strict `Record`** — Typed as `Record<Exclude<MascotFace, 'normal'>, FacePreset>` in `Ghosty.tsx`. Adding a new `MascotFace` union variant requires adding a matching entry to `FACE_PRESETS` or it won't compile.
 - **`_webview` in `spawn_drag_timer`** — The `WKWebView` captured in the drag timer closure was originally unused (prefixed `_`). It can be used for `evaluateJavaScript` calls during the hover polling loop (e.g. to trigger blink/wake events from Rust).
+- **FrameProvider loops — sleep animation resets** — `FrameProvider` uses `frame % durationInFrames` so animations loop. Default `DURATION_FRAMES = FPS * 6` (6s). Sleep animation completes at 4s, then eyes re-open at 6s when frame resets to 0. Fix: use a much longer `durationInFrames` for sleep face (e.g. `FPS * 600`) so the loop never triggers while sleeping.
+- **Hover detection needs circular hitbox** — The mascot panel is 79x79 but the character is visually circular. Using the full AABB (`cursor_in_panel`) for hover triggers false positives when cursor is in a panel corner. Use distance-from-center check instead. Also suppress hover events for ~1s after panel shows to let the webview load.
 
 ## PR Checklist CI
 

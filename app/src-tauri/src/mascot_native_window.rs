@@ -283,6 +283,11 @@ unsafe fn spawn_drag_timer(
     let drag_offset: Rc<Cell<(f64, f64)>> = Rc::new(Cell::new((0.0, 0.0)));
     // Track previous hover state so we only dispatch when it changes.
     let was_hovering: Rc<Cell<bool>> = Rc::new(Cell::new(false));
+    // Tick counter — suppress hover events for the first ~1s after panel
+    // shows so the webview can load before we start dispatching JS.
+    let tick_count: Rc<Cell<u32>> = Rc::new(Cell::new(0));
+    // ~60 ticks = ~1 second at DRAG_POLL_SECONDS (0.016s).
+    const HOVER_SUPPRESS_TICKS: u32 = 60;
 
     let block = RcBlock::new(move |_timer: NonNull<NSTimer>| {
         let cursor = NSEvent::mouseLocation();
@@ -317,11 +322,20 @@ unsafe fn spawn_drag_timer(
             log::debug!("[mascot-native] drag started");
         }
 
-        // Hover detection: only count as hovering when cursor is in panel
-        // and we are not dragging or pressing. Dispatch a CustomEvent into
-        // the WKWebView when the hover state transitions so MascotWindowApp
-        // can switch between sleep and idle faces.
-        let hovering_now = cursor_in_panel && !left_down && !dragging.get();
+        // Hover detection: use a circular hitbox (radius = half panel size)
+        // instead of the full AABB so corners don't trigger false positives.
+        // Suppress for the first ~1s so the webview can finish loading.
+        tick_count.set(tick_count.get().saturating_add(1));
+        let center_x = frame.origin.x + frame.size.width / 2.0;
+        let center_y = frame.origin.y + frame.size.height / 2.0;
+        let dx = cursor.x - center_x;
+        let dy = cursor.y - center_y;
+        let radius = frame.size.width / 2.0;
+        let cursor_in_circle = (dx * dx + dy * dy) <= (radius * radius);
+        let hovering_now = cursor_in_circle
+            && !left_down
+            && !dragging.get()
+            && tick_count.get() > HOVER_SUPPRESS_TICKS;
         if hovering_now != was_hovering.get() {
             was_hovering.set(hovering_now);
             let js_str = if hovering_now {
