@@ -58,6 +58,11 @@ function variantForFace(
     mascotColor: extras.mascotColor ?? 'yellow',
   };
   switch (face) {
+    case 'sleep':
+      return {
+        component: YellowMascotIdle,
+        inputProps: { ...base, sleeping: true, arm: 'none', talking: false, thinking: false },
+      };
     case 'thinking':
     case 'confused':
       return {

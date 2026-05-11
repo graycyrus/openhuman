@@ -52,7 +52,7 @@ const DRAG_POLL_SECONDS: f64 = 0.016;
 /// dropped webview.
 struct MascotPanel {
     panel: Retained<NSPanel>,
-    _webview: Retained<WKWebView>,
+    webview: Retained<WKWebView>,
     drag_timer: Retained<NSTimer>,
 }
 
@@ -122,7 +122,7 @@ pub(crate) fn show(app: &AppHandle<AppRuntime>) -> Result<(), String> {
     MASCOT.with(|cell| {
         *cell.borrow_mut() = Some(MascotPanel {
             panel,
-            _webview: webview,
+            webview,
             drag_timer,
         });
     });
@@ -275,12 +275,14 @@ unsafe fn build_panel(mtm: MainThreadMarker, frame: NSRect) -> Retained<NSPanel>
 /// but the visual drag starts on the next timer tick (~16 ms).
 unsafe fn spawn_drag_timer(
     panel: Retained<NSPanel>,
-    _webview: Retained<WKWebView>,
+    webview: Retained<WKWebView>,
 ) -> Retained<NSTimer> {
     let dragging: Rc<Cell<bool>> = Rc::new(Cell::new(false));
     // Offset from cursor to panel origin at drag start so the panel
     // doesn't snap its corner to the cursor.
     let drag_offset: Rc<Cell<(f64, f64)>> = Rc::new(Cell::new((0.0, 0.0)));
+    // Track previous hover state so we only dispatch when it changes.
+    let was_hovering: Rc<Cell<bool>> = Rc::new(Cell::new(false));
 
     let block = RcBlock::new(move |_timer: NonNull<NSTimer>| {
         let cursor = NSEvent::mouseLocation();
@@ -313,6 +315,29 @@ unsafe fn spawn_drag_timer(
             dragging.set(true);
             drag_offset.set((cursor.x - frame.origin.x, cursor.y - frame.origin.y));
             log::debug!("[mascot-native] drag started");
+        }
+
+        // Hover detection: only count as hovering when cursor is in panel
+        // and we are not dragging or pressing. Dispatch a CustomEvent into
+        // the WKWebView when the hover state transitions so MascotWindowApp
+        // can switch between sleep and idle faces.
+        let hovering_now = cursor_in_panel && !left_down && !dragging.get();
+        if hovering_now != was_hovering.get() {
+            was_hovering.set(hovering_now);
+            let js_str = if hovering_now {
+                "window.dispatchEvent(new CustomEvent('mascot:hover-state',{detail:{hovering:true}}))"
+            } else {
+                "window.dispatchEvent(new CustomEvent('mascot:hover-state',{detail:{hovering:false}}))"
+            };
+            log::debug!("[mascot-native] hover-state hovering={hovering_now}");
+            let js = NSString::from_str(js_str);
+            unsafe {
+                let _: () = msg_send![
+                    &*webview,
+                    evaluateJavaScript: &*js,
+                    completionHandler: std::ptr::null::<objc2::runtime::AnyObject>()
+                ];
+            }
         }
     });
 
