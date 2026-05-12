@@ -31,6 +31,7 @@ pub struct Config {
     pub api_url: Option<String>,
     pub api_key: Option<String>,
     pub default_model: Option<String>,
+    #[serde(default = "default_temperature_value")]
     pub default_temperature: f64,
 
     #[serde(default)]
@@ -215,6 +216,14 @@ pub struct Config {
     /// already-onboarded user just produces a recognition message).
     #[serde(default)]
     pub chat_onboarding_completed: bool,
+}
+
+/// Returns the default temperature used by `#[serde(default = "default_temperature_value")]`.
+/// A bare `#[serde(default)]` would give `0.0`; this ensures the field
+/// round-trips correctly even when `default_temperature` is omitted from
+/// an existing `config.toml`.
+fn default_temperature_value() -> f64 {
+    0.7
 }
 
 impl Config {
