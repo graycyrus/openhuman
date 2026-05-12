@@ -218,12 +218,15 @@ pub struct Config {
     pub chat_onboarding_completed: bool,
 }
 
+/// Shared default so `#[serde(default)]` and `Config::default()` stay in sync.
+pub(crate) const DEFAULT_TEMPERATURE: f64 = 0.7;
+
 /// Returns the default temperature used by `#[serde(default = "default_temperature_value")]`.
 /// A bare `#[serde(default)]` would give `0.0`; this ensures the field
 /// round-trips correctly even when `default_temperature` is omitted from
 /// an existing `config.toml`.
 fn default_temperature_value() -> f64 {
-    0.7
+    DEFAULT_TEMPERATURE
 }
 
 impl Config {
@@ -265,7 +268,7 @@ impl Default for Config {
             api_url: None,
             api_key: None,
             default_model: Some(DEFAULT_MODEL.to_string()),
-            default_temperature: 0.7,
+            default_temperature: DEFAULT_TEMPERATURE,
             observability: ObservabilityConfig::default(),
             autonomy: AutonomyConfig::default(),
             runtime: RuntimeConfig::default(),

@@ -509,6 +509,12 @@ async fn parse_config_with_recovery(config_path: &Path, contents: &str) -> Confi
 
     // Archive the corrupt primary for diagnostics.
     let corrupt_path = config_path.with_extension("toml.corrupt");
+    if corrupt_path.exists() {
+        tracing::warn!(
+            corrupt_archive = %corrupt_path.display(),
+            "[config] Overwriting existing .corrupt archive — previous corruption diagnostics will be lost"
+        );
+    }
     match fs::copy(config_path, &corrupt_path).await {
         Ok(_) => {
             tracing::warn!(
