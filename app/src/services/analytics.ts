@@ -201,10 +201,10 @@ export function syncAnalyticsConsent(enabled: boolean): void {
     void Sentry.flush(2000);
   }
 
-  // Update the GA consent shadow and toggle ad-personalization signals.
+  // Update the GA consent shadow. Ad-personalization is already disabled
+  // unconditionally in initGA() — no need to re-set it on every toggle.
   gaEnabled = enabled;
   if (gaInitialized) {
-    ReactGA.set({ allow_ad_personalization_signals: false });
     console.debug(`[analytics] GA consent updated: enabled=${enabled}`);
   }
 }

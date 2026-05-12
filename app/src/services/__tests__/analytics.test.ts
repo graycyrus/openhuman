@@ -452,11 +452,12 @@ describe('syncAnalyticsConsent GA integration', () => {
     expect(hoisted.gaEvent).toHaveBeenCalledWith('app_open', undefined);
   });
 
-  test('syncAnalyticsConsent sets allow_ad_personalization_signals: false when GA is initialized', async () => {
+  test('syncAnalyticsConsent does not redundantly call ReactGA.set (ad personalization already disabled in initGA)', async () => {
     const { initGA, syncAnalyticsConsent } = await freshAnalytics();
     initGA();
     hoisted.gaSet.mockReset();
     syncAnalyticsConsent(true);
-    expect(hoisted.gaSet).toHaveBeenCalledWith({ allow_ad_personalization_signals: false });
+    // allow_ad_personalization_signals is set once in initGA, not on every consent toggle
+    expect(hoisted.gaSet).not.toHaveBeenCalled();
   });
 });
