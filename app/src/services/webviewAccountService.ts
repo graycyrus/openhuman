@@ -313,6 +313,7 @@ function handleWebviewAccountLoad(payload: WebviewAccountLoadPayload) {
 
   const provider = store.getState().accounts.accounts[accountId]?.provider;
   const connectSuccessParams = provider ? { provider } : undefined;
+  const shouldTrackConnectSuccess = payload.state !== 'reused';
 
   if (bounds) {
     invoke('webview_account_reveal', { args: { account_id: accountId, bounds, trigger } })
@@ -321,11 +322,15 @@ function handleWebviewAccountLoad(payload: WebviewAccountLoadPayload) {
       })
       .finally(() => {
         store.dispatch(setAccountStatus({ accountId, status: 'open' }));
-        trackEvent('account_connect_success', connectSuccessParams);
+        if (shouldTrackConnectSuccess) {
+          trackEvent('account_connect_success', connectSuccessParams);
+        }
       });
   } else {
     store.dispatch(setAccountStatus({ accountId, status: 'open' }));
-    trackEvent('account_connect_success', connectSuccessParams);
+    if (shouldTrackConnectSuccess) {
+      trackEvent('account_connect_success', connectSuccessParams);
+    }
   }
 }
 

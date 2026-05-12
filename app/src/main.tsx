@@ -54,7 +54,9 @@ const ensureDefaultHashRoute = () => {
 // Initialize Sentry and GA early (before React renders)
 initSentry();
 initGA();
-trackEvent('app_open', { version: APP_VERSION });
+if (!isStandaloneWindow) {
+  trackEvent('app_open', { version: APP_VERSION });
+}
 document.documentElement.dataset.window = currentWindowLabel;
 
 if (!isStandaloneWindow) {

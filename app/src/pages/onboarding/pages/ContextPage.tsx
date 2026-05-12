@@ -15,7 +15,9 @@ const ContextPage = () => {
       // the final step when it runs — finish onboarding directly.
       onNext={() => {
         trackEvent('onboarding_step_complete', { step_name: 'context' });
-        void completeAndExit();
+        void completeAndExit().catch(error => {
+          console.error('[onboarding:context-page] completeAndExit failed', error);
+        });
       }}
       onBack={() => navigate('/onboarding/skills')}
     />
