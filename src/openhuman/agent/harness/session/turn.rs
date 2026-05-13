@@ -82,6 +82,7 @@ impl Agent {
             // inference backend has already tokenised. Fetching it later
             // would just burn memory-store reads on data we throw away.
             self.fetch_connected_integrations().await;
+            self.refresh_delegation_tools();
             let learned = self.fetch_learned_context().await;
             let rendered_prompt = self.build_system_prompt(learned)?;
             log::info!("[agent] system prompt built — initialising conversation history");
@@ -1226,6 +1227,151 @@ impl Agent {
                 .collect(),
             tree_root_summaries,
         }
+    }
+
+    /// Re-synthesise skill-delegation tools (`delegate_gmail`,
+    /// `delegate_notion`, …) using the live `connected_integrations` list
+    /// and merge them into the agent's tool surface.
+    ///
+    /// Called on the first turn, right after
+    /// [`Agent::fetch_connected_integrations`] has populated
+    /// `self.connected_integrations`. The synchronous builder cannot call
+    /// the async Composio fetcher, so it passes `&[]` at construction time —
+    /// this method closes that gap before the system prompt is built,
+    /// ensuring that `delegate_{toolkit}` tools are present in the
+    /// function-calling schema wherever they are mentioned in the prompt.
+    pub(super) fn refresh_delegation_tools(&mut self) {
+        if self.connected_integrations.is_empty() {
+            log::debug!(
+                "[refresh_delegation_tools] connected_integrations is empty \
+                 — skipping delegation tool refresh"
+            );
+            return;
+        }
+
+        let registry =
+            match crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global() {
+                Some(r) => r,
+                None => {
+                    log::warn!(
+                        "[refresh_delegation_tools] no global agent registry \
+                         — skipping delegation tool refresh"
+                    );
+                    return;
+                }
+            };
+
+        let definition = match registry.get(&self.base_definition_id) {
+            Some(d) => d,
+            None => {
+                log::debug!(
+                    "[refresh_delegation_tools] no definition for '{}' in registry \
+                     — skipping delegation tool refresh",
+                    self.base_definition_id
+                );
+                return;
+            }
+        };
+
+        // Collect the full set of orchestrator tools with live integrations.
+        let all_tools = crate::openhuman::tools::orchestrator_tools::collect_orchestrator_tools(
+            definition,
+            registry,
+            &self.connected_integrations,
+        );
+
+        // Determine which tool names we already have so we don't duplicate.
+        // Borrow the Arc directly — no Clone needed.
+        let existing_names: std::collections::HashSet<&str> =
+            self.tools.iter().map(|t| t.name()).collect();
+
+        // Filter to only genuinely new tools (the skill-delegation ones).
+        let new_tools: Vec<Box<dyn crate::openhuman::tools::Tool>> = all_tools
+            .into_iter()
+            .filter(|t| !existing_names.contains(t.name()))
+            .collect();
+
+        if new_tools.is_empty() {
+            log::debug!(
+                "[refresh_delegation_tools] no new delegation tools to add \
+                 (all already registered or no Skills subagent entries)"
+            );
+            return;
+        }
+
+        log::info!(
+            "[refresh_delegation_tools] adding {} skill-delegation tool(s): {}",
+            new_tools.len(),
+            new_tools
+                .iter()
+                .map(|t| t.name())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // Generate specs and collect names for the visibility set.
+        let new_specs: Vec<crate::openhuman::tools::ToolSpec> =
+            new_tools.iter().map(|t| t.spec()).collect();
+        let new_names: Vec<String> = new_tools.iter().map(|t| t.name().to_string()).collect();
+
+        // Replace the tools Arc with a new one that includes the new tools.
+        // We must rebuild the Vec because Box<dyn Tool> is not Clone, so
+        // Arc::make_mut is unavailable. Take the existing Arc (or clone the
+        // pointer) and extend a fresh Vec from it.
+        //
+        // Safety note: `Arc::try_unwrap` succeeds only when this is the sole
+        // strong reference. In the turn loop we are always the only owner
+        // (sub-agents hold their own Arcs taken at turn-start via
+        // `tools_arc()`), but to be safe we fall back to an empty extension
+        // on the rare occasion it fails.
+        let mut tools_vec: Vec<Box<dyn crate::openhuman::tools::Tool>> =
+            match Arc::try_unwrap(std::mem::replace(&mut self.tools, Arc::new(Vec::new()))) {
+                Ok(v) => v,
+                Err(shared_arc) => {
+                    // Another reference exists — we cannot reclaim the Vec.
+                    // Restore the original Arc and skip the tools update.
+                    // tool_specs and visible names are still updated below.
+                    log::warn!(
+                        "[refresh_delegation_tools] tools Arc is shared — \
+                         cannot extend tools vec in place; \
+                         tool_specs + visible names will still be updated"
+                    );
+                    self.tools = shared_arc;
+                    Vec::new()
+                }
+            };
+        tools_vec.extend(new_tools);
+        self.tools = Arc::new(tools_vec);
+
+        // Extend tool_specs (ToolSpec is Clone, so Arc::make_mut works).
+        Arc::make_mut(&mut self.tool_specs).extend(new_specs);
+
+        // Extend visible_tool_names (only when the filter is active;
+        // an empty set means "no filter / all tools visible").
+        if !self.visible_tool_names.is_empty() {
+            for name in &new_names {
+                self.visible_tool_names.insert(name.clone());
+            }
+        }
+
+        // Rebuild visible_tool_specs from the updated tool_specs and
+        // the (possibly-updated) visible_tool_names.
+        self.visible_tool_specs = Arc::new(if self.visible_tool_names.is_empty() {
+            (*self.tool_specs).clone()
+        } else {
+            self.tool_specs
+                .iter()
+                .filter(|s| self.visible_tool_names.contains(&s.name))
+                .cloned()
+                .collect()
+        });
+
+        log::debug!(
+            "[refresh_delegation_tools] tool surface updated: \
+             total_tools={} visible_specs={}",
+            self.tools.len(),
+            self.visible_tool_specs.len()
+        );
     }
 
     /// Fetches the user's active Composio connections and populates

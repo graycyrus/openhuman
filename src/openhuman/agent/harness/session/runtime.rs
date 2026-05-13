@@ -51,6 +51,18 @@ impl Agent {
         &self.agent_definition_name
     }
 
+    /// The original agent definition id from the global registry, frozen
+    /// at build time (e.g. `"orchestrator"`). Unlike
+    /// [`Agent::agent_definition_name`] this is never overwritten by
+    /// [`Agent::set_agent_definition_name`], so it always points to
+    /// the archetype that was looked up in the registry when the
+    /// session was constructed. Used by
+    /// [`Agent::refresh_delegation_tools`] to re-resolve the definition
+    /// after the display name has been mangled.
+    pub fn base_definition_id(&self) -> &str {
+        &self.base_definition_id
+    }
+
     /// Returns a new `AgentBuilder`.
     pub fn builder() -> AgentBuilder {
         AgentBuilder::new()

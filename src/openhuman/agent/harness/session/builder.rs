@@ -48,6 +48,7 @@ impl AgentBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
+            base_definition_id: None,
             session_parent_prefix: None,
             omit_profile: None,
             omit_memory_md: None,
@@ -233,6 +234,20 @@ impl AgentBuilder {
         self
     }
 
+    /// Sets the original agent definition id as it appears in the global
+    /// [`AgentDefinitionRegistry`]. This is distinct from
+    /// [`Self::agent_definition_name`] which may later be overwritten
+    /// to a thread-scoped variant (e.g. `"orchestrator_thread-6ad6d"`).
+    /// When not set, [`AgentBuilder::build`] falls back to
+    /// `agent_definition_name` and ultimately to `"main"`.
+    ///
+    /// Used by [`Agent::refresh_delegation_tools`] to look up the
+    /// original archetype definition for delegation-tool re-synthesis.
+    pub fn base_definition_id(mut self, id: impl Into<String>) -> Self {
+        self.base_definition_id = Some(id.into());
+        self
+    }
+
     /// Set the parent session-key chain for a sub-agent. Passing
     /// `Some("1713000000_orchestrator")` produces a sub-agent whose
     /// transcript filename is prefixed with the parent's session key,
@@ -379,6 +394,10 @@ impl AgentBuilder {
             agent_definition_name: self
                 .agent_definition_name
                 .clone()
+                .unwrap_or_else(|| "main".to_string()),
+            base_definition_id: self
+                .base_definition_id
+                .or_else(|| self.agent_definition_name.clone())
                 .unwrap_or_else(|| "main".to_string()),
             session_transcript_path: None,
             session_key: {
@@ -869,9 +888,17 @@ impl Agent {
         // Tauri-web code path. It does not have access to the async
         // Composio fetcher, so we pass an empty slice of connected
         // integrations here — the skill-wildcard expansion therefore
-        // produces zero delegation tools. That is correct behaviour:
-        // callers that need live integration expansion go through the
-        // bus-based `channels::runtime::dispatch` path instead.
+        // produces zero `delegate_{toolkit}` tools at construction time.
+        //
+        // The gap is closed at runtime: on the first turn,
+        // `fetch_connected_integrations()` populates
+        // `self.connected_integrations`, and the immediately-following
+        // `refresh_delegation_tools()` call re-runs
+        // `collect_orchestrator_tools` with the live integrations list
+        // and merges any newly-synthesised `delegate_*` tools into the
+        // agent's `tools`, `tool_specs`, `visible_tool_names`, and
+        // `visible_tool_specs` surfaces so the LLM's function-calling
+        // schema is consistent with the system prompt.
         let (delegation_tools, filter_from_scope): (
             Vec<Box<dyn Tool>>,
             Option<std::collections::HashSet<String>>,
@@ -1173,6 +1200,11 @@ impl Agent {
             .post_turn_hooks(post_turn_hooks)
             .learning_enabled(config.learning.enabled)
             .agent_definition_name(agent_id.to_string())
+            // Freeze the original registry id so `refresh_delegation_tools`
+            // can look up the archetype definition even after
+            // `set_agent_definition_name` has mangled the display name to a
+            // thread-scoped variant (e.g. `"orchestrator_thread-6ad6d"`).
+            .base_definition_id(agent_id.to_string())
             .omit_profile(effective_omit_profile)
             .omit_memory_md(effective_omit_memory_md);
         if let Some(ps) = payload_summarizer {

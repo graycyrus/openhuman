@@ -72,6 +72,17 @@ pub struct Agent {
     /// `"code_executor"`). Used as the `{agent}` component in session
     /// transcript paths: `sessions/DDMMYYYY/{agent}_{index}.md`.
     pub(super) agent_definition_name: String,
+    /// The original agent definition id as it appears in the global
+    /// [`AgentDefinitionRegistry`] (e.g. `"orchestrator"`). This is
+    /// distinct from [`Self::agent_definition_name`], which may be
+    /// overwritten by [`Agent::set_agent_definition_name`] to a
+    /// thread-scoped name like `"orchestrator_thread-6ad6d"` for
+    /// transcript namespacing. `base_definition_id` is frozen at
+    /// build time and used by [`Agent::refresh_delegation_tools`] to
+    /// look up the original definition — so the delegation-tool
+    /// refresh always targets the right archetype even after the name
+    /// has been mangled.
+    pub(super) base_definition_id: String,
     /// Resolved filesystem path for this session's transcript file.
     /// Set on first write, reused for subsequent overwrites within the
     /// same session.
@@ -165,6 +176,11 @@ pub struct AgentBuilder {
     pub(super) event_session_id: Option<String>,
     pub(super) event_channel: Option<String>,
     pub(super) agent_definition_name: Option<String>,
+    /// The original agent definition id from the registry. Frozen at
+    /// build time and used by [`Agent::refresh_delegation_tools`] for
+    /// definition lookups. Falls back to `agent_definition_name` when
+    /// not explicitly set, and ultimately to `"main"`.
+    pub(super) base_definition_id: Option<String>,
     /// Directory chain of parent session keys for a sub-agent. `None`
     /// (default) means this is a root session — its transcript lands
     /// flat in `session_raw/DDMMYYYY/{session_key}.jsonl`. Populated
@@ -208,6 +224,7 @@ mod tests {
         assert!(builder.event_session_id.is_none());
         assert!(builder.event_channel.is_none());
         assert!(builder.agent_definition_name.is_none());
+        assert!(builder.base_definition_id.is_none());
         assert!(builder.post_turn_hooks.is_empty());
     }
 }

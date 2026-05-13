@@ -694,6 +694,182 @@ fn seed_resume_from_messages_is_noop_on_warm_agent() {
     assert_eq!(cached[0].content, "warm prefix");
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// refresh_delegation_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Build a minimal agent scoped to `agent_id` with the global builtin registry
+/// initialised. Helper shared by the `refresh_delegation_tools` tests below.
+fn build_agent_with_base_definition(agent_id: &str) -> Agent {
+    use crate::openhuman::agent::harness::AgentDefinitionRegistry;
+    // Idempotent — other tests may have already initialised the registry.
+    AgentDefinitionRegistry::init_global_builtins().unwrap();
+
+    let workspace = tempfile::TempDir::new().expect("temp workspace");
+    let workspace_path = workspace.path().to_path_buf();
+    let provider = Box::new(MockProvider {
+        responses: parking_lot::Mutex::new(vec![]),
+    });
+    let memory_cfg = crate::openhuman::config::MemoryConfig {
+        backend: "none".into(),
+        ..crate::openhuman::config::MemoryConfig::default()
+    };
+    let mem: Arc<dyn crate::openhuman::memory::Memory> =
+        Arc::from(crate::openhuman::memory::create_memory(&memory_cfg, &workspace_path).unwrap());
+    Agent::builder()
+        .provider(provider)
+        .tools(vec![Box::new(MockTool)])
+        .memory(mem)
+        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .workspace_dir(workspace_path)
+        .agent_definition_name(agent_id.to_string())
+        .base_definition_id(agent_id.to_string())
+        .build()
+        .expect("agent build should succeed")
+}
+
+/// `refresh_delegation_tools` must add `delegate_{toolkit}` tools to the
+/// agent's tool surface when `connected_integrations` is non-empty and the
+/// agent's definition has a `SubagentEntry::Skills` wildcard entry.
+///
+/// The orchestrator builtin definition declares `{ skills = "*" }` in its
+/// `subagents` list, so passing connected gmail + github integrations should
+/// produce `delegate_gmail` and `delegate_github` in both
+/// `visible_tool_names` and `visible_tool_specs`.
+#[test]
+fn refresh_delegation_tools_populates_skill_tools() {
+    use crate::openhuman::context::prompt::ConnectedIntegration;
+
+    let mut agent = build_agent_with_base_definition("orchestrator");
+
+    // Inject two connected integrations before calling the method.
+    agent.connected_integrations = vec![
+        ConnectedIntegration {
+            toolkit: "gmail".to_string(),
+            description: "Gmail integration".to_string(),
+            tools: vec![],
+            connected: true,
+        },
+        ConnectedIntegration {
+            toolkit: "github".to_string(),
+            description: "GitHub integration".to_string(),
+            tools: vec![],
+            connected: true,
+        },
+    ];
+
+    agent.refresh_delegation_tools();
+
+    // tool_specs must include the new delegation tools.
+    let spec_names: Vec<&str> = agent.tool_specs.iter().map(|s| s.name.as_str()).collect();
+    assert!(
+        spec_names.contains(&"delegate_gmail"),
+        "tool_specs should contain delegate_gmail after refresh; got: {spec_names:?}"
+    );
+    assert!(
+        spec_names.contains(&"delegate_github"),
+        "tool_specs should contain delegate_github after refresh; got: {spec_names:?}"
+    );
+
+    // visible_tool_specs must also include them (rebuilt from tool_specs
+    // when no name filter is active).
+    let visible_names: Vec<&str> = agent
+        .visible_tool_specs
+        .iter()
+        .map(|s| s.name.as_str())
+        .collect();
+    assert!(
+        visible_names.contains(&"delegate_gmail"),
+        "visible_tool_specs should contain delegate_gmail; got: {visible_names:?}"
+    );
+    assert!(
+        visible_names.contains(&"delegate_github"),
+        "visible_tool_specs should contain delegate_github; got: {visible_names:?}"
+    );
+
+    // The tools vec must also carry the new tools so dispatch works.
+    let tool_names: Vec<&str> = agent.tools.iter().map(|t| t.name()).collect();
+    assert!(
+        tool_names.contains(&"delegate_gmail"),
+        "tools vec should contain delegate_gmail; got: {tool_names:?}"
+    );
+}
+
+/// `refresh_delegation_tools` must be a no-op when `connected_integrations`
+/// is empty — the tool surface must remain unchanged.
+#[test]
+fn refresh_delegation_tools_noop_when_no_integrations() {
+    let mut agent = build_agent_with_base_definition("orchestrator");
+
+    // Confirm no integrations are set (the builder default).
+    assert!(agent.connected_integrations.is_empty());
+
+    let tools_before = agent.tools.len();
+    let specs_before = agent.tool_specs.len();
+
+    agent.refresh_delegation_tools();
+
+    assert_eq!(
+        agent.tools.len(),
+        tools_before,
+        "tools vec should not grow when connected_integrations is empty"
+    );
+    assert_eq!(
+        agent.tool_specs.len(),
+        specs_before,
+        "tool_specs vec should not grow when connected_integrations is empty"
+    );
+}
+
+/// `refresh_delegation_tools` must not introduce duplicates when a
+/// `delegate_*` tool is already registered on the agent (e.g. from a
+/// prior call or from the builder).
+///
+/// Calls `refresh_delegation_tools` twice with the same integrations list —
+/// the second call must not add any new tools.
+#[test]
+fn refresh_delegation_tools_skips_already_registered() {
+    use crate::openhuman::context::prompt::ConnectedIntegration;
+
+    let mut agent = build_agent_with_base_definition("orchestrator");
+    agent.connected_integrations = vec![ConnectedIntegration {
+        toolkit: "gmail".to_string(),
+        description: "Gmail integration".to_string(),
+        tools: vec![],
+        connected: true,
+    }];
+
+    // First call — should add delegate_gmail.
+    agent.refresh_delegation_tools();
+    let tools_after_first = agent.tools.len();
+    let specs_after_first = agent.tool_specs.len();
+
+    // Second call with the same integrations — must be a no-op.
+    agent.refresh_delegation_tools();
+
+    assert_eq!(
+        agent.tools.len(),
+        tools_after_first,
+        "second refresh_delegation_tools call must not duplicate tools"
+    );
+    assert_eq!(
+        agent.tool_specs.len(),
+        specs_after_first,
+        "second refresh_delegation_tools call must not duplicate tool_specs"
+    );
+
+    // Confirm only one `delegate_gmail` exists.
+    let gmail_count = agent
+        .tools
+        .iter()
+        .filter(|t| t.name() == "delegate_gmail")
+        .count();
+    assert_eq!(
+        gmail_count, 1,
+        "exactly one delegate_gmail should exist after two refresh calls; found {gmail_count}"
+    );
+}
+
 /// Trailing user message that does NOT match the current incoming
 /// message must be preserved — the dedup heuristic only fires on
 /// exact match because the conversation JSONL is the source of truth
