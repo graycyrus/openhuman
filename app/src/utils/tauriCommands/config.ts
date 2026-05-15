@@ -3,7 +3,7 @@
  */
 import { callCoreRpc } from '../../services/coreRpcClient';
 import { CORE_RPC_METHODS } from '../../services/rpcMethods';
-import { CommandResponse, isTauri } from './common';
+import { CommandResponse, isTauri, tauriErrorMessage } from './common';
 
 export interface ConfigSnapshot {
   config: Record<string, unknown>;
@@ -298,10 +298,18 @@ export async function openhumanUpdateComposioTriggerSettings(
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
-    method: 'openhuman.config_update_composio_trigger_settings',
-    params: update,
-  });
+  try {
+    return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
+      method: 'openhuman.config_update_composio_trigger_settings',
+      params: update,
+    });
+  } catch (err) {
+    if (tauriErrorMessage(err).includes('unknown method')) {
+      // Stale core sidecar predates composio trigger settings (#1597).
+      return { result: {} as ConfigSnapshot, logs: [] };
+    }
+    throw err;
+  }
 }
 
 export async function openhumanGetComposioTriggerSettings(): Promise<
@@ -310,9 +318,17 @@ export async function openhumanGetComposioTriggerSettings(): Promise<
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ComposioTriggerSettings>>({
-    method: 'openhuman.config_get_composio_trigger_settings',
-  });
+  try {
+    return await callCoreRpc<CommandResponse<ComposioTriggerSettings>>({
+      method: 'openhuman.config_get_composio_trigger_settings',
+    });
+  } catch (err) {
+    if (tauriErrorMessage(err).includes('unknown method')) {
+      // Stale core sidecar predates composio trigger settings (#1597).
+      return { result: { triage_disabled: false, triage_disabled_toolkits: [] }, logs: [] };
+    }
+    throw err;
+  }
 }
 
 export async function openhumanGetRuntimeFlags(): Promise<CommandResponse<RuntimeFlags>> {
