@@ -1,9 +1,13 @@
 /**
  * Config and settings commands.
  */
+import debug from 'debug';
+
 import { callCoreRpc } from '../../services/coreRpcClient';
 import { CORE_RPC_METHODS } from '../../services/rpcMethods';
 import { CommandResponse, isTauri, tauriErrorMessage } from './common';
+
+const log = debug('composio:rpc');
 
 export interface ConfigSnapshot {
   config: Record<string, unknown>;
@@ -306,7 +310,8 @@ export async function openhumanUpdateComposioTriggerSettings(
   } catch (err) {
     if (tauriErrorMessage(err).includes('unknown method')) {
       // Stale core sidecar predates composio trigger settings (#1597).
-      return { result: {} as ConfigSnapshot, logs: [] };
+      log('[composio:rpc] graceful degradation: stale core lacks config_update_composio_trigger_settings (#1597)');
+      return { result: { config: {}, workspace_dir: '', config_path: '' }, logs: [] };
     }
     throw err;
   }
@@ -325,6 +330,7 @@ export async function openhumanGetComposioTriggerSettings(): Promise<
   } catch (err) {
     if (tauriErrorMessage(err).includes('unknown method')) {
       // Stale core sidecar predates composio trigger settings (#1597).
+      log('[composio:rpc] graceful degradation: stale core lacks config_get_composio_trigger_settings (#1597)');
       return { result: { triage_disabled: false, triage_disabled_toolkits: [] }, logs: [] };
     }
     throw err;
