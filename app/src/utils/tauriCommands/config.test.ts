@@ -131,10 +131,7 @@ describe('tauriCommands/config', () => {
         new Error('unknown method: openhuman.config_update_composio_trigger_settings')
       );
       const out = await openhumanUpdateComposioTriggerSettings({ triage_disabled: true });
-      expect(out).toEqual({
-        result: { config: {}, workspace_dir: '', config_path: '' },
-        logs: [],
-      });
+      expect(out).toEqual({ result: { config: {}, workspace_dir: '', config_path: '' }, logs: [] });
     });
 
     test('rethrows non-unknown-method errors', async () => {

@@ -364,7 +364,9 @@ export async function openhumanUpdateComposioTriggerSettings(
   } catch (err) {
     if (tauriErrorMessage(err).includes('unknown method')) {
       // Stale core sidecar predates composio trigger settings (#1597).
-      log('[composio:rpc] graceful degradation: stale core lacks config_update_composio_trigger_settings (#1597)');
+      log(
+        '[composio:rpc] graceful degradation: stale core lacks config_update_composio_trigger_settings (#1597)'
+      );
       return { result: { config: {}, workspace_dir: '', config_path: '' }, logs: [] };
     }
     throw err;
@@ -384,7 +386,9 @@ export async function openhumanGetComposioTriggerSettings(): Promise<
   } catch (err) {
     if (tauriErrorMessage(err).includes('unknown method')) {
       // Stale core sidecar predates composio trigger settings (#1597).
-      log('[composio:rpc] graceful degradation: stale core lacks config_get_composio_trigger_settings (#1597)');
+      log(
+        '[composio:rpc] graceful degradation: stale core lacks config_get_composio_trigger_settings (#1597)'
+      );
       return { result: { triage_disabled: false, triage_disabled_toolkits: [] }, logs: [] };
     }
     throw err;
