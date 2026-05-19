@@ -365,7 +365,7 @@ describe('MicComposer', () => {
     });
   });
 
-  it('shows the selector disabled when only one device is available', async () => {
+  it('hides the selector when only one device is available', async () => {
     const enumerateDevicesMock = vi
       .fn()
       .mockResolvedValue([{ kind: 'audioinput', deviceId: 'dev1', label: 'Built-in Mic' }]);
@@ -377,9 +377,8 @@ describe('MicComposer', () => {
 
     render(<MicComposer disabled={false} onSubmit={vi.fn()} showDeviceSelector />);
 
-    const select = await screen.findByRole('combobox', { name: /microphone device/i });
-    expect(select).toBeInTheDocument();
-    expect(select).toBeDisabled();
+    await vi.waitFor(() => expect(enumerateDevicesMock).toHaveBeenCalled());
+    expect(screen.queryByRole('combobox', { name: /microphone device/i })).not.toBeInTheDocument();
   });
 
   it('falls back to "Microphone N" label when browser hides labels before permission', async () => {
