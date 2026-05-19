@@ -10,7 +10,6 @@ import { ConfirmationModal } from '../components/intelligence/ConfirmationModal'
 import PillTabBar from '../components/PillTabBar';
 import UpsellBanner from '../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../components/upsell/upsellDismissState';
-import UsageLimitModal from '../components/upsell/UsageLimitModal';
 import { YellowMascot } from '../features/human/Mascot';
 import MicComposer from '../features/human/MicComposer';
 import { useHumanMascot } from '../features/human/useHumanMascot';
@@ -299,16 +298,11 @@ const Conversations = ({
     teamUsage,
     isLoading: isLoadingBudget,
     isAtLimit,
-    isBudgetExhausted,
-    isRateLimited,
     isNearLimit,
     isFreeTier,
     shouldShowBudgetCompletedMessage,
-    usagePct10h,
-    usagePct7d,
-    currentTier,
+    usagePct,
   } = useUsageState();
-  const [showLimitModal, setShowLimitModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState<ConfirmationModalType>({
     isOpen: false,
     title: '',
@@ -725,9 +719,6 @@ const Conversations = ({
 
     if (!sendDecision.shouldSend) {
       const blockedFeedback = getComposerBlockedSendFeedback(sendDecision.blockReason);
-      if (blockedFeedback?.showLimitModal) {
-        setShowLimitModal(true);
-      }
       if (blockedFeedback) {
         setSendError(chatSendError(blockedFeedback.error.code, blockedFeedback.error.message));
       }
@@ -1869,7 +1860,7 @@ const Conversations = ({
                     title={t('chat.approachingLimit')}
                     message={t('chat.approachingLimitMsg').replace(
                       '{pct}',
-                      String(Math.round(Math.max(usagePct10h, usagePct7d) * 100))
+                      String(Math.round(usagePct * 100))
                     )}
                     ctaLabel={t('chat.upgrade')}
                     onCtaClick={() => {
@@ -1880,7 +1871,7 @@ const Conversations = ({
                   />
                 </div>
               )}
-            {teamUsage && (shouldShowBudgetCompletedMessage || isRateLimited) && (
+            {teamUsage && shouldShowBudgetCompletedMessage && (
               <div className="mb-3 p-3 rounded-xl bg-coral-50 border border-coral-200 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <svg
@@ -1896,55 +1887,28 @@ const Conversations = ({
                     />
                   </svg>
                   <p className="text-xs text-coral-600 truncate">
-                    {shouldShowBudgetCompletedMessage
-                      ? teamUsage.cycleBudgetUsd > 0
-                        ? `${t('chat.weeklyLimitHit')}${teamUsage.cycleEndsAt ? ` ${t('chat.resets')} ${formatResetTime(teamUsage.cycleEndsAt)}.` : ''} ${t('chat.topUpToContinue')}`
-                        : t('chat.budgetComplete')
-                      : `${t('chat.rateLimitReached')}${teamUsage.fiveHourResetsAt ? ` ${t('chat.resets')} ${formatResetTime(teamUsage.fiveHourResetsAt)}.` : ''}`}
+                    {teamUsage.cycleBudgetUsd > 0
+                      ? `${t('chat.weeklyLimitHit')}${teamUsage.cycleEndsAt ? ` ${t('chat.resets')} ${formatResetTime(teamUsage.cycleEndsAt)}.` : ''} ${t('chat.topUpToContinue')}`
+                      : t('chat.budgetComplete')}
                   </p>
                 </div>
-                {shouldShowBudgetCompletedMessage && (
-                  <button
-                    onClick={() => {
-                      void openUrl(BILLING_DASHBOARD_URL);
-                    }}
-                    className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
-                    {t('chat.topUp')}
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    void openUrl(BILLING_DASHBOARD_URL);
+                  }}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
+                  {t('chat.topUp')}
+                </button>
               </div>
             )}
 
-            {/* Quota / usage pills — hidden during welcome lockdown so the
-                  onboarding chat doesn't surface billing affordances. */}
+            {/* Cycle usage pill. Backend PR #790 dropped rate-limit gating —
+                  only budget-based pressure is surfaced here now. */}
             <div className="flex items-center justify-end gap-2 mb-2">
               {(isLoadingBudget || teamUsage) && (
                 <div className="relative group">
                   {teamUsage ? (
-                    <div className="flex items-center gap-2">
-                      {!teamUsage.bypassCycleLimit && (
-                        <LimitPill
-                          label="5h"
-                          usedPct={
-                            teamUsage.fiveHourCapUsd > 0
-                              ? Math.min(1, teamUsage.cycleLimit5hr / teamUsage.fiveHourCapUsd)
-                              : 0
-                          }
-                        />
-                      )}
-                      <LimitPill
-                        label="7d"
-                        usedPct={
-                          teamUsage.cycleBudgetUsd > 0
-                            ? Math.min(
-                                1,
-                                (teamUsage.cycleBudgetUsd - teamUsage.remainingUsd) /
-                                  teamUsage.cycleBudgetUsd
-                              )
-                            : 0
-                        }
-                      />
-                    </div>
+                    <LimitPill label={t('chat.cycle')} usedPct={usagePct} />
                   ) : (
                     <span className="text-[10px] text-stone-400 dark:text-neutral-500 animate-pulse">
                       {t('common.loading')}
@@ -1953,29 +1917,17 @@ const Conversations = ({
                   {teamUsage && (
                     <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
                       <div className="bg-stone-900 text-white text-[10px] rounded-lg px-3 py-2 shadow-lg whitespace-nowrap space-y-1.5">
-                        {!teamUsage.bypassCycleLimit && (
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-stone-400 dark:text-neutral-500">
-                              {t('chat.fiveHourLimit')}
-                            </span>
-                            <span>
-                              ${(teamUsage.cycleLimit5hr ?? 0).toFixed(2)} / $
-                              {(teamUsage.fiveHourCapUsd ?? 0).toFixed(2)}
-                              {teamUsage.fiveHourResetsAt && (
-                                <span className="text-stone-400 dark:text-neutral-500 ml-1">
-                                  — {t('chat.resets')} {formatResetTime(teamUsage.fiveHourResetsAt)}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        )}
                         <div className="flex items-center justify-between gap-4">
-                          <span className="text-stone-400 dark:text-neutral-500">
-                            {t('chat.weeklyLimit')}
-                          </span>
+                          <span className="text-stone-400">{t('chat.cycleSpent')}</span>
                           <span>
-                            ${(teamUsage.remainingUsd ?? 0).toFixed(2)} / $
-                            {(teamUsage.cycleBudgetUsd ?? 0).toFixed(2)} {t('chat.left')}
+                            ${(teamUsage.cycleSpentUsd ?? 0).toFixed(2)} / $
+                            {(teamUsage.cycleBudgetUsd ?? 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-stone-400">{t('chat.cycleRemaining')}</span>
+                          <span>
+                            ${(teamUsage.remainingUsd ?? 0).toFixed(2)} {t('chat.left')}
                             {teamUsage.cycleEndsAt && (
                               <span className="text-stone-400 dark:text-neutral-500 ml-1">
                                 — {t('chat.resets')} {formatResetTime(teamUsage.cycleEndsAt)}
@@ -2216,13 +2168,6 @@ const Conversations = ({
           )}
         </div>
       </div>
-      <UsageLimitModal
-        open={showLimitModal}
-        onClose={() => setShowLimitModal(false)}
-        isBudgetExhausted={isBudgetExhausted}
-        resetTime={isBudgetExhausted ? teamUsage?.cycleEndsAt : teamUsage?.fiveHourResetsAt}
-        currentTier={currentTier}
-      />
       <ConfirmationModal
         modal={deleteModal}
         onClose={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
