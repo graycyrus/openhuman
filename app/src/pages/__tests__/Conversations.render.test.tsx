@@ -1181,9 +1181,23 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
 // ── Voice mode toggle ───────────────────────────────────────────────────────
 
 describe('voice mode toggle', () => {
-  it('renders mic toggle button in the composer', async () => {
+  const mascotVoiceState = {
+    color: 'yellow',
+    speakReplies: true,
+    voiceModeActive: true,
+    voiceId: null,
+    voiceGender: 'female',
+    voiceUseLocaleDefault: false,
+    selectedMascotId: null,
+  };
+
+  it('renders mic toggle button in the composer with a selected thread', async () => {
+    const thread = makeThread();
     await act(async () => {
-      await renderConversations({ thread: emptyThreadState });
+      await renderConversations({
+        thread: selectedThreadState(thread),
+        socket: socketState('connected'),
+      });
     });
 
     const micBtn = screen.getByRole('button', { name: /voice mode/i });
@@ -1191,71 +1205,76 @@ describe('voice mode toggle', () => {
   });
 
   it('switches to mic-cloud composer when voiceModeActive is true', async () => {
+    const thread = makeThread();
     await act(async () => {
       await renderConversations({
-        thread: emptyThreadState,
-        mascot: {
-          color: 'yellow',
-          speakReplies: true,
-          voiceModeActive: true,
-          voiceId: null,
-          voiceGender: 'female',
-          voiceUseLocaleDefault: false,
-          selectedMascotId: null,
-        },
+        thread: selectedThreadState(thread),
+        socket: socketState('connected'),
+        mascot: mascotVoiceState,
       });
     });
 
-    // MicComposer renders the "Start talking" / "Tap and speak" button
+    // MicComposer renders the start recording button
     expect(screen.getByRole('button', { name: /start recording/i })).toBeInTheDocument();
-    // Back to text button should be present
+    // Back to text button
     expect(screen.getByTitle(/switch to text/i)).toBeInTheDocument();
     // Speak replies checkbox
     expect(screen.getByLabelText(/speak replies/i)).toBeInTheDocument();
   });
 
   it('dispatches setVoiceModeActive when mic toggle is clicked', async () => {
-    const store = await (async () => {
-      let s: ReturnType<typeof buildStore>;
-      await act(async () => {
-        s = await renderConversations({ thread: emptyThreadState });
+    const thread = makeThread();
+    let store: ReturnType<typeof buildStore>;
+    await act(async () => {
+      store = await renderConversations({
+        thread: selectedThreadState(thread),
+        socket: socketState('connected'),
       });
-      return s!;
-    })();
+    });
 
     const micBtn = screen.getByRole('button', { name: /voice mode/i });
     await act(async () => {
       fireEvent.click(micBtn);
     });
 
-    expect(store.getState().mascot.voiceModeActive).toBe(true);
+    expect(store!.getState().mascot.voiceModeActive).toBe(true);
   });
 
   it('dispatches setVoiceModeActive(false) when switch-to-text is clicked', async () => {
-    const store = await (async () => {
-      let s: ReturnType<typeof buildStore>;
-      await act(async () => {
-        s = await renderConversations({
-          thread: emptyThreadState,
-          mascot: {
-            color: 'yellow',
-            speakReplies: true,
-            voiceModeActive: true,
-            voiceId: null,
-            voiceGender: 'female',
-            voiceUseLocaleDefault: false,
-            selectedMascotId: null,
-          },
-        });
+    const thread = makeThread();
+    let store: ReturnType<typeof buildStore>;
+    await act(async () => {
+      store = await renderConversations({
+        thread: selectedThreadState(thread),
+        socket: socketState('connected'),
+        mascot: mascotVoiceState,
       });
-      return s!;
-    })();
+    });
 
     const backBtn = screen.getByTitle(/switch to text/i);
     await act(async () => {
       fireEvent.click(backBtn);
     });
 
-    expect(store.getState().mascot.voiceModeActive).toBe(false);
+    expect(store!.getState().mascot.voiceModeActive).toBe(false);
+  });
+
+  it('toggles speakReplies checkbox', async () => {
+    const thread = makeThread();
+    let store: ReturnType<typeof buildStore>;
+    await act(async () => {
+      store = await renderConversations({
+        thread: selectedThreadState(thread),
+        socket: socketState('connected'),
+        mascot: mascotVoiceState,
+      });
+    });
+
+    const checkbox = screen.getByLabelText(/speak replies/i);
+    await act(async () => {
+      fireEvent.click(checkbox);
+    });
+
+    expect(store!.getState().mascot.speakReplies).toBe(false);
   });
 });
