@@ -63,6 +63,7 @@ function isMascotVoiceGender(value: unknown): value is MascotVoiceGender {
 
 export interface MascotState {
   color: MascotColor;
+  speakReplies: boolean;
   /**
    * User-selected ElevenLabs voice id for the mascot's reply speech, or
    * `null` to use the build-time default (`MASCOT_VOICE_ID` in
@@ -100,6 +101,7 @@ export interface MascotState {
 
 const initialState: MascotState = {
   color: DEFAULT_MASCOT_COLOR,
+  speakReplies: true,
   voiceId: null,
   voiceGender: DEFAULT_MASCOT_VOICE_GENDER,
   voiceUseLocaleDefault: false,
@@ -164,6 +166,9 @@ const mascotSlice = createSlice({
     setMascotVoiceUseLocaleDefault(state, action: PayloadAction<boolean>) {
       state.voiceUseLocaleDefault = Boolean(action.payload);
     },
+    setSpeakReplies(state, action: PayloadAction<boolean>) {
+      state.speakReplies = Boolean(action.payload);
+    },
   },
   extraReducers: builder => {
     builder.addCase(resetUserScopedState, () => initialState);
@@ -175,6 +180,7 @@ const mascotSlice = createSlice({
         key: string;
         payload?: {
           color?: unknown;
+          speakReplies?: unknown;
           voiceId?: unknown;
           voiceGender?: unknown;
           voiceUseLocaleDefault?: unknown;
@@ -183,6 +189,23 @@ const mascotSlice = createSlice({
       };
       if (rehydrateAction.key !== 'mascot') return;
       const restoredColor = rehydrateAction.payload?.color;
+      // speakReplies migration: if not in Redux blob yet, check legacy localStorage key.
+      if (typeof rehydrateAction.payload?.speakReplies === 'boolean') {
+        state.speakReplies = rehydrateAction.payload.speakReplies;
+      } else {
+        const legacyRaw =
+          typeof localStorage !== 'undefined' ? localStorage.getItem('human.speakReplies') : null;
+        if (legacyRaw !== null) {
+          state.speakReplies = legacyRaw === '1';
+          try {
+            localStorage.removeItem('human.speakReplies');
+          } catch {
+            // ignore
+          }
+        } else {
+          state.speakReplies = true;
+        }
+      }
       state.color = isMascotColor(restoredColor) ? restoredColor : DEFAULT_MASCOT_COLOR;
       const restoredSelectedMascotId = rehydrateAction.payload?.selectedMascotId;
       state.selectedMascotId =
@@ -220,6 +243,7 @@ export const {
   setMascotVoiceGender,
   setMascotVoiceUseLocaleDefault,
   setSelectedMascotId,
+  setSpeakReplies,
 } = mascotSlice.actions;
 
 export const selectMascotColor = (state: { mascot: MascotState }): MascotColor =>
@@ -236,6 +260,9 @@ export const selectMascotVoiceUseLocaleDefault = (state: { mascot: MascotState }
 
 export const selectSelectedMascotId = (state: { mascot: MascotState }): string | null =>
   state.mascot.selectedMascotId;
+
+export const selectSpeakReplies = (state: { mascot: MascotState }): boolean =>
+  state.mascot.speakReplies;
 
 /**
  * Resolve the voice id the next reply will be synthesised with, taking

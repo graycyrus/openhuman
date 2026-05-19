@@ -4,6 +4,7 @@ import AddAccountModal from '../components/accounts/AddAccountModal';
 import { AgentIcon, ProviderIcon } from '../components/accounts/providerIcons';
 import RespondQueuePanel from '../components/accounts/RespondQueuePanel';
 import WebviewHost from '../components/accounts/WebviewHost';
+import MascotChatPane from '../features/human/MascotChatPane';
 import { usePrewarmMostRecentAccount } from '../hooks/usePrewarmMostRecentAccount';
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
 // import { isWelcomeLocked } from '../lib/coreState/store';
@@ -26,7 +27,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchRespondQueue } from '../store/providerSurfaceSlice';
 import type { Account, AccountProvider, ProviderDescriptor } from '../types/accounts';
-import { AGENT_ACCOUNT_ID as AGENT_ID } from '../utils/accountsFullscreen';
+import { AGENT_ACCOUNT_ID as AGENT_ID, MASCOT_ACCOUNT_ID } from '../utils/accountsFullscreen';
 import { AgentChatPanel } from './Conversations';
 
 function makeAccountId(): string {
@@ -169,8 +170,12 @@ const Accounts = () => {
   // syncs Redux so other consumers observe the forced selection.
   // const selectedId = welcomeLocked ? AGENT_ID : (activeAccountId ?? AGENT_ID);
   const selectedId = activeAccountId ?? AGENT_ID;
-  const active = selectedId === AGENT_ID ? null : (accountsById[selectedId] ?? null);
+  const active =
+    selectedId === AGENT_ID || selectedId === MASCOT_ACCOUNT_ID
+      ? null
+      : (accountsById[selectedId] ?? null);
   const isAgentSelected = selectedId === AGENT_ID;
+  const isMascotSelected = selectedId === MASCOT_ACCOUNT_ID;
 
   // The child Tauri webview is a native view composited above the HTML
   // canvas, so DOM z-index can't put React overlays on top of it. Hide
@@ -208,6 +213,7 @@ const Accounts = () => {
   };
 
   const selectAgent = () => dispatch(setActiveAccount(AGENT_ID));
+  const selectMascot = () => dispatch(setActiveAccount(MASCOT_ACCOUNT_ID));
   const selectAccount = (id: string) => {
     dispatch(setActiveAccount(id));
     dispatch(setLastActiveAccount(id));
@@ -253,6 +259,17 @@ const Accounts = () => {
           <AgentIcon className="h-9 w-9 rounded-lg" />
         </RailButton>
 
+        <RailButton active={isMascotSelected} onClick={selectMascot} tooltip={t('accounts.human')}>
+          <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.8}
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14c-4 0-7 2.5-7 6h14c0-3.5-3-6-7-6z"
+            />
+          </svg>
+        </RailButton>
+
         {accounts.map(acct => (
           <RailButton
             key={acct.id}
@@ -282,7 +299,9 @@ const Accounts = () => {
 
       {/* Main pane */}
       <main className="flex min-w-0 flex-1 flex-col">
-        {isAgentSelected ? (
+        {isMascotSelected ? (
+          <MascotChatPane />
+        ) : isAgentSelected ? (
           <div className="flex h-full min-w-0">
             <div className="relative min-w-0 flex-1">
               <AgentChatPanel />

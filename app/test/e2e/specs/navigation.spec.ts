@@ -29,7 +29,6 @@ interface Route {
 
 const ROUTES: Route[] = [
   { hash: '/home' },
-  { hash: '/human' },
   { hash: '/chat' },
   { hash: '/skills' },
   { hash: '/intelligence' },

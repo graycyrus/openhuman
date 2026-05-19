@@ -7,9 +7,11 @@ import reducer, {
   selectMascotColor,
   selectMascotVoiceId,
   selectSelectedMascotId,
+  selectSpeakReplies,
   setMascotColor,
   setMascotVoiceId,
   setSelectedMascotId,
+  setSpeakReplies,
   SUPPORTED_MASCOT_COLORS,
 } from '../mascotSlice';
 import { resetUserScopedState } from '../resetActions';
@@ -141,6 +143,69 @@ describe('mascotSlice', () => {
       const state = reducer(undefined, rehydrate('mascot', { color: 'green' }));
       expect(state.color).toBe('green');
       expect(state.voiceId).toBeNull();
+    });
+  });
+
+  describe('speakReplies', () => {
+    it('defaults to true', () => {
+      const state = reducer(undefined, { type: '@@INIT' });
+      expect(state.speakReplies).toBe(true);
+      expect(selectSpeakReplies({ mascot: state })).toBe(true);
+    });
+
+    it('setSpeakReplies(false) sets it to false', () => {
+      const state = reducer(undefined, setSpeakReplies(false));
+      expect(state.speakReplies).toBe(false);
+    });
+
+    it('setSpeakReplies(true) sets it back to true', () => {
+      const state = reducer(reducer(undefined, setSpeakReplies(false)), setSpeakReplies(true));
+      expect(state.speakReplies).toBe(true);
+    });
+
+    it('resetUserScopedState resets speakReplies to true', () => {
+      const dirty = reducer(undefined, setSpeakReplies(false));
+      const reset = reducer(dirty, resetUserScopedState());
+      expect(reset.speakReplies).toBe(true);
+    });
+  });
+
+  describe('REHYDRATE — speakReplies', () => {
+    const rehydrate = (key: string, payload?: unknown) => ({ type: REHYDRATE, key, payload });
+
+    it('restores persisted speakReplies: false', () => {
+      const state = reducer(undefined, rehydrate('mascot', { color: 'navy', speakReplies: false }));
+      expect(state.speakReplies).toBe(false);
+    });
+
+    it('restores persisted speakReplies: true', () => {
+      const state = reducer(undefined, rehydrate('mascot', { color: 'navy', speakReplies: true }));
+      expect(state.speakReplies).toBe(true);
+    });
+
+    it('defaults to true when speakReplies is missing from the persisted blob', () => {
+      const state = reducer(undefined, rehydrate('mascot', { color: 'green' }));
+      expect(state.speakReplies).toBe(true);
+    });
+
+    it('migrates legacy localStorage "human.speakReplies" = "0" to false', () => {
+      localStorage.setItem('human.speakReplies', '0');
+      const state = reducer(undefined, rehydrate('mascot', { color: 'navy' }));
+      expect(state.speakReplies).toBe(false);
+      expect(localStorage.getItem('human.speakReplies')).toBeNull();
+    });
+
+    it('migrates legacy localStorage "human.speakReplies" = "1" to true', () => {
+      localStorage.setItem('human.speakReplies', '1');
+      const state = reducer(undefined, rehydrate('mascot', { color: 'navy' }));
+      expect(state.speakReplies).toBe(true);
+      expect(localStorage.getItem('human.speakReplies')).toBeNull();
+    });
+
+    it('removes legacy localStorage key after migration', () => {
+      localStorage.setItem('human.speakReplies', '0');
+      reducer(undefined, rehydrate('mascot', { color: 'navy' }));
+      expect(localStorage.getItem('human.speakReplies')).toBeNull();
     });
   });
 

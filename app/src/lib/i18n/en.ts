@@ -339,6 +339,7 @@ const en: TranslationMap = {
   'accounts.noAccounts': 'No accounts connected',
   'accounts.connectAccount': 'Connect an account to get started',
   'accounts.agent': 'Agent',
+  'accounts.human': 'Human',
   'accounts.respondQueue': 'Respond Queue',
   'accounts.disconnect': 'Disconnect',
   'accounts.disconnectConfirm': 'Are you sure you want to disconnect this account?',

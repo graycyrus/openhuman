@@ -182,6 +182,13 @@ Quick reference for anyone starting with Claude on this project. Updated by the 
 - **`load_from_default_paths` has zero callers** — Debug utility only; not user-facing.
 - **Config test module path** — `openhuman::config::schema::load::tests`. Run with `cargo test -- config::schema::load::tests`.
 
+## Mascot Redux & Persistence
+
+- **Worktree native deps issue** — pnpm worktrees may lack platform-specific native bindings (e.g. `@rolldown/binding-darwin-arm64`). Workaround: run tests from the main repo directory (shares git objects), or `rm -rf node_modules && pnpm install` in the worktree.
+- **`accountsFullscreen.ts` sentinel exclusion** — Any new sentinel account ID (like `MASCOT_ACCOUNT_ID`) must be excluded from fullscreen mode in `accountsFullscreen.ts`, same as `AGENT_ACCOUNT_ID`. Otherwise the bottom tab bar hides during those views.
+- **mascotSlice persist whitelist** — The mascot persist config in `store/index.ts` only persists fields explicitly listed in the whitelist (`color`, `voiceId`). New persisted fields must be added there AND handled in the REHYDRATE case with a sensible default.
+- **localStorage → Redux migration pattern** — For one-time migration, read the old key in the REHYDRATE handler, use it if Redux doesn't have a value yet, then delete the old localStorage key to avoid stale reads.
+
 ## Environment
 
 - **Core port** — `7788` (default; in-process inside Tauri host). Check with `lsof -i :7788`.
