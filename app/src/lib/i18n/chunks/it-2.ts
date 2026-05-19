@@ -292,6 +292,7 @@ const it2: TranslationMap = {
   'chat.weeklyLimit': 'Limite settimanale',
   'chat.left': 'rimasti',
   'chat.setup': 'Configura',
+
   'chat.switchToText': 'Passa al testo',
   'chat.transcribing': 'Trascrizione...',
   'chat.stopAndSend': 'Ferma e invia',

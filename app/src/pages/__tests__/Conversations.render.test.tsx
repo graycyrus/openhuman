@@ -18,6 +18,7 @@ import { threadApi } from '../../services/api/threadApi';
 import { chatSend } from '../../services/chatService';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
+import mascotReducer from '../../store/mascotSlice';
 import socketReducer from '../../store/socketSlice';
 import threadReducer, { setSelectedThread } from '../../store/threadSlice';
 import type { Thread } from '../../types/thread';
@@ -138,6 +139,16 @@ vi.mock('../../features/autocomplete/useAutocompleteSkillStatus', () => ({
 // openUrl uses Tauri; stub it.
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
 
+// useHumanMascot subscribes to the event bus and audio APIs unavailable in jsdom.
+vi.mock('../../features/human/useHumanMascot', () => ({
+  useHumanMascot: vi.fn(() => ({ face: 'idle', viseme: null })),
+}));
+
+// YellowMascot is a heavy Remotion animation — stub with a lightweight sentinel.
+vi.mock('../../features/human/Mascot', () => ({
+  YellowMascot: () => <div data-testid="mascot-stub" />,
+}));
+
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
@@ -167,6 +178,7 @@ function buildStore(preload: Record<string, unknown> = {}) {
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
       agentProfiles: agentProfileReducer,
+      mascot: mascotReducer,
     }),
     preloadedState: preload as never,
   });
@@ -987,6 +999,61 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await waitFor(() => {
       expect(screen.getByText('No worker threads yet')).toBeInTheDocument();
     });
+  });
+
+  // #1520 voice mode toggle — mic button in text composer switches to voice UI
+  it('renders a voice mode button in the text composer', async () => {
+    await act(async () => {
+      await renderConversations({ thread: emptyThreadState, socket: socketState('connected') });
+    });
+
+    const micBtn = screen.getByRole('button', { name: 'Voice mode' });
+    expect(micBtn).toBeInTheDocument();
+  });
+
+  it('clicking voice mode button shows the voice controls and mascot', async () => {
+    await act(async () => {
+      await renderConversations({ thread: emptyThreadState, socket: socketState('connected') });
+    });
+
+    const micBtn = screen.getByRole('button', { name: 'Voice mode' });
+    await act(async () => {
+      fireEvent.click(micBtn);
+    });
+
+    // Voice controls should now be visible
+    await waitFor(() => {
+      expect(screen.getByTitle('Switch to text')).toBeInTheDocument();
+    });
+    // Mascot stub should be present
+    expect(screen.getByTestId('mascot-stub')).toBeInTheDocument();
+    // Speak replies toggle should be present
+    expect(screen.getByText('Speak replies')).toBeInTheDocument();
+    // Voice mode button should be gone (replaced by voice UI)
+    expect(screen.queryByRole('button', { name: 'Voice mode' })).toBeNull();
+  });
+
+  it('clicking Switch to text returns to text composer', async () => {
+    await act(async () => {
+      await renderConversations({ thread: emptyThreadState, socket: socketState('connected') });
+    });
+
+    // Enter voice mode
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Voice mode' }));
+    });
+    await waitFor(() => {
+      expect(screen.getByTitle('Switch to text')).toBeInTheDocument();
+    });
+
+    // Return to text mode
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Switch to text'));
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Voice mode' })).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('mascot-stub')).toBeNull();
   });
 });
 

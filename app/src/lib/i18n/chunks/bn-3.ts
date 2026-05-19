@@ -248,7 +248,6 @@ const bn3: TranslationMap = {
   'localModel.usage.idleMode': 'আইডল মোড',
   'localModel.rebootstrapComplete': 'মডেল রি-বুটস্ট্র্যাপ সম্পন্ন।',
   'localModel.modelsVerified': 'লোকাল মডেল যাচাই করা হয়েছে।',
-  'accounts.human': 'হিউম্যান',
   'accounts.addModal.allConnected': 'সব সংযুক্ত',
   'accounts.addModal.title': 'অ্যাকাউন্ট যোগ করুন',
   'accounts.respondQueue.empty': 'খালি',

@@ -97,6 +97,8 @@ export interface MascotState {
    * persisted blob bounded.
    */
   selectedMascotId: string | null;
+  /** Whether the user last used voice mode in the chat composer. */
+  voiceModeActive: boolean;
 }
 
 const initialState: MascotState = {
@@ -106,6 +108,7 @@ const initialState: MascotState = {
   voiceGender: DEFAULT_MASCOT_VOICE_GENDER,
   voiceUseLocaleDefault: false,
   selectedMascotId: null,
+  voiceModeActive: false,
 };
 
 function isMascotColor(value: unknown): value is MascotColor {
@@ -169,6 +172,9 @@ const mascotSlice = createSlice({
     setSpeakReplies(state, action: PayloadAction<boolean>) {
       state.speakReplies = Boolean(action.payload);
     },
+    setVoiceModeActive(state, action: PayloadAction<boolean>) {
+      state.voiceModeActive = Boolean(action.payload);
+    },
   },
   extraReducers: builder => {
     builder.addCase(resetUserScopedState, () => initialState);
@@ -185,6 +191,7 @@ const mascotSlice = createSlice({
           voiceGender?: unknown;
           voiceUseLocaleDefault?: unknown;
           selectedMascotId?: unknown;
+          voiceModeActive?: unknown;
         };
       };
       if (rehydrateAction.key !== 'mascot') return;
@@ -233,6 +240,10 @@ const mascotSlice = createSlice({
         typeof rehydrateAction.payload?.voiceUseLocaleDefault === 'boolean'
           ? rehydrateAction.payload.voiceUseLocaleDefault
           : false;
+      state.voiceModeActive =
+        typeof rehydrateAction.payload?.voiceModeActive === 'boolean'
+          ? rehydrateAction.payload.voiceModeActive
+          : false;
     });
   },
 });
@@ -244,6 +255,7 @@ export const {
   setMascotVoiceUseLocaleDefault,
   setSelectedMascotId,
   setSpeakReplies,
+  setVoiceModeActive,
 } = mascotSlice.actions;
 
 export const selectMascotColor = (state: { mascot: MascotState }): MascotColor =>
@@ -263,6 +275,9 @@ export const selectSelectedMascotId = (state: { mascot: MascotState }): string |
 
 export const selectSpeakReplies = (state: { mascot: MascotState }): boolean =>
   state.mascot.speakReplies;
+
+export const selectVoiceModeActive = (state: { mascot: MascotState }): boolean =>
+  state.mascot.voiceModeActive;
 
 /**
  * Resolve the voice id the next reply will be synthesised with, taking

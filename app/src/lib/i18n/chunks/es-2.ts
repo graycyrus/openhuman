@@ -295,6 +295,7 @@ const es2: TranslationMap = {
   'chat.weeklyLimit': 'Límite semanal',
   'chat.left': 'restante',
   'chat.setup': 'Configurar',
+
   'chat.switchToText': 'Cambiar a texto',
   'chat.transcribing': 'Transcribiendo...',
   'chat.stopAndSend': 'Detener y enviar',

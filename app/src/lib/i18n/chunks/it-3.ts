@@ -251,7 +251,6 @@ const it3: TranslationMap = {
   'localModel.usage.idleMode': 'Modalità inattiva',
   'localModel.rebootstrapComplete': 'Re-bootstrap del modello completato.',
   'localModel.modelsVerified': 'Modelli locali verificati.',
-  'accounts.human': 'Umano',
   'accounts.addModal.allConnected': 'Tutti connessi',
   'accounts.addModal.title': 'Aggiungi account',
   'accounts.respondQueue.empty': 'Vuota',

@@ -289,6 +289,7 @@ const id2: TranslationMap = {
   'chat.weeklyLimit': 'Batas mingguan',
   'chat.left': 'tersisa',
   'chat.setup': 'Atur',
+
   'chat.switchToText': 'Beralih ke teks',
   'chat.transcribing': 'Mentranskripsi...',
   'chat.stopAndSend': 'Berhenti dan kirim',

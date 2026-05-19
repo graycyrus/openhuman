@@ -248,7 +248,6 @@ const id3: TranslationMap = {
   'localModel.usage.idleMode': 'Mode idle',
   'localModel.rebootstrapComplete': 'Bootstrap ulang model selesai.',
   'localModel.modelsVerified': 'Model lokal diverifikasi.',
-  'accounts.human': 'Human',
   'accounts.addModal.allConnected': 'Semua terhubung',
   'accounts.addModal.title': 'Tambah akun',
   'accounts.respondQueue.empty': 'Kosong',

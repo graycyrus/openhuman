@@ -247,7 +247,6 @@ const hi3: TranslationMap = {
   'localModel.usage.idleMode': 'आइडल मोड',
   'localModel.rebootstrapComplete': 'मॉडल री-बूटस्ट्रैप पूरा हुआ।',
   'localModel.modelsVerified': 'लोकल मॉडल वेरिफाई हो गए।',
-  'accounts.human': 'ह्यूमन',
   'accounts.addModal.allConnected': 'सब कनेक्टेड',
   'accounts.addModal.title': 'अकाउंट जोड़ें',
   'accounts.respondQueue.empty': 'खाली है',

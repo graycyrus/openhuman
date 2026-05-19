@@ -11,7 +11,9 @@ import PillTabBar from '../components/PillTabBar';
 import UpsellBanner from '../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../components/upsell/upsellDismissState';
 import UsageLimitModal from '../components/upsell/UsageLimitModal';
+import { YellowMascot } from '../features/human/Mascot';
 import MicComposer from '../features/human/MicComposer';
+import { useHumanMascot } from '../features/human/useHumanMascot';
 // [#1123] Commented out — welcome-agent onboarding replaced by Joyride walkthrough
 // import { ONBOARDING_WELCOME_THREAD_LABEL } from '../constants/onboardingChat';
 import { useStickToBottom } from '../hooks/useStickToBottom';
@@ -40,6 +42,13 @@ import {
   setToolTimelineForThread,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  selectMascotColor,
+  selectSpeakReplies,
+  selectVoiceModeActive,
+  setSpeakReplies,
+  setVoiceModeActive,
+} from '../store/mascotSlice';
 import { selectSocketStatus } from '../store/socketSelectors';
 import {
   addMessageLocal,
@@ -204,7 +213,15 @@ function formatAgentProfileAgentLabel(agentId: string): string {
 //   );
 // }
 
-const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsProps = {}) => {
+const Conversations = ({
+  variant = 'page',
+  composer: composerProp = 'text',
+}: ConversationsProps = {}) => {
+  const voiceModeActive = useAppSelector(selectVoiceModeActive);
+  const composerOverride = composerProp === 'text' && voiceModeActive ? 'mic-cloud' : null;
+  const composer = composerOverride ?? composerProp;
+  const setComposerOverride = (mode: 'mic-cloud' | null) =>
+    dispatch(setVoiceModeActive(mode === 'mic-cloud'));
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -273,6 +290,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
     state => state.chatRuntime.inferenceTurnLifecycleByThread
   );
   const rustChat = useRustChat();
+  const speakReplies = useAppSelector(selectSpeakReplies);
+  const mascotColor = useAppSelector(selectMascotColor);
+  const { face: mascotFace } = useHumanMascot({ speakReplies, listening: inputMode === 'voice' });
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
 
   const {
@@ -2016,15 +2036,49 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
           )}
 
           {composer === 'mic-cloud' ? (
-            <MicComposer
-              // Without `!selectedThreadId`, a mic submit before a thread is
-              // ready hits `handleSendMessage`'s early return and the
-              // transcript is silently dropped — the user spoke into the void.
-              disabled={composerInteractionBlocked || !selectedThreadId}
-              onSubmit={text => handleSendMessage(text)}
-              onError={message => setSendError(chatSendError('voice_transcription', message))}
-              showDeviceSelector
-            />
+            <div className="relative flex flex-col items-center gap-4 py-4">
+              <div className="w-[180px] h-[180px]">
+                <YellowMascot face={mascotFace} mascotColor={mascotColor} />
+              </div>
+              <MicComposer
+                disabled={composerInteractionBlocked || !selectedThreadId}
+                onSubmit={text => handleSendMessage(text)}
+                onError={message => setSendError(chatSendError('voice_transcription', message))}
+                showDeviceSelector
+              />
+              {composerOverride === 'mic-cloud' && (
+                <div className="flex w-full items-center justify-between px-2">
+                  <button
+                    type="button"
+                    onClick={() => setComposerOverride(null)}
+                    className="inline-flex items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors"
+                    title={t('chat.switchToText')}>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M4 6h16M4 12h10m-10 6h16"
+                      />
+                    </svg>
+                    {t('chat.switchToText')}
+                  </button>
+                  <label className="inline-flex items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={speakReplies}
+                      onChange={e => dispatch(setSpeakReplies(e.target.checked))}
+                      className="cursor-pointer accent-primary-500 w-3.5 h-3.5"
+                    />
+                    {t('chat.speakReplies')}
+                  </label>
+                </div>
+              )}
+            </div>
           ) : inputMode === 'text' ? (
             <div className="flex items-end gap-3">
               <div className="relative flex flex-1 items-center justify-center rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition-all focus-within:border-primary-500/50 focus-within:ring-1 focus-within:ring-primary-500/50">
@@ -2054,6 +2108,30 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 />
                 {/* Voice input mic hidden per #717 (inputMode='voice' path retained). */}
               </div>
+              {composerProp === 'text' && (
+                <button
+                  type="button"
+                  aria-label={t('chat.voiceMode')}
+                  title={t('chat.voiceMode')}
+                  onClick={() => setComposerOverride('mic-cloud')}
+                  disabled={composerInteractionBlocked}
+                  className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-primary-500 dark:hover:text-primary-400 hover:border-primary-300 dark:hover:border-primary-700 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8"
+                    />
+                  </svg>
+                </button>
+              )}
               <button
                 aria-label={t('chat.send')}
                 title={t('chat.send')}
@@ -2091,47 +2169,49 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setInputMode('text')}
-                disabled={isRecording || isTranscribing}
-                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
-                title={t('chat.switchToText')}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M4 6h16M4 12h10m-10 6h16"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void handleVoiceRecordToggle();
-                }}
-                disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
-                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  isRecording
-                    ? 'bg-coral-500 hover:bg-coral-400 text-white'
-                    : 'bg-primary-600 hover:bg-primary-500 text-white'
-                } disabled:opacity-40 disabled:cursor-not-allowed`}>
-                {isTranscribing
-                  ? t('chat.transcribing')
-                  : isRecording
-                    ? t('chat.stopAndSend')
-                    : t('chat.startTalking')}
-              </button>
-              <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
-                {voiceStatus ??
-                  (isPlayingReply && replyMode === 'voice'
-                    ? t('chat.playingVoiceReply')
-                    : canUseMicrophoneApi
-                      ? t('chat.voiceHint')
-                      : t('chat.micUnavailable'))}
-              </p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('text')}
+                  disabled={isRecording || isTranscribing}
+                  className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+                  title={t('chat.switchToText')}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.8}
+                      d="M4 6h16M4 12h10m-10 6h16"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleVoiceRecordToggle();
+                  }}
+                  disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    isRecording
+                      ? 'bg-coral-500 hover:bg-coral-400 text-white'
+                      : 'bg-primary-600 hover:bg-primary-500 text-white'
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}>
+                  {isTranscribing
+                    ? t('chat.transcribing')
+                    : isRecording
+                      ? t('chat.stopAndSend')
+                      : t('chat.startTalking')}
+                </button>
+                <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
+                  {voiceStatus ??
+                    (isPlayingReply && replyMode === 'voice'
+                      ? t('chat.playingVoiceReply')
+                      : canUseMicrophoneApi
+                        ? t('chat.voiceHint')
+                        : t('chat.micUnavailable'))}
+                </p>
+              </div>
             </div>
           )}
         </div>

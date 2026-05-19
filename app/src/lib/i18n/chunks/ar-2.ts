@@ -281,6 +281,7 @@ const ar2: TranslationMap = {
   'chat.weeklyLimit': 'الحد الأسبوعي',
   'chat.left': 'متبقٍ',
   'chat.setup': 'إعداد',
+
   'chat.switchToText': 'التبديل إلى النص',
   'chat.transcribing': 'جارٍ النسخ...',
   'chat.stopAndSend': 'إيقاف وإرسال',

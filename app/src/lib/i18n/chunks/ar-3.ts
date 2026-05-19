@@ -244,7 +244,6 @@ const ar3: TranslationMap = {
   'localModel.usage.idleMode': 'وضع الخمول',
   'localModel.rebootstrapComplete': 'اكتملت إعادة تمهيد النموذج.',
   'localModel.modelsVerified': 'تم التحقق من النماذج المحلية.',
-  'accounts.human': 'إنسان',
   'accounts.addModal.allConnected': 'الكل متصل',
   'accounts.addModal.title': 'إضافة حساب',
   'accounts.respondQueue.empty': 'فارغ',
