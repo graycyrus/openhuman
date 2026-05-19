@@ -251,6 +251,7 @@ const es3: TranslationMap = {
   'localModel.usage.idleMode': 'Modo inactivo',
   'localModel.rebootstrapComplete': 'Re-bootstrap del modelo completado.',
   'localModel.modelsVerified': 'Modelos locales verificados.',
+  'accounts.human': 'Humano',
   'accounts.addModal.allConnected': 'Todo conectado',
   'accounts.addModal.title': 'Agregar cuenta',
   'accounts.respondQueue.empty': 'Vacío',

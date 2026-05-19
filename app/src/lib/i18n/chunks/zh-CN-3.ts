@@ -239,6 +239,7 @@ const zhCN3: TranslationMap = {
   'localModel.usage.idleMode': '空闲模式',
   'localModel.rebootstrapComplete': '模型重新引导完成。',
   'localModel.modelsVerified': '本地模型已验证。',
+  'accounts.human': '人类',
   'accounts.addModal.allConnected': '全部已连接',
   'accounts.addModal.title': '添加账户',
   'accounts.respondQueue.empty': '队列为空',

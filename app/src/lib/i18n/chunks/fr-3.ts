@@ -252,6 +252,7 @@ const fr3: TranslationMap = {
   'localModel.usage.idleMode': 'Mode veille',
   'localModel.rebootstrapComplete': 'Re-bootstrap du modèle terminé.',
   'localModel.modelsVerified': 'Modèles locaux vérifiés.',
+  'accounts.human': 'Humain',
   'accounts.addModal.allConnected': 'Tout est connecté',
   'accounts.addModal.title': 'Ajouter un compte',
   'accounts.respondQueue.empty': 'Vide',

@@ -248,6 +248,7 @@ const ru3: TranslationMap = {
   'localModel.usage.idleMode': 'Режим ожидания',
   'localModel.rebootstrapComplete': 'Повторная инициализация модели завершена.',
   'localModel.modelsVerified': 'Локальные модели проверены.',
+  'accounts.human': 'Человек',
   'accounts.addModal.allConnected': 'Все подключены',
   'accounts.addModal.title': 'Добавить аккаунт',
   'accounts.respondQueue.empty': 'Пусто',

@@ -250,6 +250,7 @@ const pt3: TranslationMap = {
   'localModel.usage.idleMode': 'Modo inativo',
   'localModel.rebootstrapComplete': 'Re-bootstrap do modelo concluído.',
   'localModel.modelsVerified': 'Modelos locais verificados.',
+  'accounts.human': 'Humano',
   'accounts.addModal.allConnected': 'Todos conectados',
   'accounts.addModal.title': 'Adicionar conta',
   'accounts.respondQueue.empty': 'Vazio',

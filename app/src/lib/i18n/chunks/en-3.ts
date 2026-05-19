@@ -246,6 +246,7 @@ const en3: TranslationMap = {
   'localModel.usage.idleMode': 'Idle mode',
   'localModel.rebootstrapComplete': 'Model re-bootstrap complete.',
   'localModel.modelsVerified': 'Local models verified.',
+  'accounts.human': 'Human',
   'accounts.addModal.allConnected': 'All connected',
   'accounts.addModal.title': 'Add account',
   'accounts.respondQueue.empty': 'Empty',
