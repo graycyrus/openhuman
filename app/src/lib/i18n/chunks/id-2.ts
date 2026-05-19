@@ -289,7 +289,6 @@ const id2: TranslationMap = {
   'chat.cycleRemaining': 'Sisa',
   'chat.left': 'tersisa',
   'chat.setup': 'Atur',
-
   'chat.switchToText': 'Beralih ke teks',
   'chat.transcribing': 'Mentranskripsi...',
   'chat.stopAndSend': 'Berhenti dan kirim',

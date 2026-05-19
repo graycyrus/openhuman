@@ -292,7 +292,6 @@ const bn2: TranslationMap = {
   'chat.cycleRemaining': 'অবশিষ্ট',
   'chat.left': 'বাকি',
   'chat.setup': 'সেটআপ করুন',
-
   'chat.switchToText': 'টেক্সটে পরিবর্তন করুন',
   'chat.transcribing': 'ট্রান্সক্রাইব হচ্ছে...',
   'chat.stopAndSend': 'থামুন ও পাঠান',

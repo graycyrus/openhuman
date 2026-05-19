@@ -281,7 +281,6 @@ const ar2: TranslationMap = {
   'chat.cycleRemaining': 'المتبقي',
   'chat.left': 'متبقٍ',
   'chat.setup': 'إعداد',
-
   'chat.switchToText': 'التبديل إلى النص',
   'chat.transcribing': 'جارٍ النسخ...',
   'chat.stopAndSend': 'إيقاف وإرسال',

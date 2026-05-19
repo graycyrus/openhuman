@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import DefaultRedirect from './components/DefaultRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+import HumanPage from './features/human/HumanPage';
 import Accounts from './pages/Accounts';
 import Channels from './pages/Channels';
 import Home from './pages/Home';
@@ -48,7 +49,14 @@ const AppRoutes = () => {
         }
       />
 
-      <Route path="/human" element={<Navigate to="/chat" replace />} />
+      <Route
+        path="/human"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <HumanPage />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/intelligence"

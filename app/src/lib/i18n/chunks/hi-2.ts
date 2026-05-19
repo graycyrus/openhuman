@@ -289,7 +289,6 @@ const hi2: TranslationMap = {
   'chat.cycleRemaining': 'शेष',
   'chat.left': 'बचा हुआ',
   'chat.setup': 'सेट अप करें',
-
   'chat.switchToText': 'टेक्स्ट पर स्विच करें',
   'chat.transcribing': 'ट्रांसक्राइब हो रहा है...',
   'chat.stopAndSend': 'रोकें और भेजें',

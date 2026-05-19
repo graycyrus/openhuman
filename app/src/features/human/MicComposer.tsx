@@ -431,7 +431,21 @@ export function MicComposer({
         : t('mic.tapAndSpeak');
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-2">
+      {showDeviceSelector && devices.length > 0 && (
+        <select
+          aria-label="Microphone device"
+          value={selectedDeviceId}
+          onChange={e => setSelectedDeviceId(e.target.value)}
+          disabled={state !== 'idle' || devices.length <= 1}
+          className="text-xs text-stone-600 dark:text-neutral-300 bg-stone-100 dark:bg-neutral-800 border border-stone-200 dark:border-neutral-700 rounded px-2 py-1 max-w-[220px] truncate disabled:opacity-50">
+          {devices.map(d => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+      )}
       <div className="flex items-center justify-center gap-3">
         <button
           type="button"
@@ -477,20 +491,6 @@ export function MicComposer({
         </button>
         <span className="text-xs text-stone-500 dark:text-neutral-400 select-none">{label}</span>
       </div>
-      {showDeviceSelector && devices.length > 1 && (
-        <select
-          aria-label="Microphone device"
-          value={selectedDeviceId}
-          onChange={e => setSelectedDeviceId(e.target.value)}
-          disabled={state !== 'idle'}
-          className="text-[10px] text-stone-400 dark:text-neutral-500 bg-transparent border-0 outline-none cursor-pointer max-w-[160px] truncate text-center disabled:opacity-40">
-          {devices.map(d => (
-            <option key={d.deviceId} value={d.deviceId}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-      )}
     </div>
   );
 }

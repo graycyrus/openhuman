@@ -292,7 +292,6 @@ const it2: TranslationMap = {
   'chat.cycleRemaining': 'Rimanente',
   'chat.left': 'rimasti',
   'chat.setup': 'Configura',
-
   'chat.switchToText': 'Passa al testo',
   'chat.transcribing': 'Trascrizione...',
   'chat.stopAndSend': 'Ferma e invia',

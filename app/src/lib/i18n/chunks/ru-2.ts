@@ -290,7 +290,6 @@ const ru2: TranslationMap = {
   'chat.cycleRemaining': 'Осталось',
   'chat.left': 'осталось',
   'chat.setup': 'Настроить',
-
   'chat.switchToText': 'Переключиться на текст',
   'chat.transcribing': 'Транскрипция...',
   'chat.stopAndSend': 'Остановить и отправить',

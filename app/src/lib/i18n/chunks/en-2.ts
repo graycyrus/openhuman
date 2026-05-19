@@ -288,7 +288,6 @@ const en2: TranslationMap = {
   'chat.cycleRemaining': 'Remaining',
   'chat.left': 'left',
   'chat.setup': 'Set up',
-
   'chat.switchToText': 'Switch to text',
   'chat.transcribing': 'Transcribing...',
   'chat.stopAndSend': 'Stop and send',

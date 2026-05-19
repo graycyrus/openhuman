@@ -272,7 +272,6 @@ const zhCN2: TranslationMap = {
   'chat.cycleRemaining': '剩余',
   'chat.left': '剩余',
   'chat.setup': '设置',
-
   'chat.switchToText': '切换到文本',
   'chat.transcribing': '转录中...',
   'chat.stopAndSend': '停止并发送',

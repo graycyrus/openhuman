@@ -132,11 +132,7 @@ const persistedThreadReducer = persistReducer(threadPersistConfig, threadReducer
 // across users. `voiceId` is the user's chosen ElevenLabs voice for
 // reply speech (issue #1762); `null` falls back to the build-time
 // default in `app/src/utils/config.ts::MASCOT_VOICE_ID`.
-const mascotPersistConfig = {
-  key: 'mascot',
-  storage,
-  whitelist: ['color', 'voiceId', 'speakReplies', 'voiceModeActive'],
-};
+const mascotPersistConfig = { key: 'mascot', storage, whitelist: ['color', 'voiceId'] };
 const persistedMascotReducer = persistReducer(mascotPersistConfig, mascotReducer);
 
 export const store = configureStore({

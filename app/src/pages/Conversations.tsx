@@ -41,13 +41,7 @@ import {
   setToolTimelineForThread,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import {
-  selectMascotColor,
-  selectSpeakReplies,
-  selectVoiceModeActive,
-  setSpeakReplies,
-  setVoiceModeActive,
-} from '../store/mascotSlice';
+import { selectMascotColor } from '../store/mascotSlice';
 import { selectSocketStatus } from '../store/socketSelectors';
 import {
   addMessageLocal,
@@ -216,11 +210,8 @@ const Conversations = ({
   variant = 'page',
   composer: composerProp = 'text',
 }: ConversationsProps = {}) => {
-  const voiceModeActive = useAppSelector(selectVoiceModeActive);
-  const composerOverride = composerProp === 'text' && voiceModeActive ? 'mic-cloud' : null;
+  const [composerOverride, setComposerOverride] = useState<'mic-cloud' | null>(null);
   const composer = composerOverride ?? composerProp;
-  const setComposerOverride = (mode: 'mic-cloud' | null) =>
-    dispatch(setVoiceModeActive(mode === 'mic-cloud'));
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -289,9 +280,8 @@ const Conversations = ({
     state => state.chatRuntime.inferenceTurnLifecycleByThread
   );
   const rustChat = useRustChat();
-  const speakReplies = useAppSelector(selectSpeakReplies);
   const mascotColor = useAppSelector(selectMascotColor);
-  const { face: mascotFace } = useHumanMascot({ speakReplies, listening: inputMode === 'voice' });
+  const { face: mascotFace } = useHumanMascot({ speakReplies: false, listening: false });
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
 
   const {
@@ -1988,7 +1978,7 @@ const Conversations = ({
           )}
 
           {composer === 'mic-cloud' ? (
-            <div className="relative flex flex-col items-center gap-4 py-4">
+            <div className="flex flex-col items-center gap-4 py-4">
               <div className="w-[180px] h-[180px]">
                 <YellowMascot face={mascotFace} mascotColor={mascotColor} />
               </div>
@@ -1999,36 +1989,12 @@ const Conversations = ({
                 showDeviceSelector
               />
               {composerOverride === 'mic-cloud' && (
-                <div className="flex w-full items-center justify-between px-2">
-                  <button
-                    type="button"
-                    onClick={() => setComposerOverride(null)}
-                    className="inline-flex items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors"
-                    title={t('chat.switchToText')}>
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.8}
-                        d="M4 6h16M4 12h10m-10 6h16"
-                      />
-                    </svg>
-                    {t('chat.switchToText')}
-                  </button>
-                  <label className="inline-flex items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={speakReplies}
-                      onChange={e => dispatch(setSpeakReplies(e.target.checked))}
-                      className="cursor-pointer accent-primary-500 w-3.5 h-3.5"
-                    />
-                    {t('chat.speakReplies')}
-                  </label>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setComposerOverride(null)}
+                  className="text-xs text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
+                  {t('chat.switchToText')}
+                </button>
               )}
             </div>
           ) : inputMode === 'text' ? (
@@ -2063,8 +2029,8 @@ const Conversations = ({
               {composerProp === 'text' && (
                 <button
                   type="button"
-                  aria-label={t('chat.voiceMode')}
-                  title={t('chat.voiceMode')}
+                  aria-label={t('mic.startRecording')}
+                  title={t('mic.startRecording')}
                   onClick={() => setComposerOverride('mic-cloud')}
                   disabled={composerInteractionBlocked}
                   className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-primary-500 dark:hover:text-primary-400 hover:border-primary-300 dark:hover:border-primary-700 transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -2121,49 +2087,47 @@ const Conversations = ({
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setInputMode('text')}
-                  disabled={isRecording || isTranscribing}
-                  className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
-                  title={t('chat.switchToText')}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.8}
-                      d="M4 6h16M4 12h10m-10 6h16"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleVoiceRecordToggle();
-                  }}
-                  disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    isRecording
-                      ? 'bg-coral-500 hover:bg-coral-400 text-white'
-                      : 'bg-primary-600 hover:bg-primary-500 text-white'
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}>
-                  {isTranscribing
-                    ? t('chat.transcribing')
-                    : isRecording
-                      ? t('chat.stopAndSend')
-                      : t('chat.startTalking')}
-                </button>
-                <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
-                  {voiceStatus ??
-                    (isPlayingReply && replyMode === 'voice'
-                      ? t('chat.playingVoiceReply')
-                      : canUseMicrophoneApi
-                        ? t('chat.voiceHint')
-                        : t('chat.micUnavailable'))}
-                </p>
-              </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setInputMode('text')}
+                disabled={isRecording || isTranscribing}
+                className="w-10 h-10 flex items-center justify-center rounded-full border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-200 hover:border-stone-300 dark:hover:border-neutral-700 transition-colors disabled:opacity-40"
+                title={t('chat.switchToText')}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.8}
+                    d="M4 6h16M4 12h10m-10 6h16"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleVoiceRecordToggle();
+                }}
+                disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  isRecording
+                    ? 'bg-coral-500 hover:bg-coral-400 text-white'
+                    : 'bg-primary-600 hover:bg-primary-500 text-white'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}>
+                {isTranscribing
+                  ? t('chat.transcribing')
+                  : isRecording
+                    ? t('chat.stopAndSend')
+                    : t('chat.startTalking')}
+              </button>
+              <p className="text-xs text-stone-400 dark:text-neutral-500 truncate">
+                {voiceStatus ??
+                  (isPlayingReply && replyMode === 'voice'
+                    ? t('chat.playingVoiceReply')
+                    : canUseMicrophoneApi
+                      ? t('chat.voiceHint')
+                      : t('chat.micUnavailable'))}
+              </p>
             </div>
           )}
         </div>
