@@ -448,6 +448,88 @@ function useInstalledModels(snapshot: LocalProviderSnapshot | null): OllamaModel
 // Primitives
 // ─────────────────────────────────────────────────────────────────────────────
 
+type ProviderErrorPresentation = { summary: string; details: string };
+
+function decodeJsonString(value: string): string {
+  try {
+    return JSON.parse(`"${value}"`) as string;
+  } catch {
+    return value;
+  }
+}
+
+function findProviderJsonMessage(raw: string): string | null {
+  const match = raw.match(/"message"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  return match ? decodeJsonString(match[1]) : null;
+}
+
+function cleanProviderMessage(message: string): string {
+  return message.replace(/\s+/g, ' ').trim();
+}
+
+function presentProviderSetupError(raw: string): ProviderErrorPresentation {
+  const details = raw.trim() || 'Provider setup failed.';
+  const couldNotReach = details.match(/^Could not reach\s+([^:]+):\s*(.*)$/i);
+  const provider = couldNotReach?.[1]?.trim();
+  const cause = couldNotReach?.[2]?.trim() || details;
+  const status = cause.match(/provider returned\s+(\d{3})/i)?.[1];
+  const providerLabel = provider || 'The provider';
+
+  let summary: string | null = null;
+
+  if (status === '401' || status === '403') {
+    summary = `${providerLabel} rejected the credentials. Check the API key and try again.`;
+  } else if (status === '404') {
+    summary = `${providerLabel} did not recognize the endpoint. Check the base URL and try again.`;
+  } else if (status && Number(status) >= 500) {
+    summary = `${providerLabel} is unavailable right now. Try again or check the provider status.`;
+  } else if (/HTTP request failed|error sending request|timed out|ECONNREFUSED/i.test(cause)) {
+    summary = `Could not reach ${providerLabel}. Check the endpoint URL and network connection, then try again.`;
+  }
+
+  if (!summary) {
+    const jsonMessage = findProviderJsonMessage(cause);
+    if (jsonMessage) {
+      summary = provider
+        ? `Could not reach ${provider}: ${cleanProviderMessage(jsonMessage)}`
+        : cleanProviderMessage(jsonMessage);
+    }
+  }
+
+  if (!summary) {
+    summary = cleanProviderMessage(cause);
+  }
+
+  if (summary.length > 220) {
+    summary = `${summary.slice(0, 217).trimEnd()}...`;
+  }
+
+  return { summary, details };
+}
+
+const ProviderSetupErrorNotice = ({ error }: { error: string }) => {
+  const { summary, details } = presentProviderSetupError(error);
+  const hasDetails = details !== summary;
+
+  return (
+    <div
+      role="alert"
+      className="max-w-full min-w-0 overflow-hidden rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+      <p className="break-words font-medium leading-relaxed [overflow-wrap:anywhere]">{summary}</p>
+      {hasDetails ? (
+        <details className="mt-2 max-w-full min-w-0">
+          <summary className="cursor-pointer text-[11px] font-medium text-red-700 dark:text-red-200">
+            Technical details
+          </summary>
+          <pre className="mt-1 max-h-32 max-w-full overflow-auto whitespace-pre-wrap break-words rounded border border-red-200/70 dark:border-red-500/30 bg-white/70 dark:bg-neutral-950/40 p-2 font-mono text-[11px] leading-relaxed text-red-800 dark:text-red-200 [overflow-wrap:anywhere]">
+            {details}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+};
+
 // SectionLabel removed alongside its only call site (the old
 // "Cloud providers" / "Local provider" headings).
 
@@ -577,7 +659,13 @@ const ProviderKeyDialog = ({
     try {
       await onSubmit(trimmed);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[ai-settings] provider setup failed', {
+        slug,
+        local_runtime: isLocalRuntime,
+        summary: presentProviderSetupError(message).summary,
+      });
+      setError(message);
       setPhase('idle');
     }
   };
@@ -619,9 +707,7 @@ const ProviderKeyDialog = ({
             }}
             className={`rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-60 ${isLocalRuntime ? 'font-mono' : ''}`}
           />
-          {error ? (
-            <p className="text-xs font-medium text-red-600 dark:text-red-300">{error}</p>
-          ) : null}
+          {error ? <ProviderSetupErrorNotice error={error} /> : null}
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
@@ -2617,11 +2703,7 @@ const CloudProviderEditor = ({
               />
             </div>
           )}
-          {submitError && (
-            <div className="rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300 break-words">
-              {submitError}
-            </div>
-          )}
+          {submitError ? <ProviderSetupErrorNotice error={submitError} /> : null}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-stone-200 dark:border-neutral-800 px-4 py-3">
           <button
@@ -2650,7 +2732,12 @@ const CloudProviderEditor = ({
                 // Caller throws when the live /models probe rejects — surface
                 // the failure inline and keep the dialog open so the user can
                 // fix the key/URL and retry.
-                setSubmitError(err instanceof Error ? err.message : String(err));
+                const message = err instanceof Error ? err.message : String(err);
+                console.warn('[ai-settings] cloud provider editor submit failed', {
+                  slug,
+                  summary: presentProviderSetupError(message).summary,
+                });
+                setSubmitError(message);
               } finally {
                 setSaving(false);
               }
