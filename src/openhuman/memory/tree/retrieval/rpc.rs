@@ -82,8 +82,14 @@ pub async fn query_source_rpc(
 // ── query_global ──────────────────────────────────────────────────────
 
 /// Request body for `memory_tree_query_global`.
+///
+/// The consolidated `memory_tree` tool schema advertises `time_window_days`
+/// (consistent with `query_source` / `query_topic`), while the standalone
+/// tool uses `window_days`. Accept both via serde alias so callers using
+/// either field name succeed.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueryGlobalRequest {
+    #[serde(alias = "time_window_days")]
     pub window_days: u32,
 }
 
@@ -419,6 +425,19 @@ mod tests {
             "log: {}",
             outcome.logs[0]
         );
+    }
+
+    #[test]
+    fn query_global_request_accepts_time_window_days_alias() {
+        // The consolidated memory_tree tool schema uses "time_window_days"
+        // while the standalone tool uses "window_days". Both must deserialize.
+        let from_window_days: QueryGlobalRequest =
+            serde_json::from_str(r#"{"window_days": 14}"#).unwrap();
+        assert_eq!(from_window_days.window_days, 14);
+
+        let from_alias: QueryGlobalRequest =
+            serde_json::from_str(r#"{"time_window_days": 30}"#).unwrap();
+        assert_eq!(from_alias.window_days, 30);
     }
 
     // ── query_topic_rpc ───────────────────────────────────────────────
