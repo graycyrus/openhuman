@@ -1565,7 +1565,7 @@ const ko: TranslationMap = {
   'settings.ai.clearStoredKey': '저장된 키 지우기',
   'settings.ai.connectProvider': '연결',
   'settings.ai.customRouting': '사용자 지정 라우팅',
-  'settings.ai.defaultResolvesTo': 'OpenHuman',
+  'settings.ai.defaultResolvesTo': '기본값은 다음으로 확인됨',
   'settings.ai.discard': '취소',
   'settings.ai.editProvider': '{label} 편집',
   'settings.ai.llmProviders': 'LLM 제공업체',
