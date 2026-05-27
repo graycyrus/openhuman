@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   execute as composioExecute,
   listConnections,
-  listTools as composioListTools,
 } from '../../../lib/composio/composioApi';
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsHeader from '../components/SettingsHeader';
@@ -111,23 +110,6 @@ const DevWorkflowPanel = () => {
       setForkInfo(existing.forkInfo);
       setTargetBranch(existing.targetBranch);
       setSchedule(existing.schedule);
-    }
-  }, []);
-
-  // ── DEBUG: dump all GitHub tool slugs ────────────────────────────────
-  const [debugSlugs, setDebugSlugs] = useState<string[] | null>(null);
-  const dumpToolSlugs = useCallback(async () => {
-    try {
-      log('dumping all GitHub tool slugs');
-      const res = await composioListTools(['github']);
-      const names = (res.tools ?? []).map(t => t.function.name).sort();
-      log('total GitHub tools: %d', names.length);
-      console.log('=== ALL GITHUB TOOL SLUGS (%d) ===', names.length);
-      names.forEach(n => console.log(n));
-      console.log('=== END ===');
-      setDebugSlugs(names);
-    } catch (err) {
-      log('dump error: %s', err);
     }
   }, []);
 
@@ -265,16 +247,37 @@ const DevWorkflowPanel = () => {
       });
 
       if (branchRes.successful) {
-        const branchData = branchRes.data as GhBranch[] | { branches?: GhBranch[] };
-        const branchList = Array.isArray(branchData) ? branchData : (branchData.branches ?? []);
-        log('fetched %d branches', branchList.length);
-        setBranches(branchList);
+        // Composio wraps GitHub responses in various shapes — probe each
+        const raw = branchRes.data;
+        let branchList: GhBranch[] = [];
+        if (Array.isArray(raw)) {
+          branchList = raw as GhBranch[];
+        } else if (raw && typeof raw === 'object') {
+          const obj = raw as Record<string, unknown>;
+          // Try: data (array), data.data (nested), branches, items
+          const candidates = [obj, obj.data as Record<string, unknown>].filter(Boolean);
+          for (const c of candidates) {
+            if (Array.isArray(c)) { branchList = c as GhBranch[]; break; }
+            const arr = (c as Record<string, unknown>)?.branches ??
+                        (c as Record<string, unknown>)?.items;
+            if (Array.isArray(arr)) { branchList = arr as GhBranch[]; break; }
+          }
+        }
+        log('fetched %d branches (raw type: %s)', branchList.length, typeof raw);
 
-        const hasDefault = branchList.some(b => b.name === defaultBranch);
-        if (hasDefault) {
+        if (branchList.length > 0) {
+          setBranches(branchList);
+          const hasDefault = branchList.some(b => b.name === defaultBranch);
+          if (hasDefault) {
+            setTargetBranch(defaultBranch);
+          } else {
+            setTargetBranch(branchList[0].name);
+          }
+        } else {
+          // Successful but empty/unparseable — use fallback
+          log('branch response successful but no branches parsed, using fallback');
+          setBranches([{ name: defaultBranch }, { name: 'main' }, { name: 'master' }]);
           setTargetBranch(defaultBranch);
-        } else if (branchList.length > 0) {
-          setTargetBranch(branchList[0].name);
         }
       } else {
         // Branch listing failed — offer default branch as manual fallback
@@ -344,26 +347,6 @@ const DevWorkflowPanel = () => {
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           {t('settings.developerMenu.devWorkflow.panelDesc')}
         </p>
-
-        {/* DEBUG: Tool slug dump */}
-        <div className="px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
-          <button
-            onClick={() => void dumpToolSlugs()}
-            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium"
-          >
-            DEBUG: Dump all GitHub tool slugs
-          </button>
-          {debugSlugs && (
-            <div className="mt-2 max-h-64 overflow-y-auto">
-              <div className="text-xs font-medium text-amber-800 dark:text-amber-300 mb-1">
-                {debugSlugs.length} GitHub tools found:
-              </div>
-              <pre className="text-[10px] text-amber-700 dark:text-amber-200 whitespace-pre-wrap break-all">
-                {debugSlugs.join('\n')}
-              </pre>
-            </div>
-          )}
-        </div>
 
         {/* Repo selector */}
         <div>
