@@ -6,10 +6,7 @@ import { renderWithProviders } from '../../../../test/test-utils';
 // [dev-workflow] Unit tests for DevWorkflowPanel.tsx — covers repo loading,
 // not-connected error, fork detection, branch population, and save/clear wiring.
 
-const hoisted = vi.hoisted(() => ({
-  composioExecute: vi.fn(),
-  listConnections: vi.fn(),
-}));
+const hoisted = vi.hoisted(() => ({ composioExecute: vi.fn(), listConnections: vi.fn() }));
 
 vi.mock('../../../../lib/composio/composioApi', () => ({
   execute: hoisted.composioExecute,
@@ -20,9 +17,7 @@ vi.mock('../../../../lib/composio/composioApi', () => ({
 // would cause useCallback([t]) to re-create on every render, triggering
 // the loadRepos useEffect in an infinite loop.
 const stableT = (key: string) => key;
-vi.mock('../../../../lib/i18n/I18nContext', () => ({
-  useT: () => ({ t: stableT }),
-}));
+vi.mock('../../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: stableT }) }));
 
 vi.mock('../../hooks/useSettingsNavigation', () => ({
   useSettingsNavigation: () => ({
@@ -45,21 +40,13 @@ async function importPanel() {
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
-const githubConnection = {
-  connections: [{ id: 'conn-1', toolkit: 'github', status: 'ACTIVE' }],
-};
+const githubConnection = { connections: [{ id: 'conn-1', toolkit: 'github', status: 'ACTIVE' }] };
 
 const reposResponse = {
   successful: true,
   data: [
     { full_name: 'user/repo1', name: 'repo1', owner: { login: 'user' }, private: false },
-    {
-      full_name: 'user/repo2',
-      name: 'repo2',
-      owner: { login: 'user' },
-      fork: true,
-      private: true,
-    },
+    { full_name: 'user/repo2', name: 'repo2', owner: { login: 'user' }, fork: true, private: true },
   ],
   error: null,
   costUsd: 0,
