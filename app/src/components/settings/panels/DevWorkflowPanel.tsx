@@ -274,15 +274,17 @@ const DevWorkflowPanel = () => {
             setTargetBranch(branchList[0].name);
           }
         } else {
-          // Successful but empty/unparseable — use fallback
-          log('branch response successful but no branches parsed, using fallback');
-          setBranches([{ name: defaultBranch }, { name: 'main' }, { name: 'master' }]);
+          // Successful but empty/unparseable — log raw data and use fallback
+          log('branch response successful but no branches parsed. Raw data: %o', raw);
+          const fallback = [...new Set([defaultBranch, 'main', 'master'])];
+          setBranches(fallback.map(name => ({ name })));
           setTargetBranch(defaultBranch);
         }
       } else {
         // Branch listing failed — offer default branch as manual fallback
         log('GITHUB_LIST_BRANCHES failed: %s, using default branch fallback', branchRes.error);
-        setBranches([{ name: defaultBranch }, { name: 'main' }, { name: 'master' }]);
+        const fallback = [...new Set([defaultBranch, 'main', 'master'])];
+        setBranches(fallback.map(name => ({ name })));
         setTargetBranch(defaultBranch);
       }
     } catch (err) {
