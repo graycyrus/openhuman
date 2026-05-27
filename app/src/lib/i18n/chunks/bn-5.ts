@@ -40,7 +40,7 @@ const bn5: TranslationMap = {
   'settings.cron.jobs.loadingRuns': 'রান লোড হচ্ছে',
   'settings.cron.jobs.nextRun': 'পরবর্তী রান',
   'settings.cron.jobs.pause': 'বিরতি',
-  'settings.cron.jobs.paused': 'সক্রিয়',
+  'settings.cron.jobs.paused': 'বিরতিতে',
   'settings.cron.jobs.recentRuns': 'সাম্প্রতিক রান',
   'settings.cron.jobs.removing': 'অপসারণ হচ্ছে',
   'settings.cron.jobs.resume': 'পুনরায় শুরু',
@@ -479,8 +479,8 @@ const bn5: TranslationMap = {
   'webhooks.tunnels.descriptionPlaceholder': 'বিবরণ (ঐচ্ছিক)',
   'webhooks.tunnels.echo': 'ইকো',
   'webhooks.tunnels.empty': 'খালি',
-  'webhooks.tunnels.enableEcho': 'ইকো সরান',
-  'webhooks.tunnels.inactive': 'সক্রিয়',
+  'webhooks.tunnels.enableEcho': 'ইকো চালু করুন',
+  'webhooks.tunnels.inactive': 'নিষ্ক্রিয়',
   'webhooks.tunnels.namePlaceholder': 'টানেলের নাম (যেমন telegram-bot)',
   'webhooks.tunnels.newTunnel': 'নতুন টানেল',
   'webhooks.tunnels.removeEcho': 'ইকো সরান',
@@ -785,6 +785,10 @@ const bn5: TranslationMap = {
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can — except the always-blocked credential and system directories.',
   'settings.agentAccess.grantedFolders': 'Granted folders',
+  'settings.agentAccess.alwaysAllow': 'Always-allowed tools',
+  'settings.agentAccess.alwaysAllowDesc':
+    'Tools you marked "Always allow" in chat run without asking. Remove one to be prompted again.',
+  'settings.agentAccess.alwaysAllowNone': 'No always-allowed tools yet.',
   'settings.agentAccess.grantedDesc':
     'Folders the agent may read and write, in addition to the workspace. Credential stores (~/.ssh, ~/.gnupg, ~/.aws, keychains) and system directories (/etc, /System, C:\\Windows, …) are always blocked, even inside a granted folder.',
   'settings.agentAccess.noneGranted': 'No folders granted.',

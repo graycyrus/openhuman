@@ -42,7 +42,7 @@ const pt5: TranslationMap = {
   'settings.cron.jobs.loadingRuns': 'Carregando execuções',
   'settings.cron.jobs.nextRun': 'Próxima execução',
   'settings.cron.jobs.pause': 'Pausar',
-  'settings.cron.jobs.paused': 'Ativado',
+  'settings.cron.jobs.paused': 'Pausado',
   'settings.cron.jobs.recentRuns': 'Execuções recentes',
   'settings.cron.jobs.removing': 'Removendo',
   'settings.cron.jobs.resume': 'Retomar',
@@ -484,8 +484,8 @@ const pt5: TranslationMap = {
   'webhooks.tunnels.descriptionPlaceholder': 'Descrição (opcional)',
   'webhooks.tunnels.echo': 'Echo',
   'webhooks.tunnels.empty': 'Vazio',
-  'webhooks.tunnels.enableEcho': 'Remover Echo',
-  'webhooks.tunnels.inactive': 'Ativo',
+  'webhooks.tunnels.enableEcho': 'Ativar Echo',
+  'webhooks.tunnels.inactive': 'Inativo',
   'webhooks.tunnels.namePlaceholder': 'Nome do tunnel (ex.: telegram-bot)',
   'webhooks.tunnels.newTunnel': 'Novo tunnel',
   'webhooks.tunnels.removeEcho': 'Remover Echo',
@@ -796,6 +796,10 @@ const pt5: TranslationMap = {
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can — except the always-blocked credential and system directories.',
   'settings.agentAccess.grantedFolders': 'Granted folders',
+  'settings.agentAccess.alwaysAllow': 'Always-allowed tools',
+  'settings.agentAccess.alwaysAllowDesc':
+    'Tools you marked "Always allow" in chat run without asking. Remove one to be prompted again.',
+  'settings.agentAccess.alwaysAllowNone': 'No always-allowed tools yet.',
   'settings.agentAccess.grantedDesc':
     'Folders the agent may read and write, in addition to the workspace. Credential stores (~/.ssh, ~/.gnupg, ~/.aws, keychains) and system directories (/etc, /System, C:\\Windows, …) are always blocked, even inside a granted folder.',
   'settings.agentAccess.noneGranted': 'No folders granted.',

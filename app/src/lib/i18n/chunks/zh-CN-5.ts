@@ -39,7 +39,7 @@ const zhCN5: TranslationMap = {
   'settings.cron.jobs.loadingRuns': '加载运行记录中',
   'settings.cron.jobs.nextRun': '下次运行',
   'settings.cron.jobs.pause': '暂停',
-  'settings.cron.jobs.paused': '已启用',
+  'settings.cron.jobs.paused': '已暂停',
   'settings.cron.jobs.recentRuns': '最近运行',
   'settings.cron.jobs.removing': '删除中',
   'settings.cron.jobs.resume': '恢复',
@@ -454,8 +454,8 @@ const zhCN5: TranslationMap = {
   'webhooks.tunnels.descriptionPlaceholder': '描述（可选）',
   'webhooks.tunnels.echo': '回显',
   'webhooks.tunnels.empty': '暂无隧道',
-  'webhooks.tunnels.enableEcho': '移除回显',
-  'webhooks.tunnels.inactive': '活跃',
+  'webhooks.tunnels.enableEcho': '启用回显',
+  'webhooks.tunnels.inactive': '未激活',
   'webhooks.tunnels.namePlaceholder': '隧道名称（例如：telegram-bot）',
   'webhooks.tunnels.newTunnel': '新建隧道',
   'webhooks.tunnels.removeEcho': '移除回显',
@@ -746,6 +746,10 @@ const zhCN5: TranslationMap = {
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can — except the always-blocked credential and system directories.',
   'settings.agentAccess.grantedFolders': 'Granted folders',
+  'settings.agentAccess.alwaysAllow': 'Always-allowed tools',
+  'settings.agentAccess.alwaysAllowDesc':
+    'Tools you marked "Always allow" in chat run without asking. Remove one to be prompted again.',
+  'settings.agentAccess.alwaysAllowNone': 'No always-allowed tools yet.',
   'settings.agentAccess.grantedDesc':
     'Folders the agent may read and write, in addition to the workspace. Credential stores (~/.ssh, ~/.gnupg, ~/.aws, keychains) and system directories (/etc, /System, C:\\Windows, …) are always blocked, even inside a granted folder.',
   'settings.agentAccess.noneGranted': 'No folders granted.',

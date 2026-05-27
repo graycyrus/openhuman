@@ -273,6 +273,36 @@ const en: TranslationMap = {
   'memory.tab.settings': 'Settings',
   'memory.analyzeNow': 'Analyze Now',
 
+  // Memory Tree status panel (#1856 Part 1)
+  'memoryTree.status.title': 'Memory Tree',
+  'memoryTree.status.autoSyncLabel': 'Auto-sync',
+  'memoryTree.status.autoSyncDescription':
+    'Pause to stop new ingestion. Existing wiki stays queryable.',
+  'memoryTree.status.statusTile': 'Status',
+  'memoryTree.status.lastSyncTile': 'Last sync',
+  'memoryTree.status.totalChunksTile': 'Total chunks',
+  'memoryTree.status.wikiSizeTile': 'Wiki size',
+  'memoryTree.status.statusRunning': 'Running',
+  'memoryTree.status.statusPaused': 'Paused',
+  'memoryTree.status.statusSyncing': 'Syncing',
+  'memoryTree.status.statusError': 'Error',
+  'memoryTree.status.statusIdle': 'Idle',
+  'memoryTree.status.never': 'Never',
+  'memoryTree.status.fetchError': "Couldn't fetch Memory Tree status",
+  'memoryTree.status.retry': 'Retry',
+  'memoryTree.status.toggleFailed': "Couldn't toggle auto-sync",
+  // Relative-time buckets surfaced by the last-sync tile. `{count}` is
+  // replaced client-side at the call site (the runtime `t()` does not
+  // interpolate — see I18nContext.tsx).
+  'memoryTree.status.justNow': 'just now',
+  'memoryTree.status.secondsAgo': '{count}s ago',
+  'memoryTree.status.minuteAgo': '1 min ago',
+  'memoryTree.status.minutesAgo': '{count} min ago',
+  'memoryTree.status.hourAgo': '1 hr ago',
+  'memoryTree.status.hoursAgo': '{count} hr ago',
+  'memoryTree.status.dayAgo': '1 day ago',
+  'memoryTree.status.daysAgo': '{count} days ago',
+
   // Notifications / Alerts
   'alerts.title': 'Alerts',
   'alerts.empty': 'No alerts yet',
@@ -632,6 +662,19 @@ const en: TranslationMap = {
   'settings.search.placeholderStored': '•••••••• (stored)',
   'settings.search.placeholderParallel': 'pk_...',
   'settings.search.placeholderBrave': 'BSA...',
+  'settings.search.allowedSitesLabel': 'Allowed websites',
+  'settings.search.allowedSitesHint':
+    'Hosts the assistant may open and read — via web fetch and the browser tool — one per line, e.g. reuters.com. A host also covers its subdomains. Web search itself is not restricted by this list.',
+  'settings.search.allowedSitesAllOn':
+    'The assistant can open any public website. Local and private addresses stay blocked.',
+  'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
+  'settings.search.allowedSitesSave': 'Save websites',
+  'settings.search.accessModeAria': 'Web access mode',
+  'settings.search.accessAllowAll': 'Allow all',
+  'settings.search.accessCustom': 'Custom',
+  'settings.search.accessBlockAll': 'Block all',
+  'settings.search.accessBlockAllHint':
+    'All web access is blocked — the assistant cannot open or read any website.',
   // ─── Embeddings settings ───────────────────────────────────
   'settings.embeddings.title': 'Embeddings',
   'settings.embeddings.description':
@@ -2009,6 +2052,8 @@ const en: TranslationMap = {
   'channels.telegram.savedRestartRequired': 'Channel saved. Restart the app to activate it.',
   'channels.web.alwaysAvailable': 'Always available',
   'chat.approval.approve': 'Approve',
+  'chat.approval.alwaysAllow': 'Always allow',
+  'chat.approval.alwaysAllowHint': 'Stop asking for this tool — add it to your Always-allow list',
   'chat.approval.deciding': 'Working…',
   'chat.approval.deny': 'Deny',
   'chat.approval.error': 'Could not record your decision — try again.',
@@ -2254,6 +2299,8 @@ const en: TranslationMap = {
   'notifications.center.markAllRead': 'Mark all read',
   'notifications.center.title': 'Notifications',
   'oauth.button.connecting': 'Connecting...',
+  'oauth.button.loopbackTimeout':
+    'Sign-in timed out — the browser did not complete the OAuth redirect. Please try again.',
   'oauth.login.continueWith': 'Continue with',
   'onboarding.contextGathering.buildingDesc': 'Gathering context from your connected accounts…',
   'onboarding.contextGathering.buildingProfile': 'Building your profile...',
@@ -3083,6 +3130,10 @@ const en: TranslationMap = {
   'settings.agentAccess.confine.desc':
     'Restrict the agent to the workspace directory (plus any granted folders), whichever access mode is selected. When off, it can reach anywhere your user can — except the always-blocked credential and system directories.',
   'settings.agentAccess.grantedFolders': 'Granted folders',
+  'settings.agentAccess.alwaysAllow': 'Always-allowed tools',
+  'settings.agentAccess.alwaysAllowDesc':
+    'Tools you marked "Always allow" in chat run without asking. Remove one to be prompted again.',
+  'settings.agentAccess.alwaysAllowNone': 'No always-allowed tools yet.',
   'settings.agentAccess.grantedDesc':
     'Folders the agent may read and write, in addition to the workspace. Credential stores (~/.ssh, ~/.gnupg, ~/.aws, keychains) and system directories (/etc, /System, C:\\Windows, …) are always blocked, even inside a granted folder.',
   'settings.agentAccess.noneGranted': 'No folders granted.',
