@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   execute as composioExecute,
   listConnections,
+  listTools as composioListTools,
 } from '../../../lib/composio/composioApi';
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsHeader from '../components/SettingsHeader';
@@ -113,6 +114,23 @@ const DevWorkflowPanel = () => {
     }
   }, []);
 
+  // ── DEBUG: dump all GitHub tool slugs ────────────────────────────────
+  const [debugSlugs, setDebugSlugs] = useState<string[] | null>(null);
+  const dumpToolSlugs = useCallback(async () => {
+    try {
+      log('dumping all GitHub tool slugs');
+      const res = await composioListTools(['github']);
+      const names = (res.tools ?? []).map(t => t.function.name).sort();
+      log('total GitHub tools: %d', names.length);
+      console.log('=== ALL GITHUB TOOL SLUGS (%d) ===', names.length);
+      names.forEach(n => console.log(n));
+      console.log('=== END ===');
+      setDebugSlugs(names);
+    } catch (err) {
+      log('dump error: %s', err);
+    }
+  }, []);
+
   // ── Fetch repos via composio_execute ────────────────────────────────
   const loadRepos = useCallback(async () => {
     setReposLoading(true);
@@ -132,9 +150,9 @@ const DevWorkflowPanel = () => {
       log('GitHub connected, connectionId=%s', ghConn.id);
 
       // Step 2: Fetch repos via composio_execute
-      log('fetching repos via GITHUB_LIST_REPOSITORIES_FOR_AUTHENTICATED_USER');
+      log('fetching repos via GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER');
       const res = await composioExecute(
-        'GITHUB_LIST_REPOSITORIES_FOR_AUTHENTICATED_USER',
+        'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
         {}
       );
       if (!res.successful) {
@@ -168,7 +186,7 @@ const DevWorkflowPanel = () => {
         setReposError('GitHub is not connected. Please connect GitHub via Settings > Advanced > Composio first.');
       } else if (msg.includes('ToolNotFound') || msg.includes('not found')) {
         setReposError(
-          'GITHUB_LIST_REPOSITORIES_FOR_AUTHENTICATED_USER tool is not enabled on this backend. ' +
+          'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER tool is not enabled on this backend. ' +
           'Please ask your admin to enable it in the Composio integration (backend#842).'
         );
       } else if (msg.includes('session') || msg.includes('composio unavailable') || msg.includes('Sign in')) {
@@ -326,6 +344,26 @@ const DevWorkflowPanel = () => {
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           {t('settings.developerMenu.devWorkflow.panelDesc')}
         </p>
+
+        {/* DEBUG: Tool slug dump */}
+        <div className="px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
+          <button
+            onClick={() => void dumpToolSlugs()}
+            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium"
+          >
+            DEBUG: Dump all GitHub tool slugs
+          </button>
+          {debugSlugs && (
+            <div className="mt-2 max-h-64 overflow-y-auto">
+              <div className="text-xs font-medium text-amber-800 dark:text-amber-300 mb-1">
+                {debugSlugs.length} GitHub tools found:
+              </div>
+              <pre className="text-[10px] text-amber-700 dark:text-amber-200 whitespace-pre-wrap break-all">
+                {debugSlugs.join('\n')}
+              </pre>
+            </div>
+          )}
+        </div>
 
         {/* Repo selector */}
         <div>
