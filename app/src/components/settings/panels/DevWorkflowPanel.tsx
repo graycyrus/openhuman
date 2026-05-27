@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   execute as composioExecute,
   listConnections,
-  listGithubRepos,
 } from '../../../lib/composio/composioApi';
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsHeader from '../components/SettingsHeader';
@@ -114,7 +113,7 @@ const DevWorkflowPanel = () => {
     }
   }, []);
 
-  // ── Fetch repos via dedicated backend RPC ───────────────────────────
+  // ── Fetch repos via composio_execute ────────────────────────────────
   const loadRepos = useCallback(async () => {
     setReposLoading(true);
     setReposError(null);
@@ -132,9 +131,31 @@ const DevWorkflowPanel = () => {
       }
       log('GitHub connected, connectionId=%s', ghConn.id);
 
-      // Step 2: Fetch repos via the dedicated backend endpoint
-      const res = await listGithubRepos(ghConn.id);
-      const repoList = res.repositories ?? [];
+      // Step 2: Fetch repos via composio_execute
+      log('fetching repos via GITHUB_LIST_REPOSITORIES_FOR_AUTHENTICATED_USER');
+      const res = await composioExecute(
+        'GITHUB_LIST_REPOSITORIES_FOR_AUTHENTICATED_USER',
+        {}
+      );
+      if (!res.successful) {
+        throw new Error(res.error ?? 'Failed to fetch repositories');
+      }
+
+      // Step 3: Parse response — GitHub API returns an array of repo objects
+      const raw = res.data;
+      let repoList: ComposioGhRepo[] = [];
+      const items = Array.isArray(raw) ? raw : ((raw as Record<string, unknown>)?.repositories ?? []);
+      if (Array.isArray(items)) {
+        repoList = (items as Record<string, unknown>[]).map(r => ({
+          owner: String((r.owner as Record<string, unknown>)?.login ?? r.owner ?? ''),
+          repo: String(r.name ?? ''),
+          fullName: String(r.full_name ?? `${(r.owner as Record<string, unknown>)?.login ?? r.owner}/${r.name}`),
+          private: r.private as boolean | undefined,
+          defaultBranch: r.default_branch as string | undefined,
+          htmlUrl: r.html_url as string | undefined,
+        }));
+      }
+
       log('fetched %d repos', repoList.length);
       setRepos(repoList);
       if (repoList.length === 0) {
@@ -145,8 +166,11 @@ const DevWorkflowPanel = () => {
       log('loadRepos error: %s', msg);
       if (msg === 'NOT_CONNECTED') {
         setReposError('GitHub is not connected. Please connect GitHub via Settings > Advanced > Composio first.');
-      } else if (msg.includes('404') || msg.includes('Cannot GET')) {
-        setReposError('GitHub repo listing endpoint is not available on this backend. This feature requires a backend update.');
+      } else if (msg.includes('ToolNotFound') || msg.includes('not found')) {
+        setReposError(
+          'GITHUB_LIST_REPOSITORIES_FOR_AUTHENTICATED_USER tool is not enabled on this backend. ' +
+          'Please ask your admin to enable it in the Composio integration (backend#842).'
+        );
       } else if (msg.includes('session') || msg.includes('composio unavailable') || msg.includes('Sign in')) {
         setReposError('Not authenticated. Please sign in first.');
       } else {
