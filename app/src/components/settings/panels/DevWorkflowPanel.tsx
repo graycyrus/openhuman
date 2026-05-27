@@ -43,11 +43,11 @@ interface DevWorkflowConfig {
 const STORAGE_KEY = 'openhuman:dev-workflow-config';
 
 const SCHEDULE_PRESETS = [
-  { label: 'Every 30 minutes', value: '*/30 * * * *' },
-  { label: 'Every hour', value: '0 * * * *' },
-  { label: 'Every 2 hours', value: '0 */2 * * *' },
-  { label: 'Every 6 hours', value: '0 */6 * * *' },
-  { label: 'Once daily (9 AM)', value: '0 9 * * *' },
+  { labelKey: 'settings.devWorkflow.schedule.every30min' as const, value: '*/30 * * * *' },
+  { labelKey: 'settings.devWorkflow.schedule.everyHour' as const, value: '0 * * * *' },
+  { labelKey: 'settings.devWorkflow.schedule.every2hours' as const, value: '0 */2 * * *' },
+  { labelKey: 'settings.devWorkflow.schedule.every6hours' as const, value: '0 */6 * * *' },
+  { labelKey: 'settings.devWorkflow.schedule.onceDaily' as const, value: '0 9 * * *' },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -81,34 +81,23 @@ const DevWorkflowPanel = () => {
   const [reposLoading, setReposLoading] = useState(false);
   const [reposError, setReposError] = useState<string | null>(null);
 
-  // Selected repo + fork detection
-  const [selectedRepo, setSelectedRepo] = useState('');
-  const [forkInfo, setForkInfo] = useState<ForkInfo | null>(null);
+  // Lazy-initialised state from persisted config
+  const initialConfig = loadSavedConfig();
+  const [savedConfig, setSavedConfig] = useState<DevWorkflowConfig | null>(initialConfig);
+  const [selectedRepo, setSelectedRepo] = useState(initialConfig?.repoFullName ?? '');
+  const [forkInfo, setForkInfo] = useState<ForkInfo | null>(initialConfig?.forkInfo ?? null);
+  const [targetBranch, setTargetBranch] = useState(initialConfig?.targetBranch ?? '');
+  const [schedule, setSchedule] = useState(initialConfig?.schedule ?? SCHEDULE_PRESETS[0].value);
+
+  // Fork detection loading
   const [forkLoading, setForkLoading] = useState(false);
 
   // Branches
   const [branches, setBranches] = useState<GhBranch[]>([]);
-  const [targetBranch, setTargetBranch] = useState('');
   const [branchesLoading, setBranchesLoading] = useState(false);
-
-  // Schedule
-  const [schedule, setSchedule] = useState(SCHEDULE_PRESETS[0].value);
 
   // Save state
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
-  const [savedConfig, setSavedConfig] = useState<DevWorkflowConfig | null>(null);
-
-  // ── Load saved config on mount ─────────────────────────────────────
-  useEffect(() => {
-    const existing = loadSavedConfig();
-    if (existing) {
-      setSavedConfig(existing);
-      setSelectedRepo(existing.repoFullName);
-      setForkInfo(existing.forkInfo);
-      setTargetBranch(existing.targetBranch);
-      setSchedule(existing.schedule);
-    }
-  }, []);
 
   // ── Fetch repos via composio_execute ────────────────────────────────
   const loadRepos = useCallback(async () => {
@@ -157,33 +146,28 @@ const DevWorkflowPanel = () => {
       log('fetched %d repos', repoList.length);
       setRepos(repoList);
       if (repoList.length === 0) {
-        setReposError('No repositories found for this GitHub account.');
+        setReposError(t('settings.devWorkflow.errorNoRepositories'));
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log('loadRepos error: %s', msg);
       if (msg === 'NOT_CONNECTED') {
-        setReposError(
-          'GitHub is not connected. Please connect GitHub via Settings > Advanced > Composio first.'
-        );
+        setReposError(t('settings.devWorkflow.errorNotConnected'));
       } else if (msg.includes('ToolNotFound') || msg.includes('not found')) {
-        setReposError(
-          'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER tool is not enabled on this backend. ' +
-            'Please ask your admin to enable it in the Composio integration (backend#842).'
-        );
+        setReposError(t('settings.devWorkflow.errorToolNotEnabled'));
       } else if (
         msg.includes('session') ||
         msg.includes('composio unavailable') ||
         msg.includes('Sign in')
       ) {
-        setReposError('Not authenticated. Please sign in first.');
+        setReposError(t('settings.devWorkflow.errorNotAuthenticated'));
       } else {
         setReposError(msg);
       }
     } finally {
       setReposLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadRepos();
@@ -361,7 +345,7 @@ const DevWorkflowPanel = () => {
         {/* Repo selector */}
         <div>
           <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1.5">
-            GitHub Repository
+            {t('settings.devWorkflow.githubRepository')}
           </label>
           {reposError && (
             <div className="mb-2 px-3 py-2 rounded-md bg-coral-50 dark:bg-coral-500/10 border border-coral-200 dark:border-coral-500/30 text-xs text-coral-700 dark:text-coral-300">
@@ -374,11 +358,13 @@ const DevWorkflowPanel = () => {
             disabled={reposLoading}
             className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
             <option value="">
-              {reposLoading ? 'Loading repositories...' : 'Select a repository'}
+              {reposLoading
+                ? t('settings.devWorkflow.loadingRepositories')
+                : t('settings.devWorkflow.selectRepository')}
             </option>
             {repos.map(r => (
               <option key={r.fullName} value={r.fullName}>
-                {r.fullName} {r.private ? '(private)' : ''}
+                {r.fullName} {r.private ? t('settings.devWorkflow.privateTag') : ''}
               </option>
             ))}
           </select>
@@ -387,26 +373,27 @@ const DevWorkflowPanel = () => {
         {/* Fork info */}
         {forkLoading && (
           <div className="text-xs text-neutral-500 dark:text-neutral-400">
-            Detecting fork info...
+            {t('settings.devWorkflow.detectingForkInfo')}
           </div>
         )}
         {forkInfo && (
           <div className="px-3 py-2 rounded-md bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/30">
             <div className="text-xs font-medium text-primary-800 dark:text-primary-300">
-              Fork detected
+              {t('settings.devWorkflow.forkDetected')}
             </div>
             <div className="text-xs text-primary-700 dark:text-primary-200 mt-0.5">
-              Upstream: <span className="font-mono">{forkInfo.upstreamFullName}</span>
+              {t('settings.devWorkflow.upstream')}{' '}
+              <span className="font-mono">{forkInfo.upstreamFullName}</span>
             </div>
             <div className="text-xs text-primary-600 dark:text-primary-300 mt-0.5">
-              PRs will be raised against the upstream repository.
+              {t('settings.devWorkflow.forkPrNote')}
             </div>
           </div>
         )}
         {selectedRepo && !forkLoading && !forkInfo && (
           <div className="px-3 py-2 rounded-md bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
             <div className="text-xs text-neutral-600 dark:text-neutral-400">
-              Not a fork. PRs will be raised against this repository directly.
+              {t('settings.devWorkflow.notForkNote')}
             </div>
           </div>
         )}
@@ -415,10 +402,10 @@ const DevWorkflowPanel = () => {
         {branches.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1.5">
-              Target Branch
+              {t('settings.devWorkflow.targetBranch')}
             </label>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
-              PRs will be raised against this branch
+              {t('settings.devWorkflow.targetBranchNote')}
               {forkInfo ? ` on ${forkInfo.upstreamFullName}` : ''}.
             </p>
             <select
@@ -438,17 +425,19 @@ const DevWorkflowPanel = () => {
           </div>
         )}
         {branchesLoading && (
-          <div className="text-xs text-neutral-500 dark:text-neutral-400">Loading branches...</div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400">
+            {t('settings.devWorkflow.loadingBranches')}
+          </div>
         )}
 
         {/* Schedule */}
         {selectedRepo && (
           <div>
             <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1.5">
-              Run Frequency
+              {t('settings.devWorkflow.runFrequency')}
             </label>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
-              How often the agent should check for issues and raise PRs.
+              {t('settings.devWorkflow.runFrequencyNote')}
             </p>
             <select
               value={schedule}
@@ -459,7 +448,7 @@ const DevWorkflowPanel = () => {
               className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
               {SCHEDULE_PRESETS.map(p => (
                 <option key={p.value} value={p.value}>
-                  {p.label}
+                  {t(p.labelKey)}
                 </option>
               ))}
             </select>
@@ -473,17 +462,21 @@ const DevWorkflowPanel = () => {
               onClick={handleSave}
               disabled={!canSave}
               className="px-4 py-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              {savedConfig ? 'Update Configuration' : 'Save Configuration'}
+              {savedConfig
+                ? t('settings.devWorkflow.updateConfiguration')
+                : t('settings.devWorkflow.saveConfiguration')}
             </button>
             {savedConfig && (
               <button
                 onClick={handleRemove}
                 className="px-4 py-2 rounded-md bg-coral-600 hover:bg-coral-500 text-white text-sm font-medium transition-colors">
-                Remove
+                {t('settings.devWorkflow.remove')}
               </button>
             )}
             {saveStatus === 'saved' && (
-              <span className="text-xs text-sage-600 dark:text-sage-400 font-medium">Saved</span>
+              <span className="text-xs text-sage-600 dark:text-sage-400 font-medium">
+                {t('settings.devWorkflow.saved')}
+              </span>
             )}
           </div>
         )}
@@ -492,33 +485,42 @@ const DevWorkflowPanel = () => {
         {savedConfig && (
           <div className="mt-2 px-4 py-3 rounded-lg border border-sage-200 dark:border-sage-500/30 bg-sage-50 dark:bg-sage-500/10">
             <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
-              Active Configuration
+              {t('settings.devWorkflow.activeConfiguration')}
             </div>
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-              <dt className="text-sage-600 dark:text-sage-400">Repository:</dt>
+              <dt className="text-sage-600 dark:text-sage-400">
+                {t('settings.devWorkflow.activeConfigRepository')}
+              </dt>
               <dd className="font-mono text-sage-900 dark:text-sage-200">
                 {savedConfig.repoFullName}
               </dd>
               {savedConfig.forkInfo && (
                 <>
-                  <dt className="text-sage-600 dark:text-sage-400">Upstream:</dt>
+                  <dt className="text-sage-600 dark:text-sage-400">
+                    {t('settings.devWorkflow.activeConfigUpstream')}
+                  </dt>
                   <dd className="font-mono text-sage-900 dark:text-sage-200">
                     {savedConfig.forkInfo.upstreamFullName}
                   </dd>
                 </>
               )}
-              <dt className="text-sage-600 dark:text-sage-400">Target branch:</dt>
+              <dt className="text-sage-600 dark:text-sage-400">
+                {t('settings.devWorkflow.activeConfigTargetBranch')}
+              </dt>
               <dd className="font-mono text-sage-900 dark:text-sage-200">
                 {savedConfig.targetBranch}
               </dd>
-              <dt className="text-sage-600 dark:text-sage-400">Schedule:</dt>
+              <dt className="text-sage-600 dark:text-sage-400">
+                {t('settings.devWorkflow.activeConfigSchedule')}
+              </dt>
               <dd className="text-sage-900 dark:text-sage-200">
-                {SCHEDULE_PRESETS.find(p => p.value === savedConfig.schedule)?.label ??
-                  savedConfig.schedule}
+                {SCHEDULE_PRESETS.find(p => p.value === savedConfig.schedule) != null
+                  ? t(SCHEDULE_PRESETS.find(p => p.value === savedConfig.schedule)!.labelKey)
+                  : savedConfig.schedule}
               </dd>
             </dl>
             <p className="mt-2 text-xs text-sage-500 dark:text-sage-400">
-              Phase 2: This will automatically create a cron job to pick issues and raise PRs.
+              {t('settings.devWorkflow.phase2Note')}
             </p>
           </div>
         )}
