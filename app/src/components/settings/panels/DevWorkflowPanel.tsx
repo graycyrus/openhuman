@@ -247,23 +247,22 @@ const DevWorkflowPanel = () => {
       });
 
       if (branchRes.successful) {
-        // Composio wraps GitHub responses in various shapes — probe each
+        // Composio wraps GitHub branch data as { data: { details: [...] } }
         const raw = branchRes.data;
         let branchList: GhBranch[] = [];
         if (Array.isArray(raw)) {
           branchList = raw as GhBranch[];
         } else if (raw && typeof raw === 'object') {
           const obj = raw as Record<string, unknown>;
-          // Try: data (array), data.data (nested), branches, items
-          const candidates = [obj, obj.data as Record<string, unknown>].filter(Boolean);
-          for (const c of candidates) {
-            if (Array.isArray(c)) { branchList = c as GhBranch[]; break; }
-            const arr = (c as Record<string, unknown>)?.branches ??
-                        (c as Record<string, unknown>)?.items;
-            if (Array.isArray(arr)) { branchList = arr as GhBranch[]; break; }
+          // Probe: details (Composio wrapper), data.details, branches, items, direct array under data
+          const details = (obj as Record<string, unknown>).details;
+          const dataObj = (obj as Record<string, unknown>).data as Record<string, unknown> | undefined;
+          const arr = details ?? dataObj?.details ?? obj.branches ?? obj.items ?? dataObj;
+          if (Array.isArray(arr)) {
+            branchList = arr as GhBranch[];
           }
         }
-        log('fetched %d branches (raw type: %s)', branchList.length, typeof raw);
+        log('fetched %d branches', branchList.length);
 
         if (branchList.length > 0) {
           setBranches(branchList);
