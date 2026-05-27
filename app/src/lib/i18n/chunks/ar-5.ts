@@ -174,6 +174,11 @@ const ar5: TranslationMap = {
     'تفعيل أو تعطيل الإمكانات التي يمكن لـ OpenHuman استخدامها نيابةً عنك',
   'settings.developerMenu.agentChat.title': 'دردشة الوكيل',
   'settings.developerMenu.agentChat.desc': 'اختبار محادثة الوكيل مع تجاوزات النموذج ودرجة الحرارة',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'مهام Cron',
   'settings.developerMenu.cronJobs.desc': 'عرض وتكوين المهام المجدولة لمهارات وقت التشغيل',
   'settings.developerMenu.localModelDebug.title': 'تصحيح النموذج المحلي',

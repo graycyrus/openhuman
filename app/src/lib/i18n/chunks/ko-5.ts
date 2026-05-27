@@ -511,6 +511,11 @@ const ko5: TranslationMap = {
     'OpenHuman이 사용자를 대신하여 사용할 수 있는 기능 활성화 또는 비활성화',
   'settings.developerMenu.agentChat.title': '에이전트 채팅',
   'settings.developerMenu.agentChat.desc': '모델 및 온도 재정의를 통한 테스트 에이전트 대화',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': '크론 작업',
   'settings.developerMenu.cronJobs.desc': '예약 보기 및 구성 런타임 기술용 작업',
   'settings.developerMenu.localModelDebug.title': '로컬 모델 디버그',

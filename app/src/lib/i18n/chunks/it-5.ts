@@ -182,6 +182,11 @@ const it5: TranslationMap = {
   'settings.developerMenu.agentChat.title': 'Chat agente',
   'settings.developerMenu.agentChat.desc':
     "Testa conversazioni dell'agente con override di modello e temperatura",
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'Processi cron',
   'settings.developerMenu.cronJobs.desc':
     'Visualizza e configura processi pianificati per le skill di runtime',

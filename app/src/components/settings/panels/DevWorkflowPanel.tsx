@@ -1,10 +1,7 @@
 import createDebug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
 
-import {
-  execute as composioExecute,
-  listConnections,
-} from '../../../lib/composio/composioApi';
+import { execute as composioExecute, listConnections } from '../../../lib/composio/composioApi';
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -133,10 +130,7 @@ const DevWorkflowPanel = () => {
 
       // Step 2: Fetch repos via composio_execute
       log('fetching repos via GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER');
-      const res = await composioExecute(
-        'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
-        {}
-      );
+      const res = await composioExecute('GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER', {});
       if (!res.successful) {
         throw new Error(res.error ?? 'Failed to fetch repositories');
       }
@@ -144,12 +138,16 @@ const DevWorkflowPanel = () => {
       // Step 3: Parse response — GitHub API returns an array of repo objects
       const raw = res.data;
       let repoList: ComposioGhRepo[] = [];
-      const items = Array.isArray(raw) ? raw : ((raw as Record<string, unknown>)?.repositories ?? []);
+      const items = Array.isArray(raw)
+        ? raw
+        : ((raw as Record<string, unknown>)?.repositories ?? []);
       if (Array.isArray(items)) {
         repoList = (items as Record<string, unknown>[]).map(r => ({
           owner: String((r.owner as Record<string, unknown>)?.login ?? r.owner ?? ''),
           repo: String(r.name ?? ''),
-          fullName: String(r.full_name ?? `${(r.owner as Record<string, unknown>)?.login ?? r.owner}/${r.name}`),
+          fullName: String(
+            r.full_name ?? `${(r.owner as Record<string, unknown>)?.login ?? r.owner}/${r.name}`
+          ),
           private: r.private as boolean | undefined,
           defaultBranch: r.default_branch as string | undefined,
           htmlUrl: r.html_url as string | undefined,
@@ -165,13 +163,19 @@ const DevWorkflowPanel = () => {
       const msg = err instanceof Error ? err.message : String(err);
       log('loadRepos error: %s', msg);
       if (msg === 'NOT_CONNECTED') {
-        setReposError('GitHub is not connected. Please connect GitHub via Settings > Advanced > Composio first.');
+        setReposError(
+          'GitHub is not connected. Please connect GitHub via Settings > Advanced > Composio first.'
+        );
       } else if (msg.includes('ToolNotFound') || msg.includes('not found')) {
         setReposError(
           'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER tool is not enabled on this backend. ' +
-          'Please ask your admin to enable it in the Composio integration (backend#842).'
+            'Please ask your admin to enable it in the Composio integration (backend#842).'
         );
-      } else if (msg.includes('session') || msg.includes('composio unavailable') || msg.includes('Sign in')) {
+      } else if (
+        msg.includes('session') ||
+        msg.includes('composio unavailable') ||
+        msg.includes('Sign in')
+      ) {
         setReposError('Not authenticated. Please sign in first.');
       } else {
         setReposError(msg);
@@ -186,115 +190,120 @@ const DevWorkflowPanel = () => {
   }, [loadRepos]);
 
   // ── On repo selection: detect fork + fetch branches ────────────────
-  const onRepoSelect = useCallback(async (repoFullName: string) => {
-    setSelectedRepo(repoFullName);
-    setForkInfo(null);
-    setBranches([]);
-    setTargetBranch('');
-    setSaveStatus('idle');
+  const onRepoSelect = useCallback(
+    async (repoFullName: string) => {
+      setSelectedRepo(repoFullName);
+      setForkInfo(null);
+      setBranches([]);
+      setTargetBranch('');
+      setSaveStatus('idle');
 
-    if (!repoFullName) return;
+      if (!repoFullName) return;
 
-    const [owner, repo] = repoFullName.split('/');
-    if (!owner || !repo) return;
+      const [owner, repo] = repoFullName.split('/');
+      if (!owner || !repo) return;
 
-    setForkLoading(true);
-    try {
-      // Detect fork via composio_execute (curated tool)
-      log('fetching repo metadata for %s', repoFullName);
-      const res = await composioExecute('GITHUB_GET_A_REPOSITORY', { owner, repo });
+      setForkLoading(true);
+      try {
+        // Detect fork via composio_execute (curated tool)
+        log('fetching repo metadata for %s', repoFullName);
+        const res = await composioExecute('GITHUB_GET_A_REPOSITORY', { owner, repo });
 
-      let branchOwner = owner;
-      let branchRepo = repo;
-      let detectedFork: ForkInfo | null = null;
-      let defaultBranch = 'main';
+        let branchOwner = owner;
+        let branchRepo = repo;
+        let detectedFork: ForkInfo | null = null;
+        let defaultBranch = 'main';
 
-      if (res.successful) {
-        const repoData = res.data as {
-          fork?: boolean;
-          parent?: { full_name: string; owner: { login: string }; name: string };
-          default_branch?: string;
-        };
-
-        if (repoData.fork && repoData.parent) {
-          detectedFork = {
-            isFork: true,
-            upstreamOwner: repoData.parent.owner.login,
-            upstreamRepo: repoData.parent.name,
-            upstreamFullName: repoData.parent.full_name,
+        if (res.successful) {
+          const repoData = res.data as {
+            fork?: boolean;
+            parent?: { full_name: string; owner: { login: string }; name: string };
+            default_branch?: string;
           };
-          branchOwner = repoData.parent.owner.login;
-          branchRepo = repoData.parent.name;
-          log('detected fork → upstream: %s', repoData.parent.full_name);
-        }
-        defaultBranch = repoData.default_branch ?? 'main';
-      } else {
-        // If GITHUB_GET_A_REPOSITORY fails, fall back to repo metadata from the list
-        log('GITHUB_GET_A_REPOSITORY failed, using list metadata. Error: %s', res.error);
-        const repoFromList = repos.find(r => r.fullName === repoFullName);
-        defaultBranch = repoFromList?.defaultBranch ?? 'main';
-      }
 
-      setForkInfo(detectedFork);
-
-      // Fetch branches
-      setBranchesLoading(true);
-      log('fetching branches for %s/%s', branchOwner, branchRepo);
-      const branchRes = await composioExecute('GITHUB_LIST_BRANCHES', {
-        owner: branchOwner,
-        repo: branchRepo,
-        per_page: 100,
-      });
-
-      if (branchRes.successful) {
-        // Composio wraps GitHub branch data as { data: { details: [...] } }
-        const raw = branchRes.data;
-        let branchList: GhBranch[] = [];
-        if (Array.isArray(raw)) {
-          branchList = raw as GhBranch[];
-        } else if (raw && typeof raw === 'object') {
-          const obj = raw as Record<string, unknown>;
-          // Probe: details (Composio wrapper), data.details, branches, items, direct array under data
-          const details = (obj as Record<string, unknown>).details;
-          const dataObj = (obj as Record<string, unknown>).data as Record<string, unknown> | undefined;
-          const arr = details ?? dataObj?.details ?? obj.branches ?? obj.items ?? dataObj;
-          if (Array.isArray(arr)) {
-            branchList = arr as GhBranch[];
+          if (repoData.fork && repoData.parent) {
+            detectedFork = {
+              isFork: true,
+              upstreamOwner: repoData.parent.owner.login,
+              upstreamRepo: repoData.parent.name,
+              upstreamFullName: repoData.parent.full_name,
+            };
+            branchOwner = repoData.parent.owner.login;
+            branchRepo = repoData.parent.name;
+            log('detected fork → upstream: %s', repoData.parent.full_name);
           }
+          defaultBranch = repoData.default_branch ?? 'main';
+        } else {
+          // If GITHUB_GET_A_REPOSITORY fails, fall back to repo metadata from the list
+          log('GITHUB_GET_A_REPOSITORY failed, using list metadata. Error: %s', res.error);
+          const repoFromList = repos.find(r => r.fullName === repoFullName);
+          defaultBranch = repoFromList?.defaultBranch ?? 'main';
         }
-        log('fetched %d branches', branchList.length);
 
-        if (branchList.length > 0) {
-          setBranches(branchList);
-          const hasDefault = branchList.some(b => b.name === defaultBranch);
-          if (hasDefault) {
-            setTargetBranch(defaultBranch);
+        setForkInfo(detectedFork);
+
+        // Fetch branches
+        setBranchesLoading(true);
+        log('fetching branches for %s/%s', branchOwner, branchRepo);
+        const branchRes = await composioExecute('GITHUB_LIST_BRANCHES', {
+          owner: branchOwner,
+          repo: branchRepo,
+          per_page: 100,
+        });
+
+        if (branchRes.successful) {
+          // Composio wraps GitHub branch data as { data: { details: [...] } }
+          const raw = branchRes.data;
+          let branchList: GhBranch[] = [];
+          if (Array.isArray(raw)) {
+            branchList = raw as GhBranch[];
+          } else if (raw && typeof raw === 'object') {
+            const obj = raw as Record<string, unknown>;
+            // Probe: details (Composio wrapper), data.details, branches, items, direct array under data
+            const details = (obj as Record<string, unknown>).details;
+            const dataObj = (obj as Record<string, unknown>).data as
+              | Record<string, unknown>
+              | undefined;
+            const arr = details ?? dataObj?.details ?? obj.branches ?? obj.items ?? dataObj;
+            if (Array.isArray(arr)) {
+              branchList = arr as GhBranch[];
+            }
+          }
+          log('fetched %d branches', branchList.length);
+
+          if (branchList.length > 0) {
+            setBranches(branchList);
+            const hasDefault = branchList.some(b => b.name === defaultBranch);
+            if (hasDefault) {
+              setTargetBranch(defaultBranch);
+            } else {
+              setTargetBranch(branchList[0].name);
+            }
           } else {
-            setTargetBranch(branchList[0].name);
+            // Successful but empty/unparseable — log raw data and use fallback
+            log('branch response successful but no branches parsed. Raw data: %o', raw);
+            const fallback = [...new Set([defaultBranch, 'main', 'master'])];
+            setBranches(fallback.map(name => ({ name })));
+            setTargetBranch(defaultBranch);
           }
         } else {
-          // Successful but empty/unparseable — log raw data and use fallback
-          log('branch response successful but no branches parsed. Raw data: %o', raw);
+          // Branch listing failed — offer default branch as manual fallback
+          log('GITHUB_LIST_BRANCHES failed: %s, using default branch fallback', branchRes.error);
           const fallback = [...new Set([defaultBranch, 'main', 'master'])];
           setBranches(fallback.map(name => ({ name })));
           setTargetBranch(defaultBranch);
         }
-      } else {
-        // Branch listing failed — offer default branch as manual fallback
-        log('GITHUB_LIST_BRANCHES failed: %s, using default branch fallback', branchRes.error);
-        const fallback = [...new Set([defaultBranch, 'main', 'master'])];
-        setBranches(fallback.map(name => ({ name })));
-        setTargetBranch(defaultBranch);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log('onRepoSelect error: %s', msg);
+        setReposError(msg);
+      } finally {
+        setForkLoading(false);
+        setBranchesLoading(false);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log('onRepoSelect error: %s', msg);
-      setReposError(msg);
-    } finally {
-      setForkLoading(false);
-      setBranchesLoading(false);
-    }
-  }, [repos]);
+    },
+    [repos]
+  );
 
   // ── Save config ────────────────────────────────────────────────────
   const handleSave = () => {
@@ -363,8 +372,7 @@ const DevWorkflowPanel = () => {
             value={selectedRepo}
             onChange={e => void onRepoSelect(e.target.value)}
             disabled={reposLoading}
-            className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
-          >
+            className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
             <option value="">
               {reposLoading ? 'Loading repositories...' : 'Select a repository'}
             </option>
@@ -410,7 +418,8 @@ const DevWorkflowPanel = () => {
               Target Branch
             </label>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
-              PRs will be raised against this branch{forkInfo ? ` on ${forkInfo.upstreamFullName}` : ''}.
+              PRs will be raised against this branch
+              {forkInfo ? ` on ${forkInfo.upstreamFullName}` : ''}.
             </p>
             <select
               value={targetBranch}
@@ -419,8 +428,7 @@ const DevWorkflowPanel = () => {
                 setSaveStatus('idle');
               }}
               disabled={branchesLoading}
-              className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
-            >
+              className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50">
               {branches.map(b => (
                 <option key={b.name} value={b.name}>
                   {b.name}
@@ -430,9 +438,7 @@ const DevWorkflowPanel = () => {
           </div>
         )}
         {branchesLoading && (
-          <div className="text-xs text-neutral-500 dark:text-neutral-400">
-            Loading branches...
-          </div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400">Loading branches...</div>
         )}
 
         {/* Schedule */}
@@ -450,8 +456,7 @@ const DevWorkflowPanel = () => {
                 setSchedule(e.target.value);
                 setSaveStatus('idle');
               }}
-              className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
+              className="w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
               {SCHEDULE_PRESETS.map(p => (
                 <option key={p.value} value={p.value}>
                   {p.label}
@@ -467,22 +472,18 @@ const DevWorkflowPanel = () => {
             <button
               onClick={handleSave}
               disabled={!canSave}
-              className="px-4 py-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+              className="px-4 py-2 rounded-md bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {savedConfig ? 'Update Configuration' : 'Save Configuration'}
             </button>
             {savedConfig && (
               <button
                 onClick={handleRemove}
-                className="px-4 py-2 rounded-md bg-coral-600 hover:bg-coral-500 text-white text-sm font-medium transition-colors"
-              >
+                className="px-4 py-2 rounded-md bg-coral-600 hover:bg-coral-500 text-white text-sm font-medium transition-colors">
                 Remove
               </button>
             )}
             {saveStatus === 'saved' && (
-              <span className="text-xs text-sage-600 dark:text-sage-400 font-medium">
-                Saved
-              </span>
+              <span className="text-xs text-sage-600 dark:text-sage-400 font-medium">Saved</span>
             )}
           </div>
         )}
@@ -495,7 +496,9 @@ const DevWorkflowPanel = () => {
             </div>
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
               <dt className="text-sage-600 dark:text-sage-400">Repository:</dt>
-              <dd className="font-mono text-sage-900 dark:text-sage-200">{savedConfig.repoFullName}</dd>
+              <dd className="font-mono text-sage-900 dark:text-sage-200">
+                {savedConfig.repoFullName}
+              </dd>
               {savedConfig.forkInfo && (
                 <>
                   <dt className="text-sage-600 dark:text-sage-400">Upstream:</dt>
@@ -505,10 +508,13 @@ const DevWorkflowPanel = () => {
                 </>
               )}
               <dt className="text-sage-600 dark:text-sage-400">Target branch:</dt>
-              <dd className="font-mono text-sage-900 dark:text-sage-200">{savedConfig.targetBranch}</dd>
+              <dd className="font-mono text-sage-900 dark:text-sage-200">
+                {savedConfig.targetBranch}
+              </dd>
               <dt className="text-sage-600 dark:text-sage-400">Schedule:</dt>
               <dd className="text-sage-900 dark:text-sage-200">
-                {SCHEDULE_PRESETS.find(p => p.value === savedConfig.schedule)?.label ?? savedConfig.schedule}
+                {SCHEDULE_PRESETS.find(p => p.value === savedConfig.schedule)?.label ??
+                  savedConfig.schedule}
               </dd>
             </dl>
             <p className="mt-2 text-xs text-sage-500 dark:text-sage-400">

@@ -180,6 +180,11 @@ const id5: TranslationMap = {
   'settings.developerMenu.agentChat.title': 'Chat Agen',
   'settings.developerMenu.agentChat.desc':
     'Uji percakapan agen dengan override model dan temperatur',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'Pekerjaan Cron',
   'settings.developerMenu.cronJobs.desc': 'Lihat dan atur pekerjaan terjadwal untuk skill runtime',
   'settings.developerMenu.localModelDebug.title': 'Debug Model Lokal',

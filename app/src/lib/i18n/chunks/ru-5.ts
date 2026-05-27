@@ -180,6 +180,11 @@ const ru5: TranslationMap = {
   'settings.developerMenu.agentChat.title': 'Чат агента',
   'settings.developerMenu.agentChat.desc':
     'Тестируйте разговор агента с переопределениями модели и температуры',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'Задачи cron',
   'settings.developerMenu.cronJobs.desc':
     'Просмотр и настройка запланированных задач для runtime-навыков',

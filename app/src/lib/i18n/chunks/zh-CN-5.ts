@@ -169,6 +169,11 @@ const zhCN5: TranslationMap = {
   'settings.developerMenu.tools.desc': '启用或停用 OpenHuman 可代表你使用的能力',
   'settings.developerMenu.agentChat.title': '智能体聊天',
   'settings.developerMenu.agentChat.desc': '使用模型和温度覆盖测试智能体对话',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': '定时任务',
   'settings.developerMenu.cronJobs.desc': '查看并配置运行时技能的计划任务',
   'settings.developerMenu.localModelDebug.title': '本地模型调试',

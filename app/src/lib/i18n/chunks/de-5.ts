@@ -187,6 +187,11 @@ const de5: TranslationMap = {
   'settings.developerMenu.agentChat.title': 'Agenten-Chat',
   'settings.developerMenu.agentChat.desc':
     'Test-Agent-Konversation mit Modell- und Temperaturüberschreibungen',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'Cron-Jobs',
   'settings.developerMenu.cronJobs.desc':
     'Zeige geplante Jobs für Laufzeitfähigkeiten an und konfiguriere sie',

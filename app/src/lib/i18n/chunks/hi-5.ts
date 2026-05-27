@@ -179,6 +179,11 @@ const hi5: TranslationMap = {
   'settings.developerMenu.agentChat.title': 'एजेंट चैट',
   'settings.developerMenu.agentChat.desc':
     'मॉडल और तापमान ओवरराइड के साथ एजेंट वार्तालाप का परीक्षण करें',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'Cron जॉब्स',
   'settings.developerMenu.cronJobs.desc':
     'रनटाइम स्किल्स के लिए शेड्यूल किए गए जॉब देखें और कॉन्फ़िगर करें',

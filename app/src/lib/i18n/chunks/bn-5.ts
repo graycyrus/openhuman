@@ -179,6 +179,11 @@ const bn5: TranslationMap = {
   'settings.developerMenu.agentChat.title': 'এজেন্ট চ্যাট',
   'settings.developerMenu.agentChat.desc':
     'মডেল এবং টেম্পারেচার ওভাররাইডসহ এজেন্ট কথোপকথন পরীক্ষা করুন',
+  'settings.developerMenu.devWorkflow.title': 'Dev Workflow',
+  'settings.developerMenu.devWorkflow.desc':
+    'Autonomous agent that picks your GitHub issues and raises PRs on a schedule',
+  'settings.developerMenu.devWorkflow.panelDesc':
+    'Configure an autonomous developer agent that picks GitHub issues assigned to you and raises pull requests automatically on a schedule.',
   'settings.developerMenu.cronJobs.title': 'Cron জব',
   'settings.developerMenu.cronJobs.desc':
     'রানটাইম স্কিলের জন্য নির্ধারিত জব দেখুন এবং কনফিগার করুন',
