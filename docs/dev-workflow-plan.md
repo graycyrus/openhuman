@@ -191,4 +191,4 @@ Phase 3 (Polish)        ──── Blocked on Phase 2
 |------|------|--------|
 | Config UI | [openhuman#2703](https://github.com/tinyhumansai/openhuman/pull/2703) | Open (draft) |
 | Codegraph + Skills | [openhuman#2707](https://github.com/tinyhumansai/openhuman/pull/2707) | Open (draft) |
-| Backend repo endpoint | [backend#842](https://github.com/tinyhumansai/backend/issues/842) | Open |
+| Backend repo endpoint | [backend#842](tinyhumansai/backend#842) | Open |
