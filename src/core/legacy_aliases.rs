@@ -200,6 +200,20 @@ mod tests {
         rest[..value_end].to_string()
     }
 
+    /// Extract a JS object key that may be either quoted (`'foo'` / `"foo"`)
+    /// or an unquoted bare identifier (`foo`). Prettier removes quotes from
+    /// identifiers that don't require them, so both forms appear in practice.
+    fn extract_key(text: &str) -> String {
+        let t = text.trim();
+        // Quoted key — extract the inner value.
+        if t.starts_with('\'') || t.starts_with('"') {
+            return quoted_value(t);
+        }
+        // Bare identifier — strip trailing punctuation (commas, whitespace) and return.
+        t.trim_end_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+            .to_string()
+    }
+
     fn parse_core_rpc_methods(source: &str) -> BTreeMap<String, String> {
         let body = object_body_after_marker(source, "export const CORE_RPC_METHODS", "} as const;");
         let mut methods = BTreeMap::new();
@@ -220,10 +234,25 @@ mod tests {
         core_methods: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
         let body = object_body_after_marker(source, "export const LEGACY_METHOD_ALIASES", "};");
+        // Strip `// …` comments from each line before joining so inline
+        // comments (and standalone comment lines) don't contaminate entries.
+        // Keys may appear as quoted strings (`'foo'`) or bare identifiers
+        // (`foo`) after Prettier removes unnecessary quotes from valid
+        // JS identifiers.
         let compact = body
             .lines()
             .map(str::trim)
-            .filter(|line| !line.is_empty())
+            .filter(|line| !line.is_empty() && !line.starts_with("//"))
+            .map(|line| {
+                // Strip inline `// …` trailing comments. Object values
+                // (`'openhuman.x'`, `CORE_RPC_METHODS.y`) never contain `//`.
+                if let Some(pos) = line.find("//") {
+                    &line[..pos]
+                } else {
+                    line
+                }
+            })
+            .filter(|line| !line.trim().is_empty())
             .collect::<Vec<_>>()
             .join(" ");
         let mut aliases = BTreeMap::new();
@@ -235,7 +264,7 @@ mod tests {
             let (legacy, target_expr) = entry
                 .split_once(':')
                 .unwrap_or_else(|| panic!("expected legacy alias entry, got `{entry}`"));
-            let legacy = quoted_value(legacy);
+            let legacy = extract_key(legacy);
             let target_expr = target_expr.trim();
             let canonical = if let Some(key) = target_expr.strip_prefix("CORE_RPC_METHODS.") {
                 core_methods

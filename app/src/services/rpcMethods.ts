@@ -78,7 +78,7 @@ export const LEGACY_METHOD_ALIASES: Record<string, CoreRpcMethod> = {
   'openhuman.inference_embed': CORE_RPC_METHODS.embeddingsEmbed,
   // bare `health_snapshot` (no namespace prefix) was used by older clients
   // before the canonical `openhuman.health_snapshot` form was established.
-  'health_snapshot': CORE_RPC_METHODS.healthSnapshot,
+  health_snapshot: CORE_RPC_METHODS.healthSnapshot,
 };
 
 export function normalizeRpcMethod(method: string): string {
