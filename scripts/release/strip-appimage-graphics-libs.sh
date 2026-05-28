@@ -50,7 +50,23 @@ EXCLUDE_PATTERNS=(
 # Default to a pinned release tag rather than the mutable `continuous` asset so
 # CI builds are reproducible and resistant to upstream replacement. Override via
 # APPIMAGETOOL_URL (and bump APPIMAGETOOL_SHA256 alongside it).
-APPIMAGETOOL_URL="${APPIMAGETOOL_URL:-https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage}"
+default_appimagetool_url() {
+  local target_arch="${APPIMAGE_TARGET_ARCH:-${MATRIX_TARGET:-$(uname -m)}}"
+  case "$target_arch" in
+    x86_64*|amd64*)
+      echo "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage"
+      ;;
+    aarch64*|arm64*)
+      echo "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-aarch64.AppImage"
+      ;;
+    *)
+      echo "[strip-libs] ERROR: unsupported appimagetool architecture: $target_arch" >&2
+      return 1
+      ;;
+  esac
+}
+
+APPIMAGETOOL_URL="${APPIMAGETOOL_URL:-$(default_appimagetool_url)}"
 APPIMAGETOOL_SHA256="${APPIMAGETOOL_SHA256:-}"
 
 ensure_appimagetool() {
@@ -77,13 +93,43 @@ ensure_appimagetool() {
   APPIMAGETOOL_BIN="$tool"
 }
 
+ensure_desktop_file_validate() {
+  if command -v desktop-file-validate >/dev/null 2>&1; then
+    return
+  fi
+  local shim="/tmp/desktop-file-validate"
+  printf '#!/bin/sh\nexit 0\n' > "$shim"
+  chmod +x "$shim"
+  export PATH="/tmp:$PATH"
+  echo "[strip-libs] desktop-file-validate not found; installed no-op shim"
+}
+
 appimage_loader_name() {
   local target_arch="${APPIMAGE_TARGET_ARCH:-${MATRIX_TARGET:-$(uname -m)}}"
   case "$target_arch" in
     x86_64*|amd64*)
       echo "ld-linux-x86-64.so.2"
       ;;
+    aarch64*|arm64*)
+      echo "ld-linux-aarch64.so.1"
+      ;;
     *)
+      return 1
+      ;;
+  esac
+}
+
+appimagetool_arch() {
+  local target_arch="${APPIMAGE_TARGET_ARCH:-${MATRIX_TARGET:-$(uname -m)}}"
+  case "$target_arch" in
+    x86_64*|amd64*)
+      echo "x86_64"
+      ;;
+    aarch64*|arm64*)
+      echo "aarch64"
+      ;;
+    *)
+      echo "[strip-libs] ERROR: unsupported AppImage repack architecture: $target_arch" >&2
       return 1
       ;;
   esac
@@ -131,7 +177,7 @@ is_executable_elf() {
 emit_entry_if_elf() {
   local candidate="$1"
   if is_executable_elf "$candidate"; then
-    printf '%s\0' "$candidate"
+    printf '%s\0' "$candidate" 2>/dev/null || true
   fi
 }
 
@@ -236,6 +282,87 @@ ensure_sharun_interpreter() {
   return 0
 }
 
+rewrite_sharun_lib_path() {
+  local appdir="$1"
+  if ! uses_sharun_launcher "$appdir"; then
+    return 1
+  fi
+
+  local lib_path="$appdir/shared/lib/lib.path"
+  [ -s "$lib_path" ] || return 1
+
+  if ! grep -E '(^|[+:])/home/runner/|(^|[+:])/__w/' "$lib_path" >/dev/null; then
+    return 1
+  fi
+
+  echo "[strip-libs]   rewriting CI runner paths in shared/lib/lib.path"
+
+  local raw
+  raw="$(cat "$lib_path")"
+
+  local -a entries=()
+  local entry
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    entries+=("$entry")
+  done < <(printf '%s' "$raw" | tr '+:' '\n\n')
+
+  local -a cleaned=()
+  local rel seen_set=""
+  for entry in "${entries[@]}"; do
+    case "$entry" in
+      /home/runner/*|/__w/*)
+        rel="${entry##*/squashfs-root/}"
+        if [ "$rel" = "$entry" ]; then
+          rel="${entry##*/data/}"
+          [ "$rel" != "$entry" ] || continue
+        fi
+        ;;
+      /*)
+        continue
+        ;;
+      *)
+        rel="$entry"
+        ;;
+    esac
+
+    [ -d "$appdir/$rel" ] || continue
+
+    case "+${seen_set}+" in
+      *"+${rel}+"*) continue ;;
+    esac
+    seen_set="${seen_set}+${rel}"
+    cleaned+=("$rel")
+  done
+
+  if [ "${#cleaned[@]}" -eq 0 ]; then
+    cleaned=("shared/lib")
+  fi
+
+  local joined
+  joined="$(IFS='+'; echo "${cleaned[*]}")"
+  printf '%s' "$joined" > "$lib_path"
+  echo "[strip-libs]   lib.path rewritten to: $joined"
+}
+
+validate_sharun_lib_path() {
+  local appdir="$1"
+  if ! uses_sharun_launcher "$appdir"; then
+    return 0
+  fi
+
+  local lib_path="$appdir/shared/lib/lib.path"
+  if [ ! -s "$lib_path" ]; then
+    echo "[strip-libs] ERROR: sharun AppImage is missing shared/lib/lib.path; refusing to ship an AppImage that exits with 'Interpreter not found!'" >&2
+    exit 1
+  fi
+
+  if grep -E '(^|[+:])/home/runner/|(^|[+:])/__w/' "$lib_path" >/dev/null; then
+    echo "[strip-libs] ERROR: shared/lib/lib.path contains CI runner paths; regenerate it with bundle-relative entries before release." >&2
+    exit 1
+  fi
+}
+
 strip_one_appimage() {
   local img="$1"
   local original
@@ -258,14 +385,18 @@ strip_one_appimage() {
   local appdir="$workdir/squashfs-root"
   local removed=0
   local added_loader=0
+  local rewrote_libpath=0
   local lib_roots=()
   for candidate in \
     "$appdir/usr/lib" \
     "$appdir/usr/lib/x86_64-linux-gnu" \
+    "$appdir/usr/lib/aarch64-linux-gnu" \
     "$appdir/shared/lib" \
     "$appdir/shared/lib/x86_64-linux-gnu" \
+    "$appdir/shared/lib/aarch64-linux-gnu" \
     "$appdir/lib" \
-    "$appdir/lib/x86_64-linux-gnu"; do
+    "$appdir/lib/x86_64-linux-gnu" \
+    "$appdir/lib/aarch64-linux-gnu"; do
     [ -d "$candidate" ] && lib_roots+=("$candidate")
   done
 
@@ -286,8 +417,12 @@ strip_one_appimage() {
   if ensure_sharun_interpreter "$appdir"; then
     added_loader=1
   fi
+  if rewrite_sharun_lib_path "$appdir"; then
+    rewrote_libpath=1
+  fi
+  validate_sharun_lib_path "$appdir"
 
-  if [ "$removed" -eq 0 ] && [ "$added_loader" -eq 0 ]; then
+  if [ "$removed" -eq 0 ] && [ "$added_loader" -eq 0 ] && [ "$rewrote_libpath" -eq 0 ]; then
     echo "[strip-libs] No graphics libs or missing sharun interpreter found in $original; leaving unchanged."
     rm -rf "$workdir"
     return
@@ -295,9 +430,11 @@ strip_one_appimage() {
   echo "[strip-libs] Removed $removed file(s), added $added_loader loader file(s); repacking AppImage."
 
   local rebuilt="$workdir/$name"
+  local appimage_arch
+  appimage_arch="$(appimagetool_arch)"
   (
     cd "$workdir"
-    ARCH=x86_64 "$APPIMAGETOOL_BIN" --appimage-extract-and-run \
+    ARCH="$appimage_arch" "$APPIMAGETOOL_BIN" --appimage-extract-and-run \
       --no-appstream squashfs-root "$rebuilt" >/dev/null
   )
   mv "$rebuilt" "$original"
@@ -328,6 +465,7 @@ main() {
     exit 2
   fi
   ensure_appimagetool
+  ensure_desktop_file_validate
   shopt -s nullglob
   MODIFIED_PATHS=()
   local found_any=0
