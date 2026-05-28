@@ -1283,7 +1283,9 @@ export const BackgroundLoopControls = ({
                       </select>
                     </label>
                     <label className="min-w-0 space-y-1 text-xs font-medium text-stone-700 dark:text-neutral-200">
-                      <span className="whitespace-nowrap">{t('settings.ai.reminderLookahead')}</span>
+                      <span className="whitespace-nowrap">
+                        {t('settings.ai.reminderLookahead')}
+                      </span>
                       <select
                         value={settings.reminder_lookahead_minutes}
                         disabled={saving === 'reminder_lookahead_minutes'}
