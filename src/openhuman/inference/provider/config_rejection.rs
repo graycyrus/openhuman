@@ -169,6 +169,16 @@ pub fn is_provider_config_rejection_message(body: &str) -> bool {
         "unknown parameter: tools",
         "unrecognized field `tools`",
         "unsupported parameter: tools",
+        // TAURI-RUST-4NM — nvidia-nim (and compatible providers) return
+        // `{"error":{"message":"model field is required","code":"missing_required_field"}}`
+        // when the request body contains an empty `"model":""` field.
+        "model field is required",
+        // TAURI-RUST-2G (~2684 events) / TAURI-RUST-2F (~950 events) —
+        // thinking-mode model rejects a follow-up turn that doesn't echo
+        // the prior assistant's `reasoning_content` field.
+        "thinking mode must be passed back",
+        // TAURI-RUST-4XK (~649 events) — Ollama Cloud subscription gate.
+        "requires a subscription, upgrade for access",
     ];
 
     let lower = body.to_ascii_lowercase();
@@ -270,6 +280,26 @@ mod tests {
             (
                 "J4",
                 r#"custom_openai streaming API error (404 Not Found): {"error":{"message":"model 'llama3.3' not found","type":"not_found_error","param":null,"code":null}}"#,
+            ),
+            // TAURI-RUST-4NM — nvidia-nim (and compatible providers) return
+            // this body when the request body has an empty `"model":""`.
+            // This is user-configuration state: the provider string had no
+            // model id and the config entry has no default_model set.
+            (
+                "4NM",
+                r#"nvidia-nim API error (400 Bad Request): {"error":{"message":"model field is required","type":"invalid_request_error","param":null,"code":"missing_required_field"}}"#,
+            ),
+            (
+                "TAURI-RUST-4XK",
+                r#"ollama API error (403 Forbidden): {"error":"this model requires a subscription, upgrade for access: https://ollama.com/upgrade (ref: bc48f3c8-fba1-40b6-93a9-786a167d16f9)"}"#,
+            ),
+            (
+                "TAURI-RUST-2G",
+                r#"cloud API error (400 Bad Request): {"error":{"message":"The `reasoning_content` in the thinking mode must be passed back to the API.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}"#,
+            ),
+            (
+                "TAURI-RUST-2F",
+                r#"cloud streaming API error (400 Bad Request): {"error":{"message":"The `reasoning_content` in the thinking mode must be passed back to the API.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}"#,
             ),
         ] {
             assert!(
