@@ -405,6 +405,18 @@ mod tests {
     }
 
     #[test]
+    fn resolve_legacy_rewrites_bare_health_snapshot() {
+        // Sentry CORE-RUST-FG: older clients (and some SDK callers) issued
+        // `health_snapshot` without the `openhuman.` namespace prefix.  The
+        // alias table must rewrite it to the canonical form so the call
+        // resolves against the registered controller.
+        assert_eq!(
+            resolve_legacy("health_snapshot"),
+            "openhuman.health_snapshot",
+        );
+    }
+
+    #[test]
     fn resolve_legacy_passes_through_unknown_methods() {
         assert_eq!(
             resolve_legacy("openhuman.memory_list_namespaces"),
