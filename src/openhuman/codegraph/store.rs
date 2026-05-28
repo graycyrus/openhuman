@@ -62,6 +62,8 @@ impl CodegraphStore {
         }
         let conn = Connection::open(db_path)
             .with_context(|| format!("open codegraph db at {}", db_path.display()))?;
+        // Back off briefly under concurrent writers rather than surfacing SQLITE_BUSY.
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         // NORMAL is durable across an app crash under WAL (only a power/OS crash
         // can lose the last commit) and drops the per-commit fsync that

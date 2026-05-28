@@ -522,12 +522,17 @@ fn handle_skills_run(params: Map<String, Value>) -> ControllerFuture {
         // Focus the orchestrator on this single skill: its SKILL.md rides in
         // the task prompt as guidelines + the resolved inputs; the
         // orchestrator's own system prompt and full tool access are kept.
+        let skill_id = skill.definition.id.clone();
         let guidelines = match &skill.definition.system_prompt {
             crate::openhuman::agent::harness::definition::PromptSource::Inline(s) => s.clone(),
-            _ => String::new(),
+            other => {
+                return Err(format!(
+                    "skill_run: skill '{skill_id}' has a non-inline system prompt ({other:?}); \
+                     only inline prompts (from SKILL.md) are supported for skills_run"
+                ));
+            }
         };
         let inputs_block = registry::render_inputs_block(&skill.inputs, &inputs);
-        let skill_id = skill.definition.id.clone();
         let task_prompt = format!(
             "You are running a single skill: **{skill_id}**. Follow these guidelines exactly and \
              focus solely on completing this one task — do not pick up unrelated work.\n\n\
@@ -572,13 +577,13 @@ fn handle_skills_run(params: Map<String, Value>) -> ControllerFuture {
                         return;
                     }
                 };
-                // Autonomous skill run: lift the orchestrator's iteration cap and
-                // open web fetch to all public hosts (the SSRF private-host block
-                // stays). Sub-agents get the lifted cap via with_autonomous_iter_cap
+                // Autonomous skill run: lift the orchestrator's iteration cap.
+                // Sub-agents get the lifted cap via with_autonomous_iter_cap
                 // around run_single below; approval prompts don't apply (a
                 // background run carries no chat context, so the gate never parks).
+                // http_request.allowed_domains is intentionally NOT overridden —
+                // the configured policy (default: ["*"] with SSRF guard) applies.
                 config.agent.max_tool_iterations = SKILL_RUN_MAX_ITERATIONS;
-                config.http_request.allowed_domains = vec!["*".to_string()];
                 let mut agent = match Agent::from_config_for_agent(&config, "orchestrator") {
                     Ok(a) => a,
                     Err(e) => {

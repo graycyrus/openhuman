@@ -96,8 +96,14 @@ pub fn seed_default_skills(workspace_dir: &Path) {
             log::warn!("[skills] seed {id}: mkdir failed: {e}");
             continue;
         }
-        let _ = std::fs::write(dir.join("skill.toml"), skill_toml);
-        let _ = std::fs::write(dir.join("SKILL.md"), skill_md);
+        if let Err(e) = std::fs::write(dir.join("skill.toml"), skill_toml) {
+            log::warn!("[skills] seed {id}: write skill.toml failed: {e}");
+            continue;
+        }
+        if let Err(e) = std::fs::write(dir.join("SKILL.md"), skill_md) {
+            log::warn!("[skills] seed {id}: write SKILL.md failed: {e}");
+            continue;
+        }
         log::info!(
             "[skills] seeded default skill '{id}' into {}",
             dir.display()

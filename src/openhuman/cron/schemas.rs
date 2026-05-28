@@ -312,17 +312,27 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             .map(|s| s.to_string());
         let delivery: Option<crate::openhuman::cron::DeliveryConfig> = params
             .get("delivery")
-            .and_then(|v| serde_json::from_value(v.clone()).ok());
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid 'delivery' payload: {e}"))
+            })
+            .transpose()?;
         let delete_after_run = params
             .get("delete_after_run")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
-        // Determine job type
+        // Determine job type — explicit field takes precedence; infer from
+        // which payload key is present; reject anything other than "shell"/"agent".
         let job_type = params
             .get("job_type")
             .and_then(|v| v.as_str())
             .unwrap_or_else(|| if prompt.is_some() { "agent" } else { "shell" });
+        if job_type != "shell" && job_type != "agent" {
+            return Err(format!(
+                "invalid 'job_type': expected 'shell' or 'agent', got '{job_type}'"
+            ));
+        }
 
         let job = match job_type {
             "shell" => {
@@ -331,7 +341,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
                     .map_err(|e| e.to_string())?
             }
             _ => {
-                let p = prompt.unwrap_or_default();
+                let p = prompt.ok_or("'prompt' is required for agent jobs")?;
                 crate::openhuman::cron::store::add_agent_job_with_definition(
                     &config,
                     name,
