@@ -155,8 +155,9 @@ pub fn is_provider_config_rejection_message(body: &str) -> bool {
         // provider string had no model id and the config entry has no
         // default_model. Factory now bails early, but guard the Sentry
         // signal for in-flight requests from older configs.
+        // Note: match on the message phrase only — "missing_required_field"
+        // is too generic and would incorrectly suppress unrelated errors.
         "model field is required",
-        "missing_required_field",
     ];
 
     let lower = body.to_ascii_lowercase();

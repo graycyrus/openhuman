@@ -774,7 +774,11 @@ fn make_cloud_provider_by_slug(
     // that obscures the real cause (missing model in the provider string or
     // unset default_model on the config entry).
     // See https://github.com/tinyhumansai/openhuman/issues/2784.
-    if effective_model.trim().is_empty() {
+    //
+    // OpenhumanJwt entries are exempt: they always delegate to
+    // make_openhuman_backend which derives the model from config.default_model,
+    // ignoring whatever effective_model we computed here.
+    if entry.auth_style != AuthStyle::OpenhumanJwt && effective_model.trim().is_empty() {
         log::warn!(
             "[nvidia-nim][chat-factory] role={} slug={} resolved to empty model — \
              provider string must include a model id (e.g. '{}:<model-id>') or \
