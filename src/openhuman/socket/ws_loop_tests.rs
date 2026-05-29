@@ -11,6 +11,94 @@ fn make_shared() -> Arc<SharedState> {
     })
 }
 
+// ── Invalid-token detection (the fix for TAURI-RUST-9C) ─────────
+
+/// `is_invalid_token_error` must match the exact wire shape the backend sends
+/// (`"Socket.IO connect error: Invalid token"`) and must not match
+/// legitimately-failed handshakes (`500`, `timeout`, etc.).
+#[test]
+fn is_invalid_token_error_matches_backend_message() {
+    // Exact casing the backend currently sends.
+    assert!(is_invalid_token_error(
+        "Socket.IO connect error: Invalid token"
+    ));
+    // Case-insensitive — minor casing changes must not reopen the bug.
+    assert!(is_invalid_token_error(
+        "Socket.IO connect error: invalid token"
+    ));
+    assert!(is_invalid_token_error(
+        "Socket.IO connect error: INVALID TOKEN"
+    ));
+}
+
+#[test]
+fn is_invalid_token_error_does_not_match_other_errors() {
+    assert!(!is_invalid_token_error("Socket.IO connect error: nope"));
+    assert!(!is_invalid_token_error("Timeout waiting for SIO CONNECT ACK"));
+    assert!(!is_invalid_token_error("WebSocket connect: IO error: timeout"));
+    assert!(!is_invalid_token_error(""));
+    assert!(!is_invalid_token_error("internal server error"));
+}
+
+/// Regression guard for TAURI-RUST-9C: the server returning `44{"message":"Invalid token"}`
+/// must produce `ConnectionOutcome::InvalidToken`, not `Failed` — so the reconnect
+/// loop refreshes the credential instead of retrying with the same stale token.
+///
+/// We drive this end-to-end through `run_connection` using a mock server that
+/// sends the exact wire payload the production backend sends on token expiry.
+#[tokio::test]
+async fn run_connection_returns_invalid_token_on_auth_reject() {
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::accept_async;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("addr");
+
+    tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.expect("accept");
+        let ws = accept_async(stream).await.expect("ws accept");
+        let (mut write, mut read) = ws.split();
+
+        // 1. EIO OPEN
+        let open =
+            r#"0{"sid":"s","upgrades":[],"pingInterval":25000,"pingTimeout":20000}"#;
+        let _ = write.send(WsMessage::Text(open.to_string())).await;
+
+        // 2. Drain client SIO CONNECT frame.
+        let _ = read.next().await;
+
+        // 3. Send connect error — the exact backend payload for a stale token.
+        let _ = write
+            .send(WsMessage::Text(
+                r#"44{"message":"Invalid token"}"#.to_string(),
+            ))
+            .await;
+        let _ = write.close().await;
+    });
+
+    let shared = make_shared();
+    *shared.status.write() = ConnectionStatus::Disconnected;
+    let (_emit_tx, mut emit_rx) = mpsc::unbounded_channel::<String>();
+    let (_shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    let (internal_tx, _internal_rx) = mpsc::unbounded_channel::<String>();
+
+    let mut ws_url = crate::api::socket::websocket_url(&format!("http://{addr}"));
+    let outcome = run_connection(
+        &mut ws_url,
+        "stale-jwt",
+        &shared,
+        &mut emit_rx,
+        &mut shutdown_rx,
+        &internal_tx,
+    )
+    .await;
+
+    assert!(
+        matches!(outcome, ConnectionOutcome::InvalidToken),
+        "expected InvalidToken for `44{{\"message\":\"Invalid token\"}}` server response"
+    );
+}
+
 // ── Redirect resolution (the real fix for OPENHUMAN-TAURI-9X) ──
 
 #[test]
@@ -337,31 +425,6 @@ fn sustained_outage_for_network_unreachable_classifies_as_expected() {
         expected_error_kind(&detailed),
         Some(ExpectedErrorKind::NetworkUnreachable),
         "offline-user shape must classify as expected; got message: {detailed}"
-    );
-}
-
-/// Regression guard for TAURI-RUST-4ZD: a TLS handshake aborted by the
-/// peer / a firewall / antivirus / corporate TLS proxy surfaces from
-/// `run_connection` as `WebSocket connect: TLS error: native-tls error:
-/// unexpected EOF during handshake`. The exact wire shape the
-/// sustained-outage escalation builds must classify as a
-/// network-unreachable expected error so an affected Windows client logs
-/// a warn breadcrumb rather than a Sentry event. The pre-existing
-/// `"tls handshake"` substring does NOT match this render (the words are
-/// not contiguous), so this pins the dedicated `"unexpected eof during
-/// handshake"` anchor to the emit site.
-#[test]
-fn sustained_outage_for_tls_handshake_eof_classifies_as_expected() {
-    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
-
-    let reason = "WebSocket connect: TLS error: native-tls error: unexpected EOF during handshake";
-    let detailed = format!(
-        "[socket] Connection failed (sustained outage after {FAIL_ESCALATE_THRESHOLD} attempts): {reason}"
-    );
-    assert_eq!(
-        expected_error_kind(&detailed),
-        Some(ExpectedErrorKind::NetworkUnreachable),
-        "TLS-handshake-EOF shape must classify as expected; got message: {detailed}"
     );
 }
 

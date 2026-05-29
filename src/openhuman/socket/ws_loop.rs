@@ -51,7 +51,7 @@ const FAIL_ESCALATE_THRESHOLD: u32 = 5;
 /// Background loop that manages the WebSocket connection and reconnection.
 pub(super) async fn ws_loop(
     url: String,
-    token: String,
+    mut token: String,
     shared: Arc<SharedState>,
     mut emit_rx: mpsc::UnboundedReceiver<String>,
     mut shutdown_rx: watch::Receiver<bool>,
@@ -127,6 +127,60 @@ pub(super) async fn ws_loop(
                 log_connection_failure(consecutive_failures, &reason);
                 // keep growing backoff
             }
+            ConnectionOutcome::InvalidToken => {
+                // The server explicitly rejected our auth token.  Retrying
+                // with the same stale credential would 401 on every attempt
+                // and, after `FAIL_ESCALATE_THRESHOLD` retries, produce a
+                // spurious "sustained outage" Sentry event (TAURI-RUST-9C).
+                //
+                // Strategy: reset the failure streak (this is an auth issue,
+                // not a transport outage), reset backoff to minimum (no point
+                // in exponential back-off for a token refresh), then fetch a
+                // fresh token from the credential store before the next
+                // attempt. If the store has no valid token (user logged out,
+                // store unavailable), fall back to `Failed` accounting so the
+                // one-shot Sentry event fires normally.
+                consecutive_failures = 0;
+                backoff = Duration::from_millis(1000);
+
+                log::warn!(
+                    "[socket] Server rejected token (Invalid token) — attempting token refresh before retry"
+                );
+
+                *shared.status.write() = ConnectionStatus::Disconnected;
+                *shared.socket_id.write() = None;
+                emit_state_change(&shared);
+
+                if *shutdown_rx.borrow() {
+                    break;
+                }
+
+                match refresh_session_token().await {
+                    Some(fresh) => {
+                        log::info!(
+                            "[socket] Token refreshed (len={}) — retrying connection immediately",
+                            fresh.len()
+                        );
+                        token = fresh;
+                        // Skip the normal backoff sleep below — reconnect
+                        // right away with the new token.
+                        continue;
+                    }
+                    None => {
+                        log::error!(
+                            "[socket] Token refresh failed — no valid session token in store; \
+                             will retry with original token after backoff"
+                        );
+                        // Treat as a regular failure so the Sentry escalation
+                        // path still fires if this persists.
+                        consecutive_failures = consecutive_failures.saturating_add(1);
+                        log_connection_failure(
+                            consecutive_failures,
+                            "SIO CONNECT: Socket.IO connect error: Invalid token (refresh failed)",
+                        );
+                    }
+                }
+            }
         }
 
         *shared.status.write() = ConnectionStatus::Disconnected;
@@ -151,6 +205,46 @@ pub(super) async fn ws_loop(
     *shared.status.write() = ConnectionStatus::Disconnected;
     *shared.socket_id.write() = None;
     emit_state_change(&shared);
+}
+
+// ---------------------------------------------------------------------------
+// Token refresh helper
+// ---------------------------------------------------------------------------
+
+/// Attempt to load the current session token from the credential store.
+///
+/// Returns `Some(token)` when a non-empty token is available, `None` when
+/// the config cannot be loaded or the store has no valid session.
+///
+/// This is intentionally the same code path as `handle_connect_with_session`
+/// so the two callers stay in sync when the auth plumbing changes.
+async fn refresh_session_token() -> Option<String> {
+    log::debug!("[socket] refresh_session_token: loading config");
+    let config = match crate::openhuman::config::ops::load_config_with_timeout().await {
+        Ok(c) => c,
+        Err(e) => {
+            log::warn!("[socket] refresh_session_token: config load failed: {e}");
+            return None;
+        }
+    };
+    match crate::api::jwt::get_session_token(&config) {
+        Ok(Some(t)) if !t.trim().is_empty() => {
+            log::debug!("[socket] refresh_session_token: got fresh token (len={})", t.len());
+            Some(t)
+        }
+        Ok(Some(_)) => {
+            log::warn!("[socket] refresh_session_token: stored token is blank");
+            None
+        }
+        Ok(None) => {
+            log::warn!("[socket] refresh_session_token: no session token in store");
+            None
+        }
+        Err(e) => {
+            log::warn!("[socket] refresh_session_token: read error: {e}");
+            None
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +370,23 @@ async fn run_connection(
             .await
         {
             Ok(Ok(data)) => data,
-            Ok(Err(e)) => return ConnectionOutcome::Failed(format!("SIO CONNECT: {e}")),
+            Ok(Err(e)) => {
+                // Detect the "Invalid token" connect-error from the server
+                // (type 44 with `{"message":"Invalid token"}`) and surface it
+                // as `InvalidToken` so the reconnect loop can refresh the
+                // credential instead of retrying with the same stale token.
+                // The error string was formatted by `read_sio_connect_ack` as
+                // "Socket.IO connect error: <message>"; we match on the
+                // canonical backend message case-insensitively so minor
+                // casing changes don't re-open the bug.
+                if is_invalid_token_error(&e) {
+                    log::warn!(
+                        "[socket] SIO CONNECT rejected with invalid-token error: {e}"
+                    );
+                    return ConnectionOutcome::InvalidToken;
+                }
+                return ConnectionOutcome::Failed(format!("SIO CONNECT: {e}"));
+            }
             Err(_) => {
                 return ConnectionOutcome::Failed("Timeout waiting for SIO CONNECT ACK".into())
             }
@@ -360,6 +470,18 @@ async fn run_connection(
 // ---------------------------------------------------------------------------
 // Handshake helpers
 // ---------------------------------------------------------------------------
+
+/// Return `true` when `error_msg` represents an "Invalid token" rejection
+/// from the Socket.IO server.
+///
+/// `read_sio_connect_ack` formats the error as:
+/// `"Socket.IO connect error: <backend message>"`.
+/// The backend sends `{"message":"Invalid token"}` (exact casing as of the
+/// current production backend). We match case-insensitively so a minor
+/// backend casing change does not silently reopen the stale-token retry loop.
+fn is_invalid_token_error(error_msg: &str) -> bool {
+    error_msg.to_lowercase().contains("invalid token")
+}
 
 /// Read the Engine.IO OPEN packet (type 0) from the WebSocket.
 ///

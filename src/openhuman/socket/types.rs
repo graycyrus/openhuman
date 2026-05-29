@@ -23,6 +23,11 @@ pub(super) enum ConnectionOutcome {
     Lost(String),
     /// Connection failed during handshake (triggers increment of backoff).
     Failed(String),
+    /// The server rejected the auth token (`Socket.IO connect error: Invalid
+    /// token`). The loop must refresh the session token before retrying —
+    /// retrying with the same stale token would 401 on every attempt and
+    /// eventually produce a spurious Sentry "sustained outage" event.
+    InvalidToken,
 }
 
 #[cfg(test)]
@@ -44,11 +49,13 @@ mod tests {
         let a = ConnectionOutcome::Shutdown;
         let b = ConnectionOutcome::Lost("net".into());
         let c = ConnectionOutcome::Failed("tls".into());
-        for outcome in [a, b, c] {
+        let d = ConnectionOutcome::InvalidToken;
+        for outcome in [a, b, c, d] {
             match outcome {
                 ConnectionOutcome::Shutdown => {}
                 ConnectionOutcome::Lost(reason) => assert!(!reason.is_empty()),
                 ConnectionOutcome::Failed(reason) => assert!(!reason.is_empty()),
+                ConnectionOutcome::InvalidToken => {}
             }
         }
     }
@@ -65,5 +72,7 @@ mod tests {
         } else {
             panic!("expected Failed");
         }
+        // InvalidToken carries no reason string — it is self-descriptive.
+        matches!(ConnectionOutcome::InvalidToken, ConnectionOutcome::InvalidToken);
     }
 }
