@@ -726,12 +726,192 @@ fn search_cross_thread_messages_skips_short_terms_and_empty_queries() {
 }
 
 #[test]
+fn search_cross_thread_messages_finds_polish_substring_without_diacritics() {
+    let (_temp, store) = make_store();
+    store
+        .ensure_thread(CreateConversationThread {
+            parent_thread_id: None,
+            id: "thread-pl".to_string(),
+            title: "PL".to_string(),
+            created_at: "2026-04-10T12:00:00Z".to_string(),
+            labels: None,
+        })
+        .unwrap();
+    store
+        .append_message(
+            "thread-pl",
+            ConversationMessage {
+                id: "m1".to_string(),
+                content: "Lecę w piątek do Łodzi a potem Krakowa".to_string(),
+                message_type: "text".to_string(),
+                extra_metadata: json!({}),
+                sender: "user".to_string(),
+                created_at: "2026-04-10T12:01:00Z".to_string(),
+            },
+        )
+        .unwrap();
+
+    // Query without diacritics should still find content with them.
+    let hits = store
+        .search_cross_thread_messages("Lodzi", 10, None)
+        .expect("cross-thread search");
+    assert_eq!(hits.len(), 1, "ł-fold should match Łodzi via lodzi");
+
+    let hits = store
+        .search_cross_thread_messages("krakow", 10, None)
+        .expect("cross-thread search");
+    assert_eq!(hits.len(), 1, "diacritic strip should match Krakowa");
+}
+
+#[test]
+fn search_cross_thread_messages_finds_japanese_bigram_match() {
+    let (_temp, store) = make_store();
+    store
+        .ensure_thread(CreateConversationThread {
+            parent_thread_id: None,
+            id: "thread-jp".to_string(),
+            title: "JP".to_string(),
+            created_at: "2026-04-10T12:00:00Z".to_string(),
+            labels: None,
+        })
+        .unwrap();
+    store
+        .append_message(
+            "thread-jp",
+            ConversationMessage {
+                id: "m1".to_string(),
+                content: "明日東京に行きます".to_string(), // "Tomorrow I'm going to Tokyo"
+                message_type: "text".to_string(),
+                extra_metadata: json!({}),
+                sender: "user".to_string(),
+                created_at: "2026-04-10T12:01:00Z".to_string(),
+            },
+        )
+        .unwrap();
+
+    let hits = store
+        .search_cross_thread_messages("東京", 10, None)
+        .expect("cross-thread search");
+    assert_eq!(hits.len(), 1, "CJK bigram lookup should find 東京");
+    assert_eq!(hits[0].message_id, "m1");
+}
+
+#[test]
+fn search_cross_thread_messages_rebuilds_index_from_jsonl_after_reopen() {
+    // First store handle writes messages, second handle (simulating
+    // process restart on the same workspace dir) must lazy-rebuild the
+    // index from JSONL and still answer search queries.
+    let temp = TempDir::new().expect("tempdir");
+    let workspace = temp.path().to_path_buf();
+    {
+        let store = ConversationStore::new(workspace.clone());
+        store
+            .ensure_thread(CreateConversationThread {
+                parent_thread_id: None,
+                id: "thread-x".to_string(),
+                title: "X".to_string(),
+                created_at: "2026-04-10T12:00:00Z".to_string(),
+                labels: None,
+            })
+            .unwrap();
+        store
+            .append_message(
+                "thread-x",
+                ConversationMessage {
+                    id: "m1".to_string(),
+                    content: "persisted across reopen — checksum kitten".to_string(),
+                    message_type: "text".to_string(),
+                    extra_metadata: json!({}),
+                    sender: "user".to_string(),
+                    created_at: "2026-04-10T12:01:00Z".to_string(),
+                },
+            )
+            .unwrap();
+    }
+    // The cache key is per-workspace path; this TempDir was never seen
+    // before, so a fresh store handle will trigger a lazy rebuild.
+    let reopened = ConversationStore::new(workspace);
+    let hits = reopened
+        .search_cross_thread_messages("kitten", 10, None)
+        .expect("cross-thread search");
+    assert_eq!(hits.len(), 1, "reopened store must rebuild index from disk");
+}
+
+#[test]
 fn update_thread_labels_missing_thread_returns_error() {
     let (_temp, store) = make_store();
     let err = store
         .update_thread_labels("missing", vec!["work".into()], "2026-04-10T12:05:00Z")
         .unwrap_err();
     assert!(err.contains("thread missing not found"));
+}
+
+#[test]
+fn cold_search_does_not_serialize_on_outer_lock() {
+    // Issue #2849: verify that a cold-cache search releases the store
+    // lock before the JSONL rebuild, so concurrent writes aren't blocked.
+    let (_temp, store) = make_store();
+
+    // Seed a thread with a message so the search has something to find.
+    store
+        .ensure_thread(CreateConversationThread {
+            id: "t1".to_string(),
+            title: "test thread".to_string(),
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            parent_thread_id: None,
+            labels: None,
+        })
+        .unwrap();
+    store
+        .append_message(
+            "t1",
+            ConversationMessage {
+                id: "m1".to_string(),
+                content: "hello world".to_string(),
+                message_type: "text".to_string(),
+                extra_metadata: json!({}),
+                sender: "user".to_string(),
+                created_at: "2026-01-01T00:00:00Z".to_string(),
+            },
+        )
+        .unwrap();
+
+    // Evict any warm cache so the next search triggers a cold rebuild.
+    {
+        let mut cache = CONVERSATION_INDEX_CACHE.lock();
+        cache.remove(&store.root_dir());
+    }
+
+    // Spawn a thread that tries to append a message while a cold search
+    // is (conceptually) running. In the old code this would deadlock or
+    // serialize behind the full rebuild; in the fixed code the store lock
+    // is released after the thread-list snapshot and the append succeeds
+    // concurrently.
+    let store2 = store.clone();
+    let writer = std::thread::spawn(move || {
+        store2
+            .append_message(
+                "t1",
+                ConversationMessage {
+                    id: "m2".to_string(),
+                    content: "concurrent write".to_string(),
+                    message_type: "text".to_string(),
+                    extra_metadata: json!({}),
+                    sender: "assistant".to_string(),
+                    created_at: "2026-01-01T00:00:01Z".to_string(),
+                },
+            )
+            .unwrap();
+    });
+
+    // Run the cold search — should not deadlock.
+    let results = store
+        .search_cross_thread_messages("hello", 10, None)
+        .unwrap();
+    assert!(!results.is_empty(), "search should find seeded message");
+
+    // The concurrent write must also succeed.
+    writer.join().expect("concurrent write must not deadlock");
 }
 
 #[test]
