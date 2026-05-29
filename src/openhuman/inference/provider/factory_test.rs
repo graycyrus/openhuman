@@ -1219,9 +1219,10 @@ async fn ollama_provider_does_not_fall_back_to_responses_on_404() {
     // /v1/responses should NOT be called — mount with expect(0).
     Mock::given(method("POST"))
         .and(path("/v1/responses"))
-        .respond_with(ResponseTemplate::new(200).set_body_string(
-            r#"{"output_text":"should not reach here"}"#,
-        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"output_text":"should not reach here"}"#),
+        )
         .expect(0) // must not be called
         .mount(&mock_server)
         .await;
@@ -1234,9 +1235,7 @@ async fn ollama_provider_does_not_fall_back_to_responses_on_404() {
             .expect("ollama provider must build");
 
     // The call should fail (404), but must not trigger the /v1/responses path.
-    let result = provider
-        .chat_with_system(None, "hello", &model, 0.0)
-        .await;
+    let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
     assert!(
         result.is_err(),
         "provider should fail with 404, got success"
@@ -1258,18 +1257,17 @@ async fn lmstudio_provider_does_not_fall_back_to_responses_on_404() {
 
     Mock::given(method("POST"))
         .and(path("/v1/chat/completions"))
-        .respond_with(ResponseTemplate::new(404).set_body_string(
-            r#"{"error":"model not found"}"#,
-        ))
+        .respond_with(ResponseTemplate::new(404).set_body_string(r#"{"error":"model not found"}"#))
         .expect(1)
         .mount(&mock_server)
         .await;
 
     Mock::given(method("POST"))
         .and(path("/v1/responses"))
-        .respond_with(ResponseTemplate::new(200).set_body_string(
-            r#"{"output_text":"should not reach here"}"#,
-        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"output_text":"should not reach here"}"#),
+        )
         .expect(0)
         .mount(&mock_server)
         .await;
@@ -1280,9 +1278,7 @@ async fn lmstudio_provider_does_not_fall_back_to_responses_on_404() {
         create_chat_provider_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
             .expect("lmstudio provider must build");
 
-    let result = provider
-        .chat_with_system(None, "hello", &model, 0.0)
-        .await;
+    let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
     assert!(
         result.is_err(),
         "provider should fail with 404, got success"
@@ -1299,9 +1295,10 @@ async fn cloud_provider_falls_back_to_responses_on_404() {
     // chat/completions returns 404 → should trigger fallback.
     Mock::given(method("POST"))
         .and(path("/v1/chat/completions"))
-        .respond_with(ResponseTemplate::new(404).set_body_string(
-            r#"{"error":{"message":"model not found","code":404}}"#,
-        ))
+        .respond_with(
+            ResponseTemplate::new(404)
+                .set_body_string(r#"{"error":{"message":"model not found","code":404}}"#),
+        )
         .expect(1) // exactly one attempt
         .mount(&mock_server)
         .await;
@@ -1309,9 +1306,11 @@ async fn cloud_provider_falls_back_to_responses_on_404() {
     // /v1/responses MUST be called — the provider should fall back to it.
     Mock::given(method("POST"))
         .and(path("/v1/responses"))
-        .respond_with(ResponseTemplate::new(200).set_body_string(
-            r#"{"output":[{"content":[{"type":"output_text","text":"ok"}]}]}"#,
-        ))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(
+                r#"{"output":[{"content":[{"type":"output_text","text":"ok"}]}]}"#,
+            ),
+        )
         .expect(1) // must be called exactly once
         .mount(&mock_server)
         .await;
@@ -1332,9 +1331,7 @@ async fn cloud_provider_falls_back_to_responses_on_404() {
             .expect("cloud provider must build");
 
     // The call should succeed via the responses fallback.
-    let result = provider
-        .chat_with_system(None, "hello", &model, 0.0)
-        .await;
+    let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
 
     // wiremock verifies expect(1) on the responses mock when the server is dropped.
     // We don't assert Ok here because the provider may return an error even after a

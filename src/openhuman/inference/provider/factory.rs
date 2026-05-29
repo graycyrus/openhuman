@@ -978,7 +978,12 @@ fn make_openai_compatible_provider_with_config(
     let provider = if supports_responses_fallback {
         OpenAiCompatibleProvider::new(provider_name, endpoint, key, auth_style)
     } else {
-        OpenAiCompatibleProvider::new_no_responses_fallback(provider_name, endpoint, key, auth_style)
+        OpenAiCompatibleProvider::new_no_responses_fallback(
+            provider_name,
+            endpoint,
+            key,
+            auth_style,
+        )
     };
     Ok(Box::new(
         provider
