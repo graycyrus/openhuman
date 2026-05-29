@@ -968,6 +968,13 @@ fn make_openai_compatible_provider_with_config(
     } else {
         Some(api_key)
     };
+    log::debug!(
+        "[providers][chat-factory] building compatible provider name={} endpoint_host={} responses_fallback={} temp_override={:?}",
+        provider_name,
+        redact_endpoint(endpoint),
+        supports_responses_fallback,
+        temperature_override
+    );
     let provider = if supports_responses_fallback {
         OpenAiCompatibleProvider::new(provider_name, endpoint, key, auth_style)
     } else {
