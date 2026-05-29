@@ -2,10 +2,24 @@
 //!
 //! Follows the cron module's `with_connection` pattern: opens the database,
 //! runs DDL on every connection, and provides pure functions.
+//!
+//! ## Init-failure noise suppression (TAURI-RUST-A)
+//!
+//! `with_connection` runs the schema DDL on every call. On Windows the DDL can
+//! fail once (e.g. locked file, antivirus hold, network-drive WAL rejection) and
+//! then every subsequent `subconscious_tasks_list` RPC re-runs the same failing
+//! path — producing ~1,500 identical Sentry events from a single underlying cause.
+//!
+//! Guard: `DDL_EVER_FAILED` / `DDL_LOGGED` pair.
+//! - First failure → log at `error!` level (captured by Sentry once) + set both flags.
+//! - All subsequent calls → return a sentinel `Err` that the read-only list
+//!   handlers in `schemas.rs` detect and convert to empty payloads, bypassing
+//!   the RPC error path that would re-fire `report_error_or_expected`.
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 
 use super::types::{
@@ -13,22 +27,64 @@ use super::types::{
     TaskPatch, TaskRecurrence, TaskSource,
 };
 
+/// Set to `true` the first time DDL init fails. Prevents re-running the same
+/// failing DDL on every subsequent RPC call (TAURI-RUST-A — 1,499 events).
+static DDL_EVER_FAILED: AtomicBool = AtomicBool::new(false);
+
+/// Set to `true` once we have emitted the first error log. Ensures Sentry only
+/// captures the failure once — subsequent calls get a silent sentinel error.
+static DDL_LOGGED: AtomicBool = AtomicBool::new(false);
+
+/// Sentinel message returned after the first DDL failure. Read-only list
+/// handlers in `schemas.rs` match on this prefix to return empty payloads
+/// instead of propagating an error that would fire `report_error_or_expected`.
+pub const DB_INIT_FAILED_SENTINEL: &str = "[subconscious] db unavailable (init failed)";
+
 /// Open the subconscious database and run schema migrations.
+///
+/// After the first DDL failure the function returns [`DB_INIT_FAILED_SENTINEL`]
+/// immediately, skipping both the filesystem open and the DDL re-run. Callers
+/// that perform read-only list queries should treat this sentinel as "empty
+/// result" rather than an RPC error (see `schemas.rs`).
 pub fn with_connection<T>(
     workspace_dir: &Path,
     f: impl FnOnce(&Connection) -> Result<T>,
 ) -> Result<T> {
-    let db_path = workspace_dir.join("subconscious").join("subconscious.db");
-    if let Some(parent) = db_path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create subconscious dir: {}", parent.display()))?;
+    // Fast path: DDL already failed in this process — skip the re-run and
+    // return the sentinel without logging again.
+    if DDL_EVER_FAILED.load(Ordering::Relaxed) {
+        anyhow::bail!(DB_INIT_FAILED_SENTINEL);
     }
 
-    let conn = Connection::open(&db_path)
-        .with_context(|| format!("failed to open subconscious DB: {}", db_path.display()))?;
+    let db_path = workspace_dir.join("subconscious").join("subconscious.db");
+    if let Some(parent) = db_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            let msg = format!(
+                "[subconscious] failed to create subconscious dir {}: {e}",
+                parent.display()
+            );
+            maybe_log_ddl_error(&msg);
+            anyhow::bail!(DB_INIT_FAILED_SENTINEL);
+        }
+    }
 
-    conn.execute_batch(SCHEMA_DDL)
-        .with_context(|| "failed to run subconscious schema DDL")?;
+    let conn = match Connection::open(&db_path) {
+        Ok(c) => c,
+        Err(e) => {
+            let msg = format!(
+                "[subconscious] failed to open subconscious DB {}: {e}",
+                db_path.display()
+            );
+            maybe_log_ddl_error(&msg);
+            anyhow::bail!(DB_INIT_FAILED_SENTINEL);
+        }
+    };
+
+    if let Err(e) = conn.execute_batch(SCHEMA_DDL) {
+        let msg = format!("[subconscious] failed to run subconscious schema DDL: {e}");
+        maybe_log_ddl_error(&msg);
+        anyhow::bail!(DB_INIT_FAILED_SENTINEL);
+    }
 
     // Drop the legacy `disposition` / `surfaced_at` columns + their index
     // from previously-migrated DBs. Idempotent — fresh installs and
@@ -40,6 +96,20 @@ pub fn with_connection<T>(
     super::reflection_store::migrate_add_source_chunks_column(&conn);
 
     f(&conn)
+}
+
+/// Log the DDL failure exactly once (first call) so Sentry captures a single
+/// event. Sets `DDL_EVER_FAILED` so subsequent `with_connection` calls skip
+/// the expensive open + DDL re-run without emitting more Sentry events.
+fn maybe_log_ddl_error(msg: &str) {
+    DDL_EVER_FAILED.store(true, Ordering::Relaxed);
+    // Only log the first occurrence — CAS ensures a single Sentry capture.
+    if DDL_LOGGED
+        .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+        .is_ok()
+    {
+        log::error!("{msg}");
+    }
 }
 
 const SCHEMA_DDL: &str = "

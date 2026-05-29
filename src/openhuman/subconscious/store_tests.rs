@@ -1,5 +1,25 @@
 use super::*;
 
+// ── TAURI-RUST-A regression tests ────────────────────────────────────────────
+// Verify that the sentinel string is stable. The global `DDL_EVER_FAILED` flag
+// cannot be unit-tested in isolation (process-global, permanent once set), so
+// we only test properties that are safe to check without mutating global state.
+
+#[test]
+fn db_init_failed_sentinel_is_non_empty_and_prefixed() {
+    // Sentinel must be non-empty and carry the [subconscious] grep prefix so
+    // `is_db_init_failed` in schemas.rs can match it reliably.
+    assert!(!DB_INIT_FAILED_SENTINEL.is_empty());
+    assert!(
+        DB_INIT_FAILED_SENTINEL.contains("[subconscious]"),
+        "sentinel must carry [subconscious] grep prefix, got: {DB_INIT_FAILED_SENTINEL}"
+    );
+    assert!(
+        DB_INIT_FAILED_SENTINEL.contains("db unavailable"),
+        "sentinel must carry 'db unavailable' so UI can distinguish init failures from query failures"
+    );
+}
+
 fn test_conn() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();

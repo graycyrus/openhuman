@@ -277,7 +277,7 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
         let hb = &config.heartbeat;
 
         let (task_count, pending_escalations, last_tick_at, total_ticks) =
-            store::with_connection(&config.workspace_dir, |conn| {
+            match store::with_connection(&config.workspace_dir, |conn| {
                 let tc = store::task_count(conn).unwrap_or(0);
                 let pe = store::pending_escalation_count(conn).unwrap_or(0);
                 let (lt, tt) = conn
@@ -288,8 +288,15 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
                     )
                     .unwrap_or((None, 0));
                 Ok((tc, pe, lt, tt))
-            })
-            .map_err(|e| e.to_string())?;
+            }) {
+                Ok(counts) => counts,
+                Err(e) if is_db_init_failed(&e) => {
+                    // DB unavailable — return zeroed status so the UI stays functional.
+                    log::debug!("[subconscious] status: db unavailable — returning zeroed status");
+                    (0u64, 0u64, None::<f64>, 0u64)
+                }
+                Err(e) => return Err(e.to_string()),
+            };
 
         let provider_unavailable_reason = if hb.enabled && hb.inference_enabled {
             super::engine::subconscious_provider_unavailable_reason(&config)
@@ -352,10 +359,18 @@ fn handle_tasks_list(params: Map<String, Value>) -> ControllerFuture {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         let config = load_config().await?;
-        let tasks = store::with_connection(&config.workspace_dir, |conn| {
+        let tasks = match store::with_connection(&config.workspace_dir, |conn| {
             store::list_tasks(conn, enabled_only)
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            Ok(t) => t,
+            Err(e) if is_db_init_failed(&e) => {
+                // DDL failed on a previous call and was already reported to Sentry
+                // once. Return an empty list so the UI stays functional (TAURI-RUST-A).
+                log::debug!("[subconscious] tasks_list: db unavailable — returning empty list");
+                vec![]
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         to_json(RpcOutcome::single_log(tasks, "tasks listed"))
     })
 }
@@ -441,10 +456,16 @@ fn handle_log_list(params: Map<String, Value>) -> ControllerFuture {
         let task_id = params.get("task_id").and_then(|v| v.as_str());
         let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
         let config = load_config().await?;
-        let entries = store::with_connection(&config.workspace_dir, |conn| {
+        let entries = match store::with_connection(&config.workspace_dir, |conn| {
             store::list_log_entries(conn, task_id, limit)
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            Ok(e) => e,
+            Err(e) if is_db_init_failed(&e) => {
+                log::debug!("[subconscious] log_list: db unavailable — returning empty list");
+                vec![]
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         to_json(RpcOutcome::single_log(entries, "log entries listed"))
     })
 }
@@ -460,10 +481,18 @@ fn handle_escalations_list(params: Map<String, Value>) -> ControllerFuture {
                 _ => EscalationStatus::Pending,
             });
         let config = load_config().await?;
-        let escalations = store::with_connection(&config.workspace_dir, |conn| {
+        let escalations = match store::with_connection(&config.workspace_dir, |conn| {
             store::list_escalations(conn, status_filter.as_ref())
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            Ok(e) => e,
+            Err(e) if is_db_init_failed(&e) => {
+                log::debug!(
+                    "[subconscious] escalations_list: db unavailable — returning empty list"
+                );
+                vec![]
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         to_json(RpcOutcome::single_log(escalations, "escalations listed"))
     })
 }
@@ -517,10 +546,18 @@ fn handle_reflections_list(params: Map<String, Value>) -> ControllerFuture {
         let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
         let since_ts = params.get("since_ts").and_then(|v| v.as_f64());
         let config = load_config().await?;
-        let reflections = store::with_connection(&config.workspace_dir, |conn| {
+        let reflections = match store::with_connection(&config.workspace_dir, |conn| {
             reflection_store::list_recent(conn, limit, since_ts)
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            Ok(r) => r,
+            Err(e) if is_db_init_failed(&e) => {
+                log::debug!(
+                    "[subconscious] reflections_list: db unavailable — returning empty list"
+                );
+                vec![]
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         to_json(RpcOutcome::single_log(reflections, "reflections listed"))
     })
 }
@@ -711,6 +748,14 @@ fn field_opt(name: &'static str, ty: TypeSchema, comment: &'static str) -> Field
 
 fn to_json<T: serde::Serialize>(outcome: RpcOutcome<T>) -> Result<Value, String> {
     outcome.into_cli_compatible_json()
+}
+
+/// Returns `true` when `e` is the sentinel set by `store::with_connection` after
+/// the first DDL init failure. Callers use this to return empty/degraded payloads
+/// instead of propagating an error that would re-fire `report_error_or_expected`
+/// on every polling call (TAURI-RUST-A).
+fn is_db_init_failed(e: &anyhow::Error) -> bool {
+    e.to_string().contains(store::DB_INIT_FAILED_SENTINEL)
 }
 
 #[cfg(test)]
