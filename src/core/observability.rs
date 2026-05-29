@@ -295,6 +295,13 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     if lower.contains("local ai is disabled") {
         return Some(ExpectedErrorKind::LocalAiDisabled);
     }
+    // `_api_key is not configured` catches backend-reported environment variable
+    // phrases like `VOYAGE_API_KEY is not configured` and
+    // `COHERE_API_KEY is not configured` returned by the embeddings backend
+    // when the relevant env var is absent (TAURI-RUST-2H5, ~5 K events).
+    // The `_api_key` anchor (lower-cased suffix of an env-var name) keeps
+    // generic "X is not configured" prose from being silenced — only
+    // ALL_CAPS_API_KEY-style names match.
     if lower.contains("api key not set")
         || lower.contains("missing api key")
         || lower.contains("_api_key is not configured")
@@ -606,6 +613,18 @@ fn is_memory_store_breaker_open(lower: &str) -> bool {
 ///   `"session JWT required"` — local pre-flight guards that fire when the
 ///   stored profile is empty (`#1465`-ish onboarding spam) or has been
 ///   cleared by a previous 401 cycle. Both shapes are OpenHuman-specific.
+/// - `"backend rejected session token on GET /payments/stripe/currentPlan"` and
+///   all analogous `"{METHOD} {path}"` variants — the `BackendApiError::Unauthorized`
+///   typed error surfaced by `api::rest::BackendOAuthClient::authed_json` when any
+///   OpenHuman REST endpoint returns HTTP 401. The `get_authed_value` wrapper in
+///   `billing::ops` stringifies this via `.to_string()`, producing the
+///   `"backend rejected session token on …"` prefix. This is uniquely scoped to
+///   the `BackendApiError::Unauthorized` variant (the phrase does not appear in
+///   any third-party provider error path) so it is safe to classify as session
+///   expiry without the conjunctive-anchor guard pattern needed for `"Invalid
+///   token"`. Targets TAURI-RUST-E (~1 437 events from
+///   `openhuman.billing_get_current_plan` polling on every background billing
+///   refresh cycle after the user's JWT lapses).
 ///
 /// At the JSON-RPC dispatch boundary the same strict match controls
 /// `DomainEvent::SessionExpired` publication, so downstream/provider 401s stay
@@ -616,6 +635,14 @@ pub fn is_session_expired_message(msg: &str) -> bool {
         || lower.contains("no backend session token")
         || lower.contains("session jwt required")
         || msg.contains("SESSION_EXPIRED")
+        // TAURI-RUST-E — billing endpoint 401s via `BackendApiError::Unauthorized`
+        // stringified by `billing::ops::get_authed_value(..).map_err(|e| e.to_string())`.
+        // The display form is `"backend rejected session token on {METHOD} {path}"`;
+        // the phrase is uniquely scoped to `BackendApiError::Unauthorized` so no
+        // conjunctive guard is needed. Covers all billing RPC methods
+        // (billing_get_current_plan, billing_get_balance, etc.) and any other
+        // `authed_json` caller that stringifies via `.to_string()`.
+        || lower.contains("backend rejected session token")
         // OPENHUMAN-TAURI-4P0 — OpenHuman backend's "Invalid token" 401
         // envelope. Both anchors must be present: the OpenHuman-scoped
         // `"OpenHuman API error (401"` prefix (so a third-party provider's
@@ -1119,8 +1146,28 @@ fn is_provider_user_state_message(lower: &str) -> bool {
     //
     // Drops Sentry TAURI-RUST-X9 (~15.7 k events / ~22 h, single user,
     // release openhuman@0.54.0+c25fc8e5fd3e).
+    //
+    // TAURI-RUST-322 (#2929): same direct-mode path but the Composio v3
+    // `/connected_accounts` API returns HTTP 403 instead of 401. This
+    // happens when the BYO API key exists and is syntactically valid but
+    // does not carry the `connected_accounts:read` permission (e.g. a
+    // scoped or legacy key). Wire shape:
+    //
+    //   `[composio-direct] list_connections failed: Composio v3
+    //    connected_accounts failed: HTTP 403`
+    //
+    // 403 from Composio v3 is a user-state condition (key permissions),
+    // not a bug in openhuman_core. Sentry has no remediation path — the
+    // user must regenerate their key with the correct scopes on
+    // app.composio.dev. The polling layer retries every 5 s and the UI
+    // already surfaces the error; flooding Sentry with 1,000+ events per
+    // user adds no signal.
+    //
+    // Drops Sentry TAURI-RUST-322 (1,021 events, multi-release).
     if lower.contains("[composio-direct]")
-        && (lower.contains("http 401") || lower.contains("invalid api key"))
+        && (lower.contains("http 401")
+            || lower.contains("http 403")
+            || lower.contains("invalid api key"))
     {
         return true;
     }
@@ -2119,6 +2166,11 @@ mod tests {
 
     #[test]
     fn classifies_backend_env_api_key_not_configured() {
+        // TAURI-RUST-2H5 (~5 K events): backend embedding endpoint returns a
+        // 400 with `{"success":false,"error":"VOYAGE_API_KEY is not configured"}`
+        // whenever the backend env var is absent. This is a known server-side
+        // config state, not an app error — silence it the same way we silence
+        // other `ApiKeyMissing` variants.
         for raw in [
             r#"Embedding API error (400 Bad Request): {"success":false,"error":"VOYAGE_API_KEY is not configured"}"#,
             r#"Embedding API error 400 Bad Request: {"success":false,"error":"VOYAGE_API_KEY is not configured"}"#,
@@ -2140,6 +2192,10 @@ mod tests {
         // should match.
         assert_eq!(
             expected_error_kind("workspace path is not configured for this user"),
+            None
+        );
+        assert_eq!(
+            expected_error_kind("embedding model is not configured"),
             None
         );
         assert_eq!(
@@ -3806,6 +3862,84 @@ mod tests {
         );
     }
 
+    // ── TAURI-RUST-322 (#2929): composio-direct 403 (key missing perms) ─
+
+    #[test]
+    fn classifies_composio_direct_403_as_provider_user_state() {
+        // Canonical Sentry TAURI-RUST-322 wire shape — the verbatim
+        // title body from the issue (1,021 events, multi-release). The
+        // Composio v3 `/connected_accounts` endpoint returns HTTP 403
+        // when the BYO API key exists but lacks `connected_accounts:read`
+        // permission. This is a user-state condition; Sentry has no
+        // remediation path.
+        let msg = "[composio-direct] list_connections failed: \
+                   Composio v3 connected_accounts failed: HTTP 403";
+        assert_eq!(
+            expected_error_kind(msg),
+            Some(ExpectedErrorKind::ProviderUserState),
+            "composio-direct HTTP 403 must demote to ProviderUserState (TAURI-RUST-322)"
+        );
+    }
+
+    #[test]
+    fn classifies_composio_direct_403_for_other_ops() {
+        // The `[composio-direct]` + `HTTP 403` arm must cover every op
+        // that can hit a 403 from the Composio v3 tenant (list_tools
+        // prefetch, authorize, etc.) — not just list_connections.
+        let shapes = [
+            // list_tools prefetch of connections hits the 403 wall
+            "[composio-direct] list_tools: prefetch connections failed: \
+             Composio v3 connected_accounts failed: HTTP 403",
+            // list_connections itself (the primary source of the leak)
+            "[composio-direct] list_connections (direct) failed: \
+             Composio v3 connected_accounts failed: HTTP 403",
+            // any future direct-mode op that hits a 403
+            "[composio-direct] composio_list_connections (direct) failed: \
+             Composio v3 connected_accounts failed: HTTP 403",
+        ];
+        for msg in shapes {
+            assert_eq!(
+                expected_error_kind(msg),
+                Some(ExpectedErrorKind::ProviderUserState),
+                "every [composio-direct] op with HTTP 403 must demote to ProviderUserState: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn does_not_classify_unrelated_http_403_as_composio_direct_user_state() {
+        // Discrimination test: a 403 that does NOT carry the
+        // `[composio-direct]` prefix must NOT match this arm. Backend-mode
+        // composio 403s and unrelated 403s must remain visible in Sentry.
+        let backend_403 = "[composio] list_connections failed: \
+                           Backend returned 403 Forbidden for GET \
+                           https://api.tinyhumans.ai/agent-integrations/composio/connections";
+        // The backend-mode shape passes through `is_backend_user_error_message`
+        // (4xx matcher), not this arm. Verify it does NOT match this arm.
+        assert!(
+            !lower_contains_composio_direct_auth_wall(backend_403),
+            "backend-mode 403 must NOT match the composio-direct arm"
+        );
+
+        let unrelated_403 = "GitHub API error: HTTP 403: rate limit exceeded";
+        assert_ne!(
+            expected_error_kind(unrelated_403),
+            Some(ExpectedErrorKind::ProviderUserState),
+            "unrelated 403 (no [composio-direct] anchor) must NOT match the composio-direct arm"
+        );
+    }
+
+    // Helper used only in the discrimination test above — mirrors the
+    // exact condition in `is_provider_user_state_message` without
+    // requiring access to the private function.
+    fn lower_contains_composio_direct_auth_wall(msg: &str) -> bool {
+        let lower = msg.to_ascii_lowercase();
+        lower.contains("[composio-direct]")
+            && (lower.contains("http 401")
+                || lower.contains("http 403")
+                || lower.contains("invalid api key"))
+    }
+
     // ── TAURI-RUST-34H: backend-wrapped Cloudflare anti-bot interstitial ─
 
     #[test]
@@ -4291,6 +4425,83 @@ mod tests {
         // is case-sensitive by design (matches the sentinel emitted by
         // `providers::openhuman_backend::resolve_bearer` exactly).
         assert_eq!(expected_error_kind("session_expired lowercase"), None);
+    }
+
+    /// TAURI-RUST-E (~1 437 events): billing poll fires `report_error_or_expected`
+    /// on every refresh cycle once the user's JWT lapses because the
+    /// `BackendApiError::Unauthorized` typed error was stringified to
+    /// `"backend rejected session token on GET /payments/stripe/currentPlan"` by
+    /// `billing::ops::get_authed_value(..).map_err(|e| e.to_string())` before the
+    /// phrase was added to `is_session_expired_message`.
+    ///
+    /// The phrase `"backend rejected session token"` is uniquely produced by
+    /// `BackendApiError::Unauthorized`'s `Display` impl in `api::rest` — no
+    /// third-party provider path emits it — so no conjunctive guard is needed.
+    #[test]
+    fn classifies_billing_401_as_session_expired() {
+        // Exact wire shape from `billing_get_current_plan` — the most common
+        // event in TAURI-RUST-E.
+        assert_eq!(
+            expected_error_kind(
+                "backend rejected session token on GET /payments/stripe/currentPlan"
+            ),
+            Some(ExpectedErrorKind::SessionExpired),
+            "TAURI-RUST-E: billing_get_current_plan 401 must classify as SessionExpired"
+        );
+
+        // Other billing methods share the same `BackendApiError::Unauthorized`
+        // display shape — pin them so a wording change in `rest.rs` would catch
+        // every billing call site.
+        for path in [
+            "/payments/credits/balance",
+            "/payments/credits/transactions?limit=20&offset=0",
+            "/payments/credits/auto-recharge",
+            "/payments/credits/auto-recharge/cards",
+            "/payments/stripe/purchasePlan",
+            "/payments/stripe/portal",
+            "/coupons/me",
+        ] {
+            let msg = format!("backend rejected session token on GET {path}");
+            assert_eq!(
+                expected_error_kind(&msg),
+                Some(ExpectedErrorKind::SessionExpired),
+                "billing 401 must classify as SessionExpired: {msg}"
+            );
+        }
+
+        // POST / PATCH / DELETE variants are also produced by `authed_json`.
+        for raw in [
+            "backend rejected session token on POST /payments/credits/top-up",
+            "backend rejected session token on PATCH /payments/credits/auto-recharge",
+            "backend rejected session token on DELETE /payments/credits/auto-recharge/cards/pm_123",
+        ] {
+            assert_eq!(
+                expected_error_kind(raw),
+                Some(ExpectedErrorKind::SessionExpired),
+                "TAURI-RUST-E variant must classify as SessionExpired: {raw}"
+            );
+        }
+    }
+
+    /// `"backend rejected session token"` is scoped to `BackendApiError::Unauthorized`
+    /// in `api::rest`. Ensure unrelated messages containing the individual
+    /// words don't accidentally match.
+    #[test]
+    fn does_not_classify_unrelated_rejected_messages_as_session_expired() {
+        // Third-party provider errors that mention a token being rejected but
+        // do not contain the exact OpenHuman `BackendApiError::Unauthorized`
+        // display phrase.
+        for raw in [
+            "Discord API error: token rejected by upstream",
+            "Stripe webhook signature rejected — bad secret",
+            "API token rejected: please regenerate",
+        ] {
+            assert_eq!(
+                expected_error_kind(raw),
+                None,
+                "unrelated token-rejected message must NOT suppress Sentry: {raw}"
+            );
+        }
     }
 
     #[test]
