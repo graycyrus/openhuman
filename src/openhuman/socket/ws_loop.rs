@@ -133,16 +133,15 @@ pub(super) async fn ws_loop(
                 // and, after `FAIL_ESCALATE_THRESHOLD` retries, produce a
                 // spurious "sustained outage" Sentry event (TAURI-RUST-9C).
                 //
-                // Strategy: reset the failure streak (this is an auth issue,
-                // not a transport outage), reset backoff to minimum (no point
-                // in exponential back-off for a token refresh), then fetch a
-                // fresh token from the credential store before the next
-                // attempt. If the store has no valid token (user logged out,
-                // store unavailable), fall back to `Failed` accounting so the
-                // one-shot Sentry event fires normally.
-                consecutive_failures = 0;
-                backoff = Duration::from_millis(1000);
-
+                // Strategy: fetch a fresh token from the credential store.  If
+                // we get a *different* token back, reset the failure streak and
+                // backoff (this is an auth issue, not a transport outage) and
+                // reconnect immediately with the new credential.
+                //
+                // If the store returns None *or* the same token (still stale),
+                // fall through the normal `Failed` accounting so the
+                // sustained-outage Sentry escalation still fires correctly;
+                // avoid resetting counters before we know the refresh succeeded.
                 log::warn!(
                     "[socket] Server rejected token (Invalid token) — attempting token refresh before retry"
                 );
@@ -156,7 +155,11 @@ pub(super) async fn ws_loop(
                 }
 
                 match refresh_session_token().await {
-                    Some(fresh) => {
+                    Some(fresh) if fresh != token => {
+                        // A genuinely new token — reset retry state and
+                        // reconnect immediately.
+                        consecutive_failures = 0;
+                        backoff = Duration::from_millis(1000);
                         log::info!(
                             "[socket] Token refreshed (len={}) — retrying connection immediately",
                             fresh.len()
@@ -166,10 +169,10 @@ pub(super) async fn ws_loop(
                         // right away with the new token.
                         continue;
                     }
-                    None => {
+                    Some(_) | None => {
                         log::error!(
-                            "[socket] Token refresh failed — no valid session token in store; \
-                             will retry with original token after backoff"
+                            "[socket] Token refresh did not yield a new valid session token; \
+                             will retry with backoff"
                         );
                         // Treat as a regular failure so the Sentry escalation
                         // path still fires if this persists.
