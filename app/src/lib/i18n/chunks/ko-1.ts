@@ -400,6 +400,8 @@ const ko1: TranslationMap = {
   'devOptions.webhooksDesc': '웹훅 통합을 구성하고 테스트합니다',
   'devOptions.memoryInspection': '메모리 검사',
   'devOptions.memoryInspectionDesc': '메모리 항목을 탐색, 쿼리 및 관리합니다',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': '눌러서 말하기',
   'voice.recording': '녹음 중...',
   'voice.processing': '처리 중...',

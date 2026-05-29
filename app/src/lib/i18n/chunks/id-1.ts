@@ -401,6 +401,8 @@ const id1: TranslationMap = {
   'devOptions.webhooksDesc': 'Konfigurasi dan uji integrasi webhook',
   'devOptions.memoryInspection': 'Inspeksi Memori',
   'devOptions.memoryInspectionDesc': 'Jelajahi, kueri, dan kelola entri memori',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'Tekan untuk Bicara',
   'voice.recording': 'Merekam...',
   'voice.processing': 'Memproses...',

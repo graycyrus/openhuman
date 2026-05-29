@@ -14,6 +14,7 @@ import { CustomGifMascot, getMascotPalette, hexToArgbInt, RiveMascot } from './M
 import { useHumanMascot } from './useHumanMascot';
 
 const SPEAK_REPLIES_KEY = 'human.speakReplies';
+const CHAT_OPEN_KEY = 'human.chatOpen';
 
 const HumanPage = () => {
   const { t } = useT();
@@ -21,11 +22,19 @@ const HumanPage = () => {
     const raw = window.localStorage.getItem(SPEAK_REPLIES_KEY);
     return raw === null ? true : raw === '1';
   });
+  const [chatOpen, setChatOpen] = useState<boolean>(() => {
+    const raw = window.localStorage.getItem(CHAT_OPEN_KEY);
+    return raw === null ? true : raw === '1';
+  });
   const [joinMeetingOpen, setJoinMeetingOpen] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem(SPEAK_REPLIES_KEY, speakReplies ? '1' : '0');
   }, [speakReplies]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CHAT_OPEN_KEY, chatOpen ? '1' : '0');
+  }, [chatOpen]);
 
   const { face } = useHumanMascot({ speakReplies });
   const mascotColor = useAppSelector(selectMascotColor);
@@ -43,54 +52,105 @@ const HumanPage = () => {
   );
 
   return (
-    <div className="absolute inset-0 bg-stone-100 dark:bg-neutral-950 overflow-hidden">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: 'radial-gradient(ellipse at 35% 40%, rgba(74,131,221,0.10), transparent 60%)',
-        }}
-      />
-
-      {/* Mascot stage — fills the area to the left of the reserved sidebar column. */}
-      <div className="absolute inset-y-0 left-0 right-[436px] flex items-center justify-center">
-        <div className="relative w-[min(80vh,90%)] aspect-square">
-          {customMascotGifUrl ? (
-            <CustomGifMascot src={customMascotGifUrl} face={face} />
-          ) : (
-            <RiveMascot face={face} primaryColor={primaryColor} secondaryColor={secondaryColor} />
-          )}
-        </div>
+    <div className="absolute inset-0 bg-stone-100 dark:bg-neutral-950 overflow-hidden flex flex-col">
+      {/* ── Animated background blobs (CSS-only, z-0) ── */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-1/4 -left-1/4 w-[60%] h-[60%] rounded-full bg-primary-400/10 dark:bg-primary-500/[0.07] blur-3xl animate-blob-drift-1" />
+        <div className="absolute -bottom-1/4 -right-1/4 w-[50%] h-[50%] rounded-full bg-accent-lavender/10 dark:bg-accent-lavender/[0.06] blur-3xl animate-blob-drift-2" />
+        <div className="absolute top-1/3 left-1/2 w-[40%] h-[40%] rounded-full bg-accent-mint/10 dark:bg-accent-mint/[0.05] blur-3xl animate-blob-drift-3" />
       </div>
 
-      <label className="absolute top-4 left-4 z-10 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border border-stone-300 dark:border-neutral-700 text-xs text-stone-700 dark:text-neutral-200 shadow-soft cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={speakReplies}
-          onChange={e => setSpeakReplies(e.target.checked)}
-          className="cursor-pointer"
-        />
-        {t('voice.pushToTalk')}
-      </label>
+      {/* ── Top controls bar ── */}
+      <div className="relative z-10 flex items-center gap-3 px-4 py-3 shrink-0">
+        <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border border-stone-300 dark:border-neutral-700 text-xs text-stone-700 dark:text-neutral-200 shadow-soft cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={speakReplies}
+            onChange={e => setSpeakReplies(e.target.checked)}
+            className="cursor-pointer"
+          />
+          {t('voice.pushToTalk')}
+        </label>
 
-      {/* "Send OpenHuman to a meeting" — opens the Flow A modal which spawns
-          an off-screen CEF webview pointed at the Meet URL with the mascot
-          canvas as the outbound camera and synthesized speech as the
-          outbound mic. The user's OS mic is never wired to the meeting. */}
-      <button
-        type="button"
-        onClick={() => setJoinMeetingOpen(true)}
-        data-testid="human-join-meeting-pill"
-        className="absolute top-4 left-44 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500 text-white text-xs font-medium shadow-soft hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300">
-        <span aria-hidden="true">📞</span>
-        {t('skills.meetingBots.modalTitle')}
-      </button>
+        <button
+          type="button"
+          onClick={() => setJoinMeetingOpen(true)}
+          data-testid="human-join-meeting-pill"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-500 text-white text-xs font-medium shadow-soft hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300">
+          <span aria-hidden="true">📞</span>
+          {t('skills.meetingBots.modalTitle')}
+        </button>
+      </div>
 
       {joinMeetingOpen && <MeetingBotsModal onClose={() => setJoinMeetingOpen(false)} />}
 
-      {/* Chat sidebar — vertically centered above the BottomTabBar (~80px). */}
-      <div className="absolute right-4 top-0 bottom-20 z-10 flex items-center">
-        <aside className="w-[420px] h-[min(720px,calc(100vh-160px))] rounded-2xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft flex flex-col overflow-hidden">
-          <Conversations variant="sidebar" composer="mic-cloud" />
+      {/* ── Main content: mascot + chat ── */}
+      <div className="relative z-10 flex flex-1 min-h-0">
+        {/* Mascot stage — fills available space */}
+        <div className="flex-1 flex items-center justify-center min-w-0">
+          <div className="relative w-[min(80vh,90%)] aspect-square">
+            {customMascotGifUrl ? (
+              <CustomGifMascot src={customMascotGifUrl} face={face} />
+            ) : (
+              <RiveMascot face={face} primaryColor={primaryColor} secondaryColor={secondaryColor} />
+            )}
+          </div>
+        </div>
+
+        {/* Chat toggle button — visible when panel is collapsed */}
+        {!chatOpen && (
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            data-testid="human-chat-toggle"
+            aria-label={t('human.openChat')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white dark:bg-neutral-800 border border-stone-300 dark:border-neutral-700 shadow-soft flex items-center justify-center hover:bg-stone-50 dark:hover:bg-neutral-700 transition-colors">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-5 h-5 text-stone-600 dark:text-neutral-300">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+        )}
+
+        {/* Chat sidebar — collapsible panel */}
+        <aside
+          data-testid="human-chat-panel"
+          className={`shrink-0 w-[420px] max-w-[90vw] flex flex-col transition-transform duration-300 ease-in-out ${
+            chatOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}>
+          {/* Panel header with collapse control */}
+          <div className="flex items-center justify-between px-4 py-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setChatOpen(false)}
+              data-testid="human-chat-collapse"
+              aria-label={t('human.collapseChat')}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-stone-200 dark:hover:bg-neutral-700 transition-colors text-stone-500 dark:text-neutral-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Chat content */}
+          <div className="flex-1 min-h-0 mx-2 mb-2 rounded-2xl border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-soft flex flex-col overflow-hidden">
+            <Conversations variant="sidebar" composer="mic-cloud" />
+          </div>
         </aside>
       </div>
     </div>

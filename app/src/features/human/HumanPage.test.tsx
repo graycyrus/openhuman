@@ -1,10 +1,6 @@
 /**
- * Unit tests for HumanPage — speak-replies localStorage persistence (issue#1520, issue#1502).
- *
- * HumanPage uses a localStorage flag (`human.speakReplies`) to persist the
- * "Speak replies" toggle across sessions.  The default value is `true` when no
- * key is present, `true` when the stored value is `'1'`, and `false` for `'0'`.
- * Toggling the checkbox writes the updated value back to localStorage.
+ * Unit tests for HumanPage — speak-replies localStorage persistence (issue#1520, issue#1502),
+ * collapsible chat panel (#2955), and join-meeting pill.
  */
 import { configureStore } from '@reduxjs/toolkit';
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -50,6 +46,7 @@ vi.mock('./Mascot', async importOriginal => {
 vi.mock('./useHumanMascot', () => ({ useHumanMascot: () => ({ face: 'idle', visemes: [] }) }));
 
 const SPEAK_REPLIES_KEY = 'human.speakReplies';
+const CHAT_OPEN_KEY = 'human.chatOpen';
 
 function buildMinimalStore() {
   return configureStore({
@@ -163,5 +160,87 @@ describe('HumanPage — join meeting pill', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /close modal/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('HumanPage — collapsible chat panel', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('shows chat panel open by default', () => {
+    renderHumanPage();
+    const panel = screen.getByTestId('human-chat-panel');
+    expect(panel).toBeInTheDocument();
+    expect(panel.className).toContain('translate-x-0');
+    expect(panel.className).not.toContain('translate-x-full');
+  });
+
+  it('collapses the chat panel when the collapse button is clicked', async () => {
+    renderHumanPage();
+    const collapseBtn = screen.getByTestId('human-chat-collapse');
+
+    await act(async () => {
+      fireEvent.click(collapseBtn);
+    });
+
+    const panel = screen.getByTestId('human-chat-panel');
+    expect(panel.className).toContain('translate-x-full');
+  });
+
+  it('shows a toggle button when chat is collapsed', async () => {
+    renderHumanPage();
+    expect(screen.queryByTestId('human-chat-toggle')).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('human-chat-collapse'));
+    });
+
+    expect(screen.getByTestId('human-chat-toggle')).toBeInTheDocument();
+  });
+
+  it('re-opens the chat panel when the toggle button is clicked', async () => {
+    renderHumanPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('human-chat-collapse'));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('human-chat-toggle'));
+    });
+
+    const panel = screen.getByTestId('human-chat-panel');
+    expect(panel.className).toContain('translate-x-0');
+    expect(screen.queryByTestId('human-chat-toggle')).not.toBeInTheDocument();
+  });
+
+  it('persists chat-open state to localStorage', async () => {
+    renderHumanPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('human-chat-collapse'));
+    });
+
+    expect(localStorage.getItem(CHAT_OPEN_KEY)).toBe('0');
+  });
+
+  it('reads stored chat-closed state on mount', () => {
+    localStorage.setItem(CHAT_OPEN_KEY, '0');
+    renderHumanPage();
+
+    const panel = screen.getByTestId('human-chat-panel');
+    expect(panel.className).toContain('translate-x-full');
+    expect(screen.getByTestId('human-chat-toggle')).toBeInTheDocument();
+  });
+
+  it('renders animated background blobs', () => {
+    const { container } = renderHumanPage();
+    const blobs = container.querySelectorAll('[class*="animate-blob-drift"]');
+    expect(blobs.length).toBe(3);
   });
 });

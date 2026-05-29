@@ -442,6 +442,8 @@ const de1: TranslationMap = {
   'devOptions.webhooksDesc': 'Konfiguriere und teste Webhook-Integrationen',
   'devOptions.memoryInspection': 'Speicherinspektion',
   'devOptions.memoryInspectionDesc': 'Speichereinträge durchsuchen, abfragen und verwalten',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'Push-to-Talk',
   'voice.recording': 'Aufnahme...',
   'voice.processing': 'Verarbeitung...',

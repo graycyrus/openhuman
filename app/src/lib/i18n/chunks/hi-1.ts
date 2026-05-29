@@ -397,6 +397,8 @@ const hi1: TranslationMap = {
   'devOptions.webhooksDesc': 'Webhook इंटीग्रेशन कॉन्फिगर और टेस्ट करें',
   'devOptions.memoryInspection': 'मेमोरी इंस्पेक्शन',
   'devOptions.memoryInspectionDesc': 'मेमोरी एंट्रीज़ ब्राउज़, क्वेरी और मैनेज करें',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'पुश टू टॉक',
   'voice.recording': 'रिकॉर्डिंग हो रही है...',
   'voice.processing': 'प्रोसेस हो रहा है...',

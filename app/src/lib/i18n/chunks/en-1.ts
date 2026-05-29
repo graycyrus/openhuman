@@ -794,6 +794,8 @@ const en1: TranslationMap = {
   'devOptions.webhooksDesc': 'Configure and test webhook integrations',
   'devOptions.memoryInspection': 'Memory Inspection',
   'devOptions.memoryInspectionDesc': 'Browse, query, and manage memory entries',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'Push to Talk',
   'voice.recording': 'Recording...',
   'voice.processing': 'Processing...',

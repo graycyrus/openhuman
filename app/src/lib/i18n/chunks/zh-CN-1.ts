@@ -398,6 +398,8 @@ const zhCN1: TranslationMap = {
   'devOptions.webhooksDesc': '配置并测试 Webhook 集成',
   'devOptions.memoryInspection': '记忆检查',
   'devOptions.memoryInspectionDesc': '浏览、查询与管理记忆条目',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': '按住说话',
   'voice.recording': '录音中...',
   'voice.processing': '处理中...',

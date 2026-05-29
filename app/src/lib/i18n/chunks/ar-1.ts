@@ -393,6 +393,8 @@ const ar1: TranslationMap = {
   'devOptions.webhooksDesc': 'ضبط واختبار تكاملات Webhook',
   'devOptions.memoryInspection': 'فحص الذاكرة',
   'devOptions.memoryInspectionDesc': 'تصفح وتساؤل وإدارة إدخالات الذاكرة',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'اضغط للتحدث',
   'voice.recording': 'جارٍ التسجيل...',
   'voice.processing': 'جارٍ المعالجة...',

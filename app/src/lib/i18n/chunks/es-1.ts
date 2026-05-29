@@ -408,6 +408,8 @@ const es1: TranslationMap = {
   'devOptions.webhooksDesc': 'Configurar y probar integraciones de webhook',
   'devOptions.memoryInspection': 'Inspección de memoria',
   'devOptions.memoryInspectionDesc': 'Explorar, consultar y administrar entradas de memoria',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'Pulsar para hablar',
   'voice.recording': 'Grabando...',
   'voice.processing': 'Procesando...',

@@ -634,6 +634,10 @@ const en: TranslationMap = {
   'devOptions.memoryInspection': 'Memory Inspection',
   'devOptions.memoryInspectionDesc': 'Browse, query, and manage memory entries',
 
+  // Human page
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
+
   // Voice / Dictation
   'voice.pushToTalk': 'Push to Talk',
   'voice.recording': 'Recording...',

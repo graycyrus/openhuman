@@ -400,6 +400,8 @@ const ru1: TranslationMap = {
   'devOptions.webhooksDesc': 'Настройка и тестирование вебхуков',
   'devOptions.memoryInspection': 'Инспекция памяти',
   'devOptions.memoryInspectionDesc': 'Просмотр, запросы и управление записями памяти',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'Нажми и говори',
   'voice.recording': 'Запись...',
   'voice.processing': 'Обработка...',

@@ -238,6 +238,9 @@ module.exports = {
         'glow-pulse': 'glowPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'float': 'float 3s ease-in-out infinite',
         'ticker': 'ticker 30s linear infinite',
+        'blob-drift-1': 'blobDrift1 25s ease-in-out infinite',
+        'blob-drift-2': 'blobDrift2 30s ease-in-out infinite',
+        'blob-drift-3': 'blobDrift3 20s ease-in-out infinite',
       },
 
       keyframes: {
@@ -276,6 +279,21 @@ module.exports = {
         ticker: {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-50%)' },
+        },
+        blobDrift1: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(30px, -20px) scale(1.05)' },
+          '66%': { transform: 'translate(-20px, 15px) scale(0.95)' },
+        },
+        blobDrift2: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(-25px, 25px) scale(1.08)' },
+          '66%': { transform: 'translate(20px, -15px) scale(0.92)' },
+        },
+        blobDrift3: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(15px, 20px) scale(0.97)' },
+          '66%': { transform: 'translate(-30px, -10px) scale(1.03)' },
         },
       },
 

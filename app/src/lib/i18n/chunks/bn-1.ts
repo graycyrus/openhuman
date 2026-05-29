@@ -400,6 +400,8 @@ const bn1: TranslationMap = {
   'devOptions.webhooksDesc': 'Webhook ইন্টিগ্রেশন কনফিগার ও পরীক্ষা করুন',
   'devOptions.memoryInspection': 'মেমোরি ইন্সপেকশন',
   'devOptions.memoryInspectionDesc': 'মেমোরি এন্ট্রি ব্রাউজ, কোয়েরি ও পরিচালনা করুন',
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'পুশ টু টক',
   'voice.recording': 'রেকর্ড হচ্ছে...',
   'voice.processing': 'প্রক্রিয়া হচ্ছে...',

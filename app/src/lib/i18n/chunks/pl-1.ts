@@ -664,6 +664,8 @@ const pl1: TranslationMap = {
   'iosMascot.error.generic': 'Coś poszło nie tak. Spróbuj ponownie.',
   'iosMascot.error.sendFailed': 'Nie udało się wysłać. Sprawdź połączenie.',
   // Voice
+  'human.openChat': 'Open chat',
+  'human.collapseChat': 'Collapse chat',
   'voice.pushToTalk': 'Naciśnij i mów',
   'voice.recording': 'Nagrywanie...',
   'voice.processing': 'Przetwarzanie...',
