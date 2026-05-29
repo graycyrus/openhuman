@@ -57,7 +57,9 @@ fn report_ollama_health_gate_once(base_url: &str, model: &str) -> bool {
     // `ExpectedErrorKind::ProviderUserState` → demoted to a warn breadcrumb,
     // NOT a Sentry error event. Using `report_error_message` directly would
     // bypass the classifier and fire `sentry::capture_message(…, Level::Error)`
-    // unconditionally — the root cause of TAURI-RUST-B (472 events).
+    // unconditionally — the root cause of TAURI-RUST-B (472 events). The `&str`
+    // input avoids the `format!("{:#}")` round-trip that `report_error` would do
+    // on an anyhow chain — the wire shape stays bit-identical.
     crate::core::observability::report_error_or_expected(
         sentry_message.as_str(),
         "memory",

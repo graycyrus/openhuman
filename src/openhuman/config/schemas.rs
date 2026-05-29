@@ -128,6 +128,7 @@ struct SearchSettingsUpdate {
     timeout_secs: Option<u64>,
     parallel_api_key: Option<String>,
     brave_api_key: Option<String>,
+    querit_api_key: Option<String>,
     allowed_domains: Option<Vec<String>>,
     allow_all: Option<bool>,
 }
@@ -236,6 +237,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("workspace_onboarding_flag_set"),
         schemas("update_analytics_settings"),
         schemas("get_analytics_settings"),
+        schemas("get_dashboard_settings"),
         schemas("update_meet_settings"),
         schemas("get_meet_settings"),
         schemas("agent_server_status"),
@@ -317,6 +319,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("get_analytics_settings"),
             handler: handle_get_analytics_settings,
+        },
+        RegisteredController {
+            schema: schemas("get_dashboard_settings"),
+            handler: handle_get_dashboard_settings,
         },
         RegisteredController {
             schema: schemas("update_meet_settings"),
@@ -769,6 +775,18 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "get_dashboard_settings" => ControllerSchema {
+            namespace: "config",
+            function: "get_dashboard_settings",
+            description: "Read dashboard settings, including the local architecture diagram viewer.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "dashboard",
+                ty: TypeSchema::Json,
+                comment: "Current [dashboard] config block.",
+                required: true,
+            }],
+        },
         "update_meet_settings" => ControllerSchema {
             namespace: "config",
             function: "update_meet_settings",
@@ -799,7 +817,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![
                 optional_string(
                     "engine",
-                    "Active engine: managed | parallel | brave.",
+                    "Active engine: managed | parallel | brave | querit.",
                 ),
                 FieldSchema {
                     name: "max_results",
@@ -820,6 +838,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string(
                     "brave_api_key",
                     "Brave Search API key (empty string clears the stored key).",
+                ),
+                optional_string(
+                    "querit_api_key",
+                    "Querit API key (empty string clears the stored key).",
                 ),
                 FieldSchema {
                     name: "allowed_domains",
@@ -1321,6 +1343,10 @@ fn handle_get_analytics_settings(_params: Map<String, Value>) -> ControllerFutur
     })
 }
 
+fn handle_get_dashboard_settings(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async { to_json(config_rpc::get_dashboard_settings().await?) })
+}
+
 fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         log::debug!("[config][rpc] update_meet_settings enter");
@@ -1508,6 +1534,7 @@ fn handle_update_search_settings(params: Map<String, Value>) -> ControllerFuture
             timeout_secs: update.timeout_secs,
             parallel_api_key: update.parallel_api_key,
             brave_api_key: update.brave_api_key,
+            querit_api_key: update.querit_api_key,
             allowed_domains: update.allowed_domains,
             allow_all: update.allow_all,
         };

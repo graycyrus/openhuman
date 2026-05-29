@@ -74,6 +74,28 @@ const developerItems = [
       </svg>
     ),
   },
+  // Settings → Developer → Skills Runner is commented out: the same UX
+  // (and more) now lives at /skills (Connections → Runners sub-tab) as
+  // the scheduled-skills dashboard, with /skills/run for ad-hoc runs.
+  // The route + panel component remain wired (Settings.tsx:458 keeps the
+  // /settings/skills-runner route), so deep links and bookmarks still
+  // resolve — only the menu entry is hidden.
+  // {
+  //   id: 'skills-runner',
+  //   titleKey: 'settings.developerMenu.skillsRunner.title',
+  //   descriptionKey: 'settings.developerMenu.skillsRunner.desc',
+  //   route: 'skills-runner',
+  //   icon: (
+  //     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  //       <path
+  //         strokeLinecap="round"
+  //         strokeLinejoin="round"
+  //         strokeWidth={2}
+  //         d="M13 10V3L4 14h7v7l9-11h-7z"
+  //       />
+  //     </svg>
+  //   ),
+  // },
   {
     id: 'dev-workflow',
     titleKey: 'settings.developerMenu.devWorkflow.title',
@@ -139,6 +161,38 @@ const developerItems = [
     ),
   },
   {
+    id: 'event-log',
+    titleKey: 'settings.developerMenu.eventLog.title',
+    descriptionKey: 'settings.developerMenu.eventLog.desc',
+    route: 'event-log',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 6h16M4 10h16M4 14h16M4 18h16"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: 'tool-policy-diagnostics',
+    titleKey: 'devOptions.diagnostics',
+    descriptionKey: 'devOptions.toolPolicyDiagnosticsDesc',
+    route: 'tool-policy-diagnostics',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 17v-5a2 2 0 012-2h2a2 2 0 012 2v5m-8 0h8m-8 0H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2"
+        />
+      </svg>
+    ),
+  },
+  {
     id: 'intelligence',
     titleKey: 'settings.developerMenu.intelligence.title',
     descriptionKey: 'settings.developerMenu.intelligence.desc',
@@ -185,6 +239,22 @@ const developerItems = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: 'model-health',
+    titleKey: 'settings.modelHealth.title',
+    descriptionKey: 'settings.modelHealth.desc',
+    route: 'model-health',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
         />
       </svg>
     ),
