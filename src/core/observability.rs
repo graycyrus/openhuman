@@ -149,7 +149,17 @@ pub fn expected_error_kind(message: &str) -> Option<ExpectedErrorKind> {
     if lower.contains("local ai is disabled") {
         return Some(ExpectedErrorKind::LocalAiDisabled);
     }
-    if lower.contains("api key not set") || lower.contains("missing api key") {
+    // `_api_key is not configured` catches backend-reported environment variable
+    // phrases like `VOYAGE_API_KEY is not configured` and
+    // `COHERE_API_KEY is not configured` returned by the embeddings backend
+    // when the relevant env var is absent (TAURI-RUST-2H5, ~5 K events).
+    // The `_api_key` anchor (lower-cased suffix of an env-var name) keeps
+    // generic "X is not configured" prose from being silenced — only
+    // ALL_CAPS_API_KEY-style names match.
+    if lower.contains("api key not set")
+        || lower.contains("missing api key")
+        || lower.contains("_api_key is not configured")
+    {
         return Some(ExpectedErrorKind::ApiKeyMissing);
     }
     // Check `is_loopback_unavailable` BEFORE `is_network_unreachable_message`:
@@ -1358,6 +1368,42 @@ mod tests {
         );
         assert_eq!(
             expected_error_kind("ollama embed failed with status 500"),
+            None
+        );
+    }
+
+    #[test]
+    fn classifies_backend_env_api_key_not_configured() {
+        // TAURI-RUST-2H5 (~5 K events): backend embedding endpoint returns a
+        // 400 with `{"success":false,"error":"VOYAGE_API_KEY is not configured"}`
+        // whenever the backend env var is absent. This is a known server-side
+        // config state, not an app error — silence it the same way we silence
+        // other `ApiKeyMissing` variants.
+        for raw in [
+            r#"Embedding API error (400 Bad Request): {"success":false,"error":"VOYAGE_API_KEY is not configured"}"#,
+            r#"Embedding API error 400 Bad Request: {"success":false,"error":"VOYAGE_API_KEY is not configured"}"#,
+            // Future-proof: same shape for any other backend-managed embedder.
+            r#"Embedding API error (400 Bad Request): {"success":false,"error":"COHERE_API_KEY is not configured"}"#,
+        ] {
+            assert_eq!(
+                expected_error_kind(raw),
+                Some(ExpectedErrorKind::ApiKeyMissing),
+                "should classify backend env api-key missing: {raw}"
+            );
+        }
+    }
+
+    #[test]
+    fn does_not_classify_unrelated_is_not_configured_messages() {
+        // The `_api_key` anchor must keep prose that merely says "is not
+        // configured" from being silenced — only env-var-style key names
+        // should match.
+        assert_eq!(
+            expected_error_kind("workspace path is not configured for this user"),
+            None
+        );
+        assert_eq!(
+            expected_error_kind("embedding model is not configured"),
             None
         );
     }
