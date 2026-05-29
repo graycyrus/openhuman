@@ -128,6 +128,7 @@ struct SearchSettingsUpdate {
     timeout_secs: Option<u64>,
     parallel_api_key: Option<String>,
     brave_api_key: Option<String>,
+    querit_api_key: Option<String>,
     allowed_domains: Option<Vec<String>>,
     allow_all: Option<bool>,
 }
@@ -217,6 +218,7 @@ struct AutonomySettingsUpdate {
     /// Replaces the "Always allow" allowlist wholesale — tool names the agent
     /// may run without an approval prompt. Empty list clears it.
     auto_approve: Option<Vec<String>>,
+    require_task_plan_approval: Option<bool>,
 }
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -236,6 +238,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("workspace_onboarding_flag_set"),
         schemas("update_analytics_settings"),
         schemas("get_analytics_settings"),
+        schemas("get_dashboard_settings"),
         schemas("update_meet_settings"),
         schemas("get_meet_settings"),
         schemas("agent_server_status"),
@@ -317,6 +320,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("get_analytics_settings"),
             handler: handle_get_analytics_settings,
+        },
+        RegisteredController {
+            schema: schemas("get_dashboard_settings"),
+            handler: handle_get_dashboard_settings,
         },
         RegisteredController {
             schema: schemas("update_meet_settings"),
@@ -609,6 +616,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Replace the \"Always allow\" allowlist (array of tool names the agent runs without an approval prompt). Empty array clears it.",
                     required: false,
                 },
+                optional_bool("require_task_plan_approval", "Require approval before an agent executes a task-board plan."),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         },
@@ -769,6 +777,18 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "get_dashboard_settings" => ControllerSchema {
+            namespace: "config",
+            function: "get_dashboard_settings",
+            description: "Read dashboard settings, including the local architecture diagram viewer.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "dashboard",
+                ty: TypeSchema::Json,
+                comment: "Current [dashboard] config block.",
+                required: true,
+            }],
+        },
         "update_meet_settings" => ControllerSchema {
             namespace: "config",
             function: "update_meet_settings",
@@ -799,7 +819,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![
                 optional_string(
                     "engine",
-                    "Active engine: managed | parallel | brave.",
+                    "Active engine: managed | parallel | brave | querit.",
                 ),
                 FieldSchema {
                     name: "max_results",
@@ -820,6 +840,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 optional_string(
                     "brave_api_key",
                     "Brave Search API key (empty string clears the stored key).",
+                ),
+                optional_string(
+                    "querit_api_key",
+                    "Querit API key (empty string clears the stored key).",
                 ),
                 FieldSchema {
                     name: "allowed_domains",
@@ -1222,6 +1246,7 @@ fn handle_update_autonomy_settings(params: Map<String, Value>) -> ControllerFutu
                 .max_actions_per_hour
                 .map(|v| u32::try_from(v).unwrap_or(u32::MAX)),
             auto_approve: update.auto_approve,
+            require_task_plan_approval: update.require_task_plan_approval,
         };
         to_json(config_rpc::load_and_apply_autonomy_settings(patch).await?)
     })
@@ -1319,6 +1344,10 @@ fn handle_get_analytics_settings(_params: Map<String, Value>) -> ControllerFutur
             vec!["analytics settings read".to_string()],
         ))
     })
+}
+
+fn handle_get_dashboard_settings(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async { to_json(config_rpc::get_dashboard_settings().await?) })
 }
 
 fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
@@ -1508,6 +1537,7 @@ fn handle_update_search_settings(params: Map<String, Value>) -> ControllerFuture
             timeout_secs: update.timeout_secs,
             parallel_api_key: update.parallel_api_key,
             brave_api_key: update.brave_api_key,
+            querit_api_key: update.querit_api_key,
             allowed_domains: update.allowed_domains,
             allow_all: update.allow_all,
         };

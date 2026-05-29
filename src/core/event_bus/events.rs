@@ -632,6 +632,30 @@ pub enum DomainEvent {
     /// detection (already redacted by the call site) — surfaced to logs,
     /// never to Sentry or the UI verbatim.
     SessionExpired { source: String, reason: String },
+
+    // ── Task sources ─────────────────────────────────────────────────────
+    /// A task source completed a fetch pass.
+    TaskSourceFetched {
+        source_id: String,
+        provider: String,
+        fetched: usize,
+        routed: usize,
+        skipped: usize,
+    },
+    /// A single external task was ingested and routed onto the board.
+    TaskSourceTaskIngested {
+        source_id: String,
+        provider: String,
+        external_id: String,
+        title: String,
+        urgency: f32,
+    },
+    /// A task source fetch pass failed.
+    TaskSourceFetchFailed {
+        source_id: String,
+        provider: String,
+        error: String,
+    },
 }
 
 impl DomainEvent {
@@ -719,6 +743,10 @@ impl DomainEvent {
 
             Self::SessionExpired { .. } => "auth",
 
+            Self::TaskSourceFetched { .. }
+            | Self::TaskSourceTaskIngested { .. }
+            | Self::TaskSourceFetchFailed { .. } => "task_sources",
+
             Self::ApprovalRequested { .. } | Self::ApprovalDecided { .. } => "approval",
 
             Self::McpServerInstalled { .. }
@@ -726,6 +754,107 @@ impl DomainEvent {
             | Self::McpServerDisconnected { .. }
             | Self::McpClientToolExecuted { .. }
             | Self::McpSetupSecretRequested { .. } => "mcp_client",
+        }
+    }
+
+    /// Stable variant name without payload (avoids Debug format coupling).
+    pub fn variant_name(&self) -> &'static str {
+        match self {
+            Self::AgentTurnStarted { .. } => "AgentTurnStarted",
+            Self::AgentTurnCompleted { .. } => "AgentTurnCompleted",
+            Self::AgentError { .. } => "AgentError",
+            Self::SubagentSpawned { .. } => "SubagentSpawned",
+            Self::SubagentCompleted { .. } => "SubagentCompleted",
+            Self::SubagentFailed { .. } => "SubagentFailed",
+            Self::MemoryStored { .. } => "MemoryStored",
+            Self::MemoryRecalled { .. } => "MemoryRecalled",
+            Self::MemorySyncRequested { .. } => "MemorySyncRequested",
+            Self::MemorySyncStageChanged { .. } => "MemorySyncStageChanged",
+            Self::MemoryIngestionStarted { .. } => "MemoryIngestionStarted",
+            Self::MemoryIngestionCompleted { .. } => "MemoryIngestionCompleted",
+            Self::DocumentCanonicalized { .. } => "DocumentCanonicalized",
+            Self::CacheRebuilt { .. } => "CacheRebuilt",
+            Self::ChannelInboundMessage { .. } => "ChannelInboundMessage",
+            Self::ChannelMessageReceived { .. } => "ChannelMessageReceived",
+            Self::ChannelMessageProcessed { .. } => "ChannelMessageProcessed",
+            Self::ChannelReactionReceived { .. } => "ChannelReactionReceived",
+            Self::ChannelReactionSent { .. } => "ChannelReactionSent",
+            Self::ChannelConnected { .. } => "ChannelConnected",
+            Self::ChannelDisconnected { .. } => "ChannelDisconnected",
+            Self::CronJobTriggered { .. } => "CronJobTriggered",
+            Self::CronJobCompleted { .. } => "CronJobCompleted",
+            Self::CronDeliveryRequested { .. } => "CronDeliveryRequested",
+            Self::ProactiveMessageRequested { .. } => "ProactiveMessageRequested",
+            Self::SkillLoaded { .. } => "SkillLoaded",
+            Self::SkillStopped { .. } => "SkillStopped",
+            Self::SkillStartFailed { .. } => "SkillStartFailed",
+            Self::SkillExecuted { .. } => "SkillExecuted",
+            Self::ToolExecutionStarted { .. } => "ToolExecutionStarted",
+            Self::ToolExecutionCompleted { .. } => "ToolExecutionCompleted",
+            Self::WebhookIncomingRequest { .. } => "WebhookIncomingRequest",
+            Self::WebhookReceived { .. } => "WebhookReceived",
+            Self::WebhookRegistered { .. } => "WebhookRegistered",
+            Self::WebhookUnregistered { .. } => "WebhookUnregistered",
+            Self::WebhookProcessed { .. } => "WebhookProcessed",
+            Self::ComposioTriggerReceived { .. } => "ComposioTriggerReceived",
+            Self::ComposioConnectionCreated { .. } => "ComposioConnectionCreated",
+            Self::ComposioConnectionDeleted { .. } => "ComposioConnectionDeleted",
+            Self::ComposioActionExecuted { .. } => "ComposioActionExecuted",
+            Self::ComposioConfigChanged { .. } => "ComposioConfigChanged",
+            Self::TriggerEvaluated { .. } => "TriggerEvaluated",
+            Self::TriggerEscalated { .. } => "TriggerEscalated",
+            Self::TriggerEscalationFailed { .. } => "TriggerEscalationFailed",
+            Self::TreeSummarizerHourCompleted { .. } => "TreeSummarizerHourCompleted",
+            Self::TreeSummarizerPropagated { .. } => "TreeSummarizerPropagated",
+            Self::TreeSummarizerRebuildCompleted { .. } => "TreeSummarizerRebuildCompleted",
+            Self::NotificationIngested { .. } => "NotificationIngested",
+            Self::NotificationTriaged { .. } => "NotificationTriaged",
+            Self::DevicePaired { .. } => "DevicePaired",
+            Self::DeviceRevoked { .. } => "DeviceRevoked",
+            Self::DevicePeerOnline { .. } => "DevicePeerOnline",
+            Self::DevicePeerOffline { .. } => "DevicePeerOffline",
+            Self::DeviceTunnelFrame { .. } => "DeviceTunnelFrame",
+            Self::DeviceTunnelRegistered { .. } => "DeviceTunnelRegistered",
+            Self::CompanionSessionStarted { .. } => "CompanionSessionStarted",
+            Self::CompanionStateChanged { .. } => "CompanionStateChanged",
+            Self::CompanionSessionEnded { .. } => "CompanionSessionEnded",
+            Self::SystemStartup { .. } => "SystemStartup",
+            Self::SystemShutdown { .. } => "SystemShutdown",
+            Self::SystemRestartRequested { .. } => "SystemRestartRequested",
+            Self::SystemShutdownRequested { .. } => "SystemShutdownRequested",
+            Self::AutonomyConfigChanged => "AutonomyConfigChanged",
+            Self::HealthChanged { .. } => "HealthChanged",
+            Self::HealthRestarted { .. } => "HealthRestarted",
+            Self::SessionExpired { .. } => "SessionExpired",
+            Self::ApprovalRequested { .. } => "ApprovalRequested",
+            Self::ApprovalDecided { .. } => "ApprovalDecided",
+            Self::McpServerInstalled { .. } => "McpServerInstalled",
+            Self::McpServerConnected { .. } => "McpServerConnected",
+            Self::McpServerDisconnected { .. } => "McpServerDisconnected",
+            Self::McpClientToolExecuted { .. } => "McpClientToolExecuted",
+            Self::McpSetupSecretRequested { .. } => "McpSetupSecretRequested",
+            Self::EmbeddingModelUnhealthy { .. } => "EmbeddingModelUnhealthy",
+            Self::TaskSourceFetched { .. } => "TaskSourceFetched",
+            Self::TaskSourceTaskIngested { .. } => "TaskSourceTaskIngested",
+            Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
+        }
+    }
+
+    /// Best-effort agent/session hint for display (not all events carry one).
+    pub fn agent_hint(&self) -> Option<&str> {
+        match self {
+            Self::AgentTurnStarted { session_id, .. }
+            | Self::AgentTurnCompleted { session_id, .. }
+            | Self::AgentError { session_id, .. } => Some(session_id.as_str()),
+            Self::SubagentSpawned { agent_id, .. }
+            | Self::SubagentCompleted { agent_id, .. }
+            | Self::SubagentFailed { agent_id, .. } => Some(agent_id.as_str()),
+            Self::ChannelMessageReceived { channel, .. }
+            | Self::ChannelConnected { channel, .. }
+            | Self::ChannelDisconnected { channel, .. } => Some(channel.as_str()),
+            Self::ToolExecutionStarted { tool_name, .. }
+            | Self::ToolExecutionCompleted { tool_name, .. } => Some(tool_name.as_str()),
+            _ => None,
         }
     }
 }

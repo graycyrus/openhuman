@@ -38,6 +38,7 @@ async fn keyword_provider_records_forced_then_fallback_turns() {
         text: Some("forced reply".into()),
         tool_calls: vec![],
         usage: None,
+        reasoning_content: None,
     });
 
     let messages = vec![ChatMessage::user("nothing should match here")];
@@ -942,6 +943,7 @@ async fn run_tool_call_loop_returns_max_iterations_error() {
         text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
         tool_calls: vec![],
         usage: None,
+        reasoning_content: None,
     });
 
     let (echo_tool, _) = RecordingTool::echo("echo");
@@ -1587,6 +1589,9 @@ async fn orchestrator_prompt_drives_composio_call_via_delegation_chain() {
             include_memory_md: false,
             curated_snapshot: None,
             user_identity: None,
+            personality_soul_md: None,
+            personality_memory_md: None,
+            personality_roster: vec![],
         }
     };
     let system_prompt = orch_prompt::build(&ctx).expect("build orchestrator prompt");

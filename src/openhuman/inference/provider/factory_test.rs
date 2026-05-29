@@ -4,6 +4,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::credentials::AuthService;
 use crate::openhuman::inference::provider::traits::{ChatMessage, ChatRequest, ProviderDelta};
 use tempfile::TempDir;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn config_with_providers(providers: Vec<CloudProviderCreds>) -> Config {
     let mut c = Config::default();
@@ -370,6 +372,57 @@ fn empty_model_in_ollama_rejected() {
 }
 
 #[test]
+fn cloud_provider_with_no_model_and_no_default_rejected() {
+    // TAURI-RUST-4NM — nvidia-nim (and others) reject `model=""` with
+    // "model field is required". The factory must catch this up-front with
+    // a clear, actionable message instead of leaking an empty model to the API.
+    let mut config = Config::default();
+    config.cloud_providers.push(CloudProviderCreds {
+        id: "p_nim".to_string(),
+        slug: "nvidia-nim".to_string(),
+        label: "NVIDIA NIM".to_string(),
+        endpoint: "https://integrate.api.nvidia.com/v1".to_string(),
+        auth_style: AuthStyle::Bearer,
+        default_model: None, // no fallback model configured
+        ..Default::default()
+    });
+
+    let err = match create_chat_provider_from_string("reasoning", "nvidia-nim:", &config) {
+        Ok(_) => panic!("empty model must fail"),
+        Err(e) => e,
+    };
+    let msg = err.to_string();
+    assert!(
+        msg.contains("no model configured"),
+        "expected 'no model configured' in error, got: {msg}"
+    );
+    assert!(
+        msg.contains("nvidia-nim"),
+        "error must name the slug; got: {msg}"
+    );
+}
+
+#[test]
+fn cloud_provider_default_model_used_when_model_part_is_empty() {
+    // When provider string is "nvidia-nim:" (empty model) but the entry
+    // has a default_model, the factory must use the default — not error.
+    let mut config = Config::default();
+    config.cloud_providers.push(CloudProviderCreds {
+        id: "p_nim".to_string(),
+        slug: "nvidia-nim".to_string(),
+        label: "NVIDIA NIM".to_string(),
+        endpoint: "https://integrate.api.nvidia.com/v1".to_string(),
+        auth_style: AuthStyle::Bearer,
+        default_model: Some("meta/llama-3.1-8b-instruct".to_string()),
+        ..Default::default()
+    });
+
+    let (_, model) = create_chat_provider_from_string("reasoning", "nvidia-nim:", &config)
+        .expect("empty model with default_model must succeed");
+    assert_eq!(model, "meta/llama-3.1-8b-instruct");
+}
+
+#[test]
 fn missing_slug_for_openai_gives_clear_error() {
     let config = Config::default();
     let err = create_chat_provider_from_string("reasoning", "openai:gpt-4o", &config)
@@ -724,6 +777,7 @@ fn known_tiers_pass() {
         "agentic-v1",
         "coding-v1",
         "reasoning-quick-v1",
+        "summarization-v1",
     ] {
         assert!(
             is_known_openhuman_tier(tier),
@@ -738,6 +792,7 @@ fn known_hints_pass() {
     assert!(is_known_openhuman_tier("hint:chat"));
     assert!(is_known_openhuman_tier("hint:agentic"));
     assert!(is_known_openhuman_tier("hint:coding"));
+    assert!(is_known_openhuman_tier("hint:summarization"));
 }
 
 #[test]
@@ -748,7 +803,7 @@ fn invalid_models_fail() {
     assert!(!is_known_openhuman_tier(""));
     assert!(!is_known_openhuman_tier("reasoning-v2"));
     // Unrecognized `hint:*` values must NOT be accepted — the factory only
-    // translates the four hints above, so any other `hint:*` string would
+    // translates the known hints above, so any other `hint:*` string would
     // otherwise be forwarded to the backend and rejected with HTTP 400.
     assert!(!is_known_openhuman_tier("hint:garbage"));
     assert!(!is_known_openhuman_tier("hint:reasoning-quick"));
@@ -763,12 +818,20 @@ fn make_openhuman_backend_forwards_unknown_hint_verbatim() {
     // canonical hints (reasoning/chat/agentic/coding/summarization).
     // `hint:summarization` became canonical when `summarization-v1` shipped
     // (PR #2690), so it is no longer a passthrough case.
-    for hint in ["hint:reaction", "hint:garbage"] {
+    for hint in ["hint:reaction", "hint:garbage", "hint:lightweight"] {
         let mut config = Config::default();
         config.default_model = Some(hint.to_string());
         let (_, model) = make_openhuman_backend(&config).expect("factory should succeed");
         assert_eq!(model, hint, "hint '{hint}' should pass through unchanged");
     }
+}
+
+#[test]
+fn make_openhuman_backend_translates_summarization_hint() {
+    let mut config = Config::default();
+    config.default_model = Some("hint:summarization".to_string());
+    let (_, model) = make_openhuman_backend(&config).expect("factory should succeed");
+    assert_eq!(model, crate::openhuman::config::MODEL_SUMMARIZATION_V1);
 }
 
 #[test]
@@ -1190,6 +1253,156 @@ fn byok_fallback_background_workloads_never_inherit() {
     }
 }
 
+/// Regression guard for TAURI-RUST-59Y: when Ollama returns 404 on
+/// `/chat/completions` (e.g. model not found), the provider must NOT
+/// attempt a fallback request to `/responses`. The Ollama API has no
+/// Responses endpoint, so the fallback produces a second guaranteed-404
+/// that previously generated Sentry noise at scale (1,598 events).
+///
+/// This test mounts a mock server that returns 404 for chat/completions
+/// and an empty 200 for the responses endpoint (so we can detect if it
+/// was called). After the provider call fails, we assert the responses
+/// endpoint received zero requests.
+#[tokio::test]
+async fn ollama_provider_does_not_fall_back_to_responses_on_404() {
+    let mock_server = MockServer::start().await;
+
+    // chat/completions always returns 404 (model not found).
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(404).set_body_string(
+            r#"{"error":{"message":"model 'gemma3:1b-it-qat' not found","code":404}}"#,
+        ))
+        .expect(1) // exactly one attempt — no retry
+        .mount(&mock_server)
+        .await;
+
+    // /v1/responses should NOT be called — mount with expect(0).
+    Mock::given(method("POST"))
+        .and(path("/v1/responses"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"output_text":"should not reach here"}"#),
+        )
+        .expect(0) // must not be called
+        .mount(&mock_server)
+        .await;
+
+    let mut config = Config::default();
+    // Point the Ollama base URL at the mock server.
+    config.local_ai.base_url = Some(mock_server.uri());
+    let (provider, model) =
+        create_chat_provider_from_string("chat", "ollama:gemma3:1b-it-qat", &config)
+            .expect("ollama provider must build");
+
+    // The call should fail (404), but must not trigger the /v1/responses path.
+    let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
+    assert!(
+        result.is_err(),
+        "provider should fail with 404, got success"
+    );
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("404") || err_msg.contains("not found"),
+        "error should reference 404/not-found, got: {err_msg}"
+    );
+
+    // wiremock verifies expect(0) on the responses mock when the server is dropped.
+}
+
+/// Same regression guard as above but for LM Studio — it also lacks the
+/// Responses API and must not trigger the fallback on 404.
+#[tokio::test]
+async fn lmstudio_provider_does_not_fall_back_to_responses_on_404() {
+    let mock_server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(404).set_body_string(r#"{"error":"model not found"}"#))
+        .expect(1)
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/v1/responses"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"output_text":"should not reach here"}"#),
+        )
+        .expect(0)
+        .mount(&mock_server)
+        .await;
+
+    let mut config = Config::default();
+    config.local_ai.base_url = Some(mock_server.uri());
+    let (provider, model) =
+        create_chat_provider_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
+            .expect("lmstudio provider must build");
+
+    let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
+    assert!(
+        result.is_err(),
+        "provider should fail with 404, got success"
+    );
+}
+
+/// Counterpart to the no-fallback tests: a cloud provider (responses_fallback=true)
+/// MUST retry against `/v1/responses` when chat/completions returns 404.
+/// This guards against an accidental inversion of the supports_responses_fallback flag.
+#[tokio::test]
+async fn cloud_provider_falls_back_to_responses_on_404() {
+    let mock_server = MockServer::start().await;
+
+    // chat/completions returns 404 → should trigger fallback.
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(
+            ResponseTemplate::new(404)
+                .set_body_string(r#"{"error":{"message":"model not found","code":404}}"#),
+        )
+        .expect(1) // exactly one attempt
+        .mount(&mock_server)
+        .await;
+
+    // /v1/responses MUST be called — the provider should fall back to it.
+    Mock::given(method("POST"))
+        .and(path("/v1/responses"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(
+                r#"{"output":[{"content":[{"type":"output_text","text":"ok"}]}]}"#,
+            ),
+        )
+        .expect(1) // must be called exactly once
+        .mount(&mock_server)
+        .await;
+
+    // Use AuthStyle::None so no API key lookup is needed.
+    // The endpoint must include /v1 so that chat_completions_url() resolves to
+    // /v1/chat/completions and responses_url() resolves to /v1/responses.
+    let config = config_with_providers(vec![CloudProviderCreds {
+        id: "p_test".to_string(),
+        slug: "test-cloud".to_string(),
+        label: "Test Cloud".to_string(),
+        endpoint: format!("{}/v1", mock_server.uri()),
+        auth_style: AuthStyle::None,
+        default_model: Some("test-model".to_string()),
+        ..Default::default()
+    }]);
+
+    let (provider, model) =
+        create_chat_provider_from_string("chat", "test-cloud:test-model", &config)
+            .expect("cloud provider must build");
+
+    // The call should succeed via the responses fallback.
+    let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
+
+    // wiremock verifies expect(1) on the responses mock when the server is dropped.
+    // We don't assert Ok here because the provider may return an error even after a
+    // successful fallback call (e.g. if the response body doesn't fully satisfy parsing).
+    // The important invariant is that /v1/responses was called — verified by wiremock.
+    drop(result);
+}
+
 #[tokio::test]
 #[ignore = "requires live LM Studio on localhost:1234"]
 async fn live_lmstudio_provider_streams_thinking_and_text() {
@@ -1294,5 +1507,77 @@ async fn live_ollama_provider_streams_text() {
     assert!(
         streamed_text.contains("OLLAMA_LIVE_OK"),
         "streamed text never surfaced the final answer: {streamed_text}"
+    );
+}
+
+// ── nvidia-nim / empty-model guard tests (issue #2784) ─────────────────────
+
+/// Helper: build a minimal nvidia-nim-style cloud provider entry.
+fn nvidia_nim_entry(id: &str, default_model: Option<&str>) -> CloudProviderCreds {
+    CloudProviderCreds {
+        id: id.to_string(),
+        slug: "nvidia-nim".to_string(),
+        label: "NVIDIA NIM".to_string(),
+        endpoint: "https://integrate.api.nvidia.com/v1".to_string(),
+        auth_style: AuthStyle::Bearer,
+        default_model: default_model.map(ToString::to_string),
+        ..Default::default()
+    }
+}
+
+/// When the provider string includes a model id the factory should build
+/// successfully and return that model id unchanged.
+#[test]
+fn nvidia_nim_with_explicit_model_builds_correctly() {
+    let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
+    let (_, model) = create_chat_provider_from_string(
+        "reasoning",
+        "nvidia-nim:meta/llama-3.1-8b-instruct",
+        &config,
+    )
+    .expect("nvidia-nim with explicit model must build");
+    assert_eq!(
+        model, "meta/llama-3.1-8b-instruct",
+        "model id must pass through unchanged"
+    );
+}
+
+/// When the provider string has no model id (`"nvidia-nim:"`) and no
+/// default_model is configured, the factory must fail with a clear error
+/// rather than silently sending an empty model string to the API (which
+/// triggers a 400 "model field is required" from nvidia-nim).
+///
+/// Regression test for https://github.com/tinyhumansai/openhuman/issues/2784.
+#[test]
+fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
+    let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
+    let err = match create_chat_provider_from_string("reasoning", "nvidia-nim:", &config) {
+        Ok(_) => panic!("empty model string must not succeed — would send model='' to the API"),
+        Err(e) => e,
+    };
+    let msg = err.to_string();
+    assert!(
+        msg.contains("empty model id"),
+        "error must mention empty model id, got: {msg}"
+    );
+    assert!(
+        msg.contains("nvidia-nim"),
+        "error must name the provider slug, got: {msg}"
+    );
+}
+
+/// When the provider string has no model id but the entry has a concrete
+/// default_model, that default should be used — no error.
+#[test]
+fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
+    let config = config_with_providers(vec![nvidia_nim_entry(
+        "p_nim",
+        Some("meta/llama-3.1-70b-instruct"),
+    )]);
+    let (_, model) = create_chat_provider_from_string("reasoning", "nvidia-nim:", &config)
+        .expect("nvidia-nim: with default_model configured must build");
+    assert_eq!(
+        model, "meta/llama-3.1-70b-instruct",
+        "should fall back to default_model from config entry"
     );
 }
