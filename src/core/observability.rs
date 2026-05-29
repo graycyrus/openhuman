@@ -4845,6 +4845,47 @@ mod tests {
         );
     }
 
+    /// Regression guard: tier-2 must also catch the exception/tracing path
+    /// (`sentry-tracing` with `attach_stacktrace=true` may populate the
+    /// exception list rather than `event.message`).
+    #[test]
+    fn budget_filter_drops_insufficient_budget_exception_without_tags() {
+        // Exact wire body from OpenHuman backend wrapped in an exception value.
+        let event = event_with_exception_value(
+            r#"OpenHuman API error (400 Bad Request): {"success":false,"error":"INSUFFICIENT BUDGET"}"#,
+        );
+        assert!(
+            is_budget_event(&event),
+            "tier-2 must drop exception-path 'Insufficient budget' case-insensitively"
+        );
+
+        // Mixed case variant.
+        let event = event_with_exception_value(
+            r#"OpenHuman API error (400 Bad Request): {"success":false,"error":"Insufficient Budget"}"#,
+        );
+        assert!(
+            is_budget_event(&event),
+            "tier-2 must drop exception-path 'Insufficient Budget' case-insensitively"
+        );
+
+        // Wrong failure/status tags should not prevent tier-2 from matching.
+        let mut event = event_with_exception_value(
+            r#"OpenHuman API error (400 Bad Request): {"success":false,"error":"Insufficient budget"}"#,
+        );
+        event.tags.insert("failure".to_string(), "transport".to_string());
+        assert!(
+            is_budget_event(&event),
+            "tier-2 must drop exception-path even when failure tag does not match"
+        );
+
+        // Unrelated exception values must not match.
+        let event = event_with_exception_value("retry budget exhausted after 3 attempts");
+        assert!(
+            !is_budget_event(&event),
+            "tier-2 must not match unrelated exception value"
+        );
+    }
+
     /// Tier-2 only matches the tight phrase — unrelated 400 errors with "budget"
     /// in an unrelated context should not be silently dropped.
     #[test]
