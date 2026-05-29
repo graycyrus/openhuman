@@ -1345,8 +1345,9 @@ mod tests {
         /// Sentry report (OPENHUMAN-TAURI-S).
         #[test]
         fn http_500_with_429_body_phrase_is_rate_limited() {
-            let body = r#"{"success":false,"error":"429 rate limit exceeded, please try again later"}"#
-                .to_ascii_lowercase();
+            let body =
+                r#"{"success":false,"error":"429 rate limit exceeded, please try again later"}"#
+                    .to_ascii_lowercase();
             assert!(
                 is_upstream_rate_limit_message(&body),
                 "500-body with '429 rate limit exceeded' must be detected as rate-limited"
