@@ -34,8 +34,12 @@ fn is_invalid_token_error_matches_backend_message() {
 #[test]
 fn is_invalid_token_error_does_not_match_other_errors() {
     assert!(!is_invalid_token_error("Socket.IO connect error: nope"));
-    assert!(!is_invalid_token_error("Timeout waiting for SIO CONNECT ACK"));
-    assert!(!is_invalid_token_error("WebSocket connect: IO error: timeout"));
+    assert!(!is_invalid_token_error(
+        "Timeout waiting for SIO CONNECT ACK"
+    ));
+    assert!(!is_invalid_token_error(
+        "WebSocket connect: IO error: timeout"
+    ));
     assert!(!is_invalid_token_error(""));
     assert!(!is_invalid_token_error("internal server error"));
 }
@@ -60,8 +64,7 @@ async fn run_connection_returns_invalid_token_on_auth_reject() {
         let (mut write, mut read) = ws.split();
 
         // 1. EIO OPEN
-        let open =
-            r#"0{"sid":"s","upgrades":[],"pingInterval":25000,"pingTimeout":20000}"#;
+        let open = r#"0{"sid":"s","upgrades":[],"pingInterval":25000,"pingTimeout":20000}"#;
         let _ = write.send(WsMessage::Text(open.to_string())).await;
 
         // 2. Drain client SIO CONNECT frame.

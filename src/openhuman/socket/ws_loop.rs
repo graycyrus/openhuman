@@ -229,7 +229,10 @@ async fn refresh_session_token() -> Option<String> {
     };
     match crate::api::jwt::get_session_token(&config) {
         Ok(Some(t)) if !t.trim().is_empty() => {
-            log::debug!("[socket] refresh_session_token: got fresh token (len={})", t.len());
+            log::debug!(
+                "[socket] refresh_session_token: got fresh token (len={})",
+                t.len()
+            );
             Some(t)
         }
         Ok(Some(_)) => {
@@ -380,9 +383,7 @@ async fn run_connection(
                 // canonical backend message case-insensitively so minor
                 // casing changes don't re-open the bug.
                 if is_invalid_token_error(&e) {
-                    log::warn!(
-                        "[socket] SIO CONNECT rejected with invalid-token error: {e}"
-                    );
+                    log::warn!("[socket] SIO CONNECT rejected with invalid-token error: {e}");
                     return ConnectionOutcome::InvalidToken;
                 }
                 return ConnectionOutcome::Failed(format!("SIO CONNECT: {e}"));

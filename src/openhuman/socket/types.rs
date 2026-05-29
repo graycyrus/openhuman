@@ -73,6 +73,9 @@ mod tests {
             panic!("expected Failed");
         }
         // InvalidToken carries no reason string — it is self-descriptive.
-        matches!(ConnectionOutcome::InvalidToken, ConnectionOutcome::InvalidToken);
+        matches!(
+            ConnectionOutcome::InvalidToken,
+            ConnectionOutcome::InvalidToken
+        );
     }
 }
