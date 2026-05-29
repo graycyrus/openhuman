@@ -412,7 +412,7 @@ export async function openhumanGetMeetSettings(): Promise<
   });
 }
 
-export type SearchEngineId = 'managed' | 'parallel' | 'brave';
+export type SearchEngineId = 'managed' | 'parallel' | 'brave' | 'querit';
 
 export interface SearchSettingsUpdate {
   engine?: SearchEngineId;
@@ -422,6 +422,8 @@ export interface SearchSettingsUpdate {
   parallel_api_key?: string;
   /** Empty string clears the stored key. */
   brave_api_key?: string;
+  /** Empty string clears the stored key. */
+  querit_api_key?: string;
   /**
    * Websites the assistant may open/read (web_fetch / curl). Exact hosts
    * match their subdomains; `"*"` allows all public sites; an empty list
@@ -444,10 +446,30 @@ export interface SearchSettings {
   timeout_secs: number;
   parallel_configured: boolean;
   brave_configured: boolean;
+  querit_configured: boolean;
   /** Current allowed-websites host list (may contain `"*"`). */
   allowed_domains: string[];
   /** True when the allowlist contains the `"*"` wildcard. */
   allow_all: boolean;
+}
+
+export interface DiagramViewerSettings {
+  enabled: boolean;
+  source_url: string;
+  refresh_interval_seconds: number;
+}
+
+export interface DashboardSettings {
+  diagram_viewer: DiagramViewerSettings;
+}
+
+export async function openhumanGetDashboardSettings(): Promise<CommandResponse<DashboardSettings>> {
+  if (!isTauri()) {
+    throw new Error('Not running in Tauri');
+  }
+  return await callCoreRpc<CommandResponse<DashboardSettings>>({
+    method: CORE_RPC_METHODS.configGetDashboardSettings,
+  });
 }
 
 export async function openhumanGetSearchSettings(): Promise<CommandResponse<SearchSettings>> {

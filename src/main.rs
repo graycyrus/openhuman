@@ -102,13 +102,17 @@ fn main() {
             // the last line of defense for any future call site that adds a new
             // report path without routing through one of those two guards.
             {
-                let event_message = event
-                    .message
-                    .as_deref()
-                    .or_else(|| event.logentry.as_ref().map(|l| l.message.as_str()))
-                    .unwrap_or("");
-                let lower = event_message.to_ascii_lowercase();
-                if openhuman_core::core::observability::is_upstream_rate_limit_message(&lower) {
+                let direct = event.message.as_deref();
+                let from_logentry = event.logentry.as_ref().map(|l| l.message.as_str());
+                let from_exception = event.exception.last().and_then(|e| e.value.as_deref());
+                let is_rate_limited = [direct, from_logentry, from_exception]
+                    .into_iter()
+                    .flatten()
+                    .map(str::to_ascii_lowercase)
+                    .any(|lower| {
+                        openhuman_core::core::observability::is_upstream_rate_limit_message(&lower)
+                    });
+                if is_rate_limited {
                     log::debug!(
                         "[sentry-rate-limit-filter] dropping upstream rate-limit event_id={:?}",
                         event.event_id
