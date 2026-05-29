@@ -14,8 +14,11 @@ import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
 import Rewards from './pages/Rewards';
+import Routines from './pages/Routines';
 import Settings from './pages/Settings';
+import SkillNew from './pages/SkillNew';
 import Skills from './pages/Skills';
+import SkillsRun from './pages/SkillsRun';
 import WebCallbackPage from './pages/WebCallbackPage';
 import Welcome from './pages/Welcome';
 
@@ -79,6 +82,33 @@ const AppRoutes = () => {
         }
       />
 
+      {/* Skills lives at /skills with its 4 sub-tabs (Composio / Channels /
+          MCP Servers / Runners). The scheduled-skills dashboard concept
+          composes INSIDE the Runners sub-tab, not as a separate top-level
+          page — the bottom-bar "Connections" entry has always pointed at
+          /skills to surface Composio integrations + MCP, and that muscle
+          memory is restored here.
+          `/skills/new` is the create-a-skill authoring page.
+          Order matters: keep `/skills/new` before `/skills` so it wins the
+          prefix match. */}
+      <Route
+        path="/skills/new"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <SkillNew />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/skills/run"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <SkillsRun />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/skills"
         element={
@@ -122,6 +152,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requireAuth={true}>
             <Notifications />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/routines"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <Routines />
           </ProtectedRoute>
         }
       />

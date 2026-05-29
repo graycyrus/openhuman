@@ -5,21 +5,19 @@
 //!
 //! ## Init-failure noise suppression (TAURI-RUST-A)
 //!
-//! `with_connection` runs the schema DDL on every call. On Windows the DDL can
-//! fail once (e.g. locked file, antivirus hold, network-drive WAL rejection) and
-//! then every subsequent `subconscious_tasks_list` RPC re-runs the same failing
-//! path — producing ~1,500 identical Sentry events from a single underlying cause.
-//!
-//! Guard: `DDL_EVER_FAILED` / `DDL_LOGGED` pair.
-//! - First failure → log at `error!` level (captured by Sentry once) + set both flags.
-//! - All subsequent calls → return a sentinel `Err` that the read-only list
-//!   handlers in `schemas.rs` detect and convert to empty payloads, bypassing
-//!   the RPC error path that would re-fire `report_error_or_expected`.
+//! `with_connection` runs the schema DDL on every call. Transient
+//! `SQLITE_BUSY` / `SQLITE_LOCKED` errors (e.g. concurrent in-process RPC
+//! calls, antivirus hold, network-drive WAL rejection) are handled by a
+//! per-connection busy timeout (5 s) plus an application-level retry loop
+//! (3 retries, 100 / 300 / 900 ms backoff). Only `DatabaseBusy` /
+//! `DatabaseLocked` errors are retried — schema or corruption errors fail
+//! through immediately so Sentry captures a real root cause rather than a
+//! transient noise event.
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use uuid::Uuid;
 
 use super::types::{
@@ -27,64 +25,121 @@ use super::types::{
     TaskPatch, TaskRecurrence, TaskSource,
 };
 
-/// Set to `true` the first time DDL init fails. Prevents re-running the same
-/// failing DDL on every subsequent RPC call (TAURI-RUST-A — 1,499 events).
-static DDL_EVER_FAILED: AtomicBool = AtomicBool::new(false);
+/// Per-connection busy handler window. Tracks the value used by the cron
+/// module + other domain stores (`memory_store::unified::init`, 15s) and
+/// the higher-throughput whatsapp/memory_queue path (5s). 5 s is enough
+/// for the subconscious tick — RPC handlers are user-driven (status
+/// polling at 3 s, manual triggers) and we'd rather fail fast than block
+/// the UI thread for the full 15 s of contention.
+const BUSY_TIMEOUT: Duration = Duration::from_millis(5000);
 
-/// Set to `true` once we have emitted the first error log. Ensures Sentry only
-/// captures the failure once — subsequent calls get a silent sentinel error.
-static DDL_LOGGED: AtomicBool = AtomicBool::new(false);
+/// Maximum number of application-level retries after rusqlite's busy
+/// handler is exhausted. The first attempt is "attempt 0" — total
+/// attempts = `OPEN_RETRY_ATTEMPTS` + 1.
+const OPEN_RETRY_ATTEMPTS: u32 = 3;
 
-/// Sentinel message returned after the first DDL failure. Read-only list
-/// handlers in `schemas.rs` match on this prefix to return empty payloads
-/// instead of propagating an error that would fire `report_error_or_expected`.
-pub const DB_INIT_FAILED_SENTINEL: &str = "[subconscious] db unavailable (init failed)";
+/// Base backoff for application-level retries; per-attempt sleep is
+/// `BASE * 3^attempt` so the schedule is `100 ms / 300 ms / 900 ms`
+/// totalling ≤ 1.3 s before the final attempt fails through.
+const OPEN_RETRY_BASE_MS: u64 = 100;
 
 /// Open the subconscious database and run schema migrations.
 ///
-/// After the first DDL failure the function returns [`DB_INIT_FAILED_SENTINEL`]
-/// immediately, skipping both the filesystem open and the DDL re-run. Callers
-/// that perform read-only list queries should treat this sentinel as "empty
-/// result" rather than an RPC error (see `schemas.rs`).
+/// Three layers of defence against transient `SQLITE_BUSY` / `SQLITE_LOCKED`
+/// at the open / DDL boundary, motivated by Sentry TAURI-RUST-A
+/// (cross-platform, ~1.3k events / 24 h, RPC paths `subconscious_tasks_list`
+/// and `subconscious_status`):
+///
+/// 1. **Per-connection busy timeout** (`BUSY_TIMEOUT`, 5 s): SQLite's
+///    default is `0` — first lock contention returns `SQLITE_BUSY`
+///    immediately. The subconscious domain serialises several RPCs
+///    (status poll every 3 s, tasks-list on Intelligence page, manual
+///    trigger), each opening its own connection; without a timeout the
+///    first concurrent open races and one returns `SQLITE_BUSY` mid-DDL.
+/// 2. **Application-level retry** (3 attempts, exponential backoff
+///    100 / 300 / 900 ms): catches the residual case where the busy
+///    handler is exhausted (long-running external write txn, AV scan
+///    holding the file). Mirrors `whatsapp_data::sqlite_retry` /
+///    `memory_queue::worker::is_sqlite_busy`.
+/// 3. **Retry classifier** (`is_sqlite_busy`): only retries
+///    `DatabaseBusy` / `DatabaseLocked`. Schema / syntax / corruption
+///    errors are real bugs or unrecoverable file-state failures —
+///    retrying just delays the report.
 pub fn with_connection<T>(
     workspace_dir: &Path,
     f: impl FnOnce(&Connection) -> Result<T>,
 ) -> Result<T> {
-    // Fast path: DDL already failed in this process — skip the re-run and
-    // return the sentinel without logging again.
-    if DDL_EVER_FAILED.load(Ordering::Relaxed) {
-        anyhow::bail!(DB_INIT_FAILED_SENTINEL);
-    }
-
     let db_path = workspace_dir.join("subconscious").join("subconscious.db");
     if let Some(parent) = db_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            let msg = format!(
-                "[subconscious] failed to create subconscious dir {}: {e}",
-                parent.display()
-            );
-            maybe_log_ddl_error(&msg);
-            anyhow::bail!(DB_INIT_FAILED_SENTINEL);
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create subconscious dir: {}", parent.display()))?;
+    }
+    let conn = open_and_initialize_with_retry(&db_path)?;
+    f(&conn)
+}
+
+/// Open the SQLite file, set `busy_timeout`, run `SCHEMA_DDL`, and apply
+/// the idempotent reflection-store migrations — retrying the whole
+/// sequence on `SQLITE_BUSY` / `SQLITE_LOCKED`. Split out so the retry
+/// loop has a single failure surface to classify and the happy path
+/// stays linear.
+fn open_and_initialize_with_retry(db_path: &Path) -> Result<Connection> {
+    let mut last_err: Option<anyhow::Error> = None;
+
+    for attempt in 0..=OPEN_RETRY_ATTEMPTS {
+        match open_and_initialize(db_path) {
+            Ok(conn) => {
+                if attempt > 0 {
+                    tracing::debug!(
+                        target: "openhuman::subconscious::store",
+                        attempt = attempt,
+                        db_path = %db_path.display(),
+                        "[subconscious::store] open/DDL succeeded after {attempt} busy retries"
+                    );
+                }
+                return Ok(conn);
+            }
+            Err(e) => {
+                if !is_sqlite_busy(&e) || attempt == OPEN_RETRY_ATTEMPTS {
+                    last_err = Some(e);
+                    break;
+                }
+                let sleep_ms = OPEN_RETRY_BASE_MS
+                    .saturating_mul(3u64.saturating_pow(attempt))
+                    .min(900);
+                tracing::warn!(
+                    target: "openhuman::subconscious::store",
+                    attempt = attempt + 1,
+                    max_attempts = OPEN_RETRY_ATTEMPTS + 1,
+                    sleep_ms = sleep_ms,
+                    error = %format!("{e:#}"),
+                    "[subconscious::store] SQLite busy/locked on open or DDL; retrying"
+                );
+                std::thread::sleep(Duration::from_millis(sleep_ms));
+                last_err = Some(e);
+            }
         }
     }
 
-    let conn = match Connection::open(&db_path) {
-        Ok(c) => c,
-        Err(e) => {
-            let msg = format!(
-                "[subconscious] failed to open subconscious DB {}: {e}",
-                db_path.display()
-            );
-            maybe_log_ddl_error(&msg);
-            anyhow::bail!(DB_INIT_FAILED_SENTINEL);
-        }
-    };
+    Err(last_err.expect("OPEN_RETRY_ATTEMPTS >= 0 ensures at least one attempt"))
+}
 
-    if let Err(e) = conn.execute_batch(SCHEMA_DDL) {
-        let msg = format!("[subconscious] failed to run subconscious schema DDL: {e}");
-        maybe_log_ddl_error(&msg);
-        anyhow::bail!(DB_INIT_FAILED_SENTINEL);
-    }
+/// Single-shot open + DDL + migrations. Each invocation returns an
+/// owned `Connection`; on failure the partially-initialised connection
+/// is dropped before the caller retries.
+fn open_and_initialize(db_path: &Path) -> Result<Connection> {
+    let conn = Connection::open(db_path)
+        .with_context(|| format!("failed to open subconscious DB: {}", db_path.display()))?;
+
+    // Set busy_timeout BEFORE running DDL — the very first PRAGMA / CREATE
+    // TABLE in SCHEMA_DDL can race with another in-process connection
+    // (subconscious RPCs each call `with_connection` independently), and
+    // SQLite's default busy_timeout is 0.
+    conn.busy_timeout(BUSY_TIMEOUT)
+        .context("configure subconscious busy_timeout")?;
+
+    conn.execute_batch(SCHEMA_DDL)
+        .context("failed to run subconscious schema DDL")?;
 
     // Drop the legacy `disposition` / `surfaced_at` columns + their index
     // from previously-migrated DBs. Idempotent — fresh installs and
@@ -95,21 +150,33 @@ pub fn with_connection<T>(
     // Idempotent (duplicate-column errors swallowed).
     super::reflection_store::migrate_add_source_chunks_column(&conn);
 
-    f(&conn)
+    Ok(conn)
 }
 
-/// Log the DDL failure exactly once (first call) so Sentry captures a single
-/// event. Sets `DDL_EVER_FAILED` so subsequent `with_connection` calls skip
-/// the expensive open + DDL re-run without emitting more Sentry events.
-fn maybe_log_ddl_error(msg: &str) {
-    DDL_EVER_FAILED.store(true, Ordering::Relaxed);
-    // Only log the first occurrence — CAS ensures a single Sentry capture.
-    if DDL_LOGGED
-        .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
-        .is_ok()
+/// Returns true when `err` is transient SQLite contention worth retrying
+/// (`SQLITE_BUSY` / `SQLITE_LOCKED`). Schema / syntax / corruption errors
+/// are NOT retried — the retry would just delay the same failure.
+///
+/// Modelled on [`crate::openhuman::memory_queue::worker::is_sqlite_busy`]
+/// and [`crate::openhuman::whatsapp_data::sqlite_retry::is_sqlite_busy`];
+/// kept private to the subconscious store so the retry policy can evolve
+/// independently of those sibling domains.
+fn is_sqlite_busy(err: &anyhow::Error) -> bool {
+    if let Some(rusqlite::Error::SqliteFailure(sqlite_err, _)) =
+        err.downcast_ref::<rusqlite::Error>()
     {
-        log::error!("{msg}");
+        return matches!(
+            sqlite_err.code,
+            rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+        );
     }
+    // Fallback for errors wrapped under `.context(...)` layers — the
+    // rusqlite root may sit a few levels deep after `with_context`
+    // wraps the open / DDL failure. anyhow's alternate Display joins
+    // every cause with ": " so the SQLite-rendered phrase remains
+    // searchable.
+    let msg = format!("{err:#}").to_ascii_lowercase();
+    msg.contains("database is locked") || msg.contains("database table is locked")
 }
 
 const SCHEMA_DDL: &str = "
