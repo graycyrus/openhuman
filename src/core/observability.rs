@@ -5121,7 +5121,9 @@ mod tests {
         let mut event = event_with_exception_value(
             r#"OpenHuman API error (400 Bad Request): {"success":false,"error":"Insufficient budget"}"#,
         );
-        event.tags.insert("failure".to_string(), "transport".to_string());
+        event
+            .tags
+            .insert("failure".to_string(), "transport".to_string());
         assert!(
             is_budget_event(&event),
             "tier-2 must drop exception-path even when failure tag does not match"
