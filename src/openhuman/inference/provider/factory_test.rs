@@ -1316,11 +1316,13 @@ async fn cloud_provider_falls_back_to_responses_on_404() {
         .await;
 
     // Use AuthStyle::None so no API key lookup is needed.
+    // The endpoint must include /v1 so that chat_completions_url() resolves to
+    // /v1/chat/completions and responses_url() resolves to /v1/responses.
     let config = config_with_providers(vec![CloudProviderCreds {
         id: "p_test".to_string(),
         slug: "test-cloud".to_string(),
         label: "Test Cloud".to_string(),
-        endpoint: mock_server.uri(),
+        endpoint: format!("{}/v1", mock_server.uri()),
         auth_style: AuthStyle::None,
         default_model: Some("test-model".to_string()),
         ..Default::default()
