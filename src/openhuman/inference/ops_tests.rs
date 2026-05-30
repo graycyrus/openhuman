@@ -316,4 +316,3 @@ fn is_unknown_provider_user_config_rejects_other_list_models_failures() {
         );
     }
 }
-
