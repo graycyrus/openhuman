@@ -179,7 +179,12 @@ pub async fn inference_test_provider_model(
             output_len = outcome.value.reply.len(),
             "{LOG_PREFIX} test_provider_model:ok"
         ),
-        Err(err) => error!(error = %err, "{LOG_PREFIX} test_provider_model:error"),
+        Err(err) => error!(
+            workload,
+            provider,
+            error = %err,
+            "{LOG_PREFIX} test_provider_model:error"
+        ),
     }
     result
 }
