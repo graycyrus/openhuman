@@ -666,9 +666,12 @@ fn legacy_embeddings_migrate_to_sidecar_once() {
         let v: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
+        // A full init runs every one-shot migration in sequence, so the gate
+        // lands on the latest version (the global/topic purge), not just the
+        // embedding migration's.
         assert_eq!(
-            v, TREE_EMBEDDING_MIGRATION_VERSION,
-            "version gate must be set"
+            v, GLOBAL_TOPIC_PURGE_MIGRATION_VERSION,
+            "version gate must be set to the latest migration"
         );
         Ok(())
     })
@@ -963,6 +966,53 @@ fn validate_reembed_skip_key_rejects_empty_and_oversized() {
     );
 }
 
+// ---------- get_chunks_batch ----------
+//
+// Contract: equivalent to looping `get_chunk` per id but in
+// `O(ceil(n / MAX_FETCH_BATCH))` SQLite round-trips. The map carries
+// only ids that exist; missing ids are silently absent (same as the
+// per-row helper returning Ok(None)).
+
+#[test]
+fn get_chunks_batch_returns_present_ids_in_map() {
+    let (_tmp, cfg) = test_config();
+    let c1 = sample_chunk("slack:#eng", 0, 1_700_000_000_000);
+    let c2 = sample_chunk("slack:#eng", 1, 1_700_000_000_000);
+    let c3 = sample_chunk("slack:#ops", 0, 1_700_000_000_000);
+    upsert_chunks(&cfg, &[c1.clone(), c2.clone(), c3.clone()]).unwrap();
+
+    let ids = vec![c1.id.clone(), c2.id.clone(), c3.id.clone()];
+    let map = get_chunks_batch(&cfg, &ids).unwrap();
+    assert_eq!(map.len(), 3);
+    assert_eq!(map.get(&c1.id), Some(&c1));
+    assert_eq!(map.get(&c2.id), Some(&c2));
+    assert_eq!(map.get(&c3.id), Some(&c3));
+}
+
+#[test]
+fn get_chunks_batch_empty_input_and_missing_ids() {
+    // Empty input: empty map (no SQL issued).
+    let (_tmp, cfg) = test_config();
+    let empty = get_chunks_batch(&cfg, &[]).unwrap();
+    assert!(empty.is_empty());
+
+    // Missing ids: silently absent (mirrors per-row Ok(None)).
+    // `fetch_leaves` relies on this so partial-result detection
+    // (`hits.len() < ids.len()`) keeps working unchanged.
+    let c = sample_chunk("slack:#eng", 0, 1_700_000_000_000);
+    upsert_chunks(&cfg, &[c.clone()]).unwrap();
+    let ids = vec![
+        c.id.clone(),
+        "ghost:no-such-1".into(),
+        "ghost:no-such-2".into(),
+    ];
+    let map = get_chunks_batch(&cfg, &ids).unwrap();
+    assert_eq!(map.len(), 1);
+    assert_eq!(map.get(&c.id), Some(&c));
+    assert!(map.get("ghost:no-such-1").is_none());
+    assert!(map.get("ghost:no-such-2").is_none());
+}
+
 // ---------- get_chunk_embeddings_for_signature_batch ----------
 //
 // Contract: equivalent to looping `get_chunk_embedding_for_signature`
@@ -1058,4 +1108,103 @@ fn batch_embedding_lookup_splits_id_list_above_per_batch_threshold() {
     assert_eq!(map.get(&c1.id).cloned(), Some(vec![1.0]));
     assert_eq!(map.get(&c2.id).cloned(), Some(vec![2.0]));
     assert_eq!(map.get(&c3.id).cloned(), Some(vec![3.0]));
+}
+
+/// The one-shot purge migration deletes global + topic trees (rows, summaries,
+/// buffers, jobs, and on-disk summary folders) while leaving source trees and
+/// non-retired jobs untouched, and runs exactly once (PRAGMA user_version gate).
+#[test]
+fn global_topic_purge_removes_only_global_and_topic() {
+    let (_tmp, cfg) = test_config();
+    // First open initialises the schema and runs both migrations (sets
+    // user_version = 2).
+    upsert_chunks(&cfg, &[sample_chunk("slack:#eng", 0, 1_700_000_000_000)]).unwrap();
+
+    // On-disk: a legacy per-day global folder, the singleton global folder, a
+    // topic folder, and a source folder that must survive.
+    let summaries = cfg
+        .memory_tree_content_root()
+        .join("wiki")
+        .join("summaries");
+    for d in [
+        "global-2026-05-28",
+        "global",
+        "topic-alice",
+        "source-slack-eng",
+    ] {
+        std::fs::create_dir_all(summaries.join(d).join("L0")).unwrap();
+    }
+
+    with_connection(&cfg, |conn| {
+        // Seed one tree of each kind, each with a summary.
+        for (id, kind) in [
+            ("source:s1", "source"),
+            ("global:g1", "global"),
+            ("topic:t1", "topic"),
+        ] {
+            conn.execute(
+                "INSERT INTO mem_tree_trees (id, kind, scope, max_level, status, created_at_ms) \
+                 VALUES (?1, ?2, ?2, 0, 'active', 0)",
+                params![id, kind],
+            )?;
+            conn.execute(
+                "INSERT INTO mem_tree_summaries \
+                 (id, tree_id, tree_kind, level, content, token_count, \
+                  time_range_start_ms, time_range_end_ms, sealed_at_ms) \
+                 VALUES (?1, ?2, ?3, 0, 'x', 1, 0, 0, 0)",
+                params![format!("sum-{id}"), id, kind],
+            )?;
+        }
+        // Seed retired + surviving job rows.
+        for (jid, kind) in [
+            ("j1", "topic_route"),
+            ("j2", "digest_daily"),
+            ("j3", "extract_chunk"),
+        ] {
+            conn.execute(
+                "INSERT INTO mem_tree_jobs (id, kind, payload_json, available_at_ms, created_at_ms) \
+                 VALUES (?1, ?2, '{}', 0, 0)",
+                params![jid, kind],
+            )?;
+        }
+        // Re-arm the gate so the purge runs against the seeded rows.
+        conn.pragma_update(None, "user_version", 1i64)?;
+        super::purge_global_topic_trees(conn, &cfg)?;
+
+        // Trees: only the source tree survives.
+        let trees: i64 =
+            conn.query_row("SELECT COUNT(*) FROM mem_tree_trees", [], |r| r.get(0))?;
+        assert_eq!(trees, 1, "only the source tree should remain");
+        let kind: String =
+            conn.query_row("SELECT kind FROM mem_tree_trees", [], |r| r.get(0))?;
+        assert_eq!(kind, "source");
+
+        // Summaries: only the source summary survives.
+        let summaries_left: i64 =
+            conn.query_row("SELECT COUNT(*) FROM mem_tree_summaries", [], |r| r.get(0))?;
+        assert_eq!(summaries_left, 1);
+
+        // Jobs: retired kinds gone, extract_chunk kept.
+        let jobs_left: Vec<String> = {
+            let mut stmt = conn.prepare("SELECT kind FROM mem_tree_jobs ORDER BY kind")?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            rows.collect::<rusqlite::Result<_>>()?
+        };
+        assert_eq!(jobs_left, vec!["extract_chunk".to_string()]);
+
+        // Gate advanced — a second run is a no-op.
+        let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        assert_eq!(version, 2);
+        Ok(())
+    })
+    .unwrap();
+
+    // On-disk: global*/topic-* folders gone, source-* kept.
+    assert!(!summaries.join("global-2026-05-28").exists());
+    assert!(!summaries.join("global").exists());
+    assert!(!summaries.join("topic-alice").exists());
+    assert!(
+        summaries.join("source-slack-eng").exists(),
+        "source summary folder must survive the purge"
+    );
 }
