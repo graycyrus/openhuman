@@ -176,11 +176,24 @@ describe('HumanPage — collapsible chat panel', () => {
     renderHumanPage();
     const panel = screen.getByTestId('human-chat-panel');
     expect(panel).toBeInTheDocument();
-    expect(panel.className).toContain('translate-x-0');
-    expect(panel.className).not.toContain('translate-x-full');
+    // Open: panel reserves width (side-by-side at lg) and is NOT collapsed to w-0.
+    expect(panel.className).toContain('lg:w-[420px]');
+    expect(panel.className).not.toContain('w-0');
   });
 
-  it('collapses the chat panel when the collapse button is clicked', async () => {
+  it('declares responsive breakpoints (#2955): overlay below lg, side-by-side at lg', () => {
+    renderHumanPage();
+    const panel = screen.getByTestId('human-chat-panel');
+    // Below lg the panel is an absolute slide-over/overlay; at lg it joins the flex row.
+    expect(panel.className).toContain('absolute');
+    expect(panel.className).toContain('lg:static');
+    // Small = full-width overlay, medium = narrower slide-over, large = fixed side panel.
+    expect(panel.className).toContain('w-full');
+    expect(panel.className).toContain('md:w-[440px]');
+    expect(panel.className).toContain('lg:w-[420px]');
+  });
+
+  it('collapses the chat panel to zero width when the collapse button is clicked', async () => {
     renderHumanPage();
     const collapseBtn = screen.getByTestId('human-chat-collapse');
 
@@ -189,7 +202,9 @@ describe('HumanPage — collapsible chat panel', () => {
     });
 
     const panel = screen.getByTestId('human-chat-panel');
-    expect(panel.className).toContain('translate-x-full');
+    // Collapsing animates the box width to 0 so the mascot reclaims the space —
+    // a transform alone would leave the 420px layout box reserved.
+    expect(panel.className).toContain('w-0');
   });
 
   it('shows a toggle button when chat is collapsed', async () => {
@@ -215,7 +230,8 @@ describe('HumanPage — collapsible chat panel', () => {
     });
 
     const panel = screen.getByTestId('human-chat-panel');
-    expect(panel.className).toContain('translate-x-0');
+    expect(panel.className).not.toContain('w-0');
+    expect(panel.className).toContain('lg:w-[420px]');
     expect(screen.queryByTestId('human-chat-toggle')).not.toBeInTheDocument();
   });
 
@@ -234,13 +250,17 @@ describe('HumanPage — collapsible chat panel', () => {
     renderHumanPage();
 
     const panel = screen.getByTestId('human-chat-panel');
-    expect(panel.className).toContain('translate-x-full');
+    expect(panel.className).toContain('w-0');
     expect(screen.getByTestId('human-chat-toggle')).toBeInTheDocument();
   });
 
-  it('renders animated background blobs', () => {
+  it('renders animated background blobs that respect prefers-reduced-motion', () => {
     const { container } = renderHumanPage();
     const blobs = container.querySelectorAll('[class*="animate-blob-drift"]');
     expect(blobs.length).toBe(3);
+    // Motion-sensitive users must not see the infinite drift animation.
+    blobs.forEach(blob => {
+      expect(blob.className).toContain('motion-reduce:animate-none');
+    });
   });
 });

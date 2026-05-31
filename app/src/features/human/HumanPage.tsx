@@ -55,9 +55,9 @@ const HumanPage = () => {
     <div className="absolute inset-0 bg-stone-100 dark:bg-neutral-950 overflow-hidden flex flex-col">
       {/* ── Animated background blobs (CSS-only, z-0) ── */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -top-1/4 -left-1/4 w-[60%] h-[60%] rounded-full bg-primary-400/10 dark:bg-primary-500/[0.07] blur-3xl animate-blob-drift-1" />
-        <div className="absolute -bottom-1/4 -right-1/4 w-[50%] h-[50%] rounded-full bg-accent-lavender/10 dark:bg-accent-lavender/[0.06] blur-3xl animate-blob-drift-2" />
-        <div className="absolute top-1/3 left-1/2 w-[40%] h-[40%] rounded-full bg-accent-mint/10 dark:bg-accent-mint/[0.05] blur-3xl animate-blob-drift-3" />
+        <div className="absolute -top-1/4 -left-1/4 w-[60%] h-[60%] rounded-full bg-primary-400/10 dark:bg-primary-500/[0.07] blur-3xl animate-blob-drift-1 motion-reduce:animate-none" />
+        <div className="absolute -bottom-1/4 -right-1/4 w-[50%] h-[50%] rounded-full bg-accent-lavender/10 dark:bg-accent-lavender/[0.06] blur-3xl animate-blob-drift-2 motion-reduce:animate-none" />
+        <div className="absolute top-1/3 left-1/2 w-[40%] h-[40%] rounded-full bg-accent-mint/10 dark:bg-accent-mint/[0.05] blur-3xl animate-blob-drift-3 motion-reduce:animate-none" />
       </div>
 
       {/* ── Top controls bar ── */}
@@ -120,10 +120,19 @@ const HumanPage = () => {
         )}
 
         {/* Chat sidebar — collapsible panel */}
+        {/*
+          Responsive breakpoints (#2955):
+          - small (<md): full-screen slide-over overlay (absolute, w-full capped at 90vw)
+          - medium (md, <lg): narrower slide-over overlay (absolute, w-[440px])
+          - large (lg+): side-by-side in the flex row (static, w-[420px])
+          Collapsing animates width to w-0 so the box itself shrinks and the
+          mascot's flex-1 track reclaims the freed space — a transform alone
+          would leave the layout box (and its width) reserved.
+        */}
         <aside
           data-testid="human-chat-panel"
-          className={`shrink-0 w-[420px] max-w-[90vw] flex flex-col transition-transform duration-300 ease-in-out ${
-            chatOpen ? 'translate-x-0' : 'translate-x-full'
+          className={`absolute inset-y-0 right-0 z-10 lg:static lg:inset-auto lg:z-auto shrink-0 overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+            chatOpen ? 'w-full md:w-[440px] lg:w-[420px] max-w-[90vw]' : 'w-0'
           }`}>
           {/* Panel header with collapse control */}
           <div className="flex items-center justify-between px-4 py-2 shrink-0">
