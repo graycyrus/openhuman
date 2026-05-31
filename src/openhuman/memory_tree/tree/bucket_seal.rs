@@ -576,13 +576,12 @@ pub(crate) async fn seal_one_level(
              continuing seal without vault defaults"
         );
     }
-    let staged =
-        stage_summary(&content_root, &compose_input, &scope_slug, None).with_context(|| {
-            format!(
-                "stage_summary failed for {}; seal aborted, buffer stays unsealed for retry",
-                node.id
-            )
-        })?;
+    let staged = stage_summary(&content_root, &compose_input, &scope_slug).with_context(|| {
+        format!(
+            "stage_summary failed for {}; seal aborted, buffer stays unsealed for retry",
+            node.id
+        )
+    })?;
     log::debug!(
         "[tree::bucket_seal] staged summary {} → {}",
         node.id,
@@ -685,19 +684,9 @@ pub(crate) async fn seal_one_level(
                 };
                 enqueue_job_tx(&tx, &NewJob::seal(&parent_seal)?)?;
             }
-            // Source-tree summary routing: feed the new summary's
-            // entities back into the topic-tree spawn pipeline. Topic
-            // and global trees are sinks — no fan-out from their seals.
-            if matches!(tree_kind, TreeKind::Source) {
-                use crate::openhuman::memory_queue::store::enqueue_tx as enqueue_job_tx;
-                use crate::openhuman::memory_queue::types::{NewJob, NodeRef, TopicRoutePayload};
-                let route = TopicRoutePayload {
-                    node: NodeRef::Summary {
-                        summary_id: summary_id_for_closure.clone(),
-                    },
-                };
-                enqueue_job_tx(&tx, &NewJob::topic_route(&route)?)?;
-            }
+            // (Topic-tree routing removed: the topic/global trees were
+            // deleted — source trees plus the entity index are the
+            // substrate, so a source seal no longer fans out anywhere.)
         }
 
         // Update tree root / max_level if we just climbed.
@@ -821,17 +810,25 @@ fn hydrate_leaf_inputs(config: &Config, chunk_ids: &[String]) -> Result<Vec<Summ
 
 fn hydrate_summary_inputs(config: &Config, summary_ids: &[String]) -> Result<Vec<SummaryInput>> {
     use crate::openhuman::memory_store::content::read as content_read;
+    use crate::openhuman::memory_store::trees::store::get_summaries_batch;
+
+    // One batched `SELECT … WHERE id IN (?,?,…)` instead of N per-id
+    // `get_summary` round-trips. Body reads stay per-id because each
+    // summary's full markdown lives in its own on-disk file — batching
+    // there would mean concurrent file opens, not a single round-trip.
+    // Walking the caller's `summary_ids` slice (not the map) preserves
+    // input order, matching the previous per-id loop's semantics; the
+    // map lookup keys by id so the order of `HashMap`'s iteration is
+    // irrelevant.
+    let node_by_id = get_summaries_batch(config, summary_ids)?;
 
     let mut out: Vec<SummaryInput> = Vec::with_capacity(summary_ids.len());
     for id in summary_ids {
-        let node = match store::get_summary(config, id)? {
-            Some(n) => n,
-            None => {
-                log::warn!(
-                    "[tree::bucket_seal] hydrate_summary_inputs: missing summary {id} — skipping"
-                );
-                continue;
-            }
+        let Some(node) = node_by_id.get(id) else {
+            log::warn!(
+                "[tree::bucket_seal] hydrate_summary_inputs: missing summary {id} — skipping"
+            );
+            continue;
         };
         // Read the full body from disk — `node.content` is a ≤500-char preview
         // after the MD-on-disk migration. Higher-level seals (L2+) summarise

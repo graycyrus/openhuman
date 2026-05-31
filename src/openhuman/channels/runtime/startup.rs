@@ -69,6 +69,9 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // configured external sources onto the agent's todo board.
     crate::openhuman::task_sources::bus::register_task_sources_subscriber();
     crate::openhuman::task_sources::start_periodic_poll();
+    // Board poller: dispatch the highest-urgency `todo` card on the
+    // task-sources board (catch-all for cards without a proactive trigger).
+    crate::openhuman::agent::task_dispatcher::start_board_poller();
     // Native request handlers. Re-registering is safe (latest wins) so
     // this is idempotent even if `bootstrap_core_runtime` also runs.
     // Must happen before `run_message_dispatch_loop` begins, because
@@ -784,6 +787,18 @@ fn resolve_yuanbao_app_secret(
         }
     }
     yb_cfg
+}
+
+#[cfg(any(test, debug_assertions))]
+pub mod test_support {
+    use super::*;
+
+    pub fn resolve_yuanbao_app_secret_for_test(
+        yb_cfg: crate::openhuman::channels::providers::yuanbao::YuanbaoConfig,
+        config: &Config,
+    ) -> crate::openhuman::channels::providers::yuanbao::YuanbaoConfig {
+        resolve_yuanbao_app_secret(yb_cfg, config)
+    }
 }
 
 #[cfg(test)]

@@ -124,15 +124,24 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::webview_apis::all_webview_apis_registered_controllers());
     // Agent definition and prompt inspection
     controllers.extend(crate::openhuman::agent::all_agent_registered_controllers());
+    // User-facing agent registry: defaults, enablement, custom agents, tool policy.
+    controllers
+        .extend(crate::openhuman::agent_registry::all_agent_registry_registered_controllers());
     // Local procedural operating experience for agent self-learning
     controllers
         .extend(crate::openhuman::agent_experience::all_agent_experience_registered_controllers());
+    // Agent workflows — phase-keyed guidance bound to task lifecycle
+    controllers
+        .extend(crate::openhuman::agent_workflows::all_agent_workflows_registered_controllers());
     // System and process health monitoring
     controllers.extend(crate::openhuman::health::all_health_registered_controllers());
     // Diagnostic tools
     controllers.extend(crate::openhuman::doctor::all_doctor_registered_controllers());
     // Secret storage and encryption
     controllers.extend(crate::openhuman::encryption::all_encryption_registered_controllers());
+    // Keyring consent — user approval before local secret storage fallback
+    controllers
+        .extend(crate::openhuman::keyring_consent::all_keyring_consent_registered_controllers());
     // Security policy metadata
     controllers.extend(crate::openhuman::security::all_security_registered_controllers());
     // Interactive approval workflow (#1339 — gate external-effect tool calls)
@@ -163,6 +172,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::service::all_service_registered_controllers());
     // Data migration utilities
     controllers.extend(crate::openhuman::migration::all_migration_registered_controllers());
+    // Model Council: multi-model deliberation (parallel members + chair synthesis)
+    controllers.extend(crate::openhuman::model_council::all_model_council_registered_controllers());
     // Unified inference domain: text / vision / local runtime / cloud providers.
     // (Formerly split across inference, local_ai, and providers namespaces.)
     controllers.extend(crate::openhuman::inference::all_inference_registered_controllers());
@@ -175,9 +186,6 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(
         crate::openhuman::screen_intelligence::all_screen_intelligence_registered_controllers(),
     );
-    // Desktop gameplay review workflow
-    controllers
-        .extend(crate::openhuman::gameplay_review::all_gameplay_review_registered_controllers());
     // Backend Socket.IO bridge + related runtime plumbing
     controllers.extend(crate::openhuman::socket::all_socket_registered_controllers());
     // Managed Node.js runtime bridge (tool listing + dispatch)
@@ -186,8 +194,6 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::skills::all_skills_registered_controllers());
     // User workspace and file management
     controllers.extend(crate::openhuman::workspace::all_workspace_registered_controllers());
-    // Knowledge vaults — folder-of-files mirrored into memory
-    controllers.extend(crate::openhuman::vault::all_vault_registered_controllers());
     // Skill tool registry
     controllers.extend(crate::openhuman::tools::all_tools_registered_controllers());
     // Unified read-only registry across MCP stdio tools and controller-backed tools
@@ -226,6 +232,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::test_support::all_test_support_registered_controllers());
     // Local wallet metadata and onboarding status
     controllers.extend(crate::openhuman::wallet::all_wallet_registered_controllers());
+    // High-level web3 surface (swaps / bridges / dapp calls) over the wallet
+    controllers.extend(crate::openhuman::web3::all_web3_registered_controllers());
     // Local assistive surfaces over third-party provider apps
     controllers.extend(
         crate::openhuman::provider_surfaces::all_provider_surfaces_registered_controllers(),
@@ -301,10 +309,13 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::mcp_registry::all_mcp_registry_controller_schemas());
     schemas.extend(crate::openhuman::webview_apis::all_webview_apis_controller_schemas());
     schemas.extend(crate::openhuman::agent::all_agent_controller_schemas());
+    schemas.extend(crate::openhuman::agent_registry::all_agent_registry_controller_schemas());
     schemas.extend(crate::openhuman::agent_experience::all_agent_experience_controller_schemas());
+    schemas.extend(crate::openhuman::agent_workflows::all_agent_workflows_controller_schemas());
     schemas.extend(crate::openhuman::health::all_health_controller_schemas());
     schemas.extend(crate::openhuman::doctor::all_doctor_controller_schemas());
     schemas.extend(crate::openhuman::encryption::all_encryption_controller_schemas());
+    schemas.extend(crate::openhuman::keyring_consent::all_keyring_consent_controller_schemas());
     schemas.extend(crate::openhuman::security::all_security_controller_schemas());
     schemas.extend(crate::openhuman::approval::all_approval_controller_schemas());
     schemas.extend(crate::openhuman::artifacts::all_artifacts_controller_schemas());
@@ -315,12 +326,12 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas
         .extend(crate::openhuman::channels::providers::web::all_web_channel_controller_schemas());
     schemas.extend(crate::openhuman::channels::controllers::all_channels_controller_schemas());
-    schemas.extend(crate::openhuman::gameplay_review::all_gameplay_review_controller_schemas());
     schemas.extend(crate::openhuman::config::all_config_controller_schemas());
     schemas.extend(crate::openhuman::connectivity::all_connectivity_controller_schemas());
     schemas.extend(crate::openhuman::credentials::all_credentials_controller_schemas());
     schemas.extend(crate::openhuman::service::all_service_controller_schemas());
     schemas.extend(crate::openhuman::migration::all_migration_controller_schemas());
+    schemas.extend(crate::openhuman::model_council::all_model_council_controller_schemas());
     schemas.extend(crate::openhuman::inference::all_inference_controller_schemas());
     schemas.extend(crate::openhuman::inference::all_local_ai_controller_schemas());
     schemas.extend(crate::openhuman::embeddings::all_embeddings_controller_schemas());
@@ -332,7 +343,6 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::javascript::all_javascript_controller_schemas());
     schemas.extend(crate::openhuman::skills::all_skills_controller_schemas());
     schemas.extend(crate::openhuman::workspace::all_workspace_controller_schemas());
-    schemas.extend(crate::openhuman::vault::all_vault_controller_schemas());
     schemas.extend(crate::openhuman::tools::all_tools_controller_schemas());
     schemas.extend(crate::openhuman::tool_registry::all_tool_registry_controller_schemas());
     schemas.extend(crate::openhuman::memory::all_memory_controller_schemas());
@@ -352,6 +362,7 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     #[cfg(feature = "e2e-test-support")]
     schemas.extend(crate::openhuman::test_support::all_test_support_controller_schemas());
     schemas.extend(crate::openhuman::wallet::all_wallet_controller_schemas());
+    schemas.extend(crate::openhuman::web3::all_web3_controller_schemas());
     schemas.extend(crate::openhuman::provider_surfaces::all_provider_surfaces_controller_schemas());
     schemas.extend(crate::openhuman::text_input::all_text_input_controller_schemas());
     schemas.extend(crate::openhuman::voice::all_voice_controller_schemas());
@@ -464,6 +475,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
             "E2E test support — wipe sidecar state in-place between specs.",
         ),
         "wallet" => Some("Local wallet onboarding status and derived multi-chain account metadata."),
+        "web3_swap" => Some("Single-chain crypto swaps via deBridge, built on the local wallet."),
+        "web3_bridge" => Some("Cross-chain crypto bridges via deBridge DLN, built on the local wallet."),
+        "web3_dapp" => Some("Generic EVM dapp contract calls signed by the local wallet."),
         "provider_surfaces" => Some(
             "Local-first assistive surfaces for provider events, respond queues, and drafts.",
         ),

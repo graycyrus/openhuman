@@ -76,6 +76,44 @@ pub enum DomainEvent {
         agent_id: String,
         error: String,
     },
+    /// A sub-agent called `ask_user_clarification` and paused, waiting
+    /// for the orchestrator to relay the user's answer via
+    /// `continue_subagent`.
+    SubagentAwaitingUser {
+        parent_session: String,
+        task_id: String,
+        agent_id: String,
+        question: String,
+    },
+    /// High-level orchestration accepted a child agent for execution.
+    AgentOrchestrationSpawned {
+        session_id: String,
+        orchestration_id: String,
+        agent_id: String,
+        parent_agent_id: Option<String>,
+    },
+    /// High-level orchestration observed a child agent completion.
+    AgentOrchestrationCompleted {
+        session_id: String,
+        orchestration_id: String,
+        agent_id: String,
+        elapsed_ms: u64,
+        output_chars: usize,
+        iterations: usize,
+    },
+    /// High-level orchestration observed a child agent failure.
+    AgentOrchestrationFailed {
+        session_id: String,
+        orchestration_id: String,
+        agent_id: String,
+        error: String,
+    },
+    /// High-level orchestration closed or cancelled a child agent.
+    AgentOrchestrationClosed {
+        session_id: String,
+        orchestration_id: String,
+        reason: Option<String>,
+    },
 
     // ── Memory ──────────────────────────────────────────────────────────
     /// The configured embedding provider is unreachable or the requested model
@@ -280,6 +318,12 @@ pub enum DomainEvent {
     /// Agent attempted a tool call that produces an external side
     /// effect; awaiting user approval. Published by `ApprovalGate`
     /// before parking the tool-call future. Issue #1339.
+    ///
+    /// Note: this variant intentionally does not carry a `session_id`.
+    /// Session provenance is internal to `ApprovalGate`; downstream
+    /// surfaces (frontend approval card, audit log readers, web channel
+    /// bridge) only need the request correlation id plus optional chat
+    /// thread/client routing.
     ApprovalRequested {
         /// Unique id used to correlate the decision back to the
         /// parked future.
@@ -291,9 +335,6 @@ pub enum DomainEvent {
         action_summary: String,
         /// Redacted JSON arguments — also stripped of raw user content.
         args_redacted: serde_json::Value,
-        /// Session id binding the request to the current core launch
-        /// so stale approvals cannot be replayed after restart.
-        session_id: String,
         /// Chat thread the gated call belongs to, when the turn originated
         /// from a chat channel — lets the web channel route a `yes`/`no`
         /// reply back to this request. `None` for non-chat callers.
@@ -620,6 +661,17 @@ pub enum DomainEvent {
     /// A component restart was observed.
     HealthRestarted { component: String },
 
+    // ── Keyring ─────────────────────────────────────────────────────────
+    /// The OS keyring is unavailable and no user consent for local fallback
+    /// has been recorded. Published once (deduplicated) when a secret
+    /// operation hits the consent gate. The frontend surfaces a consent
+    /// dialog in response.
+    KeyringConsentRequired,
+    /// A secret field failed to decrypt (rotated master key, corrupted
+    /// ciphertext, keychain reset). Published so the frontend can surface
+    /// a recovery prompt instead of silently clearing the field.
+    KeyringDecryptFailed { field_name: String, reason: String },
+
     // ── Auth ────────────────────────────────────────────────────────────
     /// The local app session is no longer valid — typically detected when
     /// the backend returns 401 to an LLM inference call or a JSON-RPC
@@ -656,6 +708,18 @@ pub enum DomainEvent {
         provider: String,
         error: String,
     },
+    /// A task-board card needs human plan approval before the dispatcher will
+    /// execute it (emitted when `autonomy.require_task_plan_approval` is on and
+    /// the dispatcher parks a `todo` card at `awaiting_approval`).
+    ///
+    /// Surfacing: the parked card is persisted with status `awaiting_approval`,
+    /// so the kanban board renders it with inline Approve/Reject on the next
+    /// board fetch/refresh — that is the current (poll-based) surface and the
+    /// reason this telemetry event has no dedicated subscriber yet. A realtime
+    /// socket bridge (à la `ApprovalRequested` → `approval_request`) is a
+    /// deliberate follow-up; emitting the event now lets that bridge attach
+    /// without a schema change.
+    TaskPlanAwaitingApproval { card_id: String, thread_id: String },
 }
 
 impl DomainEvent {
@@ -667,7 +731,12 @@ impl DomainEvent {
             | Self::AgentError { .. }
             | Self::SubagentSpawned { .. }
             | Self::SubagentCompleted { .. }
-            | Self::SubagentFailed { .. } => "agent",
+            | Self::SubagentFailed { .. }
+            | Self::SubagentAwaitingUser { .. }
+            | Self::AgentOrchestrationSpawned { .. }
+            | Self::AgentOrchestrationCompleted { .. }
+            | Self::AgentOrchestrationFailed { .. }
+            | Self::AgentOrchestrationClosed { .. } => "agent",
 
             Self::EmbeddingModelUnhealthy { .. }
             | Self::MemoryStored { .. }
@@ -741,11 +810,15 @@ impl DomainEvent {
             | Self::HealthChanged { .. }
             | Self::HealthRestarted { .. } => "system",
 
+            Self::KeyringConsentRequired | Self::KeyringDecryptFailed { .. } => "keyring",
+
             Self::SessionExpired { .. } => "auth",
 
             Self::TaskSourceFetched { .. }
             | Self::TaskSourceTaskIngested { .. }
             | Self::TaskSourceFetchFailed { .. } => "task_sources",
+
+            Self::TaskPlanAwaitingApproval { .. } => "agent",
 
             Self::ApprovalRequested { .. } | Self::ApprovalDecided { .. } => "approval",
 
@@ -766,6 +839,11 @@ impl DomainEvent {
             Self::SubagentSpawned { .. } => "SubagentSpawned",
             Self::SubagentCompleted { .. } => "SubagentCompleted",
             Self::SubagentFailed { .. } => "SubagentFailed",
+            Self::SubagentAwaitingUser { .. } => "SubagentAwaitingUser",
+            Self::AgentOrchestrationSpawned { .. } => "AgentOrchestrationSpawned",
+            Self::AgentOrchestrationCompleted { .. } => "AgentOrchestrationCompleted",
+            Self::AgentOrchestrationFailed { .. } => "AgentOrchestrationFailed",
+            Self::AgentOrchestrationClosed { .. } => "AgentOrchestrationClosed",
             Self::MemoryStored { .. } => "MemoryStored",
             Self::MemoryRecalled { .. } => "MemoryRecalled",
             Self::MemorySyncRequested { .. } => "MemorySyncRequested",
@@ -825,6 +903,8 @@ impl DomainEvent {
             Self::AutonomyConfigChanged => "AutonomyConfigChanged",
             Self::HealthChanged { .. } => "HealthChanged",
             Self::HealthRestarted { .. } => "HealthRestarted",
+            Self::KeyringConsentRequired => "KeyringConsentRequired",
+            Self::KeyringDecryptFailed { .. } => "KeyringDecryptFailed",
             Self::SessionExpired { .. } => "SessionExpired",
             Self::ApprovalRequested { .. } => "ApprovalRequested",
             Self::ApprovalDecided { .. } => "ApprovalDecided",
@@ -837,6 +917,7 @@ impl DomainEvent {
             Self::TaskSourceFetched { .. } => "TaskSourceFetched",
             Self::TaskSourceTaskIngested { .. } => "TaskSourceTaskIngested",
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
+            Self::TaskPlanAwaitingApproval { .. } => "TaskPlanAwaitingApproval",
         }
     }
 
@@ -848,7 +929,14 @@ impl DomainEvent {
             | Self::AgentError { session_id, .. } => Some(session_id.as_str()),
             Self::SubagentSpawned { agent_id, .. }
             | Self::SubagentCompleted { agent_id, .. }
-            | Self::SubagentFailed { agent_id, .. } => Some(agent_id.as_str()),
+            | Self::SubagentFailed { agent_id, .. }
+            | Self::SubagentAwaitingUser { agent_id, .. }
+            | Self::AgentOrchestrationSpawned { agent_id, .. }
+            | Self::AgentOrchestrationCompleted { agent_id, .. }
+            | Self::AgentOrchestrationFailed { agent_id, .. } => Some(agent_id.as_str()),
+            Self::AgentOrchestrationClosed {
+                orchestration_id, ..
+            } => Some(orchestration_id.as_str()),
             Self::ChannelMessageReceived { channel, .. }
             | Self::ChannelConnected { channel, .. }
             | Self::ChannelDisconnected { channel, .. } => Some(channel.as_str()),
