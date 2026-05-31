@@ -64,14 +64,14 @@ struct EnvVarGuard {
 impl EnvVarGuard {
     fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
         let previous = std::env::var_os(key);
-        // SAFETY: this integration test is validated with --test-threads=1.
+        // SAFETY: process-global env mutation is serialized by env_lock().
         unsafe { std::env::set_var(key, value) };
         Self { key, previous }
     }
 
     fn unset(key: &'static str) -> Self {
         let previous = std::env::var_os(key);
-        // SAFETY: this integration test is validated with --test-threads=1.
+        // SAFETY: process-global env mutation is serialized by env_lock().
         unsafe { std::env::remove_var(key) };
         Self { key, previous }
     }
@@ -81,15 +81,28 @@ impl Drop for EnvVarGuard {
     fn drop(&mut self) {
         match &self.previous {
             Some(value) => {
-                // SAFETY: this integration test is validated with --test-threads=1.
+                // SAFETY: process-global env mutation is serialized by env_lock().
                 unsafe { std::env::set_var(self.key, value) }
             }
             None => {
-                // SAFETY: this integration test is validated with --test-threads=1.
+                // SAFETY: process-global env mutation is serialized by env_lock().
                 unsafe { std::env::remove_var(self.key) }
             }
         }
     }
+}
+
+/// Serializes process-global env mutations across the `#[tokio::test]` cases in
+/// this binary. libtest runs these tests on parallel threads by default, so two
+/// tests setting `OPENHUMAN_WORKSPACE` / `OPENHUMAN_OLLAMA_BASE_URL` at once
+/// would clobber each other's config path mid-flight (observed as a flaky
+/// `nested provider failure` assertion). Each env-mutating test holds this lock
+/// for its whole body so the set → read → restore cycle is atomic.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 #[tokio::test]
@@ -209,6 +222,7 @@ async fn compatible_provider_covers_responses_fallback_auth_and_merge_system_edg
 
 #[tokio::test]
 async fn provider_admin_model_listing_covers_openrouter_validation_and_local_synthesis() {
+    let _env = env_lock();
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -291,6 +305,7 @@ async fn provider_admin_model_listing_covers_openrouter_validation_and_local_syn
 
 #[tokio::test]
 async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
+    let _env = env_lock();
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -491,6 +506,7 @@ async fn reliable_provider_covers_chat_tools_streaming_and_context_bail_edges() 
 
 #[tokio::test]
 async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_fake_bins() {
+    let _env = env_lock();
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
