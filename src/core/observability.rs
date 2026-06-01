@@ -2477,6 +2477,7 @@ mod tests {
         assert_eq!(expected_error_kind("cron job timed out after 30s"), None,);
     }
 
+    #[test]
     fn classifies_whatsapp_data_sqlite_busy_errors() {
         for raw in [
             r#"[whatsapp_data] ingest failed: upsert wa_message chat=120363402402350155@g.us msg=false_120363402402350155@g.us_3A357F28AE74548B1507_207897942335683@lid: database is locked: Error code 5: The database file is locked"#,
