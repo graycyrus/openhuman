@@ -387,137 +387,137 @@ function SourceRow({
   const lastSync = status ? relativeTimestamp(status.last_chunk_at_ms, t) : null;
 
   return (
-    <li
-      className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
-      data-testid={`memory-source-row-${source.kind}`}>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-base">{icon}</span>
-          <span
-            className={`truncate text-sm font-medium ${
-              source.enabled
-                ? 'text-stone-900 dark:text-neutral-100'
-                : 'text-stone-400 line-through dark:text-neutral-500'
-            }`}>
-            {source.label}
-          </span>
-          <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
-            {kindLabel}
-          </span>
-          {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
-        </div>
-        {detail && (
-          <p className="mt-0.5 truncate pl-7 text-xs text-stone-400 dark:text-neutral-500">
-            {detail}
-          </p>
-        )}
-        {progress && (
-          <div className="mt-2 pl-7">
-            <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-neutral-400">
-              <span className="capitalize">{progress.stage}</span>
-              {progress.percent !== null && (
-                <span className="font-medium text-primary-600 dark:text-primary-400">
-                  {progress.percent}%
-                </span>
-              )}
-              {progress.detail && (
-                <span className="truncate text-stone-400 dark:text-neutral-500">
-                  {progress.detail}
-                </span>
-              )}
-            </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-neutral-700">
-              <div
-                className="h-full rounded-full bg-primary-500 transition-all duration-300"
-                style={{
-                  width: `${progress.percent ?? (progress.stage === 'fetching' ? 10 : 5)}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
-        {!progress && status && (status.chunks_synced > 0 || status.chunks_pending > 0) && (
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-stone-500 dark:text-neutral-400">
-            <span>
-              {status.chunks_synced.toLocaleString()} {t('sync.chunks')}
+    <li className="flex flex-col gap-2 py-3" data-testid={`memory-source-row-${source.kind}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base">{icon}</span>
+            <span
+              className={`truncate text-sm font-medium ${
+                source.enabled
+                  ? 'text-stone-900 dark:text-neutral-100'
+                  : 'text-stone-400 line-through dark:text-neutral-500'
+              }`}>
+              {source.label}
             </span>
-            {lastSync && (
-              <span>
-                {t('sync.lastChunk')} {lastSync}
-              </span>
-            )}
-            {status.chunks_pending > 0 && (
-              <span>
-                {status.chunks_pending.toLocaleString()} {t('sync.pending')}
-              </span>
-            )}
+            <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+              {kindLabel}
+            </span>
+            {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
           </div>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onToggleSettings(source.id)}
-          title={t('memorySources.settings.button')}
-          data-testid={`memory-source-settings-${source.id}`}
-          aria-expanded={settingsExpanded}
-          className={`rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 ${
-            settingsExpanded
-              ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
-              : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
-          }`}>
-          <GearIcon />
-        </button>
-        <button
-          type="button"
-          onClick={() => onSync(source)}
-          disabled={!source.enabled || isSyncing}
-          title={t('sync.sync')}
-          data-testid={`memory-source-sync-${source.toolkit ?? source.kind}`}
-          className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
+          {detail && (
+            <p className="mt-0.5 truncate pl-7 text-xs text-stone-400 dark:text-neutral-500">
+              {detail}
+            </p>
+          )}
+          {progress && (
+            <div className="mt-2 pl-7">
+              <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-neutral-400">
+                <span className="capitalize">{progress.stage}</span>
+                {progress.percent !== null && (
+                  <span className="font-medium text-primary-600 dark:text-primary-400">
+                    {progress.percent}%
+                  </span>
+                )}
+                {progress.detail && (
+                  <span className="truncate text-stone-400 dark:text-neutral-500">
+                    {progress.detail}
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-neutral-700">
+                <div
+                  className="h-full rounded-full bg-primary-500 transition-all duration-300"
+                  style={{
+                    width: `${progress.percent ?? (progress.stage === 'fetching' ? 10 : 5)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {!progress && status && (status.chunks_synced > 0 || status.chunks_pending > 0) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-stone-500 dark:text-neutral-400">
+              <span>
+                {status.chunks_synced.toLocaleString()} {t('sync.chunks')}
+              </span>
+              {lastSync && (
+                <span>
+                  {t('sync.lastChunk')} {lastSync}
+                </span>
+              )}
+              {status.chunks_pending > 0 && (
+                <span>
+                  {status.chunks_pending.toLocaleString()} {t('sync.pending')}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onToggleSettings(source.id)}
+            title={t('memorySources.settings.button')}
+            data-testid={`memory-source-settings-${source.id}`}
+            aria-expanded={settingsExpanded}
+            className={`rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 ${
+              settingsExpanded
+                ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
+                : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+            }`}>
+            <GearIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => onSync(source)}
+            disabled={!source.enabled || isSyncing}
+            title={t('sync.sync')}
+            data-testid={`memory-source-sync-${source.toolkit ?? source.kind}`}
+            className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
                      text-xs font-semibold text-white shadow-sm transition-colors
                      hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50
                      focus:outline-none focus:ring-2 focus:ring-primary-200">
-          {isSyncing ? <Spinner /> : <SyncIcon />}
-          {isSyncing ? t('sync.syncing') : t('sync.sync')}
-        </button>
-        <button
-          type="button"
-          onClick={() => onBuild(source)}
-          disabled={!source.enabled || isBuilding || isSyncing}
-          title={t('memorySources.build.title')}
-          className="inline-flex items-center gap-1 rounded-md border border-primary-300
+            {isSyncing ? <Spinner /> : <SyncIcon />}
+            {isSyncing ? t('sync.syncing') : t('sync.sync')}
+          </button>
+          <button
+            type="button"
+            onClick={() => onBuild(source)}
+            disabled={!source.enabled || isBuilding || isSyncing}
+            title={t('memorySources.build.title')}
+            className="inline-flex items-center gap-1 rounded-md border border-primary-300
                      bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
                      shadow-sm transition-colors hover:bg-primary-50
                      disabled:cursor-not-allowed disabled:opacity-50
                      dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
                      dark:hover:bg-primary-500/10
                      focus:outline-none focus:ring-2 focus:ring-primary-200">
-          {isBuilding ? <Spinner /> : <BuildIcon />}
-          {isBuilding ? t('memorySources.build.building') : t('memorySources.build.title')}
-        </button>
-        <button
-          type="button"
-          onClick={() => onToggle(source)}
-          title={source.enabled ? t('memorySources.disable') : t('memorySources.enable')}
-          className={`relative h-5 w-9 rounded-full transition-colors ${
-            source.enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-600'
-          }`}>
-          <span
-            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-              source.enabled ? 'left-[18px]' : 'left-0.5'
-            }`}
-          />
-        </button>
-        <button
-          type="button"
-          onClick={() => onRemove(source)}
-          title={t('memorySources.remove')}
-          className="rounded p-1 text-stone-400 transition-colors hover:bg-coral-50
+            {isBuilding ? <Spinner /> : <BuildIcon />}
+            {isBuilding ? t('memorySources.build.building') : t('memorySources.build.title')}
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggle(source)}
+            title={source.enabled ? t('memorySources.disable') : t('memorySources.enable')}
+            className={`relative h-5 w-9 rounded-full transition-colors ${
+              source.enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-600'
+            }`}>
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                source.enabled ? 'left-[18px]' : 'left-0.5'
+              }`}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(source)}
+            title={t('memorySources.remove')}
+            className="rounded p-1 text-stone-400 transition-colors hover:bg-coral-50
                      hover:text-coral-600 dark:text-neutral-500 dark:hover:bg-coral-500/10
                      dark:hover:text-coral-400">
-          <TrashIcon />
-        </button>
+            <TrashIcon />
+          </button>
+        </div>
       </div>
       {settingsExpanded && (
         <SourceSettingsPanel source={source} onSaved={onSettingsSaved} onToast={onToast} />
