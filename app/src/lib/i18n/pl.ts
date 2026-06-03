@@ -2060,6 +2060,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': 'Maksymalna liczba tokenów na synchronizację',
   'memorySources.settings.maxCost': 'Maksymalny koszt na synchronizację (USD)',
   'memorySources.settings.unlimited': 'Bez limitu',
+  'memorySources.settings.unlimitedTooltip':
+    'Wybrano synchronizację maksimum dla {toolkit}. Limity możesz zmienić tutaj.',
   'memorySources.settings.maxed': 'Pełny',
   'memorySources.settings.save': 'Zapisz',
   'memorySources.settings.saving': 'Zapisywanie…',

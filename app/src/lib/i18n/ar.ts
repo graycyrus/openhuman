@@ -1998,6 +1998,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': 'أقصى عدد للرموز لكل مزامنة',
   'memorySources.settings.maxCost': 'الحد الأقصى للتكلفة لكل مزامنة (دولار)',
   'memorySources.settings.unlimited': 'غير محدود',
+  'memorySources.settings.unlimitedTooltip':
+    'لقد اخترت مزامنة الحد الأقصى لـ {toolkit}. يمكنك تغيير الحدود من هنا.',
   'memorySources.settings.maxed': 'مكتمل',
   'memorySources.settings.save': 'حفظ',
   'memorySources.settings.saving': 'جارٍ الحفظ…',

@@ -2038,6 +2038,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': 'प्रति सिंक अधिकतम टोकन',
   'memorySources.settings.maxCost': 'प्रति सिंक अधिकतम लागत (USD)',
   'memorySources.settings.unlimited': 'असीमित',
+  'memorySources.settings.unlimitedTooltip':
+    'आपने {toolkit} के लिए अधिकतम सिंक करना चुना है। आप यहाँ सीमाएँ बदल सकते हैं।',
   'memorySources.settings.maxed': 'पूर्ण',
   'memorySources.settings.save': 'सहेजें',
   'memorySources.settings.saving': 'सहेजा जा रहा है…',

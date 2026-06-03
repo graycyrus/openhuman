@@ -2041,6 +2041,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': 'Maksimal token per sinkronisasi',
   'memorySources.settings.maxCost': 'Biaya maksimal per sinkronisasi (USD)',
   'memorySources.settings.unlimited': 'Tanpa batas',
+  'memorySources.settings.unlimitedTooltip':
+    'Anda memilih menyinkronkan maksimum untuk {toolkit}. Anda dapat mengubah batas di sini.',
   'memorySources.settings.maxed': 'Penuh',
   'memorySources.settings.save': 'Simpan',
   'memorySources.settings.saving': 'Menyimpan…',

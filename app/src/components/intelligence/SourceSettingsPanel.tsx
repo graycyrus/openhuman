@@ -132,6 +132,16 @@ export function SourceSettingsPanel({
 
   if (fields.length === 0) return null;
 
+  // Display name for the tooltip — the toolkit slug (title-cased) for Composio
+  // sources, else the source label.
+  const toolkitName = source.toolkit
+    ? source.toolkit.charAt(0).toUpperCase() + source.toolkit.slice(1)
+    : source.label;
+  const unlimitedTooltip = t('memorySources.settings.unlimitedTooltip').replace(
+    '{toolkit}',
+    toolkitName
+  );
+
   return (
     <div
       className="mt-2 ml-7 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/60"
@@ -142,9 +152,10 @@ export function SourceSettingsPanel({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {fields.map(field => {
           const cap = Number(values[field]);
+          const isUnlimited = (values[field] ?? '') === '';
           const isMaxed =
             COUNT_FIELDS.has(field) &&
-            values[field] !== '' &&
+            !isUnlimited &&
             Number.isFinite(cap) &&
             typeof syncedCount === 'number' &&
             syncedCount >= cap;
@@ -157,6 +168,14 @@ export function SourceSettingsPanel({
                 {isMaxed && (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                     {t('memorySources.settings.maxed')}
+                  </span>
+                )}
+                {isUnlimited && (
+                  <span
+                    className="inline-flex cursor-help text-stone-400 dark:text-neutral-500"
+                    title={unlimitedTooltip}
+                    aria-label={unlimitedTooltip}>
+                    <InfoIcon />
                   </span>
                 )}
               </label>
@@ -191,5 +210,23 @@ export function SourceSettingsPanel({
         </button>
       </div>
     </div>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </svg>
   );
 }

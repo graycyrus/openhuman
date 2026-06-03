@@ -2037,6 +2037,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': 'প্রতি সিঙ্কে সর্বোচ্চ টোকেন',
   'memorySources.settings.maxCost': 'প্রতি সিঙ্কে সর্বোচ্চ খরচ (USD)',
   'memorySources.settings.unlimited': 'সীমাহীন',
+  'memorySources.settings.unlimitedTooltip':
+    'আপনি {toolkit}-এর জন্য সর্বাধিক সিঙ্ক করার অপশন বেছে নিয়েছেন। আপনি এখানে সীমা পরিবর্তন করতে পারেন।',
   'memorySources.settings.maxed': 'পূর্ণ',
   'memorySources.settings.save': 'সংরক্ষণ',
   'memorySources.settings.saving': 'সংরক্ষণ হচ্ছে…',

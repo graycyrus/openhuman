@@ -2015,6 +2015,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': '동기화당 최대 토큰',
   'memorySources.settings.maxCost': '동기화당 최대 비용 (USD)',
   'memorySources.settings.unlimited': '무제한',
+  'memorySources.settings.unlimitedTooltip':
+    '{toolkit}에 대해 최대로 동기화하도록 선택했습니다. 여기에서 한도를 변경할 수 있습니다.',
   'memorySources.settings.maxed': '최대',
   'memorySources.settings.save': '저장',
   'memorySources.settings.saving': '저장 중…',

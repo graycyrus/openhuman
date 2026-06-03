@@ -1938,6 +1938,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': '每次同步最大令牌数',
   'memorySources.settings.maxCost': '每次同步最大费用（USD）',
   'memorySources.settings.unlimited': '无限制',
+  'memorySources.settings.unlimitedTooltip':
+    '您已选择为 {toolkit} 同步最大数量。您可以在此处更改上限。',
   'memorySources.settings.maxed': '已满',
   'memorySources.settings.save': '保存',
   'memorySources.settings.saving': '保存中…',

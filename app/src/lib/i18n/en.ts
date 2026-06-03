@@ -2367,6 +2367,8 @@ const en: TranslationMap = {
   'memorySources.settings.maxTokens': 'Max tokens per sync',
   'memorySources.settings.maxCost': 'Max cost per sync (USD)',
   'memorySources.settings.unlimited': 'Unlimited',
+  'memorySources.settings.unlimitedTooltip':
+    "You've opted in to sync the maximum for {toolkit}. You can change the caps here.",
   'memorySources.settings.maxed': 'Maxed',
   'memorySources.settings.save': 'Save',
   'memorySources.settings.saving': 'Saving…',

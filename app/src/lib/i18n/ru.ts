@@ -2053,6 +2053,8 @@ const messages: TranslationMap = {
   'memorySources.settings.maxTokens': 'Максимум токенов за синхронизацию',
   'memorySources.settings.maxCost': 'Максимальная стоимость за синхронизацию (USD)',
   'memorySources.settings.unlimited': 'Без лимита',
+  'memorySources.settings.unlimitedTooltip':
+    'Вы выбрали синхронизацию максимума для {toolkit}. Лимиты можно изменить здесь.',
   'memorySources.settings.maxed': 'Заполнено',
   'memorySources.settings.save': 'Сохранить',
   'memorySources.settings.saving': 'Сохранение…',
