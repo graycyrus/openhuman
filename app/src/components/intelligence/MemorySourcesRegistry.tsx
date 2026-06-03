@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import {
+  applyAllIn,
   type FreshnessLabel,
   listMemorySources,
   type MemorySourceEntry,
@@ -23,9 +24,14 @@ import {
   syncMemorySource,
   updateMemorySource,
 } from '../../services/memorySourcesService';
-import type { ToastNotification } from '../../types/intelligence';
+import type {
+  ConfirmationModal as ConfirmationModalType,
+  ToastNotification,
+} from '../../types/intelligence';
 import { memoryTreeFlushSource } from '../../utils/tauriCommands/memoryTree';
 import { AddMemorySourceDialog } from './AddMemorySourceDialog';
+import { ConfirmationModal } from './ConfirmationModal';
+import { SourceSettingsPanel } from './SourceSettingsPanel';
 
 interface MemorySourcesRegistryProps {
   onToast?: (toast: Omit<ToastNotification, 'id'>) => void;
@@ -59,6 +65,9 @@ export function MemorySourcesRegistry({
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [buildingId, setBuildingId] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState<Map<string, SyncProgress>>(new Map());
+  const [allInModalOpen, setAllInModalOpen] = useState(false);
+  const [applyingAllIn, setApplyingAllIn] = useState(false);
+  const [expandedSettingsId, setExpandedSettingsId] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -223,23 +232,81 @@ export function MemorySourcesRegistry({
     [onToast, refresh, t]
   );
 
+  const handleConfirmAllIn = useCallback(async () => {
+    setApplyingAllIn(true);
+    try {
+      const result = await applyAllIn();
+      setSources(result.sources);
+      onToast?.({ type: 'success', title: t('memorySources.allIn.success') });
+    } catch (err) {
+      onToast?.({
+        type: 'error',
+        title: t('memorySources.allIn.failed'),
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setApplyingAllIn(false);
+      setAllInModalOpen(false);
+    }
+  }, [onToast, t]);
+
+  const handleSettingsSaved = useCallback((updated: MemorySourceEntry) => {
+    setSources(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+  }, []);
+
+  const handleToggleSettings = useCallback((sourceId: string) => {
+    setExpandedSettingsId(prev => (prev === sourceId ? null : sourceId));
+  }, []);
+
+  const allInModal: ConfirmationModalType = {
+    isOpen: allInModalOpen,
+    title: t('memorySources.allIn.title'),
+    message: t('memorySources.allIn.message'),
+    confirmText: t('memorySources.allIn.confirm'),
+    cancelText: t('memorySources.allIn.cancel'),
+    destructive: false,
+    onConfirm: () => {
+      void handleConfirmAllIn();
+    },
+    onCancel: () => {
+      setAllInModalOpen(false);
+    },
+  };
+
   return (
     <section
       className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
       data-testid="memory-sources">
-      <header className="mb-3 flex items-center justify-between">
+      <header className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
           {t('memorySources.title')}
         </h3>
-        <button
-          type="button"
-          onClick={() => setDialogOpen(true)}
-          className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
-                     text-xs font-semibold text-white shadow-sm transition-colors
-                     hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-200">
-          <PlusIcon />
-          {t('memorySources.addSource')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAllInModalOpen(true)}
+            disabled={applyingAllIn}
+            data-testid="all-in-button"
+            className="inline-flex items-center gap-1 rounded-md border border-primary-300
+                       bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
+                       shadow-sm transition-colors hover:bg-primary-50
+                       disabled:cursor-not-allowed disabled:opacity-50
+                       dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
+                       dark:hover:bg-primary-500/10
+                       focus:outline-none focus:ring-2 focus:ring-primary-200">
+            <AllInIcon />
+            {t('memorySources.allIn.button')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDialogOpen(true)}
+            className="inline-flex items-center gap-1 rounded-md bg-primary-500 px-3 py-1.5
+                       text-xs font-semibold text-white shadow-sm transition-colors
+                       hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-200">
+            <PlusIcon />
+            {t('memorySources.addSource')}
+          </button>
+        </div>
       </header>
 
       {loading ? (
@@ -256,10 +323,14 @@ export function MemorySourcesRegistry({
               isSyncing={syncingId === source.id}
               isBuilding={buildingId === source.id}
               progress={syncProgress.get(source.id) ?? null}
+              settingsExpanded={expandedSettingsId === source.id}
               onToggle={handleToggle}
               onRemove={handleRemove}
               onSync={handleSync}
               onBuild={handleBuild}
+              onToggleSettings={handleToggleSettings}
+              onSettingsSaved={handleSettingsSaved}
+              onToast={onToast}
             />
           ))}
         </ul>
@@ -270,6 +341,10 @@ export function MemorySourcesRegistry({
         onClose={() => setDialogOpen(false)}
         onAdded={handleAdded}
       />
+
+      {allInModalOpen && (
+        <ConfirmationModal modal={allInModal} onClose={() => setAllInModalOpen(false)} />
+      )}
     </section>
   );
 }
@@ -280,10 +355,14 @@ interface SourceRowProps {
   isSyncing: boolean;
   isBuilding: boolean;
   progress: SyncProgress | null;
+  settingsExpanded: boolean;
   onToggle: (source: MemorySourceEntry) => void;
   onRemove: (source: MemorySourceEntry) => void;
   onSync: (source: MemorySourceEntry) => void;
   onBuild: (source: MemorySourceEntry) => void;
+  onToggleSettings: (sourceId: string) => void;
+  onSettingsSaved: (updated: MemorySourceEntry) => void;
+  onToast?: (toast: Omit<ToastNotification, 'id'>) => void;
 }
 
 function SourceRow({
@@ -292,10 +371,14 @@ function SourceRow({
   isSyncing,
   isBuilding,
   progress,
+  settingsExpanded,
   onToggle,
   onRemove,
   onSync,
   onBuild,
+  onToggleSettings,
+  onSettingsSaved,
+  onToast,
 }: SourceRowProps) {
   const { t } = useT();
   const icon = SOURCE_KIND_ICONS[source.kind] ?? '📄';
@@ -374,6 +457,19 @@ function SourceRow({
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
+          onClick={() => onToggleSettings(source.id)}
+          title={t('memorySources.settings.button')}
+          data-testid={`memory-source-settings-${source.id}`}
+          aria-expanded={settingsExpanded}
+          className={`rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 ${
+            settingsExpanded
+              ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
+              : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+          }`}>
+          <GearIcon />
+        </button>
+        <button
+          type="button"
           onClick={() => onSync(source)}
           disabled={!source.enabled || isSyncing}
           title={t('sync.sync')}
@@ -423,6 +519,9 @@ function SourceRow({
           <TrashIcon />
         </button>
       </div>
+      {settingsExpanded && (
+        <SourceSettingsPanel source={source} onSaved={onSettingsSaved} onToast={onToast} />
+      )}
     </li>
   );
 }
@@ -570,6 +669,41 @@ function Spinner() {
       aria-hidden="true">
       <circle cx="12" cy="12" r="9" opacity="0.25" />
       <path d="M21 12a9 9 0 00-9-9" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+    </svg>
+  );
+}
+
+function AllInIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
     </svg>
   );
 }

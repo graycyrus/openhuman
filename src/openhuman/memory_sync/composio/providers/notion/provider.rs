@@ -178,6 +178,39 @@ impl ComposioProvider for NotionProvider {
             _ => PAGE_SIZE,
         };
 
+        // ctx.max_items: cap the number of pages. Keep existing MAX_PAGES_PER_SYNC
+        // as the upper bound; ctx caps only ever reduce it.
+        let effective_max_pages = if let Some(cap) = ctx.max_items {
+            let pages_for_cap = super::super::helpers::pages_for_max_items(cap, page_size);
+            let effective = MAX_PAGES_PER_SYNC.min(pages_for_cap);
+            if effective < MAX_PAGES_PER_SYNC {
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    max_items = cap,
+                    pages_for_cap,
+                    effective_max_pages = effective,
+                    "[composio:notion] [memory_sync] applying max_items page cap"
+                );
+            }
+            effective
+        } else {
+            MAX_PAGES_PER_SYNC
+        };
+
+        // ctx.sync_depth_days: compute the oldest allowed edited_time string
+        // for client-side skipping of stale results.
+        let oldest_allowed_time: Option<String> = ctx.sync_depth_days.map(|days| {
+            let floor = chrono::Utc::now() - chrono::Duration::days(days as i64);
+            let s = floor.to_rfc3339();
+            tracing::debug!(
+                connection_id = %connection_id,
+                sync_depth_days = days,
+                oldest_allowed = %s,
+                "[composio:notion] [memory_sync] applying sync_depth_days floor"
+            );
+            s
+        });
+
         let mut total_fetched: usize = 0;
         let mut total_persisted: usize = 0;
         let mut newest_edited_time: Option<String> = None;
@@ -191,7 +224,7 @@ impl ComposioProvider for NotionProvider {
         // `is_synced` on the re-fetch, so the cost of holding is minimal.
         let mut had_ingest_failures = false;
 
-        for page_num in 0..MAX_PAGES_PER_SYNC {
+        for page_num in 0..effective_max_pages {
             if state.budget_exhausted() {
                 tracing::info!(
                     page = page_num,
@@ -269,6 +302,22 @@ impl ComposioProvider for NotionProvider {
                     None => page_id.clone(),
                 };
 
+                // ctx.sync_depth_days: skip pages edited before the depth floor.
+                if let (Some(ref floor), Some(ref et)) = (&oldest_allowed_time, &edited_time) {
+                    if et < floor {
+                        tracing::debug!(
+                            page_id = %page_id,
+                            edited_time = %et,
+                            floor = %floor,
+                            "[composio:notion] [memory_sync] skipping page older than sync_depth_days"
+                        );
+                        // Pages are sorted descending by last_edited_time so
+                        // once we see one below the floor the rest are too.
+                        hit_cursor_boundary = true;
+                        continue;
+                    }
+                }
+
                 // If the page's edited time is older than our cursor,
                 // we've caught up — everything beyond is already synced.
                 if let (Some(ref cursor), Some(ref et)) = (&state.cursor, &edited_time) {
@@ -325,6 +374,19 @@ impl ComposioProvider for NotionProvider {
                     "[composio:notion] reached cursor boundary, stopping"
                 );
                 break;
+            }
+
+            // ctx.max_items hard stop.
+            if let Some(cap) = ctx.max_items {
+                if total_persisted >= cap as usize {
+                    tracing::debug!(
+                        page = page_num,
+                        total_persisted,
+                        max_items = cap,
+                        "[composio:notion] [memory_sync] max_items reached, stopping pagination"
+                    );
+                    break;
+                }
             }
 
             // Check for next page cursor from Notion API.

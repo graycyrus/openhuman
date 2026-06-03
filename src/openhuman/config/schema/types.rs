@@ -406,6 +406,15 @@ pub struct Config {
 
     #[serde(default)]
     pub model_registry: Vec<ModelRegistryEntry>,
+
+    /// One-time migration guard: set to `true` after
+    /// `apply_composio_source_caps_migration` has run successfully.
+    ///
+    /// Defaults to `false` (`#[serde(default)]`) on existing installs so the
+    /// migration fires on the first launch that includes this code, then never
+    /// again. This is a "has-run" sentinel — no functional default value needed.
+    #[serde(default)]
+    pub composio_source_caps_migrated: bool,
 }
 
 /// Shared default so `#[serde(default)]` and `Config::default()` stay in sync.
@@ -724,6 +733,7 @@ impl Default for Config {
             onboarding_completed: false,
             chat_onboarding_completed: false,
             model_registry: Vec::new(),
+            composio_source_caps_migrated: false,
         }
     }
 }

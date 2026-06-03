@@ -470,7 +470,26 @@ impl EventHandler for ComposioConnectionCreatedSubscriber {
                     return;
                 }
             };
-            let Some(ctx) = ProviderContext::from_config(
+            // Look up per-source caps from the memory_sources registry.
+            // Non-fatal: if the lookup fails we proceed without caps.
+            // Note: upsert_composio_source runs after this block, so the
+            // entry may not exist yet for brand-new connections. In that
+            // case (None, None) is the right default — the source will be
+            // created with defaults by the upsert below.
+            let (src_max_items, src_sync_depth_days) = {
+                let registry_sources = crate::openhuman::memory_sources::list_enabled_by_kind(
+                    crate::openhuman::memory_sources::SourceKind::Composio,
+                )
+                .await
+                .unwrap_or_default();
+                registry_sources
+                    .iter()
+                    .find(|s| s.connection_id.as_deref() == Some(connection_id.as_str()))
+                    .map(|s| (s.max_items, s.sync_depth_days))
+                    .unwrap_or((None, None))
+            };
+
+            let Some(mut ctx) = ProviderContext::from_config(
                 Arc::new(config),
                 toolkit.clone(),
                 Some(connection_id.clone()),
@@ -481,6 +500,17 @@ impl EventHandler for ComposioConnectionCreatedSubscriber {
                 );
                 return;
             };
+
+            ctx.max_items = src_max_items;
+            ctx.sync_depth_days = src_sync_depth_days;
+
+            tracing::debug!(
+                toolkit = %toolkit,
+                connection_id = %connection_id,
+                max_items = ?src_max_items,
+                sync_depth_days = ?src_sync_depth_days,
+                "[composio:bus] caps from registry for connection_created"
+            );
 
             // `wait_for_connection_active` is a backend-only metadata
             // probe (`list_connections`). Resolve a backend

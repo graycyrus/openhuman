@@ -254,12 +254,42 @@ impl ComposioProvider for ClickUpProvider {
             _ => PAGE_SIZE,
         };
 
+        // ctx.max_items: cap max pages per workspace.
+        let effective_max_pages = if let Some(cap) = ctx.max_items {
+            let pages_for_cap = super::super::helpers::pages_for_max_items(cap, page_size);
+            let effective = MAX_PAGES_PER_WORKSPACE.min(pages_for_cap);
+            if effective < MAX_PAGES_PER_WORKSPACE {
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    max_items = cap,
+                    effective_max_pages = effective,
+                    "[composio:clickup] [memory_sync] applying max_items page cap"
+                );
+            }
+            effective
+        } else {
+            MAX_PAGES_PER_WORKSPACE
+        };
+
+        // ctx.sync_depth_days: oldest allowed date_updated for client-side skip.
+        let oldest_allowed_time: Option<String> = ctx.sync_depth_days.map(|days| {
+            let floor = chrono::Utc::now() - chrono::Duration::days(days as i64);
+            let s = floor.to_rfc3339();
+            tracing::debug!(
+                connection_id = %connection_id,
+                sync_depth_days = days,
+                oldest_allowed = %s,
+                "[composio:clickup] [memory_sync] applying sync_depth_days floor"
+            );
+            s
+        });
+
         let mut total_fetched: usize = 0;
         let mut total_persisted: usize = 0;
         let mut newest_updated: Option<String> = None;
 
         'workspaces: for workspace_id in &workspaces {
-            for page_num in 0..MAX_PAGES_PER_WORKSPACE {
+            for page_num in 0..effective_max_pages {
                 if state.budget_exhausted() {
                     tracing::info!(
                         workspace_id = %workspace_id,
@@ -350,6 +380,20 @@ impl ComposioProvider for ClickUpProvider {
                         None => task_id.clone(),
                     };
 
+                    // ctx.sync_depth_days: skip tasks older than the depth floor.
+                    if let (Some(ref floor), Some(ref ts)) = (&oldest_allowed_time, &updated) {
+                        if ts < floor {
+                            tracing::debug!(
+                                task_id = %task_id,
+                                date_updated = %ts,
+                                floor = %floor,
+                                "[composio:clickup] [memory_sync] skipping task older than sync_depth_days"
+                            );
+                            hit_cursor_boundary = true;
+                            continue;
+                        }
+                    }
+
                     // If `date_updated` is at or older than our cursor
                     // *and* we've already synced this composite key, the
                     // rest of the page is by definition older too — we
@@ -401,6 +445,20 @@ impl ComposioProvider for ClickUpProvider {
                         "[composio:clickup] reached cursor boundary, stopping workspace"
                     );
                     break;
+                }
+
+                // ctx.max_items hard stop.
+                if let Some(cap) = ctx.max_items {
+                    if total_persisted >= cap as usize {
+                        tracing::debug!(
+                            workspace_id = %workspace_id,
+                            page = page_num,
+                            total_persisted,
+                            max_items = cap,
+                            "[composio:clickup] [memory_sync] max_items reached, stopping pagination"
+                        );
+                        break 'workspaces;
+                    }
                 }
 
                 // ClickUp's filtered-team-tasks endpoint signals the last

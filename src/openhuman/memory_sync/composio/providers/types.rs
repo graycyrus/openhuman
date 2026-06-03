@@ -228,6 +228,18 @@ pub struct ProviderContext {
     /// (`run_connection_sync`) reads it back. Non-sync callers (agent tools,
     /// task-source fetches) leave it at zero — harmless.
     pub usage: ComposioUsageHandle,
+    /// Maximum items to fetch in a single sync pass.
+    ///
+    /// Set from the corresponding `MemorySourceEntry.max_items` field at
+    /// sync-dispatch time. `None` means no cap beyond the provider's own
+    /// internal upper bounds.
+    pub max_items: Option<u32>,
+    /// Maximum sync depth window in days.
+    ///
+    /// Set from `MemorySourceEntry.sync_depth_days`. When `Some(n)`, the
+    /// provider only fetches items from the last `n` days. `None` means
+    /// no additional depth restriction beyond the provider's cursor.
+    pub sync_depth_days: Option<u32>,
 }
 
 impl ProviderContext {
@@ -258,6 +270,8 @@ impl ProviderContext {
                 toolkit: toolkit.into(),
                 connection_id,
                 usage: ComposioUsageHandle::default(),
+                max_items: None,
+                sync_depth_days: None,
             }),
             Err(e) => {
                 tracing::debug!(
@@ -420,6 +434,8 @@ mod tests {
             toolkit: "gmail".to_string(),
             connection_id: None,
             usage: ComposioUsageHandle::default(),
+            max_items: None,
+            sync_depth_days: None,
         };
         let cloned = ctx.clone();
 
@@ -475,6 +491,8 @@ mod tests {
             toolkit: "gmail".to_string(),
             connection_id: None,
             usage: ComposioUsageHandle::default(),
+            max_items: None,
+            sync_depth_days: None,
         };
         let res = ctx.execute("GMAIL_FETCH_EMAILS", None).await;
         // The actual HTTP call will fail in the unit-test sandbox, but
@@ -508,6 +526,8 @@ mod tests {
             toolkit: "gmail".to_string(),
             connection_id: None,
             usage: ComposioUsageHandle::default(),
+            max_items: None,
+            sync_depth_days: None,
         };
         let res = ctx.execute("GMAIL_FETCH_EMAILS", None).await;
         let err = res.expect_err("no backend session must error");

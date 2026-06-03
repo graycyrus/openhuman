@@ -195,8 +195,46 @@ impl ComposioProvider for GitHubProvider {
             _ => PAGE_SIZE,
         };
 
-        // Build the base search query.
-        let query = build_search_query(&login, state.cursor.as_deref());
+        // ctx.max_items: cap MAX_PAGES.
+        let effective_max_pages = if let Some(cap) = ctx.max_items {
+            let pages_for_cap = super::super::helpers::pages_for_max_items(cap, page_size);
+            let effective = MAX_PAGES.min(pages_for_cap);
+            if effective < MAX_PAGES {
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    max_items = cap,
+                    effective_max_pages = effective,
+                    "[composio:github] [memory_sync] applying max_items page cap"
+                );
+            }
+            effective
+        } else {
+            MAX_PAGES
+        };
+
+        // ctx.sync_depth_days: inject `updated:>{date}` on first sync when set.
+        let depth_query_fragment: Option<String> = if state.cursor.is_none() {
+            ctx.sync_depth_days.map(|days| {
+                let floor = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                let s = floor.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    sync_depth_days = days,
+                    floor = %s,
+                    "[composio:github] [memory_sync] injecting updated:> date filter on first sync"
+                );
+                format!("updated:>{s}")
+            })
+        } else {
+            None
+        };
+
+        // Build the base search query — include depth fragment when set.
+        let query = build_search_query_with_depth(
+            &login,
+            state.cursor.as_deref(),
+            depth_query_fragment.as_deref(),
+        );
 
         let mut total_fetched: usize = 0;
         let mut total_persisted: usize = 0;
@@ -210,7 +248,7 @@ impl ComposioProvider for GitHubProvider {
         // `is_synced` on the re-fetch, so the cost of holding is minimal.
         let mut had_ingest_failures = false;
 
-        'pages: for page_num in 1..=MAX_PAGES {
+        'pages: for page_num in 1..=effective_max_pages {
             if state.budget_exhausted() {
                 tracing::info!(
                     page = page_num,
@@ -339,6 +377,19 @@ impl ComposioProvider for GitHubProvider {
                             "[composio:github] failed to ingest issue into memory_tree (continuing)"
                         );
                     }
+                }
+            }
+
+            // ctx.max_items hard stop.
+            if let Some(cap) = ctx.max_items {
+                if total_persisted >= cap as usize {
+                    tracing::debug!(
+                        page = page_num,
+                        total_persisted,
+                        max_items = cap,
+                        "[composio:github] [memory_sync] max_items reached, stopping pagination"
+                    );
+                    break;
                 }
             }
 
@@ -588,5 +639,50 @@ pub(super) fn build_search_query(login: &str, cursor: Option<&str>) -> String {
     match cursor {
         Some(cursor) => format!("involves:{login} updated:>{cursor}"),
         None => format!("involves:{login}"),
+    }
+}
+
+/// Extended variant that optionally appends a `sync_depth_days` fragment on
+/// first sync (no cursor). The `depth_fragment` is expected to be a pre-built
+/// `"updated:>{date}"` string.
+pub(super) fn build_search_query_with_depth(
+    login: &str,
+    cursor: Option<&str>,
+    depth_fragment: Option<&str>,
+) -> String {
+    match cursor {
+        Some(c) => format!("involves:{login} updated:>{c}"),
+        None => match depth_fragment {
+            Some(fragment) => format!("involves:{login} {fragment}"),
+            None => format!("involves:{login}"),
+        },
+    }
+}
+
+#[cfg(test)]
+mod depth_tests {
+    use super::*;
+
+    #[test]
+    fn build_search_query_with_depth_no_cursor_no_depth() {
+        let q = build_search_query_with_depth("alice", None, None);
+        assert_eq!(q, "involves:alice");
+    }
+
+    #[test]
+    fn build_search_query_with_depth_no_cursor_with_depth() {
+        let q = build_search_query_with_depth("alice", None, Some("updated:>2024-01-01T00:00:00Z"));
+        assert_eq!(q, "involves:alice updated:>2024-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn build_search_query_with_depth_cursor_wins_over_depth() {
+        // When cursor is set, depth fragment is ignored.
+        let q = build_search_query_with_depth(
+            "alice",
+            Some("2024-06-01T00:00:00Z"),
+            Some("updated:>2024-01-01T00:00:00Z"),
+        );
+        assert_eq!(q, "involves:alice updated:>2024-06-01T00:00:00Z");
     }
 }

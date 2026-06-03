@@ -513,6 +513,19 @@ impl ComposioProvider for SlackProvider {
                     "[composio:slack] state save failed after channel (non-fatal)"
                 );
             }
+
+            // ctx.max_items hard stop across all channels.
+            if let Some(cap) = ctx.max_items {
+                if total_messages_ingested >= cap as usize {
+                    tracing::debug!(
+                        connection_id = %connection_id,
+                        total_messages_ingested,
+                        max_items = cap,
+                        "[composio:slack] [memory_sync] max_items reached, stopping channel iteration"
+                    );
+                    break;
+                }
+            }
         }
 
         let finished_at_ms = sync::now_ms();
@@ -622,8 +635,20 @@ async fn process_channel(
     // with full precision, so multi-message-per-second channels don't
     // replay the whole second on the next incremental fetch. When no
     // cursor exists yet, fall back to `<backfill_window_secs>.000000`.
+    // ctx.sync_depth_days wins over the env-var OPENHUMAN_SLACK_BACKFILL_DAYS
+    // default when set — it comes from the user-configured source entry.
     let oldest_ts = cursors.get(&channel.id).cloned().unwrap_or_else(|| {
-        let secs = (now - chrono::Duration::days(backfill_days())).timestamp();
+        let depth_days = ctx
+            .sync_depth_days
+            .map(|d| d as i64)
+            .unwrap_or_else(backfill_days);
+        let secs = (now - chrono::Duration::days(depth_days)).timestamp();
+        tracing::debug!(
+            channel = %channel.id,
+            depth_days,
+            oldest_ts_secs = secs,
+            "[composio:slack] [memory_sync] computing oldest_ts for backfill"
+        );
         format!("{secs}.000000")
     });
 

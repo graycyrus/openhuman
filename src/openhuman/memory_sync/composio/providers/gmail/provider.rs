@@ -258,7 +258,7 @@ impl ComposioProvider for GmailProvider {
         // legitimately want the larger ceiling — and the cap only
         // kicks in when we have a prior `last_sync_at_ms` to compare
         // against, so first-ever syncs are unaffected.
-        let max_pages = match reason {
+        let base_max_pages = match reason {
             SyncReason::ConnectionCreated => MAX_PAGES_PER_SYNC,
             _ => match state.last_sync_at_ms {
                 Some(last_ms) if sync::now_ms().saturating_sub(last_ms) < RECENT_SYNC_WINDOW_MS => {
@@ -272,6 +272,41 @@ impl ComposioProvider for GmailProvider {
                 }
                 _ => MAX_PAGES_PER_SYNC,
             },
+        };
+
+        // ctx.max_items: reduce max_pages so we never fetch more than the cap.
+        let max_pages = if let Some(cap) = ctx.max_items {
+            let pages_for_cap = pages_for_max_items(cap, page_size);
+            let effective = base_max_pages.min(pages_for_cap);
+            if effective < base_max_pages {
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    max_items = cap,
+                    page_size,
+                    pages_for_cap,
+                    effective_max_pages = effective,
+                    "[composio:gmail] [memory_sync] applying max_items page cap from source config"
+                );
+            }
+            effective
+        } else {
+            base_max_pages
+        };
+
+        // ctx.sync_depth_days: on first sync (no cursor), add an after:<epoch> floor.
+        let depth_floor_filter: Option<String> = if state.cursor.is_none() {
+            ctx.sync_depth_days.map(|days| {
+                let floor_secs = epoch_floor_from_depth(days);
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    sync_depth_days = days,
+                    floor_epoch_secs = floor_secs,
+                    "[composio:gmail] [memory_sync] applying sync_depth_days floor on first sync"
+                );
+                floor_secs.to_string()
+            })
+        } else {
+            None
         };
 
         let mut total_fetched: usize = 0;
@@ -321,6 +356,9 @@ impl ComposioProvider for GmailProvider {
                         "[composio:gmail] using day-level filter from cursor (epoch parse failed)"
                     );
                 }
+            } else if let Some(ref floor) = depth_floor_filter {
+                // First sync with sync_depth_days: apply the epoch floor.
+                query.push_str(&format!(" after:{floor}"));
             }
 
             let mut args = json!({
@@ -512,6 +550,20 @@ impl ComposioProvider for GmailProvider {
                 break;
             }
 
+            // ctx.max_items hard stop: break once the per-source cap is reached.
+            if let Some(cap) = ctx.max_items {
+                if total_persisted >= cap as usize {
+                    tracing::debug!(
+                        page = page_num,
+                        total_persisted,
+                        max_items = cap,
+                        "[composio:gmail] [memory_sync] max_items reached, stopping pagination"
+                    );
+                    stop_reason = "max_items";
+                    break;
+                }
+            }
+
             // Check for next page token.
             page_token = sync::extract_page_token(&resp.data);
             if page_token.is_none() {
@@ -614,5 +666,59 @@ impl ComposioProvider for GmailProvider {
             }
         }
         Ok(())
+    }
+}
+
+/// Compute the number of pages needed to cover `max_items` at `page_size`
+/// items per page, rounding up. Used to cap `MAX_PAGES_PER_SYNC` by the
+/// per-source `max_items` limit.
+///
+/// Returns `u32::MAX` when `page_size == 0` to avoid division by zero —
+/// callers should treat this as "no page cap".
+pub(super) fn pages_for_max_items(max_items: u32, page_size: u32) -> u32 {
+    if page_size == 0 {
+        return u32::MAX;
+    }
+    (max_items + page_size - 1) / page_size
+}
+
+/// Compute the Unix epoch timestamp (seconds) for `sync_depth_days` days ago.
+/// Used to build the `after:<epoch>` Gmail search filter on first sync.
+pub(super) fn epoch_floor_from_depth(sync_depth_days: u32) -> i64 {
+    let now = chrono::Utc::now();
+    let floor = now - chrono::Duration::days(sync_depth_days as i64);
+    floor.timestamp()
+}
+
+#[cfg(test)]
+mod cap_tests {
+    use super::*;
+
+    #[test]
+    fn pages_for_max_items_rounds_up() {
+        assert_eq!(pages_for_max_items(100, 25), 4);
+        assert_eq!(pages_for_max_items(101, 25), 5);
+        assert_eq!(pages_for_max_items(1, 25), 1);
+        assert_eq!(pages_for_max_items(50, 50), 1);
+        assert_eq!(pages_for_max_items(51, 50), 2);
+    }
+
+    #[test]
+    fn pages_for_max_items_zero_page_size() {
+        assert_eq!(pages_for_max_items(100, 0), u32::MAX);
+    }
+
+    #[test]
+    fn epoch_floor_from_depth_is_in_the_past() {
+        let floor = epoch_floor_from_depth(30);
+        let now = chrono::Utc::now().timestamp();
+        // Floor must be in the past.
+        assert!(floor < now);
+        // Floor must be approximately 30 days ago (within 1 day tolerance).
+        let diff_days = (now - floor) / 86400;
+        assert!(
+            diff_days >= 29 && diff_days <= 31,
+            "expected ~30 days in past, got {diff_days}"
+        );
     }
 }

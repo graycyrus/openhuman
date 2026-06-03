@@ -191,6 +191,36 @@ impl ComposioProvider for LinearProvider {
             _ => PAGE_SIZE,
         };
 
+        // ctx.max_items: cap max pages.
+        let effective_max_pages = if let Some(cap) = ctx.max_items {
+            let pages_for_cap = super::super::helpers::pages_for_max_items(cap, page_size as u32);
+            let effective = MAX_PAGES_PER_SYNC.min(pages_for_cap);
+            if effective < MAX_PAGES_PER_SYNC {
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    max_items = cap,
+                    effective_max_pages = effective,
+                    "[composio:linear] [memory_sync] applying max_items page cap"
+                );
+            }
+            effective
+        } else {
+            MAX_PAGES_PER_SYNC
+        };
+
+        // ctx.sync_depth_days: oldest allowed updatedAt for client-side skip.
+        let oldest_allowed_time: Option<String> = ctx.sync_depth_days.map(|days| {
+            let floor = chrono::Utc::now() - chrono::Duration::days(days as i64);
+            let s = floor.to_rfc3339();
+            tracing::debug!(
+                connection_id = %connection_id,
+                sync_depth_days = days,
+                oldest_allowed = %s,
+                "[composio:linear] [memory_sync] applying sync_depth_days floor"
+            );
+            s
+        });
+
         let mut total_fetched: usize = 0;
         let mut total_persisted: usize = 0;
         let mut had_persist_failures = false;
@@ -198,7 +228,7 @@ impl ComposioProvider for LinearProvider {
         let mut after_cursor: Option<String> = None;
         let mut hit_cursor_boundary = false;
 
-        for page_num in 0..MAX_PAGES_PER_SYNC {
+        for page_num in 0..effective_max_pages {
             if state.budget_exhausted() {
                 tracing::info!(
                     page = page_num,
@@ -271,6 +301,20 @@ impl ComposioProvider for LinearProvider {
                     None => issue_id.clone(),
                 };
 
+                // ctx.sync_depth_days: skip issues older than the depth floor.
+                if let (Some(ref floor), Some(ref ts)) = (&oldest_allowed_time, &updated) {
+                    if ts < floor {
+                        tracing::debug!(
+                            issue_id = %issue_id,
+                            updated_at = %ts,
+                            floor = %floor,
+                            "[composio:linear] [memory_sync] skipping issue older than sync_depth_days"
+                        );
+                        hit_cursor_boundary = true;
+                        continue;
+                    }
+                }
+
                 // If `updatedAt` is at or older than our cursor *and*
                 // we already synced this key, the rest of the page is
                 // by definition older — stop early.
@@ -320,6 +364,19 @@ impl ComposioProvider for LinearProvider {
                     "[composio:linear] reached cursor boundary, stopping pagination"
                 );
                 break;
+            }
+
+            // ctx.max_items hard stop.
+            if let Some(cap) = ctx.max_items {
+                if total_persisted >= cap as usize {
+                    tracing::debug!(
+                        page = page_num,
+                        total_persisted,
+                        max_items = cap,
+                        "[composio:linear] [memory_sync] max_items reached, stopping pagination"
+                    );
+                    break;
+                }
             }
 
             // Advance to the next page using Linear's cursor-based pagination.
