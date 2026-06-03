@@ -300,3 +300,10 @@ Quick reference for anyone starting with Claude on this project. Updated by the 
 
 - **Upstream `main` has 5 Vitest failures and 4 TypeScript compile errors** — Caused by missing iOS experimental dependencies: `@noble/ciphers/chacha`, `@noble/ciphers/webcrypto`, `qrcode.react`, `@tauri-apps/plugin-barcode-scanner`. Breaks `pnpm compile`, `pnpm build`, `pnpm test:coverage` on a clean checkout. Always verify by stashing changes and running checks on the base branch before blaming your PR.
 - **`cargo fmt` must run after codecrusher** — codecrusher does not reliably produce `cargo fmt`-clean Rust. Always run `cargo fmt --manifest-path Cargo.toml` after codecrusher finishes and before committing.
+
+## Memory Source Sync Indicators (Issue #3295)
+
+- **`MemorySyncStageChanged` carries two distinct ids** — `connection_id` is the ingest-pipeline document_id (identity for dedup/audit); `source_id: Option<String>` is the memory-source row id used by the UI to match per-source progress. Never conflate them. Frontend (`MemorySourcesRegistry.tsx`) matches on `source_id ?? connection_id` for backward compat.
+- **Chunk source_id encoding for mem-src syncs** — folder/RSS/web-page chunks use `mem_src:<source_id>:<item_id>` (`memory_sources/sync.rs`). The `<item_id>` can contain colons (URLs), so extract `<source_id>` by splitting on the **first** colon after the `mem_src:` prefix — use `find(':')`, not `rfind`. See `extract_mem_src_id` in `src/openhuman/memory/sync.rs`.
+- **`MemorySyncStageBridge` re-emits stage events from ingestion events** — In `src/openhuman/memory/sync.rs`, converts `DocumentCanonicalized`/`MemoryIngestionStarted` into `MemorySyncStageChanged` with a populated `source_id`. For non-mem-src syncs (channel providers), `source_id` stays `None` — intentional; don't force a value.
+- **Disk exhaustion from e2e test compilation** — `pnpm test:rust` compiles heavy integration binaries and can fill disk (`ld: errno=28 No space left on device`). To validate domain logic only, use `cargo test -p openhuman --lib -- "memory::sync"` which skips integration test binaries.

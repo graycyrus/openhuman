@@ -66,6 +66,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
         Some(kind_str),
         Some(&source_id),
         Some(format!("sync requested for {} source", kind_str)),
+        Some(&source_id),
     );
 
     tokio::spawn(async move {
@@ -131,6 +132,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         Some(source.kind.as_str()),
                         Some(&source.id),
                         Some(format!("ingested {items} item(s)")),
+                        Some(&source.id),
                     );
 
                     // Write audit entry (GitHub writes its own with
@@ -205,6 +207,7 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         Some(source.kind.as_str()),
                         Some(&source.id),
                         Some(error.clone()),
+                        Some(&source.id),
                     );
                     tracing::warn!(
                         source_id = %source.id,
@@ -251,6 +254,7 @@ async fn sync_composio(
         Some("composio"),
         Some(&source.id),
         Some(format!("delegating to composio sync for {connection_id}")),
+        Some(&source.id),
     );
 
     match composio::run_connection_sync(config, connection_id, SyncReason::Manual).await {
@@ -278,6 +282,7 @@ async fn sync_items_individually(
         Some(source.kind.as_str()),
         Some(&source.id),
         Some("listing items".to_string()),
+        Some(&source.id),
     );
 
     let items = reader.list_items(source, config).await?;
@@ -293,6 +298,7 @@ async fn sync_items_individually(
         Some(source.kind.as_str()),
         Some(&source.id),
         Some(format!("{total} item(s) discovered")),
+        Some(&source.id),
     );
 
     let ingested = Arc::new(AtomicUsize::new(0));
@@ -370,6 +376,7 @@ async fn sync_items_individually(
                         Some(&kind_str),
                         Some(&source_id),
                         Some(format!("{done}/{total} processed ({new} new)")),
+                        Some(&source_id),
                     );
                 }
             }
