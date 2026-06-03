@@ -19,19 +19,15 @@ import {
 } from '../../services/memorySourcesService';
 
 // Which limit fields are relevant per kind. Order determines display order.
+// Only caps that are actually enforced at sync time are surfaced — the
+// per-sync token/cost budgets are not yet wired into the sync loop, so they
+// are intentionally omitted here.
 const KIND_FIELDS: Record<SourceKind, Array<keyof LimitFields>> = {
-  composio: ['sync_depth_days', 'max_items', 'max_tokens_per_sync', 'max_cost_per_sync_usd'],
-  github_repo: [
-    'max_prs',
-    'max_issues',
-    'max_commits',
-    'sync_depth_days',
-    'max_tokens_per_sync',
-    'max_cost_per_sync_usd',
-  ],
+  composio: ['sync_depth_days', 'max_items'],
+  github_repo: ['max_prs', 'max_issues', 'max_commits', 'sync_depth_days'],
   rss_feed: ['max_items', 'sync_depth_days'],
-  twitter_query: ['since_days', 'max_tokens_per_sync'],
-  web_page: ['sync_depth_days', 'max_tokens_per_sync'],
+  twitter_query: ['since_days'],
+  web_page: ['sync_depth_days'],
   folder: ['sync_depth_days'],
 };
 
@@ -43,20 +39,11 @@ const FIELD_LABEL_KEYS: Record<keyof LimitFields, string> = {
   max_items: 'memorySources.settings.maxItems',
   since_days: 'memorySources.settings.sinceDays',
   sync_depth_days: 'memorySources.settings.syncDepthDays',
-  max_tokens_per_sync: 'memorySources.settings.maxTokens',
-  max_cost_per_sync_usd: 'memorySources.settings.maxCost',
 };
 
 type LimitFields = Pick<
   MemorySourceEntry,
-  | 'max_prs'
-  | 'max_issues'
-  | 'max_commits'
-  | 'max_items'
-  | 'since_days'
-  | 'sync_depth_days'
-  | 'max_tokens_per_sync'
-  | 'max_cost_per_sync_usd'
+  'max_prs' | 'max_issues' | 'max_commits' | 'max_items' | 'since_days' | 'sync_depth_days'
 >;
 
 // Item-count caps where a "Maxed" badge is meaningful (synced count vs cap).
@@ -183,7 +170,7 @@ export function SourceSettingsPanel({
                 id={`src-setting-${source.id}-${field}`}
                 type="number"
                 min={0}
-                step={field === 'max_cost_per_sync_usd' ? 0.01 : 1}
+                step={1}
                 value={values[field] ?? ''}
                 onChange={e => handleChange(field, e.target.value)}
                 placeholder={t('memorySources.settings.unlimited')}
