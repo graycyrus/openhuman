@@ -191,22 +191,18 @@ impl ComposioProvider for LinearProvider {
             _ => PAGE_SIZE,
         };
 
-        // ctx.max_items: cap max pages.
-        let effective_max_pages = if let Some(cap) = ctx.max_items {
-            let pages_for_cap = super::super::helpers::pages_for_max_items(cap, page_size as u32);
-            let effective = MAX_PAGES_PER_SYNC.min(pages_for_cap);
-            if effective < MAX_PAGES_PER_SYNC {
-                tracing::debug!(
-                    connection_id = %connection_id,
-                    max_items = cap,
-                    effective_max_pages = effective,
-                    "[composio:linear] [memory_sync] applying max_items page cap"
-                );
-            }
-            effective
-        } else {
-            MAX_PAGES_PER_SYNC
-        };
+        // ctx.max_items: route through ItemCap — page ceiling, mid-page
+        // per-item break, and post-page hard stop all share one source of truth.
+        let mut cap = super::super::helpers::ItemCap::new(ctx.max_items);
+        let effective_max_pages = cap.max_pages(page_size as u32, MAX_PAGES_PER_SYNC);
+        if ctx.max_items.is_some() && effective_max_pages < MAX_PAGES_PER_SYNC {
+            tracing::debug!(
+                connection_id = %connection_id,
+                max_items = ?ctx.max_items,
+                effective_max_pages,
+                "[composio:linear] [memory_sync] applying max_items page cap"
+            );
+        }
 
         // ctx.sync_depth_days: oldest allowed updatedAt for client-side skip.
         let oldest_allowed_time: Option<String> = ctx.sync_depth_days.map(|days| {
@@ -346,6 +342,7 @@ impl ComposioProvider for LinearProvider {
                     Ok(_) => {
                         state.mark_synced(&sync_key);
                         total_persisted += 1;
+                        cap.record(1);
                     }
                     Err(e) => {
                         had_persist_failures = true;
@@ -355,6 +352,12 @@ impl ComposioProvider for LinearProvider {
                             "[composio:linear] failed to ingest issue into memory_tree (continuing)"
                         );
                     }
+                }
+
+                // ctx.max_items precise cap: stop mid-page so we never persist
+                // more than the cap even when a single page exceeds it.
+                if cap.is_reached() {
+                    break;
                 }
             }
 
@@ -367,16 +370,13 @@ impl ComposioProvider for LinearProvider {
             }
 
             // ctx.max_items hard stop.
-            if let Some(cap) = ctx.max_items {
-                if total_persisted >= cap as usize {
-                    tracing::debug!(
-                        page = page_num,
-                        total_persisted,
-                        max_items = cap,
-                        "[composio:linear] [memory_sync] max_items reached, stopping pagination"
-                    );
-                    break;
-                }
+            if cap.is_reached() {
+                tracing::debug!(
+                    page = page_num,
+                    total_persisted,
+                    "[composio:linear] [memory_sync] max_items reached, stopping pagination"
+                );
+                break;
             }
 
             // Advance to the next page using Linear's cursor-based pagination.

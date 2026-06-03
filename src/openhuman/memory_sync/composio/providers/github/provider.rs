@@ -195,22 +195,18 @@ impl ComposioProvider for GitHubProvider {
             _ => PAGE_SIZE,
         };
 
-        // ctx.max_items: cap MAX_PAGES.
-        let effective_max_pages = if let Some(cap) = ctx.max_items {
-            let pages_for_cap = super::super::helpers::pages_for_max_items(cap, page_size);
-            let effective = MAX_PAGES.min(pages_for_cap);
-            if effective < MAX_PAGES {
-                tracing::debug!(
-                    connection_id = %connection_id,
-                    max_items = cap,
-                    effective_max_pages = effective,
-                    "[composio:github] [memory_sync] applying max_items page cap"
-                );
-            }
-            effective
-        } else {
-            MAX_PAGES
-        };
+        // ctx.max_items: route through ItemCap — page ceiling, mid-page
+        // per-item break, and post-page hard stop all share one source of truth.
+        let mut cap = super::super::helpers::ItemCap::new(ctx.max_items);
+        let effective_max_pages = cap.max_pages(page_size, MAX_PAGES);
+        if ctx.max_items.is_some() && effective_max_pages < MAX_PAGES {
+            tracing::debug!(
+                connection_id = %connection_id,
+                max_items = ?ctx.max_items,
+                effective_max_pages,
+                "[composio:github] [memory_sync] applying max_items page cap"
+            );
+        }
 
         // ctx.sync_depth_days: inject `updated:>{date}` on first sync when set.
         let depth_query_fragment: Option<String> = if state.cursor.is_none() {
@@ -368,6 +364,7 @@ impl ComposioProvider for GitHubProvider {
                     Ok(_chunks_written) => {
                         state.mark_synced(&sync_key);
                         total_persisted += 1;
+                        cap.record(1);
                     }
                     Err(e) => {
                         had_ingest_failures = true;
@@ -378,19 +375,22 @@ impl ComposioProvider for GitHubProvider {
                         );
                     }
                 }
+
+                // ctx.max_items precise cap: stop mid-page so we never persist
+                // more than the cap even when a single page exceeds it.
+                if cap.is_reached() {
+                    break;
+                }
             }
 
             // ctx.max_items hard stop.
-            if let Some(cap) = ctx.max_items {
-                if total_persisted >= cap as usize {
-                    tracing::debug!(
-                        page = page_num,
-                        total_persisted,
-                        max_items = cap,
-                        "[composio:github] [memory_sync] max_items reached, stopping pagination"
-                    );
-                    break;
-                }
+            if cap.is_reached() {
+                tracing::debug!(
+                    page = page_num,
+                    total_persisted,
+                    "[composio:github] [memory_sync] max_items reached, stopping pagination"
+                );
+                break;
             }
 
             // GitHub search pages are 0-indexed in terms of total results;

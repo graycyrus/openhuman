@@ -274,29 +274,24 @@ impl ComposioProvider for GmailProvider {
             },
         };
 
-        // ctx.max_items: reduce max_pages so we never fetch more than the cap.
-        let max_pages = if let Some(cap) = ctx.max_items {
-            let pages_for_cap = pages_for_max_items(cap, page_size);
-            let effective = base_max_pages.min(pages_for_cap);
-            if effective < base_max_pages {
-                tracing::debug!(
-                    connection_id = %connection_id,
-                    max_items = cap,
-                    page_size,
-                    pages_for_cap,
-                    effective_max_pages = effective,
-                    "[composio:gmail] [memory_sync] applying max_items page cap from source config"
-                );
-            }
-            effective
-        } else {
-            base_max_pages
-        };
+        // ctx.max_items: route through ItemCap so the page ceiling, mid-page
+        // clamp, and post-page hard stop all share one source of truth.
+        let mut cap = super::super::helpers::ItemCap::new(ctx.max_items);
+        let max_pages = cap.max_pages(page_size, base_max_pages);
+        if ctx.max_items.is_some() && max_pages < base_max_pages {
+            tracing::debug!(
+                connection_id = %connection_id,
+                max_items = ?ctx.max_items,
+                page_size,
+                effective_max_pages = max_pages,
+                "[composio:gmail] [memory_sync] applying max_items page cap from source config"
+            );
+        }
 
         // ctx.sync_depth_days: on first sync (no cursor), add an after:<epoch> floor.
         let depth_floor_filter: Option<String> = if state.cursor.is_none() {
             ctx.sync_depth_days.map(|days| {
-                let floor_secs = epoch_floor_from_depth(days);
+                let floor_secs = super::super::helpers::epoch_floor_from_depth(days);
                 tracing::debug!(
                     connection_id = %connection_id,
                     sync_depth_days = days,
@@ -491,6 +486,11 @@ impl ComposioProvider for GmailProvider {
                 new_messages.push(msg.clone());
             }
 
+            // ctx.max_items precise cap: clamp the per-page batch before ingest
+            // so a single page larger than the budget is never over-persisted.
+            cap.clamp_batch(&mut new_messages);
+            cap.clamp_batch(&mut pending_synced_ids);
+
             // Single batched ingest into memory_tree. Chunk IDs are
             // content-hashed so re-ingest of the same message is an
             // idempotent UPSERT at the SQL layer; per-message dedup above
@@ -521,6 +521,7 @@ impl ComposioProvider for GmailProvider {
                         // persist path. n is the chunk count which we log
                         // for diagnostic purposes only.
                         total_persisted += new_messages.len();
+                        cap.record(new_messages.len());
                         tracing::debug!(
                             page = page_num,
                             new_messages = new_messages.len(),
@@ -551,17 +552,14 @@ impl ComposioProvider for GmailProvider {
             }
 
             // ctx.max_items hard stop: break once the per-source cap is reached.
-            if let Some(cap) = ctx.max_items {
-                if total_persisted >= cap as usize {
-                    tracing::debug!(
-                        page = page_num,
-                        total_persisted,
-                        max_items = cap,
-                        "[composio:gmail] [memory_sync] max_items reached, stopping pagination"
-                    );
-                    stop_reason = "max_items";
-                    break;
-                }
+            if cap.is_reached() {
+                tracing::debug!(
+                    page = page_num,
+                    total_persisted,
+                    "[composio:gmail] [memory_sync] max_items reached, stopping pagination"
+                );
+                stop_reason = "max_items";
+                break;
             }
 
             // Check for next page token.
@@ -669,56 +667,6 @@ impl ComposioProvider for GmailProvider {
     }
 }
 
-/// Compute the number of pages needed to cover `max_items` at `page_size`
-/// items per page, rounding up. Used to cap `MAX_PAGES_PER_SYNC` by the
-/// per-source `max_items` limit.
-///
-/// Returns `u32::MAX` when `page_size == 0` to avoid division by zero —
-/// callers should treat this as "no page cap".
-pub(super) fn pages_for_max_items(max_items: u32, page_size: u32) -> u32 {
-    if page_size == 0 {
-        return u32::MAX;
-    }
-    (max_items + page_size - 1) / page_size
-}
-
-/// Compute the Unix epoch timestamp (seconds) for `sync_depth_days` days ago.
-/// Used to build the `after:<epoch>` Gmail search filter on first sync.
-pub(super) fn epoch_floor_from_depth(sync_depth_days: u32) -> i64 {
-    let now = chrono::Utc::now();
-    let floor = now - chrono::Duration::days(sync_depth_days as i64);
-    floor.timestamp()
-}
-
-#[cfg(test)]
-mod cap_tests {
-    use super::*;
-
-    #[test]
-    fn pages_for_max_items_rounds_up() {
-        assert_eq!(pages_for_max_items(100, 25), 4);
-        assert_eq!(pages_for_max_items(101, 25), 5);
-        assert_eq!(pages_for_max_items(1, 25), 1);
-        assert_eq!(pages_for_max_items(50, 50), 1);
-        assert_eq!(pages_for_max_items(51, 50), 2);
-    }
-
-    #[test]
-    fn pages_for_max_items_zero_page_size() {
-        assert_eq!(pages_for_max_items(100, 0), u32::MAX);
-    }
-
-    #[test]
-    fn epoch_floor_from_depth_is_in_the_past() {
-        let floor = epoch_floor_from_depth(30);
-        let now = chrono::Utc::now().timestamp();
-        // Floor must be in the past.
-        assert!(floor < now);
-        // Floor must be approximately 30 days ago (within 1 day tolerance).
-        let diff_days = (now - floor) / 86400;
-        assert!(
-            diff_days >= 29 && diff_days <= 31,
-            "expected ~30 days in past, got {diff_days}"
-        );
-    }
-}
+// Cap/date-floor math lives in the shared `super::super::helpers` module
+// (`ItemCap`, `pages_for_max_items`, `epoch_floor_from_depth`) so every provider
+// shares one implementation — see that module for the unit tests.

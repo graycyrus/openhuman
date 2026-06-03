@@ -628,6 +628,124 @@ async fn github_clickup_and_composio_bus_cover_provider_branches() {
     server.abort();
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Slack cap enforcement
+//
+// Proves that max_items=N caps Slack ingestion to exactly N messages even
+// when a single channel/page returns more than N messages. The mock returns
+// 5 messages in one channel; with max_items=2 only 2 must be persisted.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Build a loopback router for the Slack cap test. Returns 5 messages for
+/// the single channel when `SLACK_FETCH_CONVERSATION_HISTORY` is called;
+/// all other Slack bootstrap calls (auth, users, channel listing) return
+/// minimal but valid responses.
+fn slack_cap_router(requests: Arc<Mutex<Vec<Value>>>) -> Router {
+    Router::new().route(
+        "/agent-integrations/composio/execute",
+        any(move |Json(body): Json<Value>| {
+            let requests = Arc::clone(&requests);
+            async move {
+                requests.lock().unwrap().push(body.clone());
+                let tool = body.get("tool").and_then(Value::as_str).unwrap_or("");
+                let resp = match tool {
+                    "SLACK_TEST_AUTH" => execute_envelope(json!({
+                        "user_id": "UCAP",
+                        "user": "capuser",
+                        "team": "Cap Workspace",
+                        "team_id": "TCAP",
+                        "url": "https://cap.slack.com"
+                    })),
+                    "SLACK_RETRIEVE_DETAILED_USER_INFORMATION" => execute_envelope(json!({
+                        "user": {
+                            "real_name": "Cap User",
+                            "profile": { "email": "cap@example.test" }
+                        }
+                    })),
+                    "SLACK_FETCH_TEAM_INFO" => execute_envelope(json!({
+                        "team": { "email_domain": "example.test" }
+                    })),
+                    // User directory — one member, no next page.
+                    "SLACK_LIST_ALL_USERS" => execute_envelope(json!({
+                        "members": [
+                            { "id": "UCAP", "name": "capuser", "profile": { "real_name": "Cap User" } }
+                        ],
+                        "response_metadata": { "next_cursor": "" }
+                    })),
+                    // One channel, no next page.
+                    "SLACK_LIST_CONVERSATIONS" => execute_envelope(json!({
+                        "channels": [
+                            { "id": "CCAP", "name": "cap-channel", "is_private": false }
+                        ],
+                        "response_metadata": { "next_cursor": "" }
+                    })),
+                    // Return 5 distinct messages for the single channel;
+                    // the cap is 2 so only 2 must be persisted.
+                    "SLACK_FETCH_CONVERSATION_HISTORY" => execute_envelope(json!({
+                        "messages": [
+                            { "ts": "1800000001.000001", "user": "UCAP", "text": "cap message 1",
+                              "permalink": "https://cap.slack.com/archives/CCAP/p1800000001000001" },
+                            { "ts": "1800000002.000002", "user": "UCAP", "text": "cap message 2",
+                              "permalink": "https://cap.slack.com/archives/CCAP/p1800000002000002" },
+                            { "ts": "1800000003.000003", "user": "UCAP", "text": "cap message 3",
+                              "permalink": "https://cap.slack.com/archives/CCAP/p1800000003000003" },
+                            { "ts": "1800000004.000004", "user": "UCAP", "text": "cap message 4",
+                              "permalink": "https://cap.slack.com/archives/CCAP/p1800000004000004" },
+                            { "ts": "1800000005.000005", "user": "UCAP", "text": "cap message 5",
+                              "permalink": "https://cap.slack.com/archives/CCAP/p1800000005000005" }
+                        ],
+                        "response_metadata": { "next_cursor": "" }
+                    })),
+                    _ => execute_envelope(json!({})),
+                };
+                Json(resp)
+            }
+        }),
+    )
+}
+
+#[tokio::test]
+async fn slack_sync_max_items_caps_ingest_to_exact_count() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+    // Disable inter-call pacing so the test runs quickly.
+    let _pacing = EnvGuard::set("OPENHUMAN_SLACK_INTER_CALL_PACING_MS", "0");
+
+    let requests: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+    let (base, server) = loopback_router(slack_cap_router(Arc::clone(&requests))).await;
+
+    let mut config = config_in(&tmp);
+    config.api_url = Some(base);
+    persist_config(&config).await;
+    store_session(&config);
+    memory_global::init(config.workspace_dir.clone()).expect("init global memory");
+
+    let ctx = ProviderContext {
+        config: Arc::new(config),
+        toolkit: "slack".to_string(),
+        connection_id: Some("conn-slack-cap".to_string()),
+        usage: Default::default(),
+        // The mock returns 5 messages; cap is 2 — only 2 must be ingested.
+        max_items: Some(2),
+        sync_depth_days: None,
+    };
+
+    let outcome = SlackProvider::new()
+        .sync(&ctx, SyncReason::ConnectionCreated)
+        .await
+        .expect("slack cap sync");
+
+    assert_eq!(
+        outcome.items_ingested, 2,
+        "max_items=2 must cap Slack ingest to exactly 2 even though the channel/page held 5"
+    );
+
+    server.abort();
+}
+
 fn walk_files(root: &Path) -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
     if !root.exists() {
@@ -649,4 +767,186 @@ fn walk_files(root: &Path) -> Vec<std::path::PathBuf> {
         }
     }
     out
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sync-cap enforcement: max_items and sync_depth_days
+//
+// These verify the user-facing promise of the per-source sync settings:
+//   - max_items=N ingests AT MOST N items, even when a single API page
+//     returns more (precise mid-page cap, not just a page cap).
+//   - sync_depth_days injects an `updated:>{floor}` date filter into the
+//     GitHub search query so only recent items are requested.
+// The cap logic is shared verbatim across the gmail/notion/linear/clickup
+// providers, so GitHub stands in for all of them here.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Build `n` distinct, valid GitHub search items (each with an id + updated_at).
+fn github_issue_items(n: usize) -> Vec<Value> {
+    (1..=n)
+        .map(|i| {
+            json!({
+                "id": 3000 + i,
+                "title": format!("Cap issue {i}"),
+                "body": "cap enforcement body",
+                "state": "open",
+                "updated_at": format!("2026-05-{:02}T10:00:00Z", 10 + i),
+                "html_url": format!("https://github.com/tinyhumansai/openhuman/issues/{i}")
+            })
+        })
+        .collect()
+}
+
+/// Loopback router that answers the two GitHub sync tools. The search tool
+/// always returns `items` (one page), and every request body is captured.
+fn github_cap_router(items: Vec<Value>, requests: Arc<Mutex<Vec<Value>>>) -> Router {
+    Router::new().route(
+        "/agent-integrations/composio/execute",
+        any(move |Json(body): Json<Value>| {
+            let items = items.clone();
+            let requests = Arc::clone(&requests);
+            async move {
+                requests.lock().unwrap().push(body.clone());
+                let tool = body.get("tool").and_then(Value::as_str).unwrap_or("");
+                let resp = match tool {
+                    "GITHUB_GET_THE_AUTHENTICATED_USER" => execute_envelope(json!({
+                        "login": "octo-cap",
+                        "html_url": "https://github.com/octo-cap"
+                    })),
+                    "GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS" => execute_envelope(json!({
+                        "items": items,
+                        "total_count": items.len()
+                    })),
+                    _ => execute_envelope(json!({})),
+                };
+                Json(resp)
+            }
+        }),
+    )
+}
+
+async fn github_cap_context(
+    tmp: &TempDir,
+    items: Vec<Value>,
+    requests: Arc<Mutex<Vec<Value>>>,
+) -> (Config, tokio::task::JoinHandle<()>) {
+    let (base, server) = loopback_router(github_cap_router(items, requests)).await;
+    let mut config = config_in(tmp);
+    config.api_url = Some(base);
+    persist_config(&config).await;
+    store_session(&config);
+    memory_global::init(config.workspace_dir.clone()).expect("init global memory");
+    (config, server)
+}
+
+fn github_ctx(
+    config: &Config,
+    max_items: Option<u32>,
+    sync_depth_days: Option<u32>,
+) -> ProviderContext {
+    ProviderContext {
+        config: Arc::new(config.clone()),
+        toolkit: "github".to_string(),
+        connection_id: Some("conn-cap".to_string()),
+        usage: Default::default(),
+        max_items,
+        sync_depth_days,
+    }
+}
+
+#[tokio::test]
+async fn github_sync_max_items_caps_ingest_to_exact_count() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    // One page returns 5 valid items; the cap is 2.
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let (config, server) =
+        github_cap_context(&tmp, github_issue_items(5), Arc::clone(&requests)).await;
+
+    let outcome = GitHubProvider::new()
+        .sync(
+            &github_ctx(&config, Some(2), None),
+            SyncReason::ConnectionCreated,
+        )
+        .await
+        .expect("github sync");
+
+    assert_eq!(
+        outcome.items_ingested, 2,
+        "max_items=2 must cap ingest to exactly 2 even though the page held 5"
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn github_sync_without_max_items_ingests_full_page() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    // Control: no cap → every valid item on the page is ingested.
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let (config, server) =
+        github_cap_context(&tmp, github_issue_items(5), Arc::clone(&requests)).await;
+
+    let outcome = GitHubProvider::new()
+        .sync(
+            &github_ctx(&config, None, None),
+            SyncReason::ConnectionCreated,
+        )
+        .await
+        .expect("github sync");
+
+    assert_eq!(
+        outcome.items_ingested, 5,
+        "with no max_items cap, all 5 page items must be ingested"
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn github_sync_depth_days_injects_updated_floor_into_query() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let (config, server) =
+        github_cap_context(&tmp, github_issue_items(1), Arc::clone(&requests)).await;
+
+    GitHubProvider::new()
+        .sync(
+            &github_ctx(&config, None, Some(7)),
+            SyncReason::ConnectionCreated,
+        )
+        .await
+        .expect("github sync");
+
+    // The search request must carry an `updated:>{date}` floor derived from the
+    // 7-day window, proving sync_depth_days actually narrows what is fetched.
+    let reqs = requests.lock().unwrap();
+    let search = reqs
+        .iter()
+        .find(|b| {
+            b.get("tool").and_then(Value::as_str) == Some("GITHUB_SEARCH_ISSUES_AND_PULL_REQUESTS")
+        })
+        .expect("a search request was issued");
+    let q = search
+        .get("arguments")
+        .and_then(|a| a.get("q"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    assert!(
+        q.contains("updated:>"),
+        "sync_depth_days=7 must inject an `updated:>` date floor, got query: {q}"
+    );
+    server.abort();
 }
