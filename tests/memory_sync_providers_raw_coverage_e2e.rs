@@ -300,6 +300,8 @@ async fn configured_loopback_context(
         toolkit: toolkit.to_string(),
         connection_id: Some(connection_id.to_string()),
         usage: Default::default(),
+        max_items: None,
+        sync_depth_days: None,
     };
     (config, ctx, server)
 }
@@ -552,6 +554,8 @@ async fn github_clickup_and_composio_bus_cover_provider_branches() {
         toolkit: "clickup".to_string(),
         connection_id: Some("conn-clickup-round17".to_string()),
         usage: Default::default(),
+        max_items: None,
+        sync_depth_days: None,
     };
     let clickup = ClickUpProvider::new();
     let click_profile = clickup
