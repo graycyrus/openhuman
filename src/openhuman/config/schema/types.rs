@@ -407,14 +407,17 @@ pub struct Config {
     #[serde(default)]
     pub model_registry: Vec<ModelRegistryEntry>,
 
-    /// One-time migration guard: set to `true` after
-    /// `apply_composio_source_caps_migration` has run successfully.
+    /// Migration version guard for `apply_composio_source_caps_migration`.
     ///
-    /// Defaults to `false` (`#[serde(default)]`) on existing installs so the
-    /// migration fires on the first launch that includes this code, then never
-    /// again. This is a "has-run" sentinel — no functional default value needed.
+    /// The migration runs whenever this is `< CURRENT_CAPS_MIGRATION_VERSION`
+    /// (see `memory_sources::reconcile`), then is bumped to that version. Using a
+    /// monotonic version (rather than a bool) lets an improved migration re-run
+    /// once for installs that already ran an earlier revision. Defaults to `0`
+    /// (`#[serde(default)]`); the retired `composio_source_caps_migrated` bool is
+    /// silently ignored (Config does not `deny_unknown_fields`), so prior installs
+    /// re-run the current migration exactly once.
     #[serde(default)]
-    pub composio_source_caps_migrated: bool,
+    pub composio_source_caps_migration_version: u32,
 }
 
 /// Shared default so `#[serde(default)]` and `Config::default()` stay in sync.
@@ -733,7 +736,7 @@ impl Default for Config {
             onboarding_completed: false,
             chat_onboarding_completed: false,
             model_registry: Vec::new(),
-            composio_source_caps_migrated: false,
+            composio_source_caps_migration_version: 0,
         }
     }
 }

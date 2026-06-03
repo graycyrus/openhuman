@@ -520,7 +520,12 @@ function SourceRow({
         </div>
       </div>
       {settingsExpanded && (
-        <SourceSettingsPanel source={source} onSaved={onSettingsSaved} onToast={onToast} />
+        <SourceSettingsPanel
+          source={source}
+          syncedCount={status?.chunks_synced}
+          onSaved={onSettingsSaved}
+          onToast={onToast}
+        />
       )}
     </li>
   );

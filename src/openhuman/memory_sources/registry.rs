@@ -7,12 +7,15 @@
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::memory_sources::types::{MemorySourceEntry, SourceKind};
 
-/// Conservative default caps applied to new Composio source entries
-/// at upsert time (insert-only — the existing-entry update branch
-/// never overwrites user-set caps).
+/// Conservative default sync caps for a Composio toolkit, keyed by toolkit slug.
+///
+/// Single source of truth for the cheap out-of-the-box sync volume. Applied to a
+/// source entry when it is first registered (`upsert_composio_source`, insert-only)
+/// and by the one-time caps migration (`reconcile::apply_composio_source_caps_migration`)
+/// for cap-less entries. Never overwrites a user-customised cap.
 ///
 /// Returns `(max_items, sync_depth_days)`.
-pub fn composio_defaults_for_toolkit(toolkit: &str) -> (Option<u32>, Option<u32>) {
+pub fn memory_sync_defaults_for_toolkit(toolkit: &str) -> (Option<u32>, Option<u32>) {
     match toolkit {
         "gmail" => (Some(100), Some(30)),
         "slack" => (Some(50), Some(14)),
@@ -229,7 +232,7 @@ pub async fn upsert_composio_source(
         return Ok(updated);
     }
 
-    let (default_max_items, default_sync_depth_days) = composio_defaults_for_toolkit(toolkit);
+    let (default_max_items, default_sync_depth_days) = memory_sync_defaults_for_toolkit(toolkit);
     tracing::debug!(
         toolkit = %toolkit,
         max_items = ?default_max_items,
@@ -377,24 +380,27 @@ mod tests {
     #[test]
     fn composio_defaults_for_known_toolkits() {
         assert_eq!(
-            composio_defaults_for_toolkit("gmail"),
+            memory_sync_defaults_for_toolkit("gmail"),
             (Some(100), Some(30))
         );
-        assert_eq!(composio_defaults_for_toolkit("slack"), (Some(50), Some(14)));
         assert_eq!(
-            composio_defaults_for_toolkit("notion"),
+            memory_sync_defaults_for_toolkit("slack"),
+            (Some(50), Some(14))
+        );
+        assert_eq!(
+            memory_sync_defaults_for_toolkit("notion"),
             (Some(30), Some(30))
         );
         assert_eq!(
-            composio_defaults_for_toolkit("linear"),
+            memory_sync_defaults_for_toolkit("linear"),
             (Some(50), Some(30))
         );
         assert_eq!(
-            composio_defaults_for_toolkit("clickup"),
+            memory_sync_defaults_for_toolkit("clickup"),
             (Some(50), Some(30))
         );
         assert_eq!(
-            composio_defaults_for_toolkit("github"),
+            memory_sync_defaults_for_toolkit("github"),
             (Some(50), Some(30))
         );
     }
@@ -402,10 +408,10 @@ mod tests {
     #[test]
     fn composio_defaults_for_generic_fallback() {
         assert_eq!(
-            composio_defaults_for_toolkit("unknown_toolkit_xyz"),
+            memory_sync_defaults_for_toolkit("unknown_toolkit_xyz"),
             (Some(30), Some(14))
         );
-        assert_eq!(composio_defaults_for_toolkit(""), (Some(30), Some(14)));
+        assert_eq!(memory_sync_defaults_for_toolkit(""), (Some(30), Some(14)));
     }
 
     #[test]

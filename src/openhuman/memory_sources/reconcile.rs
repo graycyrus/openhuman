@@ -4,14 +4,18 @@
 //! a corresponding `MemorySourceEntry` in config. This catches connections
 //! created before the memory_sources domain existed.
 //!
-//! Also owns the one-time retroactive migration
-//! (`apply_composio_source_caps_migration`) that enables previously-disabled
-//! Composio sources with conservative per-toolkit caps.
+//! Also owns the retroactive caps migration
+//! (`apply_composio_source_caps_migration`) that gives any cap-less Composio
+//! source — enabled or disabled — conservative per-toolkit caps.
 
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::memory_sources::registry;
-use crate::openhuman::memory_sources::types::SourceKind;
+use crate::openhuman::memory_sources::types::{MemorySourceEntry, SourceKind};
 use crate::openhuman::memory_sync::composio;
+
+/// Current version of the caps migration. Bump when the migration logic changes
+/// so installs that ran an earlier revision re-run it exactly once.
+const CURRENT_CAPS_MIGRATION_VERSION: u32 = 1;
 
 pub async fn ensure_composio_sources() {
     tracing::debug!("[memory_sources:reconcile] starting composio reconciliation");
@@ -83,46 +87,38 @@ pub async fn ensure_composio_sources() {
     }
 }
 
-/// One-time retroactive migration: flip previously-disabled Composio sources
-/// that have no caps to `enabled = true` with conservative per-toolkit defaults.
+/// Apply conservative default caps in-place to every cap-less source.
 ///
-/// Guarded by `Config.composio_source_caps_migrated` — runs at most once per
-/// install. Idempotent within a single run: only processes entries where BOTH
-/// `enabled == false` AND `max_items.is_none() && sync_depth_days.is_none()`.
-/// Entries the user has already customised (non-None caps) are left untouched.
-pub async fn apply_composio_source_caps_migration() -> Result<(), String> {
-    let mut config = config_rpc::load_config_with_timeout().await?;
-
-    if config.composio_source_caps_migrated {
-        tracing::debug!("[memory_sources:reconcile] caps migration already applied; skipping");
-        return Ok(());
-    }
-
-    tracing::info!("[memory_sources:reconcile] applying composio source caps migration");
-
-    let mut migrated_count = 0u32;
-
-    for source in &mut config.memory_sources {
+/// For a Composio source with no `max_items`/`sync_depth_days`, writes the
+/// per-toolkit defaults and enables it (a no-op when already enabled) — an
+/// already-enabled, cap-less source would otherwise sync at the provider's large
+/// internal ceiling instead of the cheap default. For other kinds, fills any unset
+/// kind-specific caps via `apply_kind_defaults`. User-customised caps (non-None)
+/// are never overwritten. Returns the number of Composio entries that received
+/// defaults. Pure (no I/O) so it can be unit-tested directly.
+fn apply_caps_defaults_to_entries(sources: &mut [MemorySourceEntry]) -> u32 {
+    let mut applied = 0u32;
+    for source in sources.iter_mut() {
         match source.kind {
             SourceKind::Composio => {
-                // Only migrate entries that are disabled AND have no caps set
-                // (i.e. the user has not customised them).
-                if !source.enabled && source.max_items.is_none() && source.sync_depth_days.is_none()
-                {
+                // Apply to enabled AND disabled cap-less sources; skip entries the
+                // user has already customised (any non-None cap).
+                if source.max_items.is_none() && source.sync_depth_days.is_none() {
                     let toolkit = source.toolkit.as_deref().unwrap_or("");
                     let (max_items, sync_depth_days) =
-                        registry::composio_defaults_for_toolkit(toolkit);
+                        registry::memory_sync_defaults_for_toolkit(toolkit);
                     tracing::debug!(
                         id = %source.id,
                         toolkit = %toolkit,
+                        was_enabled = source.enabled,
                         max_items = ?max_items,
                         sync_depth_days = ?sync_depth_days,
-                        "[memory_sources:reconcile] caps migration: enabling disabled source with defaults"
+                        "[memory_sources:reconcile] caps migration: applying conservative defaults"
                     );
                     source.enabled = true;
                     source.max_items = max_items;
                     source.sync_depth_days = sync_depth_days;
-                    migrated_count += 1;
+                    applied += 1;
                 }
             }
             // Apply non-composio kind defaults for entries with all-None caps.
@@ -133,8 +129,36 @@ pub async fn apply_composio_source_caps_migration() -> Result<(), String> {
             }
         }
     }
+    applied
+}
 
-    config.composio_source_caps_migrated = true;
+/// Retroactive migration: give any cap-less Composio source — enabled or
+/// disabled — conservative per-toolkit caps so its first sync stays cheap.
+///
+/// Version-gated by `Config.composio_source_caps_migration_version`: runs once per
+/// `CURRENT_CAPS_MIGRATION_VERSION` bump (installs that ran an earlier revision
+/// re-run it exactly once). Entries the user has already customised (non-None caps)
+/// are left untouched.
+pub async fn apply_composio_source_caps_migration() -> Result<(), String> {
+    let mut config = config_rpc::load_config_with_timeout().await?;
+
+    if config.composio_source_caps_migration_version >= CURRENT_CAPS_MIGRATION_VERSION {
+        tracing::debug!(
+            version = config.composio_source_caps_migration_version,
+            "[memory_sources:reconcile] caps migration already at current version; skipping"
+        );
+        return Ok(());
+    }
+
+    tracing::info!(
+        from_version = config.composio_source_caps_migration_version,
+        to_version = CURRENT_CAPS_MIGRATION_VERSION,
+        "[memory_sources:reconcile] applying composio source caps migration"
+    );
+
+    let migrated_count = apply_caps_defaults_to_entries(&mut config.memory_sources);
+
+    config.composio_source_caps_migration_version = CURRENT_CAPS_MIGRATION_VERSION;
     config
         .save()
         .await
@@ -205,25 +229,10 @@ mod tests {
         }
     }
 
-    /// Simulate the migration logic applied to a Vec of sources so we can
-    /// test the transformation without touching the global config.
+    /// Exercises the real migration transform (`apply_caps_defaults_to_entries`)
+    /// so the tests cannot drift from the production predicate.
     fn run_migration_on_entries(sources: &mut Vec<MemorySourceEntry>) -> u32 {
-        let mut migrated = 0u32;
-        for source in sources.iter_mut() {
-            if source.kind == SourceKind::Composio
-                && !source.enabled
-                && source.max_items.is_none()
-                && source.sync_depth_days.is_none()
-            {
-                let toolkit = source.toolkit.as_deref().unwrap_or("");
-                let (max_items, sync_depth_days) = registry::composio_defaults_for_toolkit(toolkit);
-                source.enabled = true;
-                source.max_items = max_items;
-                source.sync_depth_days = sync_depth_days;
-                migrated += 1;
-            }
-        }
-        migrated
+        apply_caps_defaults_to_entries(sources)
     }
 
     #[test]
@@ -237,14 +246,15 @@ mod tests {
     }
 
     #[test]
-    fn migration_leaves_already_enabled_entry_untouched() {
+    fn migration_applies_defaults_to_enabled_capless_entry() {
+        // An already-enabled but cap-less source must also receive defaults —
+        // otherwise its first sync runs at the provider's large internal ceiling.
         let mut sources = vec![make_composio_entry("s2", "slack", true, None, None)];
         let count = run_migration_on_entries(&mut sources);
-        // Already enabled — migration predicate requires enabled == false.
-        assert_eq!(count, 0);
+        assert_eq!(count, 1);
         assert!(sources[0].enabled);
-        // Caps should still be None (we didn't touch it).
-        assert_eq!(sources[0].max_items, None);
+        assert_eq!(sources[0].max_items, Some(50));
+        assert_eq!(sources[0].sync_depth_days, Some(14));
     }
 
     #[test]
