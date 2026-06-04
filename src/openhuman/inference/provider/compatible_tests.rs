@@ -66,6 +66,7 @@ fn native_request_emits_thread_id_when_present() {
         thread_id: Some("thread-abc".to_string()),
         stream_options: None,
         options: None,
+        frequency_penalty: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -84,12 +85,65 @@ fn native_request_emits_thread_id_when_present() {
         thread_id: None,
         stream_options: None,
         options: None,
+        frequency_penalty: None,
     };
     let json_no_thread = serde_json::to_value(&req_no_thread).unwrap();
     assert!(
         json_no_thread.get("thread_id").is_none(),
         "absent thread_id must not be serialized so non-OpenHuman backends don't reject the field"
     );
+}
+
+#[test]
+fn native_request_serializes_frequency_penalty_only_when_set() {
+    let base = super::NativeChatRequest {
+        model: "kimi".to_string(),
+        messages: Vec::new(),
+        temperature: Some(0.7),
+        stream: Some(false),
+        tools: None,
+        tool_choice: None,
+        thread_id: None,
+        stream_options: None,
+        options: None,
+        frequency_penalty: Some(0.3),
+    };
+    let json = serde_json::to_value(&base).unwrap();
+    assert_eq!(
+        json.get("frequency_penalty")
+            .and_then(serde_json::Value::as_f64),
+        Some(0.3),
+        "a set frequency_penalty must be forwarded to damp repetition loops"
+    );
+
+    let none = super::NativeChatRequest {
+        frequency_penalty: None,
+        ..base
+    };
+    let json_none = serde_json::to_value(&none).unwrap();
+    assert!(
+        json_none.get("frequency_penalty").is_none(),
+        "absent frequency_penalty must be omitted so providers that reject it are unaffected"
+    );
+}
+
+#[test]
+fn detects_frequency_penalty_rejection_for_retry() {
+    use super::OpenAiCompatibleProvider as P;
+    // Strict providers that 400 on the field → retry without it.
+    assert!(P::err_indicates_frequency_penalty_unsupported(
+        "400 Bad Request: unknown parameter 'frequency_penalty'"
+    ));
+    assert!(P::err_indicates_frequency_penalty_unsupported(
+        "frequency_penalty is not supported by this model"
+    ));
+    // Unrelated errors, or the field merely mentioned, must NOT trigger a retry.
+    assert!(!P::err_indicates_frequency_penalty_unsupported(
+        "rate limit exceeded"
+    ));
+    assert!(!P::err_indicates_frequency_penalty_unsupported(
+        "applied frequency_penalty 0.3"
+    ));
 }
 
 /// Streaming responses arrive without `usage` unless the request asks
@@ -111,6 +165,7 @@ fn streaming_request_sets_stream_options_include_usage() {
             include_usage: true,
         }),
         options: None,
+        frequency_penalty: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -133,6 +188,7 @@ fn non_streaming_request_omits_stream_options() {
         thread_id: None,
         stream_options: None,
         options: None,
+        frequency_penalty: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert!(
@@ -155,6 +211,7 @@ fn ollama_options_num_ctx_serializes_correctly() {
         options: Some(super::compatible_types::OllamaOptions {
             num_ctx: Some(32768),
         }),
+        frequency_penalty: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert_eq!(
@@ -176,6 +233,7 @@ fn ollama_options_none_is_omitted() {
         thread_id: None,
         stream_options: None,
         options: None,
+        frequency_penalty: None,
     };
     let json = serde_json::to_value(&req).unwrap();
     assert!(
@@ -466,6 +524,60 @@ fn extra_headers_are_applied_with_auth_header() {
 }
 
 #[test]
+fn openrouter_requests_include_app_attribution_headers() {
+    let p = OpenAiCompatibleProvider::new(
+        "openrouter",
+        "https://openrouter.ai/api/v1",
+        Some("sk-or-test"),
+        AuthStyle::Bearer,
+    );
+
+    let req = p
+        .apply_auth_header(
+            p.http_client()
+                .post("https://openrouter.ai/api/v1/chat/completions"),
+            Some("sk-or-test"),
+        )
+        .build()
+        .unwrap();
+
+    assert_eq!(
+        req.headers()
+            .get("HTTP-Referer")
+            .and_then(|value| value.to_str().ok()),
+        Some("https://openhuman.ai")
+    );
+    assert_eq!(
+        req.headers()
+            .get("X-OpenRouter-Title")
+            .and_then(|value| value.to_str().ok()),
+        Some("OpenHuman")
+    );
+}
+
+#[test]
+fn non_openrouter_requests_do_not_include_openrouter_attribution_headers() {
+    let p = OpenAiCompatibleProvider::new(
+        "custom",
+        "https://api.example.com/v1",
+        Some("test-key"),
+        AuthStyle::Bearer,
+    );
+
+    let req = p
+        .apply_auth_header(
+            p.http_client()
+                .post("https://api.example.com/v1/chat/completions"),
+            Some("test-key"),
+        )
+        .build()
+        .unwrap();
+
+    assert!(req.headers().get("HTTP-Referer").is_none());
+    assert!(req.headers().get("X-OpenRouter-Title").is_none());
+}
+
+#[test]
 fn extra_query_params_are_applied_to_codex_urls() {
     let p = OpenAiCompatibleProvider::new(
         "openai",
@@ -702,6 +814,7 @@ async fn streaming_chat_config_rejection_propagates_error_without_sentry_report(
             include_usage: true,
         }),
         options: None,
+        frequency_penalty: None,
     };
     let (delta_tx, _delta_rx) = tokio::sync::mpsc::channel(8);
 
@@ -2463,6 +2576,141 @@ async fn completion_only_404_fails_fast_without_responses_fallback() {
     assert!(
         !msg.contains("responses fallback failed"),
         "guard must pre-empt the responses fallback, got: {msg}"
+    );
+}
+
+// ── TAURI-RUST-4P6: embedding model picked as chat model → 400 ───────────────
+
+#[test]
+fn not_chat_capable_detected_from_ollama_400() {
+    // Verbatim Ollama wire body when an embedding model (bge-m3) is used as
+    // the chat model. Sentry issue 5338.
+    let body = r#"{"error":{"message":"\"bge-m3:latest\" does not support chat","type":"invalid_request_error","param":null,"code":null}}"#;
+    assert!(OpenAiCompatibleProvider::is_not_chat_capable_model(
+        reqwest::StatusCode::BAD_REQUEST,
+        body
+    ));
+    // Some compatible backends use 422 for the same class.
+    assert!(OpenAiCompatibleProvider::is_not_chat_capable_model(
+        reqwest::StatusCode::UNPROCESSABLE_ENTITY,
+        body
+    ));
+}
+
+#[test]
+fn not_chat_capable_requires_4xx_status() {
+    // The exact phrase under a non-4xx status is not this case — let other
+    // handling deal with 404/5xx so we don't shadow real failures.
+    let body = "\"bge-m3:latest\" does not support chat";
+    assert!(!OpenAiCompatibleProvider::is_not_chat_capable_model(
+        reqwest::StatusCode::NOT_FOUND,
+        body
+    ));
+    assert!(!OpenAiCompatibleProvider::is_not_chat_capable_model(
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        body
+    ));
+}
+
+#[test]
+fn not_chat_capable_ignores_unrelated_400() {
+    // An ordinary 400 with no "does not support chat" phrase must keep its
+    // normal enrich/handling path.
+    assert!(!OpenAiCompatibleProvider::is_not_chat_capable_model(
+        reqwest::StatusCode::BAD_REQUEST,
+        "invalid temperature: only 1 is allowed for this model"
+    ));
+}
+
+#[test]
+fn not_chat_capable_message_names_model_remediation_and_keeps_phrase() {
+    let p = make_provider("ollama", "http://127.0.0.1:11434/v1", None);
+    let msg = p.not_chat_capable_model_message(
+        "bge-m3:latest",
+        r#"{"error":{"message":"\"bge-m3:latest\" does not support chat"}}"#,
+    );
+    assert!(msg.contains("bge-m3:latest"), "names the model: {msg}");
+    assert!(
+        msg.contains("chat-capable model"),
+        "states the remediation: {msg}"
+    );
+    // CRITICAL: the actionable rewrite must still carry the upstream phrase so
+    // the re-reported error stays demoted by the config-rejection classifier
+    // (otherwise the 36.6k Sentry events come back). See TAURI-RUST-4P6.
+    assert!(
+        msg.to_lowercase().contains("does not support chat"),
+        "must preserve the classifier anchor phrase: {msg}"
+    );
+    assert!(
+        super::super::is_provider_config_rejection_message(&msg),
+        "enriched message must classify as a provider config-rejection: {msg}"
+    );
+}
+
+#[test]
+fn not_chat_capable_guard_fires_only_on_signature() {
+    let p = make_provider("ollama", "http://127.0.0.1:11434/v1", None);
+    let hit = p.not_chat_capable_guard(
+        reqwest::StatusCode::BAD_REQUEST,
+        "\"bge-m3:latest\" does not support chat",
+        "bge-m3:latest",
+    );
+    assert!(hit
+        .expect("guard should fire on the does-not-support-chat 400")
+        .to_string()
+        .contains("bge-m3:latest"));
+    // Unrelated 400 → None (normal handling preserved).
+    assert!(p
+        .not_chat_capable_guard(
+            reqwest::StatusCode::BAD_REQUEST,
+            "rate limit exceeded",
+            "bge-m3:latest"
+        )
+        .is_none());
+}
+
+#[tokio::test]
+async fn not_chat_capable_400_fails_fast_with_actionable_message() {
+    // End-to-end over the wire: an embedding model used as chat 400s, and the
+    // guard must short-circuit with the actionable message rather than the
+    // opaque upstream JSON. TAURI-RUST-4P6.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
+            "error": {
+                "message": "\"bge-m3:latest\" does not support chat",
+                "type": "invalid_request_error",
+                "param": null,
+                "code": null
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let provider = OpenAiCompatibleProvider::new(
+        "ollama",
+        &format!("{}/v1", server.uri()),
+        // Dummy key only to clear the pre-flight credential gate; the mock
+        // ignores auth. Real Ollama is keyless, but the provider requires a
+        // non-empty credential before dispatching.
+        Some("x"),
+        AuthStyle::Bearer,
+    );
+
+    let err = provider
+        .chat_with_history(&[ChatMessage::user("hello")], "bge-m3:latest", 0.0)
+        .await
+        .expect_err("embedding-model-as-chat must error");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("bge-m3:latest") && msg.contains("chat-capable model"),
+        "expected actionable does-not-support-chat message, got: {msg}"
+    );
+    // And it must remain demotable — Sentry suppression depends on it.
+    assert!(
+        super::super::is_provider_config_rejection_message(&msg),
+        "bubbled error must classify as config-rejection, got: {msg}"
     );
 }
 

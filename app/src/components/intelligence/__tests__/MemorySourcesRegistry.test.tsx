@@ -1,315 +1,322 @@
 /**
- * Tests for MemorySourcesRegistry (issue #3295):
- *
- * RC#1 — concurrent syncs: multiple sources can show "syncing" simultaneously.
- * RC#2 — source_id matching: events matched by source_id (preferred) or
- *         connection_id (fallback) for backward compat.
- * RC#4 — tolerant parseSyncProgress: numeric ratio, stage fallback, and
- *         indeterminate (null) cases.
+ * Unit tests for MemorySourcesRegistry — All In button, gear/settings panel,
+ * per-kind field visibility, Save, and existing toggle behaviour.
  */
-import { act, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as service from '../../../services/memorySourcesService';
+import type { MemorySourceEntry } from '../../../services/memorySourcesService';
 import { renderWithProviders } from '../../../test/test-utils';
-import { MemorySourcesRegistry, parseSyncProgress } from '../MemorySourcesRegistry';
+import { MemorySourcesRegistry } from '../MemorySourcesRegistry';
 
-// ── i18n mock (returns key as the translation) ────────────────────────────────
-vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
+// Mock the entire service so we don't hit RPC
+vi.mock('../../../services/memorySourcesService', async () => {
+  const actual = await vi.importActual<typeof import('../../../services/memorySourcesService')>(
+    '../../../services/memorySourcesService'
+  );
+  return {
+    ...actual,
+    listMemorySources: vi.fn(),
+    memorySourcesStatusList: vi.fn(),
+    updateMemorySource: vi.fn(),
+    removeMemorySource: vi.fn(),
+    syncMemorySource: vi.fn(),
+    applyAllIn: vi.fn(),
+  };
+});
 
-// ── memorySourcesService mock ─────────────────────────────────────────────────
-vi.mock('../../../services/memorySourcesService', () => ({
-  listMemorySources: vi.fn().mockResolvedValue([]),
-  memorySourcesStatusList: vi.fn().mockResolvedValue([]),
-  syncMemorySource: vi.fn().mockResolvedValue(undefined),
-  removeMemorySource: vi.fn().mockResolvedValue(undefined),
-  updateMemorySource: vi
-    .fn()
-    .mockImplementation((id: string, patch: Record<string, unknown>) =>
-      Promise.resolve({ id, kind: 'folder', label: 'Test', enabled: true, ...patch })
-    ),
-  SOURCE_KIND_ICONS: {
-    folder: 'F',
-    composio: 'C',
-    github_repo: 'G',
-    rss_feed: 'R',
-    web_page: 'W',
-    twitter_query: 'T',
-  },
-  SOURCE_KIND_LABEL_KEYS: {
-    folder: 'memorySources.kind.folder',
-    composio: 'memorySources.kind.composio',
-    github_repo: 'memorySources.kind.github_repo',
-    rss_feed: 'memorySources.kind.rss_feed',
-    web_page: 'memorySources.kind.web_page',
-    twitter_query: 'memorySources.kind.twitter_query',
-  },
-}));
-
-// ── tauriCommands mock ────────────────────────────────────────────────────────
+// Mock tauriCommands/memoryTree — not needed in these tests
 vi.mock('../../../utils/tauriCommands/memoryTree', () => ({
   memoryTreeFlushSource: vi.fn().mockResolvedValue({ seals_fired: 0 }),
 }));
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+const mockedList = vi.mocked(service.listMemorySources);
+const mockedStatus = vi.mocked(service.memorySourcesStatusList);
+const mockedUpdate = vi.mocked(service.updateMemorySource);
+const mockedApplyAllIn = vi.mocked(service.applyAllIn);
 
-function makeSyncStageEvent(detail: {
-  stage: string;
-  source_id?: string | null;
-  connection_id?: string | null;
-  detail?: string;
-}): CustomEvent {
-  return new CustomEvent('openhuman:memory-sync-stage', { detail });
+function makeSource(overrides: Partial<MemorySourceEntry> = {}): MemorySourceEntry {
+  return {
+    id: 'src_1',
+    kind: 'github_repo',
+    label: 'My Repo',
+    enabled: true,
+    url: 'https://github.com/org/repo',
+    ...overrides,
+  };
 }
 
-function makeSource(id: string) {
-  return { id, kind: 'folder' as const, label: `Source ${id}`, enabled: true };
+function setup(sources: MemorySourceEntry[] = [makeSource()]) {
+  mockedList.mockResolvedValue(sources);
+  mockedStatus.mockResolvedValue([]);
+  const onToast = vi.fn();
+  const result = renderWithProviders(
+    <MemorySourcesRegistry onToast={onToast} pollIntervalMs={0} />,
+    {}
+  );
+  return { ...result, onToast };
 }
-
-// ── parseSyncProgress unit tests ──────────────────────────────────────────────
-
-describe('parseSyncProgress', () => {
-  it('returns ratio for "N/M ..." numeric pattern', () => {
-    expect(parseSyncProgress('5/10 processed', 'ingesting')).toBe(50);
-    expect(parseSyncProgress('3/12 docs', 'fetching')).toBe(25);
-    expect(parseSyncProgress('1/1 done', 'ingesting')).toBe(100);
-  });
-
-  it('returns stage fallback when no numeric ratio is present', () => {
-    expect(parseSyncProgress('queue_depth=3', 'ingesting')).toBe(40);
-    expect(parseSyncProgress('listing items', 'fetching')).toBe(5);
-    expect(parseSyncProgress(null, 'requested')).toBe(2);
-    expect(parseSyncProgress('canonicalized 3 chunks', 'stored')).toBe(15);
-    expect(parseSyncProgress('queued chunk extraction', 'queued')).toBe(25);
-  });
-
-  it('returns 100 for completed stage', () => {
-    expect(parseSyncProgress(null, 'completed')).toBe(100);
-    expect(parseSyncProgress('ingested 5 item(s)', 'completed')).toBe(100);
-  });
-
-  it('returns null when no ratio and no recognized stage', () => {
-    expect(parseSyncProgress('some detail', 'unknown_stage')).toBeNull();
-    expect(parseSyncProgress(null, undefined)).toBeNull();
-    expect(parseSyncProgress(null)).toBeNull();
-  });
-
-  it('handles non-ratio numeric strings gracefully', () => {
-    // "N discovered" — no slash — should use stage fallback, not parse as ratio
-    expect(parseSyncProgress('3 discovered', 'stored')).toBe(15);
-    // "N/0 ..." — divide by zero guard
-    expect(parseSyncProgress('5/0 items', 'fetching')).toBe(5); // falls through to stage fallback
-  });
-});
-
-// ── MemorySourcesRegistry integration tests ───────────────────────────────────
 
 describe('MemorySourcesRegistry', () => {
-  // Expose mock so tests can control what listMemorySources returns.
-  let listMemorySources: ReturnType<typeof vi.fn>;
-  let memorySourcesStatusList: ReturnType<typeof vi.fn>;
-
-  beforeEach(async () => {
-    const svc = await import('../../../services/memorySourcesService');
-    listMemorySources = svc.listMemorySources as ReturnType<typeof vi.fn>;
-    memorySourcesStatusList = svc.memorySourcesStatusList as ReturnType<typeof vi.fn>;
-  });
-
-  afterEach(() => {
+  beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('shows two sources as syncing when two concurrent sync-stage events arrive (RC#1)', async () => {
-    const sources = [makeSource('src-alpha'), makeSource('src-beta')];
-    listMemorySources.mockResolvedValue(sources);
-    memorySourcesStatusList.mockResolvedValue([]);
+  // -------------------------------------------------------------------------
+  // Basic render
+  // -------------------------------------------------------------------------
+  it('renders loaded sources list', async () => {
+    setup([makeSource({ label: 'Work Repo' })]);
+    await screen.findByText('Work Repo');
+    expect(screen.getByTestId('memory-sources')).toBeInTheDocument();
+  });
 
+  it('renders empty state when no sources', async () => {
+    mockedList.mockResolvedValue([]);
+    mockedStatus.mockResolvedValue([]);
     renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    await screen.findByText(/no memory sources/i);
+  });
 
-    // Wait for sources to render.
+  // -------------------------------------------------------------------------
+  // Toggle (existing behaviour)
+  // -------------------------------------------------------------------------
+  it('toggle calls updateMemorySource and flips state', async () => {
+    const source = makeSource({ enabled: true });
+    mockedUpdate.mockResolvedValue({ ...source, enabled: false });
+    setup([source]);
+    await screen.findByText('My Repo');
+
+    const toggle = screen.getByTitle(/disable/i);
+    fireEvent.click(toggle);
+
     await waitFor(() => {
-      expect(screen.getByText('Source src-alpha')).toBeInTheDocument();
-      expect(screen.getByText('Source src-beta')).toBeInTheDocument();
-    });
-
-    // Dispatch two concurrent "requested" events with different source_ids.
-    act(() => {
-      window.dispatchEvent(
-        makeSyncStageEvent({
-          stage: 'requested',
-          source_id: 'src-alpha',
-          connection_id: 'src-alpha',
-        })
-      );
-      window.dispatchEvent(
-        makeSyncStageEvent({ stage: 'requested', source_id: 'src-beta', connection_id: 'src-beta' })
-      );
-    });
-
-    // Both rows should show the syncing spinner/text (sync.syncing key → "sync.syncing").
-    await waitFor(() => {
-      const syncingButtons = screen.getAllByText('sync.syncing');
-      expect(syncingButtons).toHaveLength(2);
+      expect(mockedUpdate).toHaveBeenCalledWith('src_1', { enabled: false });
     });
   });
 
-  it('clears only one source when completed, leaving the other syncing (RC#1)', async () => {
-    const sources = [makeSource('src-alpha'), makeSource('src-beta')];
-    listMemorySources.mockResolvedValue(sources);
-    memorySourcesStatusList.mockResolvedValue([]);
-
-    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Source src-alpha')).toBeInTheDocument();
-    });
-
-    // Both start syncing.
-    act(() => {
-      window.dispatchEvent(
-        makeSyncStageEvent({
-          stage: 'requested',
-          source_id: 'src-alpha',
-          connection_id: 'src-alpha',
-        })
-      );
-      window.dispatchEvent(
-        makeSyncStageEvent({ stage: 'requested', source_id: 'src-beta', connection_id: 'src-beta' })
-      );
-    });
-
-    await waitFor(() => {
-      expect(screen.getAllByText('sync.syncing')).toHaveLength(2);
-    });
-
-    // Complete src-alpha — only src-beta should remain syncing.
-    act(() => {
-      window.dispatchEvent(
-        makeSyncStageEvent({
-          stage: 'completed',
-          source_id: 'src-alpha',
-          connection_id: 'src-alpha',
-        })
-      );
-    });
-
-    await waitFor(() => {
-      const syncingButtons = screen.getAllByText('sync.syncing');
-      expect(syncingButtons).toHaveLength(1);
-    });
-
-    // The one remaining syncing button should be for src-beta.
-    // The sync button for src-alpha should now show "sync.sync".
-    const syncButtons = screen.getAllByText('sync.sync');
-    expect(syncButtons).toHaveLength(1); // src-alpha back to idle
+  // -------------------------------------------------------------------------
+  // All In button
+  // -------------------------------------------------------------------------
+  it('All In button is rendered in the header', async () => {
+    setup();
+    await screen.findByText('My Repo');
+    expect(screen.getByTestId('all-in-button')).toBeInTheDocument();
   });
 
-  it('failed event also clears the syncing source (RC#1)', async () => {
-    const sources = [makeSource('src-gamma')];
-    listMemorySources.mockResolvedValue(sources);
-    memorySourcesStatusList.mockResolvedValue([]);
+  it('clicking All In opens a confirmation modal', async () => {
+    setup();
+    await screen.findByText('My Repo');
 
-    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    fireEvent.click(screen.getByTestId('all-in-button'));
+
+    // The modal should appear
+    await screen.findByText('Go All In?');
+    expect(
+      screen.getByText(/This enables every memory source and removes all sync limits/i)
+    ).toBeInTheDocument();
+  });
+
+  it('cancelling All In modal closes it without calling applyAllIn', async () => {
+    setup();
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('all-in-button'));
+    await screen.findByText('Go All In?');
+
+    // Click the No / cancel button
+    fireEvent.click(screen.getByText('No'));
 
     await waitFor(() => {
-      expect(screen.getByText('Source src-gamma')).toBeInTheDocument();
+      expect(screen.queryByText('Go All In?')).not.toBeInTheDocument();
     });
+    expect(mockedApplyAllIn).not.toHaveBeenCalled();
+  });
 
-    act(() => {
-      window.dispatchEvent(makeSyncStageEvent({ stage: 'fetching', source_id: 'src-gamma' }));
+  it('confirming All In calls applyAllIn, updates sources, and shows success toast', async () => {
+    const updatedSrc = makeSource({ id: 'src_2', label: 'New Repo', enabled: true });
+    mockedApplyAllIn.mockResolvedValue({ sources: [updatedSrc], sync_triggered: 1 });
+
+    const { onToast } = setup();
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('all-in-button'));
+    await screen.findByText('Go All In?');
+
+    fireEvent.click(screen.getByText('Yes'));
+
+    await waitFor(() => {
+      expect(mockedApplyAllIn).toHaveBeenCalledOnce();
     });
 
     await waitFor(() => {
-      expect(screen.getByText('sync.syncing')).toBeInTheDocument();
+      expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
     });
 
-    act(() => {
-      window.dispatchEvent(makeSyncStageEvent({ stage: 'failed', source_id: 'src-gamma' }));
-    });
-
+    // Modal should close
     await waitFor(() => {
-      expect(screen.queryByText('sync.syncing')).not.toBeInTheDocument();
-      expect(screen.getByText('sync.sync')).toBeInTheDocument();
+      expect(screen.queryByText('Go All In?')).not.toBeInTheDocument();
     });
   });
 
-  it('matches events by source_id when present, ignoring connection_id (RC#2)', async () => {
-    const sources = [makeSource('src-new')];
-    listMemorySources.mockResolvedValue(sources);
-    memorySourcesStatusList.mockResolvedValue([]);
+  it('All In failure shows error toast', async () => {
+    mockedApplyAllIn.mockRejectedValue(new Error('RPC error'));
 
-    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    const { onToast } = setup();
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('all-in-button'));
+    await screen.findByText('Go All In?');
+
+    fireEvent.click(screen.getByText('Yes'));
 
     await waitFor(() => {
-      expect(screen.getByText('Source src-new')).toBeInTheDocument();
-    });
-
-    // Event with source_id matching the row but a different connection_id
-    // (e.g. an intermediate stage from the bridge where connection_id = document_id).
-    act(() => {
-      window.dispatchEvent(
-        makeSyncStageEvent({
-          stage: 'ingesting',
-          source_id: 'src-new', // matches the row
-          connection_id: 'mem_src:src-new:doc-123', // ingest-pipeline id, NOT the row id
-        })
-      );
-    });
-
-    // Row should light up because source_id matches.
-    await waitFor(() => {
-      expect(screen.getByText('sync.syncing')).toBeInTheDocument();
+      expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
     });
   });
 
-  it('falls back to connection_id when source_id is absent (RC#2 backward compat)', async () => {
-    const sources = [makeSource('src-legacy')];
-    listMemorySources.mockResolvedValue(sources);
-    memorySourcesStatusList.mockResolvedValue([]);
+  // -------------------------------------------------------------------------
+  // Gear / settings panel — toggling
+  // -------------------------------------------------------------------------
+  it('gear button renders for each source row', async () => {
+    setup([makeSource({ id: 'src_1' }), makeSource({ id: 'src_2', label: 'Second' })]);
+    await screen.findByText('My Repo');
 
-    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    expect(screen.getByTestId('memory-source-settings-src_1')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-source-settings-src_2')).toBeInTheDocument();
+  });
+
+  it('clicking gear expands the settings panel for that source', async () => {
+    setup([makeSource({ id: 'src_1', kind: 'github_repo' })]);
+    await screen.findByText('My Repo');
+
+    expect(screen.queryByTestId('source-settings-panel-src_1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+
+    expect(screen.getByTestId('source-settings-panel-src_1')).toBeInTheDocument();
+  });
+
+  it('clicking gear again collapses the settings panel', async () => {
+    setup([makeSource({ id: 'src_1', kind: 'github_repo' })]);
+    await screen.findByText('My Repo');
+
+    const gearBtn = screen.getByTestId('memory-source-settings-src_1');
+    fireEvent.click(gearBtn);
+    expect(screen.getByTestId('source-settings-panel-src_1')).toBeInTheDocument();
+
+    fireEvent.click(gearBtn);
+    expect(screen.queryByTestId('source-settings-panel-src_1')).not.toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Settings panel — field visibility per kind
+  // -------------------------------------------------------------------------
+  it('github_repo settings panel shows max_prs, max_issues, max_commits, sync_depth_days', async () => {
+    setup([makeSource({ id: 'src_1', kind: 'github_repo' })]);
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+
+    const panel = screen.getByTestId('source-settings-panel-src_1');
+    expect(within(panel).getByLabelText(/max pull requests/i)).toBeInTheDocument();
+    expect(within(panel).getByLabelText(/max issues/i)).toBeInTheDocument();
+    expect(within(panel).getByLabelText(/max commits/i)).toBeInTheDocument();
+    expect(within(panel).getByLabelText(/sync depth/i)).toBeInTheDocument();
+  });
+
+  it('composio settings panel shows sync_depth_days and max_items but NOT max_prs', async () => {
+    setup([makeSource({ id: 'src_1', kind: 'composio', toolkit: 'github' })]);
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+
+    const panel = screen.getByTestId('source-settings-panel-src_1');
+    expect(within(panel).getByLabelText(/max items/i)).toBeInTheDocument();
+    expect(within(panel).getByLabelText(/sync depth/i)).toBeInTheDocument();
+    expect(within(panel).queryByLabelText(/max pull requests/i)).not.toBeInTheDocument();
+  });
+
+  it('rss_feed settings panel shows max_items and sync_depth_days but NOT max_prs', async () => {
+    setup([makeSource({ id: 'src_1', kind: 'rss_feed', url: 'https://example.com/feed.xml' })]);
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+
+    const panel = screen.getByTestId('source-settings-panel-src_1');
+    expect(within(panel).getByLabelText(/max items/i)).toBeInTheDocument();
+    expect(within(panel).getByLabelText(/sync depth/i)).toBeInTheDocument();
+    expect(within(panel).queryByLabelText(/max pull requests/i)).not.toBeInTheDocument();
+    expect(within(panel).queryByLabelText(/max commits/i)).not.toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Settings panel — Save
+  // -------------------------------------------------------------------------
+  it('Save in settings panel calls updateMemorySource with numeric patch', async () => {
+    const source = makeSource({ id: 'src_1', kind: 'github_repo' });
+    const updated = { ...source, max_prs: 50 };
+    mockedUpdate.mockResolvedValue(updated);
+
+    const { onToast } = setup([source]);
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+
+    const panel = screen.getByTestId('source-settings-panel-src_1');
+    const maxPrsInput = within(panel).getByLabelText(/max pull requests/i);
+    fireEvent.change(maxPrsInput, { target: { value: '50' } });
+
+    const saveBtn = within(panel).getByText('Save');
+    fireEvent.click(saveBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('Source src-legacy')).toBeInTheDocument();
-    });
-
-    // Old-style event: no source_id, connection_id is the row id.
-    act(() => {
-      window.dispatchEvent(
-        makeSyncStageEvent({
-          stage: 'fetching',
-          // source_id absent
-          connection_id: 'src-legacy',
-        })
-      );
+      expect(mockedUpdate).toHaveBeenCalledWith('src_1', expect.objectContaining({ max_prs: 50 }));
     });
 
     await waitFor(() => {
-      expect(screen.getByText('sync.syncing')).toBeInTheDocument();
+      expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
     });
   });
 
-  it('ignores events with neither source_id nor connection_id', async () => {
-    const sources = [makeSource('src-quiet')];
-    listMemorySources.mockResolvedValue(sources);
-    memorySourcesStatusList.mockResolvedValue([]);
+  it('empty input is omitted from the save patch (not sent as 0)', async () => {
+    const source = makeSource({ id: 'src_1', kind: 'github_repo', max_prs: 10 });
+    mockedUpdate.mockResolvedValue(source);
 
-    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    setup([source]);
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+
+    const panel = screen.getByTestId('source-settings-panel-src_1');
+    const maxPrsInput = within(panel).getByLabelText(/max pull requests/i);
+
+    // Clear the field
+    fireEvent.change(maxPrsInput, { target: { value: '' } });
+
+    fireEvent.click(within(panel).getByText('Save'));
 
     await waitFor(() => {
-      expect(screen.getByText('Source src-quiet')).toBeInTheDocument();
-    });
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent('openhuman:memory-sync-stage', {
-          detail: { stage: 'fetching' }, // no source_id, no connection_id
-        })
+      expect(mockedUpdate).toHaveBeenCalledWith(
+        'src_1',
+        expect.not.objectContaining({ max_prs: expect.anything() })
       );
     });
+  });
 
-    // Row should remain idle.
+  it('Save failure shows error toast', async () => {
+    mockedUpdate.mockRejectedValue(new Error('Save failed'));
+
+    const { onToast } = setup([makeSource({ kind: 'github_repo' })]);
+    await screen.findByText('My Repo');
+
+    fireEvent.click(screen.getByTestId('memory-source-settings-src_1'));
+    const panel = screen.getByTestId('source-settings-panel-src_1');
+    fireEvent.click(within(panel).getByText('Save'));
+
     await waitFor(() => {
-      expect(screen.queryByText('sync.syncing')).not.toBeInTheDocument();
+      expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
     });
   });
 });
