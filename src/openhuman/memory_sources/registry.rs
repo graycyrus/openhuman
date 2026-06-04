@@ -59,7 +59,6 @@ pub async fn add_source(entry: MemorySourceEntry) -> Result<MemorySourceEntry, S
     tracing::info!(
         id = %entry.id,
         kind = %entry.kind.as_str(),
-        label = %entry.label,
         "[memory_sources] adding source"
     );
 
@@ -344,7 +343,6 @@ pub async fn apply_all_in() -> Result<Vec<MemorySourceEntry>, String> {
         tracing::debug!(
             id = %source.id,
             kind = %source.kind.as_str(),
-            label = %source.label,
             "[memory_sources] apply_all_in: enabling source and clearing caps"
         );
         source.enabled = true;

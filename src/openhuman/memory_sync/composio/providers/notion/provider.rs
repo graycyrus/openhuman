@@ -225,6 +225,7 @@ impl ComposioProvider for NotionProvider {
         // its next edit. Already-synced items are skipped cheaply via
         // `is_synced` on the re-fetch, so the cost of holding is minimal.
         let mut had_ingest_failures = false;
+        let mut hit_cap_boundary = false;
 
         for page_num in 0..effective_max_pages {
             if state.budget_exhausted() {
@@ -314,6 +315,7 @@ impl ComposioProvider for NotionProvider {
 
             // ctx.max_items precise cap: once the per-source cap is hit, stop paginating.
             if cap.is_reached() {
+                hit_cap_boundary = true;
                 break;
             }
 
@@ -332,6 +334,7 @@ impl ComposioProvider for NotionProvider {
                     total_persisted,
                     "[composio:notion] [memory_sync] max_items reached, stopping pagination"
                 );
+                hit_cap_boundary = true;
                 break;
             }
 
@@ -348,15 +351,18 @@ impl ComposioProvider for NotionProvider {
         // Hold the cursor when any item failed to ingest this pass. See the
         // `had_ingest_failures` declaration above for why this matters under
         // the delete-first memory-tree pipeline (#2885).
-        if !had_ingest_failures {
+        // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
+        if !had_ingest_failures && !hit_cap_boundary {
             if let Some(new_cursor) = newest_edited_time {
                 state.advance_cursor(&new_cursor);
             }
         } else {
             tracing::warn!(
                 connection_id = %connection_id,
-                "[composio:notion] holding cursor — ingest failures this pass; next sync will \
-                 re-fetch the failed range"
+                had_ingest_failures,
+                hit_cap_boundary,
+                "[composio:notion] holding cursor — ingest failures or cap-truncated pass; next \
+                 sync will re-fetch the failed range"
             );
         }
         state.save(&memory).await?;

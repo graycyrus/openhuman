@@ -468,6 +468,7 @@ impl ComposioProvider for SlackProvider {
         let mut total_messages_ingested: usize = 0;
         let mut channels_processed: usize = 0;
         let mut channels_errored: usize = 0;
+        let mut hit_cap_boundary = false;
 
         // ctx.max_items: ItemCap is threaded through process_channel so the
         // per-page batch is clamped before ingest and the channel loop stops
@@ -513,6 +514,27 @@ impl ComposioProvider for SlackProvider {
                 }
             }
 
+            // ctx.max_items hard stop across all channels (precise — cap was
+            // already applied inside process_channel so this break fires
+            // exactly when the budget is exhausted, not one channel later).
+            if cap.is_reached() {
+                // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
+                hit_cap_boundary = true;
+                tracing::debug!(
+                    connection_id = %connection_id,
+                    total_messages_ingested,
+                    "[composio:slack] [memory_sync] max_items reached, stopping channel iteration"
+                );
+                // Save state before breaking without advancing the cursor.
+                if let Err(err) = state.save(&memory).await {
+                    tracing::warn!(
+                        error = %err,
+                        "[composio:slack] state save failed after cap-stop (non-fatal)"
+                    );
+                }
+                break;
+            }
+
             state.advance_cursor(sync::encode_cursors(&cursors));
             if let Err(err) = state.save(&memory).await {
                 tracing::warn!(
@@ -520,18 +542,15 @@ impl ComposioProvider for SlackProvider {
                     "[composio:slack] state save failed after channel (non-fatal)"
                 );
             }
+        }
 
-            // ctx.max_items hard stop across all channels (precise — cap was
-            // already applied inside process_channel so this break fires
-            // exactly when the budget is exhausted, not one channel later).
-            if cap.is_reached() {
-                tracing::debug!(
-                    connection_id = %connection_id,
-                    total_messages_ingested,
-                    "[composio:slack] [memory_sync] max_items reached, stopping channel iteration"
-                );
-                break;
-            }
+        if hit_cap_boundary {
+            // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
+            tracing::warn!(
+                connection_id = %connection_id,
+                "[composio:slack] cap-truncated pass; cursor held so next sync re-scans the \
+                 unseen tail"
+            );
         }
 
         let finished_at_ms = sync::now_ms();

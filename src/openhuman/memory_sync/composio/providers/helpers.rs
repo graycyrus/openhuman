@@ -58,7 +58,8 @@ pub(crate) fn pages_for_max_items(max_items: u32, page_size: u32) -> u32 {
     if page_size == 0 {
         return u32::MAX;
     }
-    (max_items + page_size - 1) / page_size
+    // Widen to u64 before the addition to prevent overflow for large cap values.
+    (((max_items as u64) + (page_size as u64) - 1) / (page_size as u64)).min(u32::MAX as u64) as u32
 }
 
 /// Compute the Unix epoch timestamp (seconds) for `sync_depth_days` days ago.

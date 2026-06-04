@@ -311,6 +311,7 @@ impl ComposioProvider for GmailProvider {
         let mut newest_id: Option<String> = None;
         let mut page_token: Option<String> = None;
         let mut stop_reason: &'static str = "max_pages";
+        let mut hit_cap_boundary = false;
 
         for page_num in 0..max_pages {
             if state.budget_exhausted() {
@@ -559,6 +560,7 @@ impl ComposioProvider for GmailProvider {
                     "[composio:gmail] [memory_sync] max_items reached, stopping pagination"
                 );
                 stop_reason = "max_items";
+                hit_cap_boundary = true;
                 break;
             }
 
@@ -572,8 +574,17 @@ impl ComposioProvider for GmailProvider {
         }
 
         // ── Step 5: advance cursor and save state ───────────────────
-        if let Some(new_cursor) = newest_date {
-            state.advance_cursor(&new_cursor);
+        // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
+        if !hit_cap_boundary {
+            if let Some(new_cursor) = newest_date {
+                state.advance_cursor(&new_cursor);
+            }
+        } else {
+            tracing::warn!(
+                connection_id = %connection_id,
+                "[composio:gmail] holding cursor — cap-truncated pass; next sync will re-scan \
+                 the unseen tail"
+            );
         }
         if let Some(ref freshest) = newest_id {
             state.set_last_seen_id(freshest);

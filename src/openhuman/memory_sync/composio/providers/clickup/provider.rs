@@ -275,13 +275,16 @@ impl ComposioProvider for ClickUpProvider {
         }
 
         // ctx.sync_depth_days: oldest allowed date_updated for client-side skip.
+        // ClickUp's `date_updated` field is a millisecond-epoch string, so the
+        // floor must also be epoch-millis (not RFC3339) for the lexicographic
+        // compare in `select_pending` to work correctly.
         let oldest_allowed_time: Option<String> = ctx.sync_depth_days.map(|days| {
             let floor = chrono::Utc::now() - chrono::Duration::days(days as i64);
-            let s = floor.to_rfc3339();
+            let s = floor.timestamp_millis().to_string();
             tracing::debug!(
                 connection_id = %connection_id,
                 sync_depth_days = days,
-                oldest_allowed = %s,
+                oldest_allowed_ms = %s,
                 "[composio:clickup] [memory_sync] applying sync_depth_days floor"
             );
             s
@@ -290,6 +293,7 @@ impl ComposioProvider for ClickUpProvider {
         let mut total_fetched: usize = 0;
         let mut total_persisted: usize = 0;
         let mut newest_updated: Option<String> = None;
+        let mut hit_cap_boundary = false;
 
         'workspaces: for workspace_id in &workspaces {
             for page_num in 0..effective_max_pages {
@@ -389,6 +393,7 @@ impl ComposioProvider for ClickUpProvider {
 
                 // ctx.max_items precise cap: once the per-source cap is hit, stop paginating.
                 if cap.is_reached() {
+                    hit_cap_boundary = true;
                     break 'workspaces;
                 }
 
@@ -409,6 +414,7 @@ impl ComposioProvider for ClickUpProvider {
                         total_persisted,
                         "[composio:clickup] [memory_sync] max_items reached, stopping pagination"
                     );
+                    hit_cap_boundary = true;
                     break 'workspaces;
                 }
 
@@ -428,8 +434,17 @@ impl ComposioProvider for ClickUpProvider {
         }
 
         // ── Step 6: advance cursor and save state ───────────────────
-        if let Some(new_cursor) = newest_updated {
-            state.advance_cursor(&new_cursor);
+        // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
+        if !hit_cap_boundary {
+            if let Some(new_cursor) = newest_updated {
+                state.advance_cursor(&new_cursor);
+            }
+        } else {
+            tracing::warn!(
+                connection_id = %connection_id,
+                "[composio:clickup] holding cursor — cap-truncated pass; next sync will re-scan \
+                 the unseen tail"
+            );
         }
         state.set_last_sync_at_ms(sync::now_ms());
         state.save(&memory).await?;

@@ -364,7 +364,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
             per-kind sync caps so the first sync stays cheap (e.g. Gmail ~100 recent emails, \
             GitHub repo 10 PRs / 10 issues / 50 commits, RSS 20 items). Each source row exposes \
             an inline settings panel to adjust the limit fields that apply to its kind \
-            (max_items, sync_depth_days, max_prs/issues/commits, since_days, token/cost budgets). \
+            (max_items, sync_depth_days, max_prs/issues/commits, since_days). \
             An \"All In\" action enables every source and removes the caps to build the richest \
             memory graph, then triggers a full sync. Already-connected sources are migrated to \
             the new defaults once.",

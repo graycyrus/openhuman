@@ -99,7 +99,12 @@ export function SourceSettingsPanel({
       for (const f of fields) {
         const raw = values[f];
         if (raw !== '' && raw !== undefined) {
-          (patch as Record<string, number>)[f] = Number(raw);
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+            onToast?.({ type: 'error', title: t('memorySources.settings.saveFailed') });
+            return;
+          }
+          (patch as Record<string, number>)[f] = parsed;
         }
         // Empty string → omit from patch (backend treats absence as "default")
       }

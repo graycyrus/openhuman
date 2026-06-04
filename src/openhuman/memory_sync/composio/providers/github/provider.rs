@@ -248,6 +248,7 @@ impl ComposioProvider for GitHubProvider {
         // until its next edit. Already-synced items are skipped cheaply via
         // `is_synced` on the re-fetch, so the cost of holding is minimal.
         let mut had_ingest_failures = false;
+        let mut hit_cap_boundary = false;
 
         'pages: for page_num in 1..=effective_max_pages {
             if state.budget_exhausted() {
@@ -384,6 +385,7 @@ impl ComposioProvider for GitHubProvider {
                 // ctx.max_items precise cap: stop mid-page so we never persist
                 // more than the cap even when a single page exceeds it.
                 if cap.is_reached() {
+                    hit_cap_boundary = true;
                     break;
                 }
             }
@@ -395,6 +397,7 @@ impl ComposioProvider for GitHubProvider {
                     total_persisted,
                     "[composio:github] [memory_sync] max_items reached, stopping pagination"
                 );
+                hit_cap_boundary = true;
                 break;
             }
 
@@ -417,15 +420,18 @@ impl ComposioProvider for GitHubProvider {
         // the delete-first memory-tree pipeline (#2885). `set_last_sync_at_ms`
         // still advances — that's just a heartbeat, not a fetch-window
         // boundary, so it's safe to record that we did attempt a sync.
-        if !had_ingest_failures {
+        // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
+        if !had_ingest_failures && !hit_cap_boundary {
             if let Some(new_cursor) = newest_updated {
                 state.advance_cursor(&new_cursor);
             }
         } else {
             tracing::warn!(
                 connection_id = %connection_id,
-                "[composio:github] holding cursor — ingest failures this pass; next sync will \
-                 re-fetch the failed range"
+                had_ingest_failures,
+                hit_cap_boundary,
+                "[composio:github] holding cursor — ingest failures or cap-truncated pass; next \
+                 sync will re-fetch the failed range"
             );
         }
         state.set_last_sync_at_ms(sync::now_ms());

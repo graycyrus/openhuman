@@ -472,21 +472,28 @@ impl EventHandler for ComposioConnectionCreatedSubscriber {
             };
             // Look up per-source caps from the memory_sources registry.
             // Non-fatal: if the lookup fails we proceed without caps.
-            // Note: upsert_composio_source runs after this block, so the
-            // entry may not exist yet for brand-new connections. In that
-            // case (None, None) is the right default — the source will be
-            // created with defaults by the upsert below.
+            //
+            // upsert_composio_source runs AFTER this block (below), so for
+            // brand-new connections the entry may not exist yet. In that case
+            // fall back to the per-toolkit defaults so the first sync is still
+            // capped. list_enabled_by_kind would also drop disabled-but-
+            // configured entries, so we use list_sources() and filter ourselves.
             let (src_max_items, src_sync_depth_days) = {
-                let registry_sources = crate::openhuman::memory_sources::list_enabled_by_kind(
-                    crate::openhuman::memory_sources::SourceKind::Composio,
-                )
-                .await
-                .unwrap_or_default();
+                let registry_sources = crate::openhuman::memory_sources::list_sources()
+                    .await
+                    .unwrap_or_default();
                 registry_sources
                     .iter()
-                    .find(|s| s.connection_id.as_deref() == Some(connection_id.as_str()))
+                    .find(|s| {
+                        s.kind == crate::openhuman::memory_sources::SourceKind::Composio
+                            && s.connection_id.as_deref() == Some(connection_id.as_str())
+                    })
                     .map(|s| (s.max_items, s.sync_depth_days))
-                    .unwrap_or((None, None))
+                    .unwrap_or_else(|| {
+                        crate::openhuman::memory_sources::memory_sync_defaults_for_toolkit(
+                            toolkit.as_str(),
+                        )
+                    })
             };
 
             let Some(mut ctx) = ProviderContext::from_config(

@@ -230,6 +230,7 @@ impl ComposioProvider for LinearProvider {
         let mut newest_updated: Option<String> = None;
         let mut after_cursor: Option<String> = None;
         let mut hit_cursor_boundary = false;
+        let mut hit_cap_boundary = false;
 
         for page_num in 0..effective_max_pages {
             if state.budget_exhausted() {
@@ -322,6 +323,7 @@ impl ComposioProvider for LinearProvider {
 
             // ctx.max_items precise cap: once the per-source cap is hit, stop paginating.
             if cap.is_reached() {
+                hit_cap_boundary = true;
                 break;
             }
 
@@ -340,6 +342,7 @@ impl ComposioProvider for LinearProvider {
                     total_persisted,
                     "[composio:linear] [memory_sync] max_items reached, stopping pagination"
                 );
+                hit_cap_boundary = true;
                 break;
             }
 
@@ -359,9 +362,16 @@ impl ComposioProvider for LinearProvider {
         }
 
         // ── Step 5: advance cursor and save state ────────────────────
+        // Hold the cursor on a cap-truncated pass so the next sync re-scans the unseen tail.
         if had_persist_failures {
             tracing::warn!(
                 "[composio:linear] persist failures seen; keeping previous cursor for retry"
+            );
+        } else if hit_cap_boundary {
+            tracing::warn!(
+                hit_cap_boundary,
+                "[composio:linear] holding cursor — cap-truncated pass; next sync will re-scan \
+                 the unseen tail"
             );
         } else if let Some(new_cursor) = newest_updated {
             state.advance_cursor(&new_cursor);

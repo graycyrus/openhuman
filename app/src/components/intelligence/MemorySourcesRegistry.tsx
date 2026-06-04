@@ -8,7 +8,7 @@
  * row dispatches `openhuman.memory_sources_sync` which runs in the
  * background and emits MemorySyncStageChanged events.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import {
@@ -67,6 +67,7 @@ export function MemorySourcesRegistry({
   const [syncProgress, setSyncProgress] = useState<Map<string, SyncProgress>>(new Map());
   const [allInModalOpen, setAllInModalOpen] = useState(false);
   const [applyingAllIn, setApplyingAllIn] = useState(false);
+  const allInInFlightRef = useRef(false);
   const [expandedSettingsId, setExpandedSettingsId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -233,6 +234,8 @@ export function MemorySourcesRegistry({
   );
 
   const handleConfirmAllIn = useCallback(async () => {
+    if (allInInFlightRef.current) return;
+    allInInFlightRef.current = true;
     setApplyingAllIn(true);
     try {
       const result = await applyAllIn();
@@ -245,6 +248,7 @@ export function MemorySourcesRegistry({
         message: err instanceof Error ? err.message : String(err),
       });
     } finally {
+      allInInFlightRef.current = false;
       setApplyingAllIn(false);
       setAllInModalOpen(false);
     }
