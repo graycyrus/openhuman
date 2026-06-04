@@ -25,6 +25,9 @@ use openhuman_core::openhuman::memory_sync::composio::bus::{
 use openhuman_core::openhuman::memory_sync::composio::providers::clickup::ClickUpProvider;
 use openhuman_core::openhuman::memory_sync::composio::providers::github::GitHubProvider;
 use openhuman_core::openhuman::memory_sync::composio::providers::gmail::ingest as gmail_ingest;
+use openhuman_core::openhuman::memory_sync::composio::providers::gmail::GmailProvider;
+use openhuman_core::openhuman::memory_sync::composio::providers::linear::LinearProvider;
+use openhuman_core::openhuman::memory_sync::composio::providers::notion::NotionProvider;
 use openhuman_core::openhuman::memory_sync::composio::providers::slack::ingest as slack_ingest;
 use openhuman_core::openhuman::memory_sync::composio::providers::slack::{
     SlackMessage, SlackProvider,
@@ -741,6 +744,454 @@ async fn slack_sync_max_items_caps_ingest_to_exact_count() {
     assert_eq!(
         outcome.items_ingested, 2,
         "max_items=2 must cap Slack ingest to exactly 2 even though the channel/page held 5"
+    );
+
+    server.abort();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Gmail cap enforcement
+//
+// Proves that max_items=N caps Gmail ingestion to exactly N messages even
+// when a single GMAIL_FETCH_EMAILS page returns more than N. The mock
+// returns 5 messages in one page; with max_items=2 only 2 must be
+// persisted.
+//
+// Gmail messages arrive in Composio's "upstream" shape before post-process
+// reshapes them into the slim envelope:
+//   - messageId  → id (used by MESSAGE_ID_PATHS dedup)
+//   - sender     → from (used by ingest bucketing)
+//   - messageText → markdown body (from extract_markdown_body fallback)
+//   - messageTimestamp → date
+// All 5 messages are unique (different messageId) and valid (non-empty
+// messageText), so without the cap every one would be ingested.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Build M distinct, valid Gmail messages in the upstream (pre-post-process)
+/// Composio shape. Uses `messageId` / `sender` / `messageText` /
+/// `messageTimestamp` so `reshape_message` maps them correctly into the slim
+/// envelope that `ingest_page_into_memory_tree` expects.
+fn gmail_cap_messages(m: usize) -> Vec<Value> {
+    (1..=m)
+        .map(|i| {
+            json!({
+                "messageId": format!("gmail-cap-msg-{i}"),
+                "threadId": format!("thread-cap-{i}"),
+                "sender": format!("sender{i}@cap.example.test"),
+                "to": "recipient@cap.example.test",
+                "subject": format!("Cap test message {i}"),
+                "messageTimestamp": format!("2026-06-0{}T10:00:00Z", (i % 9) + 1),
+                "messageText": format!("Body of cap test message {i}. Sufficient content.")
+            })
+        })
+        .collect()
+}
+
+/// Loopback router that answers the two Gmail sync tool calls.
+/// GMAIL_GET_PROFILE returns a minimal valid profile; GMAIL_FETCH_EMAILS
+/// returns one page containing all `messages` and no next-page token.
+fn gmail_cap_router(messages: Vec<Value>, requests: Arc<Mutex<Vec<Value>>>) -> Router {
+    Router::new().route(
+        "/agent-integrations/composio/execute",
+        any(move |Json(body): Json<Value>| {
+            let messages = messages.clone();
+            let requests = Arc::clone(&requests);
+            async move {
+                requests.lock().unwrap().push(body.clone());
+                let tool = body.get("tool").and_then(Value::as_str).unwrap_or("");
+                let resp = match tool {
+                    "GMAIL_GET_PROFILE" => execute_envelope(json!({
+                        "emailAddress": "cap@example.test",
+                        "messagesTotal": messages.len()
+                    })),
+                    "GMAIL_FETCH_EMAILS" => execute_envelope(json!({
+                        "messages": messages,
+                        "nextPageToken": ""
+                    })),
+                    _ => execute_envelope(json!({})),
+                };
+                Json(resp)
+            }
+        }),
+    )
+}
+
+#[tokio::test]
+async fn gmail_sync_max_items_caps_ingest_to_exact_count() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    // One page returns 5 valid messages; the cap is 2.
+    let requests: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+    let (base, server) = loopback_router(gmail_cap_router(
+        gmail_cap_messages(5),
+        Arc::clone(&requests),
+    ))
+    .await;
+
+    let mut config = config_in(&tmp);
+    config.api_url = Some(base);
+    persist_config(&config).await;
+    store_session(&config);
+    memory_global::init(config.workspace_dir.clone()).expect("init global memory");
+
+    let ctx = ProviderContext {
+        config: Arc::new(config),
+        toolkit: "gmail".to_string(),
+        connection_id: Some("conn-gmail-cap".to_string()),
+        usage: Default::default(),
+        // Mock returns 5 messages; cap is 2 — only 2 must be ingested.
+        max_items: Some(2),
+        sync_depth_days: None,
+    };
+
+    let outcome = GmailProvider::new()
+        .sync(&ctx, SyncReason::ConnectionCreated)
+        .await
+        .expect("gmail cap sync");
+
+    assert_eq!(
+        outcome.items_ingested, 2,
+        "max_items=2 must cap Gmail ingest to exactly 2 even though the page held 5"
+    );
+
+    server.abort();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Notion cap enforcement
+//
+// Proves that max_items=N caps Notion ingestion to exactly N pages even
+// when a single NOTION_FETCH_DATA page returns more than N. The mock
+// returns 5 pages; with max_items=2 only 2 must be persisted.
+//
+// sync_depth_days is None and all items carry a recent last_edited_time
+// so no depth-filter skipping happens — the cap is the only thing that
+// limits ingestion.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Build M distinct, valid Notion page objects. Each has a unique id and a
+/// recent `last_edited_time` so the depth filter (when enabled) would keep
+/// them all.
+fn notion_cap_pages(m: usize) -> Vec<Value> {
+    (1..=m)
+        .map(|i| {
+            json!({
+                "id": format!("notion-cap-page-{i:04}"),
+                "object": "page",
+                "last_edited_time": format!("2026-06-0{}T10:00:00.000Z", (i % 9) + 1),
+                "properties": {
+                    "Name": {
+                        "type": "title",
+                        "title": [{ "plain_text": format!("Cap page {i}") }]
+                    }
+                },
+                "url": format!("https://www.notion.so/cap-page-{i}")
+            })
+        })
+        .collect()
+}
+
+/// Loopback router for the Notion cap test.
+/// NOTION_GET_ABOUT_ME returns a minimal identity; NOTION_FETCH_DATA returns
+/// one page with all `pages` as results and no next_cursor.
+fn notion_cap_router(pages: Vec<Value>, requests: Arc<Mutex<Vec<Value>>>) -> Router {
+    Router::new().route(
+        "/agent-integrations/composio/execute",
+        any(move |Json(body): Json<Value>| {
+            let pages = pages.clone();
+            let requests = Arc::clone(&requests);
+            async move {
+                requests.lock().unwrap().push(body.clone());
+                let tool = body.get("tool").and_then(Value::as_str).unwrap_or("");
+                let resp = match tool {
+                    "NOTION_GET_ABOUT_ME" => execute_envelope(json!({
+                        "id": "notion-cap-user",
+                        "name": "Cap User",
+                        "type": "bot"
+                    })),
+                    "NOTION_FETCH_DATA" => execute_envelope(json!({
+                        "results": pages,
+                        "next_cursor": null,
+                        "has_more": false
+                    })),
+                    _ => execute_envelope(json!({})),
+                };
+                Json(resp)
+            }
+        }),
+    )
+}
+
+#[tokio::test]
+async fn notion_sync_max_items_caps_ingest_to_exact_count() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    // One page returns 5 valid Notion pages; the cap is 2.
+    let requests: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+    let (base, server) = loopback_router(notion_cap_router(
+        notion_cap_pages(5),
+        Arc::clone(&requests),
+    ))
+    .await;
+
+    let mut config = config_in(&tmp);
+    config.api_url = Some(base);
+    persist_config(&config).await;
+    store_session(&config);
+    memory_global::init(config.workspace_dir.clone()).expect("init global memory");
+
+    let ctx = ProviderContext {
+        config: Arc::new(config),
+        toolkit: "notion".to_string(),
+        connection_id: Some("conn-notion-cap".to_string()),
+        usage: Default::default(),
+        // Mock returns 5 pages; cap is 2 — only 2 must be ingested.
+        max_items: Some(2),
+        sync_depth_days: None,
+    };
+
+    let outcome = NotionProvider::new()
+        .sync(&ctx, SyncReason::ConnectionCreated)
+        .await
+        .expect("notion cap sync");
+
+    assert_eq!(
+        outcome.items_ingested, 2,
+        "max_items=2 must cap Notion ingest to exactly 2 even though the page held 5"
+    );
+
+    server.abort();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Linear cap enforcement
+//
+// Proves that max_items=N caps Linear ingestion to exactly N issues even
+// when a single LINEAR_LIST_LINEAR_ISSUES page returns more than N.
+//
+// Tool sequence:
+//   1. LINEAR_LIST_LINEAR_USERS { isMe: true }  → viewer id
+//   2. LINEAR_LIST_LINEAR_ISSUES (assigneeId=...) → nodes of issues
+//
+// Issues are in Linear's `{ nodes: [...], pageInfo: {...} }` shape.
+// We return hasNextPage=false so pagination stops after one page.
+// Each issue has a unique id and a recent updatedAt.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Build M distinct, valid Linear issue objects.
+fn linear_cap_issues(m: usize) -> Vec<Value> {
+    (1..=m)
+        .map(|i| {
+            json!({
+                "id": format!("linear-cap-issue-{i:04}"),
+                "identifier": format!("ENG-{i}"),
+                "title": format!("Cap issue {i}"),
+                "updatedAt": format!("2026-06-0{}T10:00:00.000Z", (i % 9) + 1),
+                "url": format!("https://linear.app/cap/issue/ENG-{i}"),
+                "description": format!("Description for cap issue {i}.")
+            })
+        })
+        .collect()
+}
+
+/// Loopback router for the Linear cap test.
+/// LINEAR_LIST_LINEAR_USERS returns a single viewer node so `resolve_viewer_id`
+/// succeeds. LINEAR_LIST_LINEAR_ISSUES returns one page with all issues and no
+/// next-page cursor (hasNextPage=false).
+fn linear_cap_router(issues: Vec<Value>, requests: Arc<Mutex<Vec<Value>>>) -> Router {
+    Router::new().route(
+        "/agent-integrations/composio/execute",
+        any(move |Json(body): Json<Value>| {
+            let issues = issues.clone();
+            let requests = Arc::clone(&requests);
+            async move {
+                requests.lock().unwrap().push(body.clone());
+                let tool = body.get("tool").and_then(Value::as_str).unwrap_or("");
+                let resp = match tool {
+                    "LINEAR_LIST_LINEAR_USERS" => execute_envelope(json!({
+                        "nodes": [
+                            { "id": "linear-cap-viewer", "name": "Cap Viewer", "email": "cap@linear.test" }
+                        ]
+                    })),
+                    "LINEAR_LIST_LINEAR_ISSUES" => execute_envelope(json!({
+                        "nodes": issues,
+                        "pageInfo": {
+                            "hasNextPage": false,
+                            "endCursor": null
+                        }
+                    })),
+                    _ => execute_envelope(json!({})),
+                };
+                Json(resp)
+            }
+        }),
+    )
+}
+
+#[tokio::test]
+async fn linear_sync_max_items_caps_ingest_to_exact_count() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    // One page returns 5 valid Linear issues; the cap is 2.
+    let requests: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+    let (base, server) = loopback_router(linear_cap_router(
+        linear_cap_issues(5),
+        Arc::clone(&requests),
+    ))
+    .await;
+
+    let mut config = config_in(&tmp);
+    config.api_url = Some(base);
+    persist_config(&config).await;
+    store_session(&config);
+    memory_global::init(config.workspace_dir.clone()).expect("init global memory");
+
+    let ctx = ProviderContext {
+        config: Arc::new(config),
+        toolkit: "linear".to_string(),
+        connection_id: Some("conn-linear-cap".to_string()),
+        usage: Default::default(),
+        // Mock returns 5 issues; cap is 2 — only 2 must be ingested.
+        max_items: Some(2),
+        sync_depth_days: None,
+    };
+
+    let outcome = LinearProvider::new()
+        .sync(&ctx, SyncReason::ConnectionCreated)
+        .await
+        .expect("linear cap sync");
+
+    assert_eq!(
+        outcome.items_ingested, 2,
+        "max_items=2 must cap Linear ingest to exactly 2 even though the page held 5"
+    );
+
+    server.abort();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ClickUp cap enforcement
+//
+// Proves that max_items=N caps ClickUp ingestion to exactly N tasks even
+// when a single CLICKUP_GET_FILTERED_TEAM_TASKS page returns more than N.
+//
+// Tool sequence:
+//   1. CLICKUP_GET_AUTHORIZED_USER             → user numeric id
+//   2. CLICKUP_GET_AUTHORIZED_TEAMS_WORKSPACES → one workspace
+//   3. CLICKUP_GET_FILTERED_TEAM_TASKS         → tasks page
+//
+// The tasks page returns 5 items; with max_items=2 only 2 must be
+// persisted. Because INITIAL_PAGE_SIZE=100 for ConnectionCreated and we
+// return only 5 tasks (< 100), the short-page guard stops the loop so no
+// second page is requested, matching the cap path cleanly.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Build M distinct, valid ClickUp task objects.
+fn clickup_cap_tasks(m: usize) -> Vec<Value> {
+    // date_updated must be large enough to sort lexicographically correctly
+    // but recent enough not to trip any depth filter. We use ms-since-epoch
+    // strings in the vicinity of mid-2026 (≈1780000000000 ms).
+    (1..=m)
+        .map(|i| {
+            json!({
+                "id": format!("clickup-cap-task-{i:04}"),
+                "name": format!("Cap task {i}"),
+                "text_content": format!("Content for cap task {i}."),
+                "status": { "status": "open" },
+                "date_updated": format!("{}", 1_780_000_000_000_u64 + i as u64 * 1000),
+                "url": format!("https://app.clickup.com/t/clickup-cap-task-{i:04}")
+            })
+        })
+        .collect()
+}
+
+/// Loopback router for the ClickUp cap test.
+fn clickup_cap_router(tasks: Vec<Value>, requests: Arc<Mutex<Vec<Value>>>) -> Router {
+    Router::new().route(
+        "/agent-integrations/composio/execute",
+        any(move |Json(body): Json<Value>| {
+            let tasks = tasks.clone();
+            let requests = Arc::clone(&requests);
+            async move {
+                requests.lock().unwrap().push(body.clone());
+                let tool = body.get("tool").and_then(Value::as_str).unwrap_or("");
+                let resp = match tool {
+                    "CLICKUP_GET_AUTHORIZED_USER" => execute_envelope(json!({
+                        "user": {
+                            "id": 42,
+                            "username": "cap-user",
+                            "email": "cap@clickup.test",
+                            "profilePicture": null
+                        }
+                    })),
+                    "CLICKUP_GET_AUTHORIZED_TEAMS_WORKSPACES" => execute_envelope(json!({
+                        "teams": [
+                            { "id": "ws-cap-01", "name": "Cap Workspace" }
+                        ]
+                    })),
+                    "CLICKUP_GET_FILTERED_TEAM_TASKS" => execute_envelope(json!({
+                        "tasks": tasks
+                    })),
+                    _ => execute_envelope(json!({})),
+                };
+                Json(resp)
+            }
+        }),
+    )
+}
+
+#[tokio::test]
+async fn clickup_sync_max_items_caps_ingest_to_exact_count() {
+    let _guard = env_lock();
+    let tmp = TempDir::new().expect("tempdir");
+    let _workspace = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _home = EnvGuard::set_path("HOME", tmp.path());
+    let _backend = EnvGuard::unset("BACKEND_URL");
+
+    // One workspace, one page returning 5 valid tasks; the cap is 2.
+    let requests: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+    let (base, server) = loopback_router(clickup_cap_router(
+        clickup_cap_tasks(5),
+        Arc::clone(&requests),
+    ))
+    .await;
+
+    let mut config = config_in(&tmp);
+    config.api_url = Some(base);
+    persist_config(&config).await;
+    store_session(&config);
+    memory_global::init(config.workspace_dir.clone()).expect("init global memory");
+
+    let ctx = ProviderContext {
+        config: Arc::new(config),
+        toolkit: "clickup".to_string(),
+        connection_id: Some("conn-clickup-cap".to_string()),
+        usage: Default::default(),
+        // Mock returns 5 tasks; cap is 2 — only 2 must be ingested.
+        max_items: Some(2),
+        sync_depth_days: None,
+    };
+
+    let outcome = ClickUpProvider::new()
+        .sync(&ctx, SyncReason::ConnectionCreated)
+        .await
+        .expect("clickup cap sync");
+
+    assert_eq!(
+        outcome.items_ingested, 2,
+        "max_items=2 must cap ClickUp ingest to exactly 2 even though the page held 5"
     );
 
     server.abort();
