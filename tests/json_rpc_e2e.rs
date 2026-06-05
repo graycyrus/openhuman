@@ -10325,14 +10325,38 @@ async fn json_rpc_memory_sync_settings_roundtrip_interval_and_manual() {
         "0 should flip is_manual, envelope: {manual_outer}"
     );
 
+    // GET once more — manual mode persisted (stored value 0, is_manual true).
+    let manual_get = post_json_rpc(
+        &rpc_base,
+        7505,
+        "openhuman.config_get_memory_sync_settings",
+        json!({}),
+    )
+    .await;
+    let manual_get_outer = assert_no_jsonrpc_error(&manual_get, "get_memory_sync_settings manual");
+    let manual_get_result = manual_get_outer.get("result").unwrap_or(&manual_get_outer);
+    assert_eq!(
+        manual_get_result.get("is_manual").and_then(Value::as_bool),
+        Some(true),
+        "manual mode should persist across a GET, envelope: {manual_get_outer}"
+    );
+    assert_eq!(
+        manual_get_result
+            .get("sync_interval_secs")
+            .and_then(Value::as_u64),
+        Some(0),
+        "manual stored value should be 0, envelope: {manual_get_outer}"
+    );
+
     rpc_join.abort();
 }
 
 /// Ops / headless path (#3302): a fleet operator sets
 /// `OPENHUMAN_MEMORY_SYNC_INTERVAL_SECS` in the environment, and the running
 /// core surfaces that cadence through `config_get_memory_sync_settings` with no
-/// UI interaction. Verifies the env override flows all the way through the RPC,
-/// and that `0` is honoured as "Manual only" on this path too.
+/// UI interaction. Verifies the env override flows all the way through the RPC.
+/// (The `0` = "Manual only" sentinel on the env path is covered at the parse
+/// layer by `env_overlay_memory_sync_interval_parses_and_honours_zero`.)
 #[tokio::test]
 async fn json_rpc_memory_sync_settings_env_override_is_reflected() {
     let _env_lock = json_rpc_e2e_env_lock();

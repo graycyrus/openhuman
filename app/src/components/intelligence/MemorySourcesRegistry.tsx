@@ -8,6 +8,7 @@
  * row dispatches `openhuman.memory_sources_sync` which runs in the
  * background and emits MemorySyncStageChanged events.
  */
+import debug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -37,6 +38,8 @@ import { memoryTreeFlushSource } from '../../utils/tauriCommands/memoryTree';
 import { AddMemorySourceDialog } from './AddMemorySourceDialog';
 import { ConfirmationModal } from './ConfirmationModal';
 import { SourceSettingsPanel } from './SourceSettingsPanel';
+
+const log = debug('intelligence:memory-sync');
 
 interface MemorySourcesRegistryProps {
   onToast?: (toast: Omit<ToastNotification, 'id'>) => void;
@@ -583,13 +586,15 @@ function MemorySyncSchedule({ lastSyncMs, onToast }: MemorySyncScheduleProps) {
 
   useEffect(() => {
     let active = true;
-    openhumanGetMemorySyncSettings()
-      .then(resp => {
+    const loadSettings = async () => {
+      try {
+        const resp = await openhumanGetMemorySyncSettings();
         if (active) setSettings(resp.result);
-      })
-      .catch(err => {
-        console.warn('[ui-flow][memory-sync] get settings failed', err);
-      });
+      } catch (err) {
+        log('get settings failed: %O', err);
+      }
+    };
+    void loadSettings();
     return () => {
       active = false;
     };
