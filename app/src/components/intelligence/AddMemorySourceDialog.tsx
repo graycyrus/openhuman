@@ -8,13 +8,14 @@
  * presents them as a dropdown — the user picks an existing OAuth
  * connection rather than typing toolkit + connection_id.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { listConnections } from '../../lib/composio/composioApi';
 import type { ComposioConnection } from '../../lib/composio/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   addMemorySource,
+  getSupportedToolkits,
   type MemorySourceEntry,
   SOURCE_KIND_ICONS,
   SOURCE_KIND_LABEL_KEYS,
@@ -56,10 +57,14 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
   // Composio connection picker state
   const [connections, setConnections] = useState<ComposioConnection[]>([]);
   const [loadingConnections, setLoadingConnections] = useState(false);
+  // Toolkit slugs that can actually sync (backend registry). `null` means the
+  // set hasn't loaded (or the RPC failed) — in that case we treat every
+  // connection as supported rather than locking the user out of all of them.
+  const [supportedToolkits, setSupportedToolkits] = useState<string[] | null>(null);
 
-  // Fetch composio connections when user picks the composio kind.
-  // setState calls live inside the spawned async closure (not the
-  // synchronous effect body) to satisfy `react-hooks/set-state-in-effect`.
+  // Fetch composio connections + the supported-toolkit set when the user picks
+  // the composio kind. setState calls live inside the spawned async closure
+  // (not the synchronous effect body) to satisfy `react-hooks/set-state-in-effect`.
   useEffect(() => {
     if (kind !== 'composio') return undefined;
     let cancelled = false;
@@ -67,9 +72,18 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
       if (cancelled) return;
       setLoadingConnections(true);
       try {
-        const resp = await listConnections();
+        const [resp, toolkits] = await Promise.all([
+          listConnections(),
+          getSupportedToolkits().catch((err: unknown) => {
+            // Non-fatal: fall back to "everything supported" so the picker
+            // still works if the supported-toolkit RPC is unavailable.
+            console.warn('[ui-flow][composio-picker] getSupportedToolkits failed', err);
+            return null;
+          }),
+        ]);
         if (cancelled) return;
         setConnections(resp.connections);
+        setSupportedToolkits(toolkits);
       } catch (err) {
         if (cancelled) return;
         console.warn('[ui-flow][add-memory-source] listConnections failed', err);
@@ -230,6 +244,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
                 setSelector={setSelector}
                 connections={connections}
                 loadingConnections={loadingConnections}
+                supportedToolkits={supportedToolkits}
                 connectionId={connectionId}
                 setConnection={(connId, tk, identityLabel) => {
                   setConnectionId(connId);
@@ -405,6 +420,8 @@ interface KindFieldsProps {
   setSelector: (v: string) => void;
   connections: ComposioConnection[];
   loadingConnections: boolean;
+  /** Syncable toolkit slugs; `null` while unknown (treat all as supported). */
+  supportedToolkits: string[] | null;
   connectionId: string;
   setConnection: (connectionId: string, toolkit: string, identityLabel: string) => void;
 }
@@ -554,19 +571,64 @@ export function deduplicateConnections(
   return result;
 }
 
+/** A connection is syncable when its toolkit ships a provider. A `null`
+ *  supported-set means "unknown" — treat everything as supported so a failed
+ *  lookup never disables the whole picker. */
+function isToolkitSupported(toolkit: string, supportedToolkits: string[] | null): boolean {
+  if (supportedToolkits === null) return true;
+  return supportedToolkits.includes(toolkit.trim().toLowerCase());
+}
+
+interface PickerEntry {
+  conn: ComposioConnection;
+  label: string;
+  supported: boolean;
+}
+
 function ComposioPicker({
   connections,
   loadingConnections,
+  supportedToolkits,
   connectionId,
   setConnection,
 }: KindFieldsProps) {
   const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // useMemo must be declared before any early returns (Rules of Hooks).
   const accountLabel = t('memorySources.connectionAccount');
-  const dedupedConnections = useMemo(
-    () => deduplicateConnections(connections, accountLabel),
-    [connections, accountLabel]
-  );
+  const entries = useMemo<PickerEntry[]>(() => {
+    const deduped = deduplicateConnections(connections, accountLabel).map(({ conn, label }) => ({
+      conn,
+      label,
+      supported: isToolkitSupported(conn.toolkit, supportedToolkits),
+    }));
+    // Supported connections first so the actionable ones surface at the top;
+    // stable within each partition (dedup already ranked by health/status).
+    return [...deduped.filter(e => e.supported), ...deduped.filter(e => !e.supported)];
+  }, [connections, accountLabel, supportedToolkits]);
+
+  const selected = entries.find(e => e.conn.id === connectionId) ?? null;
+
+  // Close the popover on outside click or Escape.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   if (loadingConnections) {
     return (
@@ -584,30 +646,89 @@ function ComposioPicker({
     );
   }
 
+  const select = (entry: PickerEntry) => {
+    if (!entry.supported) {
+      console.debug(
+        `[ui-flow][composio-picker] ignoring click on unsupported toolkit=${entry.conn.toolkit}`
+      );
+      return;
+    }
+    setConnection(entry.conn.id, entry.conn.toolkit, entry.label);
+    setOpen(false);
+  };
+
   return (
-    <label className="block">
+    <div className="block" ref={containerRef}>
       <span className="text-xs font-medium text-stone-600 dark:text-neutral-400">
         {t('memorySources.pickConnection')}
       </span>
-      <select
-        value={connectionId}
-        onChange={e => {
-          const entry = dedupedConnections.find(({ conn }) => conn.id === e.target.value);
-          if (entry) {
-            setConnection(entry.conn.id, entry.conn.toolkit, entry.label);
-          }
-        }}
-        className="mt-1 block w-full rounded-md border border-stone-300 bg-white px-3 py-2
-                   text-sm text-stone-900 focus:border-primary-400 focus:outline-none
-                   focus:ring-1 focus:ring-primary-400 dark:border-neutral-600
-                   dark:bg-neutral-800 dark:text-neutral-100 dark:focus:border-primary-500">
-        <option value="">{t('memorySources.selectConnection')}</option>
-        {dedupedConnections.map(({ conn, label }) => (
-          <option key={conn.id} value={conn.id}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <div className="relative mt-1">
+        <button
+          type="button"
+          data-testid="composio-connection-picker"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen(o => !o)}
+          className="flex w-full items-center justify-between rounded-md border border-stone-300
+                     bg-white px-3 py-2 text-left text-sm text-stone-900
+                     focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
+                     dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100
+                     dark:focus:border-primary-500">
+          <span className={selected ? '' : 'text-stone-400 dark:text-neutral-500'}>
+            {selected ? selected.label : t('memorySources.selectConnection')}
+          </span>
+          <span aria-hidden className="ml-2 text-stone-400 dark:text-neutral-500">
+            ▾
+          </span>
+        </button>
+
+        {open && (
+          <ul
+            role="listbox"
+            data-testid="composio-connection-listbox"
+            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border
+                       border-stone-200 bg-white py-1 shadow-lg dark:border-neutral-700
+                       dark:bg-neutral-800">
+            {entries.map(entry => {
+              const isSelected = entry.conn.id === connectionId;
+              return (
+                <li
+                  key={entry.conn.id}
+                  role="option"
+                  aria-selected={isSelected}
+                  aria-disabled={!entry.supported}
+                  data-testid={`composio-option-${entry.conn.id}`}
+                  data-supported={entry.supported}
+                  onClick={() => select(entry)}
+                  className={[
+                    'flex items-center justify-between gap-2 px-3 py-2 text-sm',
+                    entry.supported
+                      ? 'cursor-pointer text-stone-800 hover:bg-primary-50 dark:text-neutral-200 dark:hover:bg-primary-500/10'
+                      : 'cursor-not-allowed text-stone-400 dark:text-neutral-500',
+                  ].join(' ')}>
+                  <span className="flex items-center gap-2 truncate">
+                    {isSelected && entry.supported && (
+                      <span aria-hidden className="text-primary-500">
+                        ✓
+                      </span>
+                    )}
+                    <span className="truncate">{entry.label}</span>
+                  </span>
+                  {!entry.supported && (
+                    <span
+                      data-testid={`composio-option-coming-soon-${entry.conn.id}`}
+                      className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px]
+                                 font-medium uppercase tracking-wide text-stone-500
+                                 dark:bg-neutral-700 dark:text-neutral-400">
+                      {t('memorySources.comingSoon')}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
