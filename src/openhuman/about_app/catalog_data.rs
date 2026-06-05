@@ -148,6 +148,22 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
+        id: "voice.ptt",
+        name: "Global push-to-talk",
+        domain: "voice",
+        category: CapabilityCategory::Conversation,
+        description: "Hold a global hotkey from anywhere on the desktop to dictate into the \
+                      active chat thread. Press opens the mic, release commits the transcript, \
+                      and an always-on-top overlay shows listening/idle state without stealing \
+                      focus. Cross-platform via tauri-plugin-global-shortcut (macOS, Windows, \
+                      Linux/X11); requires microphone access and a global shortcut binding. \
+                      Optional speak_reply plays the agent's response through local TTS.",
+        how_to: "Settings → Voice → Push-to-Talk: pick a shortcut, grant microphone access, \
+                 then hold the configured hotkey from any window.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+    Capability {
         id: "conversation.inline_autocomplete",
         name: "Inline Autocomplete",
         domain: "conversation",
@@ -381,6 +397,25 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         how_to: "Intelligence > Memory Sources — toggle a source, open its gear for per-source \
             limits, or use \"All In\". Programmatic: openhuman.memory_sources_update and \
             openhuman.memory_sources_apply_all_in (RPC).",
+        status: CapabilityStatus::Beta,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
+        id: "intelligence.memory_sync_schedule",
+        name: "Memory Sync Schedule",
+        domain: "config",
+        category: CapabilityCategory::Intelligence,
+        description: "Pick a single global cadence for how often all opted-in memory sources \
+            auto-sync, presented like a backup schedule (\"Last synced … · Sync every …\"). \
+            Presets are every 4h / 12h / 24h, plus \"Manual only\" which disables background \
+            auto-sync entirely (you can still sync on demand). The chosen interval overrides each \
+            provider's built-in cadence but is floored at it, so syncs never run more often than \
+            the provider intends — handy for keeping credit spend predictable. Unset defaults to \
+            every 24h.",
+        how_to: "Intelligence > Memory Sources — choose a Sync every… preset or Manual only. \
+            Programmatic: openhuman.config_get_memory_sync_settings / \
+            openhuman.config_update_memory_sync_settings (RPC); ops override via the \
+            OPENHUMAN_MEMORY_SYNC_INTERVAL_SECS env var (0 = manual).",
         status: CapabilityStatus::Beta,
         privacy: LOCAL_RAW,
     },
