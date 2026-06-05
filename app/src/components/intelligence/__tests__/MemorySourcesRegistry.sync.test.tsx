@@ -7,11 +7,15 @@
  * RC#4 — tolerant parseSyncProgress: numeric ratio, stage fallback, and
  *         indeterminate (null) cases.
  */
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
-import { MemorySourcesRegistry, parseSyncProgress } from '../MemorySourcesRegistry';
+import {
+  MemorySourcesRegistry,
+  parseIngestedCount,
+  parseSyncProgress,
+} from '../MemorySourcesRegistry';
 
 // ── i18n mock (returns key as the translation) ────────────────────────────────
 vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
@@ -101,17 +105,35 @@ describe('parseSyncProgress', () => {
   });
 });
 
+// ── parseIngestedCount unit tests ─────────────────────────────────────────────
+
+describe('parseIngestedCount', () => {
+  it('parses the count from "ingested N item(s)"', () => {
+    expect(parseIngestedCount('ingested 5 item(s)')).toBe(5);
+    expect(parseIngestedCount('ingested 0 item(s)')).toBe(0);
+    expect(parseIngestedCount('ingested 123 items')).toBe(123);
+  });
+
+  it('returns null when no count is present', () => {
+    expect(parseIngestedCount(null)).toBeNull();
+    expect(parseIngestedCount('done')).toBeNull();
+    expect(parseIngestedCount('delegating to composio sync')).toBeNull();
+  });
+});
+
 // ── MemorySourcesRegistry integration tests ───────────────────────────────────
 
 describe('MemorySourcesRegistry', () => {
   // Expose mock so tests can control what listMemorySources returns.
   let listMemorySources: ReturnType<typeof vi.fn>;
   let memorySourcesStatusList: ReturnType<typeof vi.fn>;
+  let syncMemorySource: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     const svc = await import('../../../services/memorySourcesService');
     listMemorySources = svc.listMemorySources as ReturnType<typeof vi.fn>;
     memorySourcesStatusList = svc.memorySourcesStatusList as ReturnType<typeof vi.fn>;
+    syncMemorySource = svc.syncMemorySource as ReturnType<typeof vi.fn>;
   });
 
   afterEach(() => {
@@ -311,5 +333,142 @@ describe('MemorySourcesRegistry', () => {
     await waitFor(() => {
       expect(screen.queryByText('sync.syncing')).not.toBeInTheDocument();
     });
+  });
+
+  // ── Terminal result chips (#3295) ──────────────────────────────────────────
+
+  it('shows "N items synced" after a completed event with a non-zero count', async () => {
+    const sources = [makeSource('src-done')];
+    listMemorySources.mockResolvedValue(sources);
+    memorySourcesStatusList.mockResolvedValue([]);
+
+    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    await waitFor(() => expect(screen.getByText('Source src-done')).toBeInTheDocument());
+
+    act(() => {
+      window.dispatchEvent(makeSyncStageEvent({ stage: 'fetching', source_id: 'src-done' }));
+    });
+    await waitFor(() => expect(screen.getByText('sync.syncing')).toBeInTheDocument());
+
+    act(() => {
+      window.dispatchEvent(
+        makeSyncStageEvent({
+          stage: 'completed',
+          source_id: 'src-done',
+          detail: 'ingested 5 item(s)',
+        })
+      );
+    });
+
+    // The result chip persists and shows the parsed count + the (mocked) i18n key.
+    await waitFor(() => {
+      const chip = screen.getByTestId('memory-source-result-src-done');
+      expect(chip).toHaveTextContent('5');
+      expect(chip).toHaveTextContent('memorySources.sync.itemsSynced');
+    });
+    // The progress bar / syncing state is gone.
+    expect(screen.queryByText('sync.syncing')).not.toBeInTheDocument();
+  });
+
+  it('shows "Up to date" after a completed event with zero new items', async () => {
+    const sources = [makeSource('src-noop')];
+    listMemorySources.mockResolvedValue(sources);
+    memorySourcesStatusList.mockResolvedValue([]);
+
+    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    await waitFor(() => expect(screen.getByText('Source src-noop')).toBeInTheDocument());
+
+    act(() => {
+      window.dispatchEvent(
+        makeSyncStageEvent({
+          stage: 'completed',
+          source_id: 'src-noop',
+          detail: 'ingested 0 item(s)',
+        })
+      );
+    });
+
+    await waitFor(() => {
+      const chip = screen.getByTestId('memory-source-result-src-noop');
+      expect(chip).toHaveTextContent('memorySources.sync.upToDate');
+    });
+  });
+
+  it('shows the failure reason after a failed event', async () => {
+    const sources = [makeSource('src-bad')];
+    listMemorySources.mockResolvedValue(sources);
+    memorySourcesStatusList.mockResolvedValue([]);
+
+    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    await waitFor(() => expect(screen.getByText('Source src-bad')).toBeInTheDocument());
+
+    act(() => {
+      window.dispatchEvent(
+        makeSyncStageEvent({
+          stage: 'failed',
+          source_id: 'src-bad',
+          detail: 'composio sync failed: rate limit exceeded',
+        })
+      );
+    });
+
+    await waitFor(() => {
+      const chip = screen.getByTestId('memory-source-result-src-bad');
+      expect(chip).toHaveTextContent('memorySources.sync.failedLabel');
+      expect(chip).toHaveTextContent('rate limit exceeded');
+    });
+  });
+
+  it('clears a prior result chip when a new sync starts for that row', async () => {
+    const sources = [makeSource('src-redo')];
+    listMemorySources.mockResolvedValue(sources);
+    memorySourcesStatusList.mockResolvedValue([]);
+
+    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    await waitFor(() => expect(screen.getByText('Source src-redo')).toBeInTheDocument());
+
+    // First sync completes → chip shown.
+    act(() => {
+      window.dispatchEvent(
+        makeSyncStageEvent({
+          stage: 'completed',
+          source_id: 'src-redo',
+          detail: 'ingested 2 item(s)',
+        })
+      );
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('memory-source-result-src-redo')).toBeInTheDocument()
+    );
+
+    // A new sync starts (non-terminal event) → chip cleared, progress shown.
+    act(() => {
+      window.dispatchEvent(makeSyncStageEvent({ stage: 'fetching', source_id: 'src-redo' }));
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('memory-source-result-src-redo')).not.toBeInTheDocument();
+      expect(screen.getByText('sync.syncing')).toBeInTheDocument();
+    });
+  });
+
+  it('shows a failed chip when the sync RPC itself rejects (no stage event arrives)', async () => {
+    const sources = [makeSource('src-rpcfail')];
+    listMemorySources.mockResolvedValue(sources);
+    memorySourcesStatusList.mockResolvedValue([]);
+    syncMemorySource.mockRejectedValueOnce(new Error('core unreachable'));
+
+    renderWithProviders(<MemorySourcesRegistry pollIntervalMs={0} />);
+    await waitFor(() => expect(screen.getByText('Source src-rpcfail')).toBeInTheDocument());
+
+    // Click the row's sync button (folder kind → testid suffix "folder").
+    fireEvent.click(screen.getByTestId('memory-source-sync-folder'));
+
+    await waitFor(() => {
+      const chip = screen.getByTestId('memory-source-result-src-rpcfail');
+      expect(chip).toHaveTextContent('memorySources.sync.failedLabel');
+      expect(chip).toHaveTextContent('core unreachable');
+    });
+    // The optimistic syncing state is cleared after the RPC rejection.
+    expect(screen.queryByText('sync.syncing')).not.toBeInTheDocument();
   });
 });

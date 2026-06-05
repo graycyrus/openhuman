@@ -201,6 +201,22 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         },
                     );
 
+                    // Report internal failures to Sentry; known-expected
+                    // conditions (auth/network/rate-limit/missing config) are
+                    // classified by `expected_error_kind` and logged-not-reported
+                    // so we surface real bugs without Sentry-spamming routine
+                    // user/config errors (#3295). The reason is still shown to
+                    // the user via the Failed stage event regardless.
+                    crate::core::observability::report_error_or_expected(
+                        &error,
+                        "memory_sources",
+                        "sync",
+                        &[
+                            ("source_id", source.id.as_str()),
+                            ("kind", source.kind.as_str()),
+                        ],
+                    );
+
                     emit_sync_stage(
                         MemorySyncTrigger::Manual,
                         MemorySyncStage::Failed,
