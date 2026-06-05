@@ -296,6 +296,37 @@ describe('TaskKanbanBoard', () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
+  it('drag-and-drop: a disabled board does not call onMove on drop', () => {
+    const onMove = vi.fn();
+    render(
+      <TaskKanbanBoard
+        board={{
+          threadId: 'dnd-disabled-board',
+          updatedAt: '',
+          cards: [
+            { id: 'disabled-card', title: 'Locked task', status: 'todo', order: 0, updatedAt: '' },
+          ],
+        }}
+        onMove={onMove}
+        disabled
+      />
+    );
+
+    const card = screen.getByText('Locked task').closest('article')!;
+    // Disabled cards must not be draggable from the source side …
+    expect(card.getAttribute('draggable')).toBe('false');
+
+    // … and a drop event must be a no-op even if one is dispatched.
+    const doneSection = document.querySelectorAll('section')[4];
+    fireEvent.drop(doneSection, {
+      dataTransfer: {
+        getData: (key: string) => (key === 'application/x-task-card-id' ? 'disabled-card' : ''),
+      },
+    });
+
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
   it('arrow buttons still call onMove as a11y fallback', () => {
     const onMove = vi.fn();
     render(

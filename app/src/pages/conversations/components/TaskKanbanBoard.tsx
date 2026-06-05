@@ -160,19 +160,27 @@ export function TaskKanbanBoard({
     onMove?.(card, next);
   };
 
+  // Cards can only be moved when the board is enabled and a handler exists.
+  // Gate every drag-and-drop entry point on this so a disabled board cannot be
+  // mutated via drop events (parity with moveCard's `disabled` guard above).
+  const canMoveCards = !disabled && Boolean(onMove);
+
   const handleDragOver = (e: React.DragEvent<HTMLElement>, columnStatus: TaskBoardCardStatus) => {
+    if (!canMoveCards) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverColumn(columnStatus);
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLElement>) => {
+    if (!canMoveCards) return;
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDragOverColumn(null);
     }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLElement>, targetColumnStatus: TaskBoardCardStatus) => {
+    if (!canMoveCards) return;
     e.preventDefault();
     setDragOverColumn(null);
     const cardId = e.dataTransfer.getData('application/x-task-card-id');
@@ -223,9 +231,9 @@ export function TaskKanbanBoard({
               className={`min-w-0 rounded-lg bg-stone-50 dark:bg-neutral-800/60 p-2 ${accentClass} ${
                 isDragTarget ? 'ring-2 ring-ocean-400 bg-ocean-50/30 dark:bg-ocean-500/5' : ''
               }`}
-              onDragOver={e => handleDragOver(e, column.status)}
-              onDragLeave={handleDragLeave}
-              onDrop={e => handleDrop(e, column.status)}>
+              onDragOver={canMoveCards ? e => handleDragOver(e, column.status) : undefined}
+              onDragLeave={canMoveCards ? handleDragLeave : undefined}
+              onDrop={canMoveCards ? e => handleDrop(e, column.status) : undefined}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h5 className="truncate text-[11px] font-medium text-stone-600 dark:text-neutral-300">
                   {t(column.labelKey)}
