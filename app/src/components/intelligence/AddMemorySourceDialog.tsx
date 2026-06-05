@@ -8,7 +8,15 @@
  * presents them as a dropdown — the user picks an existing OAuth
  * connection rather than typing toolkit + connection_id.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import debug from 'debug';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { listConnections } from '../../lib/composio/composioApi';
 import type { ComposioConnection } from '../../lib/composio/types';
@@ -21,6 +29,13 @@ import {
   SOURCE_KIND_LABEL_KEYS,
   type SourceKind,
 } from '../../services/memorySourcesService';
+
+const log = debug('intelligence:add-memory-source-dialog');
+
+/** Safe, PII-free string for an unknown error — message/name only, no stack. */
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 interface AddMemorySourceDialogProps {
   open: boolean;
@@ -77,7 +92,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
           getSupportedToolkits().catch((err: unknown) => {
             // Non-fatal: fall back to "everything supported" so the picker
             // still works if the supported-toolkit RPC is unavailable.
-            console.warn('[ui-flow][composio-picker] getSupportedToolkits failed', err);
+            log('[composio-picker] getSupportedToolkits failed: %s', errMessage(err));
             return null;
           }),
         ]);
@@ -86,7 +101,7 @@ export function AddMemorySourceDialog({ open, onClose, onAdded }: AddMemorySourc
         setSupportedToolkits(toolkits);
       } catch (err) {
         if (cancelled) return;
-        console.warn('[ui-flow][add-memory-source] listConnections failed', err);
+        log('[add-memory-source] listConnections failed: %s', errMessage(err));
         setError(t('memorySources.composioListFailed'));
       } finally {
         if (!cancelled) setLoadingConnections(false);
@@ -544,9 +559,7 @@ export function deduplicateConnections(
   for (const conn of sorted) {
     // Always dedup by raw connection id to guard against identity-less dupes.
     if (seen.has(conn.id)) {
-      console.debug(
-        `[ui-flow][composio-picker] dropping duplicate connection toolkit=${conn.toolkit} id=${conn.id}`
-      );
+      log('[composio-picker] dropping duplicate connection toolkit=%s', conn.toolkit);
       continue;
     }
     seen.add(conn.id);
@@ -555,9 +568,7 @@ export function deduplicateConnections(
     if (identity) {
       const key = `${conn.toolkit}:${identity}`;
       if (seen.has(key)) {
-        console.debug(
-          `[ui-flow][composio-picker] dropping duplicate connection toolkit=${conn.toolkit} id=${conn.id}`
-        );
+        log('[composio-picker] dropping duplicate connection toolkit=%s', conn.toolkit);
         continue;
       }
       seen.add(key);
@@ -594,7 +605,11 @@ function ComposioPicker({
 }: KindFieldsProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
+  // Index (into `entries`) of the keyboard-highlighted option; -1 when none.
+  const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLUListElement>(null);
 
   // useMemo must be declared before any early returns (Rules of Hooks).
   const accountLabel = t('memorySources.connectionAccount');
@@ -608,6 +623,13 @@ function ComposioPicker({
     // stable within each partition (dedup already ranked by health/status).
     return [...deduped.filter(e => e.supported), ...deduped.filter(e => !e.supported)];
   }, [connections, accountLabel, supportedToolkits]);
+
+  // Indexes of keyboard-selectable (supported) options — unsupported rows are
+  // skipped during arrow navigation, mirroring a native <select>'s disabled opts.
+  const selectableIndexes = useMemo(
+    () => entries.map((e, i) => (e.supported ? i : -1)).filter(i => i >= 0),
+    [entries]
+  );
 
   const selected = entries.find(e => e.conn.id === connectionId) ?? null;
 
@@ -630,6 +652,13 @@ function ComposioPicker({
     };
   }, [open]);
 
+  // Move keyboard focus into the listbox when it opens so arrow keys work
+  // immediately. This is a DOM side-effect only — the highlighted index is set
+  // in the open/close handlers, not here, to avoid setState-in-effect churn.
+  useEffect(() => {
+    if (open) listboxRef.current?.focus();
+  }, [open]);
+
   if (loadingConnections) {
     return (
       <p className="text-xs text-stone-500 dark:text-neutral-400">
@@ -646,16 +675,90 @@ function ComposioPicker({
     );
   }
 
+  // Highlight the current selection (or first selectable option) and open.
+  const openListbox = () => {
+    const selIdx = entries.findIndex(e => e.conn.id === connectionId && e.supported);
+    setActiveIndex(selIdx >= 0 ? selIdx : (selectableIndexes[0] ?? -1));
+    setOpen(true);
+  };
+
+  const close = (returnFocus = true) => {
+    setActiveIndex(-1);
+    setOpen(false);
+    if (returnFocus) buttonRef.current?.focus();
+  };
+
   const select = (entry: PickerEntry) => {
     if (!entry.supported) {
-      console.debug(
-        `[ui-flow][composio-picker] ignoring click on unsupported toolkit=${entry.conn.toolkit}`
-      );
+      log('[composio-picker] ignoring selection of unsupported toolkit=%s', entry.conn.toolkit);
       return;
     }
     setConnection(entry.conn.id, entry.conn.toolkit, entry.label);
-    setOpen(false);
+    close();
   };
+
+  // Move the highlight to the next/previous selectable option, wrapping around.
+  const moveActive = (dir: 1 | -1) => {
+    if (selectableIndexes.length === 0) return;
+    const pos = selectableIndexes.indexOf(activeIndex);
+    const nextPos =
+      pos === -1
+        ? dir === 1
+          ? 0
+          : selectableIndexes.length - 1
+        : (pos + dir + selectableIndexes.length) % selectableIndexes.length;
+    setActiveIndex(selectableIndexes[nextPos]);
+  };
+
+  const onButtonKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    // Open with the arrow keys; Enter/Space already toggle via onClick.
+    if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault();
+      openListbox();
+    }
+  };
+
+  const onListKeyDown = (event: ReactKeyboardEvent<HTMLUListElement>) => {
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        moveActive(1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        moveActive(-1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        if (selectableIndexes.length) setActiveIndex(selectableIndexes[0]);
+        break;
+      case 'End':
+        event.preventDefault();
+        if (selectableIndexes.length)
+          setActiveIndex(selectableIndexes[selectableIndexes.length - 1]);
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        if (activeIndex >= 0 && entries[activeIndex]) select(entries[activeIndex]);
+        break;
+      case 'Escape':
+        event.preventDefault();
+        close();
+        break;
+      case 'Tab':
+        // Let focus leave naturally, but collapse the popover.
+        setOpen(false);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const LISTBOX_ID = 'composio-connection-listbox';
+  const optionId = (entry: PickerEntry) => `composio-opt-${entry.conn.id}`;
+  const activeOptionId =
+    activeIndex >= 0 && entries[activeIndex] ? optionId(entries[activeIndex]) : undefined;
 
   return (
     <div className="block" ref={containerRef}>
@@ -664,11 +767,14 @@ function ComposioPicker({
       </span>
       <div className="relative mt-1">
         <button
+          ref={buttonRef}
           type="button"
           data-testid="composio-connection-picker"
           aria-haspopup="listbox"
           aria-expanded={open}
-          onClick={() => setOpen(o => !o)}
+          aria-controls={open ? LISTBOX_ID : undefined}
+          onClick={() => (open ? close(false) : openListbox())}
+          onKeyDown={onButtonKeyDown}
           className="flex w-full items-center justify-between rounded-md border border-stone-300
                      bg-white px-3 py-2 text-left text-sm text-stone-900
                      focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400
@@ -684,27 +790,38 @@ function ComposioPicker({
 
         {open && (
           <ul
+            ref={listboxRef}
+            id={LISTBOX_ID}
             role="listbox"
+            tabIndex={-1}
+            aria-label={t('memorySources.pickConnection')}
+            aria-activedescendant={activeOptionId}
+            onKeyDown={onListKeyDown}
             data-testid="composio-connection-listbox"
             className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border
-                       border-stone-200 bg-white py-1 shadow-lg dark:border-neutral-700
-                       dark:bg-neutral-800">
-            {entries.map(entry => {
+                       border-stone-200 bg-white py-1 shadow-lg focus:outline-none
+                       dark:border-neutral-700 dark:bg-neutral-800">
+            {entries.map((entry, index) => {
               const isSelected = entry.conn.id === connectionId;
+              const isActive = index === activeIndex;
               return (
                 <li
                   key={entry.conn.id}
+                  id={optionId(entry)}
                   role="option"
                   aria-selected={isSelected}
                   aria-disabled={!entry.supported}
                   data-testid={`composio-option-${entry.conn.id}`}
                   data-supported={entry.supported}
+                  data-active={isActive}
                   onClick={() => select(entry)}
+                  onMouseEnter={() => entry.supported && setActiveIndex(index)}
                   className={[
                     'flex items-center justify-between gap-2 px-3 py-2 text-sm',
                     entry.supported
-                      ? 'cursor-pointer text-stone-800 hover:bg-primary-50 dark:text-neutral-200 dark:hover:bg-primary-500/10'
+                      ? 'cursor-pointer text-stone-800 dark:text-neutral-200'
                       : 'cursor-not-allowed text-stone-400 dark:text-neutral-500',
+                    isActive && entry.supported ? 'bg-primary-50 dark:bg-primary-500/10' : '',
                   ].join(' ')}>
                   <span className="flex items-center gap-2 truncate">
                     {isSelected && entry.supported && (

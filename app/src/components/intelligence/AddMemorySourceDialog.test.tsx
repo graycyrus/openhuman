@@ -365,4 +365,59 @@ describe('AddMemorySourceDialog — Composio picker', () => {
     fireEvent.mouseDown(document.body);
     await waitFor(() => expect(screen.queryByTestId('composio-connection-listbox')).toBeNull());
   });
+
+  it('opens the listbox with ArrowDown on the trigger button', async () => {
+    mockListConnections.mockResolvedValue({
+      connections: [{ id: 'conn-1', toolkit: 'Slack', status: 'ACTIVE', workspace: 'acme' }],
+    });
+    await openComposioStep();
+    const trigger = await screen.findByTestId('composio-connection-picker');
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    await screen.findByTestId('composio-connection-listbox');
+  });
+
+  it('navigates options with the arrow keys and selects with Enter', async () => {
+    mockListConnections.mockResolvedValue({
+      connections: [
+        { id: 'conn-gmail', toolkit: 'Gmail', status: 'ACTIVE', accountEmail: 'a@x.com' },
+        { id: 'conn-slack', toolkit: 'Slack', status: 'ACTIVE', workspace: 'acme' },
+      ],
+    });
+    await openComposioStep();
+    await openListbox();
+    const listbox = screen.getByTestId('composio-connection-listbox');
+
+    // Opens highlighting the first selectable option; ArrowDown moves to the next.
+    expect(listbox).toHaveAttribute('aria-activedescendant', 'composio-opt-conn-gmail');
+    fireEvent.keyDown(listbox, { key: 'ArrowDown' });
+    expect(listbox).toHaveAttribute('aria-activedescendant', 'composio-opt-conn-slack');
+
+    // Enter selects the highlighted option and closes the dropdown.
+    fireEvent.keyDown(listbox, { key: 'Enter' });
+    await waitFor(() => {
+      const labelInput = screen.getByPlaceholderText('My research notes');
+      expect((labelInput as HTMLInputElement).value).toBe('Slack · acme');
+    });
+    expect(screen.queryByTestId('composio-connection-listbox')).toBeNull();
+  });
+
+  it('skips unsupported options during keyboard navigation', async () => {
+    mockGetSupportedToolkits.mockResolvedValue(['slack']);
+    mockListConnections.mockResolvedValue({
+      connections: [
+        { id: 'conn-slack', toolkit: 'slack', status: 'ACTIVE', workspace: 'acme' },
+        { id: 'conn-gcal', toolkit: 'googlecalendar', status: 'ACTIVE', accountEmail: 'a@x.com' },
+      ],
+    });
+    await openComposioStep();
+    await openListbox();
+    const listbox = screen.getByTestId('composio-connection-listbox');
+
+    // Only the supported option is reachable; wrapping keeps it on slack.
+    expect(listbox).toHaveAttribute('aria-activedescendant', 'composio-opt-conn-slack');
+    fireEvent.keyDown(listbox, { key: 'ArrowDown' });
+    expect(listbox).toHaveAttribute('aria-activedescendant', 'composio-opt-conn-slack');
+    fireEvent.keyDown(listbox, { key: 'ArrowUp' });
+    expect(listbox).toHaveAttribute('aria-activedescendant', 'composio-opt-conn-slack');
+  });
 });
