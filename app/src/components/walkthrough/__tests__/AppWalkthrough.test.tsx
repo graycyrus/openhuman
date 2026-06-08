@@ -571,7 +571,7 @@ describe('createWalkthroughSteps', () => {
 
   it.each([
     { idx: 2, route: '/chat', target: 'chat-agent-panel' },
-    { idx: 3, route: '/skills', target: 'skills-grid' },
+    { idx: 3, route: '/connections', target: 'skills-grid' },
     { idx: 4, route: null, target: 'skills-channels' },
     { idx: 5, route: '/intelligence', target: 'intelligence-header' },
     { idx: 6, route: '/settings', target: 'settings-menu' },

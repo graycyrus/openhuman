@@ -87,9 +87,7 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 4 — /skills (Connections) ───────────────────────────────────
-    // Copy reads "Connections" (the new tab label) but the DOM anchors stay
-    // `skills-*` until the page itself is rebuilt in Phase 2.
+    // ── Step 4 — /connections (Apps tab) ─────────────────────────────────
     {
       target: '[data-walkthrough="skills-grid"]',
       title: 'Connect your world',
@@ -98,12 +96,12 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       placement: 'top',
       skipBeacon: true,
       before: async () => {
-        navigate('/skills');
+        navigate('/connections');
         await waitForTarget('skills-grid');
       },
     },
 
-    // ── Step 5 — /skills (Connections channels) ──────────────────────────
+    // ── Step 5 — /connections (Messaging tab) ────────────────────────────
     {
       target: '[data-walkthrough="skills-channels"]',
       title: 'Chat where you already are',

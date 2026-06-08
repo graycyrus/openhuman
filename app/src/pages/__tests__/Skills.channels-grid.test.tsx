@@ -67,10 +67,10 @@ describe('Skills page — Channels grid', () => {
   });
 
   it('renders configured channels as tiles in a dedicated card and opens the setup modal on click', async () => {
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
 
-    // Switch to the Channels tab to make the Channels card visible.
-    fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
+    // Switch to the Messaging tab to make the Channels card visible.
+    fireEvent.click(screen.getByRole('tab', { name: 'Messaging' }));
 
     const channelsHeading = screen.getByRole('heading', { name: 'Channels' });
     expect(channelsHeading).toBeInTheDocument();
@@ -134,9 +134,9 @@ describe('Skills page — Channels grid', () => {
         },
       };
 
-      renderWithProviders(<Skills />, { initialEntries: ['/skills'], preloadedState });
-      // Switch to the Channels tab so the Channels card is visible.
-      fireEvent.click(screen.getByRole('tab', { name: 'Channels' }));
+      renderWithProviders(<Skills />, { initialEntries: ['/connections'], preloadedState });
+      // Switch to the Messaging tab so the Channels card is visible.
+      fireEvent.click(screen.getByRole('tab', { name: 'Messaging' }));
       const channelsCard = screen
         .getByRole('heading', { name: 'Channels' })
         .closest('.rounded-2xl');
@@ -148,10 +148,10 @@ describe('Skills page — Channels grid', () => {
   );
 
   it('does not surface a Channels chip in the category filter inside the Integrations card', () => {
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    fireEvent.click(screen.getByRole('tab', { name: 'Composio' }));
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    fireEvent.click(screen.getByRole('tab', { name: 'Apps' }));
 
-    // The Composio tab owns the Integrations category filter.
+    // The Apps tab owns the Integrations category filter.
     const integrationsHeading = screen.getByRole('heading', { name: 'Composio Integrations' });
     const integrationsCard = integrationsHeading.closest('.rounded-2xl');
     expect(integrationsCard).not.toBeNull();

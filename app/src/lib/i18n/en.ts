@@ -330,6 +330,11 @@ const en: TranslationMap = {
   'skills.tabs.explorer': 'Skills',
   'skills.tabs.meetings': 'Google Meet',
   'skills.tabs.mcp': 'MCP Servers',
+  // Connections page tabs (Phase 2 rename)
+  'connections.tabs.apps': 'Apps',
+  'connections.tabs.messaging': 'Messaging',
+  'connections.tabs.tools': 'Tools',
+  'connections.tabs.explorer': 'Explorer',
   // Intelligence / Memory
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',

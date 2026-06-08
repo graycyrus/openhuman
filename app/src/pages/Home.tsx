@@ -260,7 +260,7 @@ const Home = () => {
           <div className="text-[11px] uppercase tracking-wide text-stone-400 mb-2">Next steps</div>
           <div className="divide-y divide-stone-100">
             <button
-              onClick={() => navigate('/skills')}
+              onClick={() => navigate('/connections')}
               className="w-full flex items-center justify-between py-2.5 text-left hover:bg-stone-50 rounded-md px-2 -mx-2 transition-colors">
               <div>
                 <div className="text-sm font-medium text-stone-900">Connect your services</div>

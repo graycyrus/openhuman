@@ -7,7 +7,6 @@ import PublicRoute from './components/PublicRoute';
 import HumanPage from './features/human/HumanPage';
 import { getIsMobile } from './lib/platform';
 import Accounts from './pages/Accounts';
-import Channels from './pages/Channels';
 import Home from './pages/Home';
 import Intelligence from './pages/Intelligence';
 import Invites from './pages/Invites';
@@ -83,15 +82,14 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Skills lives at /skills with its 4 sub-tabs (Composio / Channels /
-          MCP Servers / Runners). The scheduled-skills dashboard concept
-          composes INSIDE the Runners sub-tab, not as a separate top-level
-          page — the bottom-bar "Connections" entry has always pointed at
-          /skills to surface Composio integrations + MCP, and that muscle
-          memory is restored here.
+      {/* Connections page lives at /connections (Phase 2 rename from /skills).
+          The old /skills path is kept as a back-compat redirect so bookmarks
+          and deep links continue to work.  `?tab=` query params are preserved
+          by Navigate (replace) so existing deep links still land on the right
+          sub-tab.
           `/workflows/new` is the create-a-skill authoring page.
-          Order matters: keep `/workflows/new` before `/skills` so it wins the
-          prefix match. */}
+          Order matters: keep `/workflows/new` before `/connections` so it wins
+          the prefix match. */}
       <Route
         path="/workflows/new"
         element={
@@ -111,13 +109,16 @@ const AppRoutes = () => {
       />
 
       <Route
-        path="/skills"
+        path="/connections"
         element={
           <ProtectedRoute requireAuth={true}>
             <Skills />
           </ProtectedRoute>
         }
       />
+
+      {/* Back-compat: /skills → /connections (preserves ?tab= deep links). */}
+      <Route path="/skills" element={<Navigate to="/connections" replace />} />
 
       {/* Unified chat = agent + connected web apps. Replaces the old
           /conversations and /accounts routes. */}
@@ -130,14 +131,9 @@ const AppRoutes = () => {
         }
       />
 
-      <Route
-        path="/channels"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <Channels />
-          </ProtectedRoute>
-        }
-      />
+      {/* Back-compat: /channels was an orphaned standalone page; it now
+          redirects to the unified Connections page on the Messaging tab. */}
+      <Route path="/channels" element={<Navigate to="/connections?tab=messaging" replace />} />
 
       <Route
         path="/invites"

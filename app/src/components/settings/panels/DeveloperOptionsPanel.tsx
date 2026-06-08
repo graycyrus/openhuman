@@ -227,11 +227,13 @@ const developerItems = [
   // `notification-routing` moved into the main Settings → Notifications page
   // as a tab. The old `/settings/notification-routing` path now redirects to
   // `/settings/notifications#routing`, so deep links continue to work.
+  // Phase 2: fixed broken composio shortcut — was pointing to bare `composio`
+  // (non-existent route); corrected to `composio-routing` (the real panel).
   {
     id: 'composio',
     titleKey: 'settings.developerMenu.composio.title',
     descriptionKey: 'settings.developerMenu.composio.desc',
-    route: 'composio',
+    route: 'composio-routing',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path

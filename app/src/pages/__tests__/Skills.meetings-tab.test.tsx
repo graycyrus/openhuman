@@ -38,24 +38,29 @@ vi.mock('../../lib/composio/hooks', () => ({
   }),
 }));
 
-describe('Skills page — Meetings tab', () => {
-  it('keeps the meeting bot CTA in its own Connections tab', () => {
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+describe('Skills page — Meetings tab (folded into Tools in Phase 2)', () => {
+  it('shows the meeting bot CTA inside the Tools tab', () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
 
     expect(screen.queryByTestId('meeting-bots-card')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Google Meet' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
 
     expect(screen.getByTestId('meeting-bots-card')).toBeInTheDocument();
   });
 
-  it('supports direct links to the Meetings tab', () => {
-    renderWithProviders(<Skills />, { initialEntries: ['/skills?tab=meetings'] });
+  it('supports direct links via legacy ?tab=meetings (normalised to tools)', () => {
+    // The old ?tab=meetings alias maps to the new "tools" tab.
+    renderWithProviders(<Skills />, { initialEntries: ['/connections?tab=meetings'] });
 
-    expect(screen.getByRole('tab', { name: 'Google Meet' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByRole('tab', { name: 'Tools' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('meeting-bots-card')).toBeInTheDocument();
+  });
+
+  it('supports direct links via ?tab=tools', () => {
+    renderWithProviders(<Skills />, { initialEntries: ['/connections?tab=tools'] });
+
+    expect(screen.getByRole('tab', { name: 'Tools' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('meeting-bots-card')).toBeInTheDocument();
   });
 });

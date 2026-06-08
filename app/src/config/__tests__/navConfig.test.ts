@@ -27,7 +27,7 @@ describe('NAV_TABS', () => {
       '/home',
       '/human',
       '/chat',
-      '/skills',
+      '/connections',
       '/intelligence',
       '/settings',
     ]);

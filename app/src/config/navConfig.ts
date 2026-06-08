@@ -30,7 +30,7 @@ export const NAV_TABS: NavTab[] = [
   {
     id: 'connections',
     labelKey: 'nav.connections',
-    path: '/skills',
+    path: '/connections',
     walkthroughAttr: 'tab-connections',
   },
   {

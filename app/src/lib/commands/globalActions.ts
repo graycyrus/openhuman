@@ -40,11 +40,11 @@ export function registerGlobalActions(
     },
     {
       id: 'nav.skills',
-      label: 'Go to Skills',
+      label: 'Go to Connections',
       group: 'Navigation',
       shortcut: 'mod+4',
-      handler: nav('/skills'),
-      keywords: ['plugins', 'tools'],
+      handler: nav('/connections'),
+      keywords: ['plugins', 'tools', 'connections', 'apps', 'skills'],
     },
     {
       id: 'nav.settings',

@@ -78,13 +78,13 @@ describe('Skills page — Composio catalog fallback', () => {
     agentReadyState = { agentReady: new Set<string>(), loading: true, error: null };
   });
 
-  function openComposioTab() {
-    fireEvent.click(screen.getByRole('tab', { name: 'Composio' }));
+  function openAppsTab() {
+    fireEvent.click(screen.getByRole('tab', { name: 'Apps' }));
   }
 
   it('shows known composio integrations in the integrations icon grid when the live toolkit list is empty', () => {
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     expect(screen.getByRole('heading', { name: 'Composio Integrations' })).toBeInTheDocument();
     expect(screen.getByText('Discord')).toBeInTheDocument();
@@ -113,8 +113,8 @@ describe('Skills page — Composio catalog fallback', () => {
   it('shows a stale/error state instead of disconnected toolkits when composio loading fails', () => {
     composioError = 'Backend unavailable';
 
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     expect(screen.getByText('Connections are showing stale status')).toBeInTheDocument();
     expect(screen.getByText('Backend unavailable')).toBeInTheDocument();
@@ -139,8 +139,8 @@ describe('Skills page — Composio catalog fallback', () => {
       ['gmail', { id: 'ca_expired', toolkit: 'gmail', status: 'EXPIRED' }],
     ]);
 
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     const integrationsSection = screen
       .getByRole('heading', { name: 'Composio Integrations' })
@@ -174,8 +174,8 @@ describe('Skills page — Composio catalog fallback', () => {
     ]);
     agentReadyState = { agentReady: new Set(['gmail']), loading: false, error: null };
 
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     const integrationsSection = screen
       .getByRole('heading', { name: 'Composio Integrations' })
@@ -194,8 +194,8 @@ describe('Skills page — Composio catalog fallback', () => {
     // misrepresenting the agent surface.
     agentReadyState = { agentReady: new Set<string>(), loading: false, error: 'rpc unavailable' };
 
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     const integrationsSection = screen
       .getByRole('heading', { name: 'Composio Integrations' })
@@ -218,8 +218,8 @@ describe('Skills page — Composio catalog fallback', () => {
     ]);
     agentReadyState = { agentReady: new Set<string>(['gmail']), loading: false, error: null };
 
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     const integrationsSection = screen
       .getByRole('heading', { name: 'Composio Integrations' })
@@ -243,8 +243,8 @@ describe('Skills page — Composio catalog fallback', () => {
     sessionToken = 'header.payload.local';
     composioModeStatus = { result: { mode: 'direct', api_key_set: false }, logs: [] };
 
-    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
-    openComposioTab();
+    renderWithProviders(<Skills />, { initialEntries: ['/connections'] });
+    openAppsTab();
 
     await waitFor(() => {
       expect(screen.getByText(/No Composio API Key Configured/i)).toBeInTheDocument();
