@@ -14,6 +14,12 @@ const en: TranslationMap = {
   'nav.switchAgentProfile': 'Switch agent profile',
   'nav.defaultAgentProfile': 'Default agent',
   'nav.noAgentProfiles': 'No agent profiles found',
+  'nav.activity': 'Activity',
+  'nav.avatarMenu.account': 'Account',
+  'nav.avatarMenu.billing': 'Billing',
+  'nav.avatarMenu.rewards': 'Rewards',
+  'nav.avatarMenu.invites': 'Invite a friend',
+  'nav.avatarMenu.wallet': 'Wallet',
 
   // Common
   'common.cancel': 'Cancel',

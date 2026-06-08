@@ -87,7 +87,9 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 4 — /skills ──────────────────────────────────────────────────
+    // ── Step 4 — /skills (Connections) ───────────────────────────────────
+    // Copy reads "Connections" (the new tab label) but the DOM anchors stay
+    // `skills-*` until the page itself is rebuilt in Phase 2.
     {
       target: '[data-walkthrough="skills-grid"]',
       title: 'Connect your world',
@@ -101,7 +103,7 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 5 — /skills (channels) ─────────────────────────────────────
+    // ── Step 5 — /skills (Connections channels) ──────────────────────────
     {
       target: '[data-walkthrough="skills-channels"]',
       title: 'Chat where you already are',
@@ -114,10 +116,10 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 6 — /intelligence ────────────────────────────────────────────
+    // ── Step 6 — /intelligence (Activity) ────────────────────────────────
     {
       target: '[data-walkthrough="intelligence-header"]',
-      title: "Your assistant's brain",
+      title: 'Your activity hub',
       content:
         'This is where your assistant learns and remembers. It gets smarter the more you use it.',
       placement: 'bottom',
@@ -157,7 +159,7 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
 
     // ── Step 8 — /home (already there) ───────────────────────────────────
     {
-      target: '[data-walkthrough="tab-notifications"]',
+      target: '[data-walkthrough="tab-activity"]',
       title: 'Stay in the loop',
       content: 'Alerts and automations live here — briefings, notifications, background activity.',
       placement: 'top',
