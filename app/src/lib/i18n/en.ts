@@ -313,6 +313,8 @@ const en: TranslationMap = {
   'skills.explorer.registryEmptyTitle': 'No registry entries',
   'skills.explorer.registryEmptyDescription':
     'Could not load the skill registry. Check your connection and try refreshing.',
+  'skills.explorer.showingOf':
+    'Showing {shown} of {total} results. Refine your search to see more.',
   'skills.explorer.installed': 'Installed',
   'skills.explorer.install': 'Install',
   'skills.explorer.installing': 'Installing…',
@@ -1508,11 +1510,13 @@ const en: TranslationMap = {
   'mcp.tab.column.name': 'Name',
   'mcp.tab.column.description': 'Description',
   'mcp.tab.column.source': 'Source',
+  'mcp.tab.column.author': 'Author',
   'mcp.tab.column.action': 'Action',
   'mcp.tab.badge.installed': 'Installed',
   'mcp.tab.badge.registry': 'Registry',
   'mcp.tab.action.manage': 'Manage',
   'mcp.tab.aria.viewDetails': 'View details for {name}',
+  'mcp.tab.aria.installServer': 'Install {name}',
   'mcp.install.loadingDetail': 'Loading server details...',
   'mcp.install.back': 'Go back',
   'mcp.install.title': 'Install {name}',
@@ -1528,6 +1532,17 @@ const en: TranslationMap = {
   'mcp.install.failedInstall': 'Install failed',
   'mcp.install.button': 'Install',
   'mcp.install.installing': 'Installing...',
+  'mcp.install.by': 'by',
+  'mcp.install.transportLocal': 'Runs locally',
+  'mcp.install.transportRemote': 'Cloud hosted',
+  'mcp.install.useCount': '{count} installs',
+  'mcp.install.deployed': 'Deployed',
+  'mcp.install.requiresConfig': 'Requires configuration',
+  'mcp.install.connections': 'Available connections',
+  'mcp.install.published': 'published',
+  'mcp.install.configureAndInstall': 'Configure & install',
+  'mcp.install.configureTitle': 'Configure {name}',
+  'mcp.install.advancedConfig': 'Advanced configuration',
   'mcp.detail.suggestedEnvReady': 'Suggested environment values ready',
   'mcp.detail.suggestedEnvBody':
     'Re-install this server with the suggested values to apply them: {keys}',
@@ -2229,7 +2244,10 @@ const en: TranslationMap = {
   'chat.attachment.tooMany': 'Maximum {max} images per message',
   'chat.attachment.tooManyFiles': 'Maximum {max} files per message',
   'chat.attachment.tooLarge': 'Image exceeds {max} size limit',
-  'chat.attachment.unsupportedType': 'Unsupported file type. Use PNG, JPEG, WebP, GIF, or BMP.',
+  'chat.attachment.unsupportedType':
+    'Unsupported file type. Use an image (PNG, JPEG, WebP, GIF, BMP) or a PDF, TXT, or Markdown file.',
+  'chat.attachment.imageNotSupported':
+    'This model can’t read images. You can attach a pdf, txt, or md file.',
   'chat.attachment.readFailed': 'Could not read file',
 
   // Memory (additional)
@@ -3624,6 +3642,9 @@ const en: TranslationMap = {
   'settings.ai.temperatureOverrideValue': 'Temperature override (value)',
   'settings.ai.temperatureOverrideDesc':
     'Lower = more deterministic. Leave unchecked to use the provider default.',
+  'settings.ai.modelVision': 'Supports vision (image input)',
+  'settings.ai.modelVisionDesc':
+    'Enable if this model accepts images. Lets the chat composer attach images when this model is selected.',
   'settings.ai.testFailed': 'Test failed',
   'settings.ai.testingModel': 'Testing model...',
   'settings.ai.modelResponse': 'Model response',
@@ -4156,6 +4177,8 @@ const en: TranslationMap = {
   'settings.skillsRunner.error.missingRequired': 'Missing required input(s):',
   'settings.skillsRunner.error.run': 'Run failed to start:',
   'settings.skillsRunner.error.preflightGate': 'Preflight gate failed',
+  'settings.skillsRunner.error.runtimeUnavailable': 'Runtime unavailable',
+  'settings.skillsRunner.error.runtimeUnavailableDefault': 'unavailable',
   'settings.skillsRunner.schedule.heading': 'Schedule (recurring)',
   'settings.skillsRunner.schedule.help':
     'Save this workflow + inputs as a recurring cron job. The agent will call run_workflow at each tick.',
@@ -4672,6 +4695,8 @@ const en: TranslationMap = {
   'skills.create.title': 'New skill',
   'skills.detail.allowedTools': 'Allowed tools',
   'skills.detail.author': 'Author',
+  'skills.detail.license': 'License',
+  'skills.detail.description': 'Description',
   'skills.detail.bundledResources': 'Bundled resources',
   'skills.detail.run': 'Run',
   'skills.detail.runAriaLabel': 'Run this workflow',
@@ -4681,8 +4706,11 @@ const en: TranslationMap = {
   'skills.detail.noBundledResources': 'No bundled resources.',
   'skills.detail.platforms': 'Platforms',
   'skills.detail.relatedSkills': 'Related skills',
+  'skills.detail.source': 'Source URL',
   'skills.detail.sourceFormat': 'Format',
+  'skills.detail.stars': 'Stars',
   'skills.detail.tags': 'Tags',
+  'skills.detail.version': 'Version',
   'skills.detail.warnings': 'Warnings',
   'skills.install.errors.alreadyInstalledHint':
     'A skill with this slug already exists in the workspace. Remove it first or change the frontmatter `metadata.id` / `name`.',
