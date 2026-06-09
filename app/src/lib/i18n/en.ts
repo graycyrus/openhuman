@@ -82,6 +82,49 @@ const en: TranslationMap = {
   'settings.dangerZone': 'Danger Zone',
   'settings.account': 'Account',
   'settings.accountDesc': 'Recovery phrase, team, connections, and privacy',
+
+  // Settings layman groups (Phase 4 IA revamp)
+  'settings.groups.account': 'Account',
+  'settings.groups.assistant': 'Assistant',
+  'settings.groups.privacySecurity': 'Privacy & Security',
+  'settings.groups.notifications': 'Notifications',
+  'settings.groups.about': 'About',
+
+  // Settings — assistant group items
+  'settings.assistant.personality': 'Personality',
+  'settings.assistant.personalityDesc': 'Name, description, and SOUL.md persona',
+  'settings.assistant.voice': 'Voice',
+  'settings.assistant.voiceDesc': 'Speech-to-text and text-to-speech settings',
+  'settings.assistant.faceMascot': 'Face / Mascot',
+  'settings.assistant.faceMascotDesc': 'Pick the mascot color used across the app',
+  'settings.assistant.backgroundActivity': 'Background activity',
+  'settings.assistant.backgroundActivityDesc':
+    'Control how actively your assistant works in the background',
+  'settings.assistant.screenAwareness': 'Screen awareness',
+  'settings.assistant.screenAwarenessDesc': 'Let the assistant see your active window',
+  'settings.assistant.desktopCompanion': 'Desktop companion',
+  'settings.assistant.desktopCompanionDesc': 'Always-on companion mode with a system-tray shortcut',
+
+  // Settings — privacy & security group items
+  'settings.privacySecurity.privacy': 'Privacy',
+  'settings.privacySecurity.privacyDesc': 'Control what data leaves your computer',
+  'settings.privacySecurity.security': 'Security',
+  'settings.privacySecurity.securityDesc': 'Sessions and sign-in options',
+  'settings.privacySecurity.approvalsHistory': 'Approvals & history',
+  'settings.privacySecurity.approvalsHistoryDesc': 'Review recent tool-approval decisions',
+
+  // Settings — notifications group items
+  'settings.notifications.menuTitle': 'Notifications',
+  'settings.notifications.menuDesc': 'Alerts inbox and notification preferences',
+
+  // Developer & Diagnostics — 7 sub-section group labels
+  'settings.devGroups.knowledgeMemory': 'Knowledge & Memory',
+  'settings.devGroups.agentsAutonomy': 'Agents & Autonomy',
+  'settings.devGroups.modelsInference': 'Models & Inference',
+  'settings.devGroups.automationIntegrations': 'Automation & Integrations',
+  'settings.devGroups.toolsCapabilities': 'Tools & Capabilities',
+  'settings.devGroups.council': 'Council',
+  'settings.devGroups.diagnosticsLogs': 'Diagnostics & Logs',
   'settings.notifications': 'Notifications',
   'settings.notificationsDesc': 'Do Not Disturb and per-account notification controls',
   'settings.notifications.tabs.preferences': 'Preferences',

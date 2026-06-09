@@ -108,29 +108,74 @@ describe('SettingsHome', () => {
     devModeHoisted.value = false;
   });
 
-  describe('flat menu', () => {
-    // Section headers ("General", "Features & AI", "Billing & Rewards",
-    // "Support", "Danger Zone") were intentionally removed — the menu is
-    // now a single flat list to reduce visual noise.
-    it.each(['General', 'Features & AI', 'Billing & Rewards', 'Support', 'Danger Zone'])(
-      'does not render section header: %s',
-      label => {
-        renderSettingsHome();
-        expect(screen.queryByText(label)).not.toBeInTheDocument();
-      }
-    );
-
-    it('renders the core menu items in a single list', () => {
+  describe('layman groups structure', () => {
+    it('renders all five always-visible group containers', () => {
       renderSettingsHome();
-      expect(screen.getByText('Account')).toBeInTheDocument();
-      expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
-      // Developer & Diagnostics entry is hidden by default (developerMode=false)
-      expect(screen.queryByTestId('settings-nav-developer-options')).not.toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-account')).toBeInTheDocument();
+      // Verify group containers via stable data-testid (group.id).
+      expect(screen.getByTestId('settings-group-account')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-group-assistant')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-group-privacy-security')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-group-notifications')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-group-about')).toBeInTheDocument();
     });
 
-    it('no longer renders Alerts / Notifications on the home screen', () => {
-      // Both moved into the Advanced → Notifications hub.
+    it('renders the Account group items', () => {
+      renderSettingsHome();
+      // Account group has: Account, Language, Appearance, Devices
+      expect(screen.getByTestId('settings-nav-account')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-language')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-appearance')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-devices')).toBeInTheDocument();
+    });
+
+    it('renders the Assistant group items', () => {
+      renderSettingsHome();
+      // Personality, Voice, Face/Mascot, Background activity, Screen awareness, Desktop companion
+      expect(screen.getByTestId('settings-nav-persona')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-voice')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-mascot')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-activity-level')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-screen-intelligence')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-companion')).toBeInTheDocument();
+    });
+
+    it('renders the Privacy & Security group items', () => {
+      renderSettingsHome();
+      expect(screen.getByTestId('settings-nav-privacy')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-security')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-approval-history')).toBeInTheDocument();
+    });
+
+    it('renders the Notifications group item', () => {
+      renderSettingsHome();
+      expect(screen.getByTestId('settings-nav-notifications-hub')).toBeInTheDocument();
+    });
+
+    it('renders the About item always (even without developer mode)', () => {
+      renderSettingsHome({ developerMode: false });
+      expect(screen.getByTestId('settings-nav-about')).toBeInTheDocument();
+    });
+
+    it('old flat section headers are not rendered', () => {
+      // Section headers ("General", "Features & AI", "Billing & Rewards",
+      // "Support", "Danger Zone") were removed in Phase 4.
+      renderSettingsHome();
+      expect(screen.queryByText('Features & AI')).not.toBeInTheDocument();
+      expect(screen.queryByText('Support')).not.toBeInTheDocument();
+      expect(screen.queryByText('Danger Zone')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('items no longer on the home screen', () => {
+    it('no longer renders Agents / Crypto section pages on the home screen', () => {
+      // These moved into the Developer & Diagnostics sub-tree (Agents & Autonomy).
+      renderSettingsHome();
+      expect(screen.queryByTestId('settings-nav-agents-settings')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-crypto')).not.toBeInTheDocument();
+    });
+
+    it('no longer renders Alerts / stand-alone Notifications on the home screen', () => {
+      // Notifications now lives in its own Notifications group (notifications-hub).
       renderSettingsHome();
       expect(screen.queryByTestId('settings-nav-alerts')).not.toBeInTheDocument();
       expect(screen.queryByTestId('settings-nav-notifications')).not.toBeInTheDocument();
@@ -143,58 +188,117 @@ describe('SettingsHome', () => {
       expect(screen.queryByText('Log out')).not.toBeInTheDocument();
     });
 
-    it('localizes Appearance and Mascot menu items', () => {
-      renderSettingsHome({ locale: 'zh-CN', withI18n: true });
-
-      expect(screen.getByText('外观')).toBeInTheDocument();
-      expect(screen.getByText('选择浅色、深色或跟随系统主题')).toBeInTheDocument();
-      expect(screen.getByText('吉祥物')).toBeInTheDocument();
-      expect(screen.getByText('选择应用内使用的吉祥物颜色')).toBeInTheDocument();
-    });
-
-    it('no longer renders Features / AI / Rewards / Restart Tour / About on the home screen', () => {
+    it('no longer renders Features / AI Configuration / Rewards / Restart Tour on the home screen', () => {
       renderSettingsHome();
       expect(screen.queryByText('Features')).not.toBeInTheDocument();
       expect(screen.queryByText('AI Configuration')).not.toBeInTheDocument();
       expect(screen.queryByText('Rewards')).not.toBeInTheDocument();
       expect(screen.queryByText('Restart Tour')).not.toBeInTheDocument();
-      expect(screen.queryByText('About')).not.toBeInTheDocument();
     });
   });
 
   describe('language selector', () => {
     it('offers Bahasa Indonesia as a display language', () => {
       renderSettingsHome();
-
       expect(screen.getByRole('option', { name: /Bahasa Indonesia/ })).toHaveValue('id');
     });
   });
 
-  describe('existing navigation items', () => {
+  describe('navigation — layman groups', () => {
     it('navigates to account settings when Account is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      await user.click(screen.getByText('Account').closest('button')!);
+      await user.click(screen.getByTestId('settings-nav-account'));
       expect(mockNavigateToSettings).toHaveBeenCalledWith('account');
     });
 
-    it('navigates to the Agents section when Agents is clicked', async () => {
+    it('navigates to persona when Personality is clicked', async () => {
       const user = userEvent.setup();
-      renderSettingsHome();
+      renderSettingsHome({ withI18n: true });
 
-      // Persona, Agent OS access, etc. now live under the Agents section page.
-      await user.click(screen.getByText('Agents').closest('button')!);
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('agents-settings');
+      await user.click(screen.getByTestId('settings-nav-persona'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('persona');
     });
 
-    it('navigates to the Crypto section when Crypto is clicked', async () => {
+    it('navigates to voice when Voice is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      // Recovery phrase + wallet balances now live under the Crypto section page.
-      await user.click(screen.getByText('Crypto').closest('button')!);
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('crypto');
+      await user.click(screen.getByTestId('settings-nav-voice'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('voice');
+    });
+
+    it('navigates to mascot when Face / Mascot is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-mascot'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('mascot');
+    });
+
+    it('navigates to activity-level when Background activity is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-activity-level'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('activity-level');
+    });
+
+    it('navigates to screen-intelligence when Screen awareness is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-screen-intelligence'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('screen-intelligence');
+    });
+
+    it('navigates to companion when Desktop companion is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-companion'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('companion');
+    });
+
+    it('navigates to privacy when Privacy is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-privacy'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('privacy');
+    });
+
+    it('navigates to security when Security is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-security'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('security');
+    });
+
+    it('navigates to approval-history when Approvals & history is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-approval-history'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('approval-history');
+    });
+
+    it('navigates to notifications-hub when Notifications is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-notifications-hub'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('notifications-hub');
+    });
+
+    it('navigates to about when About is clicked', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-about'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('about');
     });
 
     it('opens billing URL when Billing & Usage is clicked', async () => {
@@ -202,7 +306,7 @@ describe('SettingsHome', () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      await user.click(screen.getByText('Billing & Usage').closest('button')!);
+      await user.click(screen.getByTestId('settings-nav-billing'));
       expect(openUrl).toHaveBeenCalledWith('https://billing.example.com');
     });
 
@@ -210,7 +314,7 @@ describe('SettingsHome', () => {
       const user = userEvent.setup();
       renderSettingsHome({ developerMode: true });
 
-      await user.click(screen.getByText('Developer & Diagnostics').closest('button')!);
+      await user.click(screen.getByTestId('settings-nav-developer-options'));
       expect(mockNavigateToSettings).toHaveBeenCalledWith('developer-options');
     });
   });
@@ -252,6 +356,16 @@ describe('SettingsHome', () => {
       expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
     });
   });
+
+  describe('i18n — Chinese locale', () => {
+    it('localizes Appearance and Mascot menu items', () => {
+      renderSettingsHome({ locale: 'zh-CN', withI18n: true });
+
+      expect(screen.getByText('外观')).toBeInTheDocument();
+      expect(screen.getByText('选择浅色、深色或跟随系统主题')).toBeInTheDocument();
+    });
+  });
+
   // Clear App Data flow moved to LogoutAndClearActions (rendered on Account
   // page) — see LogoutAndClearActions.test.tsx.
 });

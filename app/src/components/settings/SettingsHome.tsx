@@ -11,10 +11,9 @@ import SettingsHeader from './components/SettingsHeader';
 import SettingsMenuItem from './components/SettingsMenuItem';
 import { useSettingsNavigation } from './hooks/useSettingsNavigation';
 
-interface SettingsSection {
-  label: string;
-  items: SettingsItem[];
-}
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface SettingsItem {
   id: string;
@@ -26,6 +25,221 @@ interface SettingsItem {
   rightElement?: ReactNode;
 }
 
+interface SettingsGroup {
+  /** Stable identifier for testing and key prop */
+  id: string;
+  /** i18n label shown above the card */
+  label: string;
+  items: SettingsItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Icon helpers (inline SVG kept as constants to avoid duplication)
+// ---------------------------------------------------------------------------
+
+const AccountIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+    />
+  </svg>
+);
+
+const LanguageIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+    />
+  </svg>
+);
+
+const AppearanceIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+    />
+  </svg>
+);
+
+const DevicesIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+    />
+  </svg>
+);
+
+const PersonalityIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+    />
+  </svg>
+);
+
+const VoiceIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+    />
+  </svg>
+);
+
+const MascotIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 21a9 9 0 100-18 9 9 0 000 18zM9 10h.01M15 10h.01M9.5 15c.83.67 1.67 1 2.5 1s1.67-.33 2.5-1"
+    />
+  </svg>
+);
+
+const ActivityIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M13 10V3L4 14h7v7l9-11h-7z"
+    />
+  </svg>
+);
+
+const ScreenIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 5h18v12H3zM8 21h8m-4-4v4"
+    />
+  </svg>
+);
+
+const CompanionIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+    />
+  </svg>
+);
+
+const PrivacyIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+    />
+  </svg>
+);
+
+const SecurityIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+    />
+  </svg>
+);
+
+const ApprovalsIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+    />
+  </svg>
+);
+
+const NotificationsIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+    />
+  </svg>
+);
+
+const DeveloperIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+    />
+  </svg>
+);
+
+const AboutIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const BillingIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H5a3 3 0 00-3 3v8a3 3 0 003 3z"
+    />
+  </svg>
+);
+
+// ---------------------------------------------------------------------------
+// Group header (visual separator label above each settings card)
+// ---------------------------------------------------------------------------
+
+const GroupHeader = ({ label }: { label: string }) => (
+  <div className="px-1 pt-5 pb-1">
+    <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+      {label}
+    </span>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 const SettingsHome = () => {
   const { navigateToSettings } = useSettingsNavigation();
   const { t } = useT();
@@ -33,190 +247,207 @@ const SettingsHome = () => {
   const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
   const developerMode = useDeveloperMode();
 
-  const settingsSections: SettingsSection[] = [
-    {
-      label: t('settings.general'),
-      items: [
-        {
-          id: 'account',
-          title: t('settings.account'),
-          description: t('settings.accountDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('account'),
-        },
-        // Alerts (inbox) + Notifications (preferences) now live together under
-        // the Advanced → Notifications hub (see DeveloperOptionsPanel).
-        {
-          id: 'devices',
-          title: 'Devices',
-          description: 'Pair iOS phones with this OpenHuman',
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('devices'),
-        },
-        {
-          id: 'language',
-          title: t('settings.language'),
-          description: t('settings.languageDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-              />
-            </svg>
-          ),
-          rightElement: <LanguageSelect ariaLabel={t('settings.language')} />,
-        },
-        {
-          id: 'appearance',
-          title: t('settings.appearance.title'),
-          description: t('settings.appearance.menuDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('appearance'),
-        },
-        {
-          id: 'agents-settings',
-          title: t('settings.agentsSection.title'),
-          description: t('settings.agentsSection.menuDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 7h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 01-2-2V9a2 2 0 012-2zm2 4h.01M15 11h.01M9.5 15h5"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('agents-settings'),
-        },
-        {
-          id: 'crypto',
-          title: t('settings.cryptoSection.title'),
-          description: t('settings.cryptoSection.menuDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10c-1.11 0-2.08-.402-2.599-1M12 16v2m0-12a9 9 0 100 18 9 9 0 000-18z"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('crypto'),
-        },
-        {
-          id: 'mascot',
-          title: t('settings.mascot.menuTitle'),
-          description: t('settings.mascot.menuDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 21a9 9 0 100-18 9 9 0 000 18zM9 10h.01M15 10h.01M9.5 15c.83.67 1.67 1 2.5 1s1.67-.33 2.5-1"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('mascot'),
-        },
-      ],
-    },
-    // Features tile (Screen Awareness / Messaging Channels / Notifications /
-    // Tools) used to live here. Everything under it moved into Advanced
-    // (DeveloperOptionsPanel), so the section is gone from the home menu.
-    // Billing & Rewards requires a backend-authenticated session.
-    // Hidden in local/offline mode — no auth headers are sent and the
-    // billing dashboard would not recognise the session.
-    ...(!isLocalSession
-      ? [
-          {
-            label: t('settings.billingAndRewards'),
-            items: [
-              {
-                id: 'billing',
-                title: t('settings.billingUsage'),
-                description: t('settings.billingUsageDesc'),
-                icon: (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H5a3 3 0 00-3 3v8a3 3 0 003 3z"
-                    />
-                  </svg>
-                ),
-                onClick: () => {
-                  openUrl(BILLING_DASHBOARD_URL).catch(() => {});
-                },
-              },
-            ],
-          } satisfies SettingsSection,
-        ]
-      : []),
-    // Developer & Diagnostics entry is hidden when developer mode is off.
-    // About is always accessible (chicken-and-egg: that's where the toggle lives).
-    ...(developerMode
-      ? [
-          {
-            label: t('settings.advanced'),
-            items: [
-              {
-                id: 'developer-options',
-                title: t('settings.developerDiagnostics'),
-                description: t('settings.developerDiagnosticsDesc'),
-                icon: (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-                    />
-                  </svg>
-                ),
-                onClick: () => navigateToSettings('developer-options'),
-              },
-            ],
-          } satisfies SettingsSection,
-        ]
-      : []),
+  // --- 👤 Account group ---
+  const accountGroup: SettingsGroup = {
+    id: 'account',
+    label: t('settings.groups.account'),
+    items: [
+      {
+        id: 'account',
+        title: t('settings.account'),
+        description: t('settings.accountDesc'),
+        icon: AccountIcon,
+        onClick: () => navigateToSettings('account'),
+      },
+      {
+        id: 'language',
+        title: t('settings.language'),
+        description: t('settings.languageDesc'),
+        icon: LanguageIcon,
+        rightElement: <LanguageSelect ariaLabel={t('settings.language')} />,
+      },
+      {
+        id: 'appearance',
+        title: t('settings.appearance.title'),
+        description: t('settings.appearance.menuDesc'),
+        icon: AppearanceIcon,
+        onClick: () => navigateToSettings('appearance'),
+      },
+      {
+        id: 'devices',
+        title: 'Devices',
+        description: 'Pair iOS phones with this OpenHuman',
+        icon: DevicesIcon,
+        onClick: () => navigateToSettings('devices'),
+      },
+    ],
+  };
+
+  // --- 🤖 Assistant group ---
+  const assistantGroup: SettingsGroup = {
+    id: 'assistant',
+    label: t('settings.groups.assistant'),
+    items: [
+      {
+        id: 'persona',
+        title: t('settings.assistant.personality'),
+        description: t('settings.assistant.personalityDesc'),
+        icon: PersonalityIcon,
+        onClick: () => navigateToSettings('persona'),
+      },
+      {
+        id: 'voice',
+        title: t('settings.assistant.voice'),
+        description: t('settings.assistant.voiceDesc'),
+        icon: VoiceIcon,
+        onClick: () => navigateToSettings('voice'),
+      },
+      {
+        id: 'mascot',
+        title: t('settings.assistant.faceMascot'),
+        description: t('settings.assistant.faceMascotDesc'),
+        icon: MascotIcon,
+        onClick: () => navigateToSettings('mascot'),
+      },
+      {
+        id: 'activity-level',
+        title: t('settings.assistant.backgroundActivity'),
+        description: t('settings.assistant.backgroundActivityDesc'),
+        icon: ActivityIcon,
+        onClick: () => navigateToSettings('activity-level'),
+      },
+      {
+        id: 'screen-intelligence',
+        title: t('settings.assistant.screenAwareness'),
+        description: t('settings.assistant.screenAwarenessDesc'),
+        icon: ScreenIcon,
+        onClick: () => navigateToSettings('screen-intelligence'),
+      },
+      {
+        id: 'companion',
+        title: t('settings.assistant.desktopCompanion'),
+        description: t('settings.assistant.desktopCompanionDesc'),
+        icon: CompanionIcon,
+        onClick: () => navigateToSettings('companion'),
+      },
+    ],
+  };
+
+  // --- 🔒 Privacy & Security group ---
+  const privacySecurityGroup: SettingsGroup = {
+    id: 'privacy-security',
+    label: t('settings.groups.privacySecurity'),
+    items: [
+      {
+        id: 'privacy',
+        title: t('settings.privacySecurity.privacy'),
+        description: t('settings.privacySecurity.privacyDesc'),
+        icon: PrivacyIcon,
+        onClick: () => navigateToSettings('privacy'),
+      },
+      {
+        id: 'security',
+        title: t('settings.privacySecurity.security'),
+        description: t('settings.privacySecurity.securityDesc'),
+        icon: SecurityIcon,
+        onClick: () => navigateToSettings('security'),
+      },
+      {
+        id: 'approval-history',
+        title: t('settings.privacySecurity.approvalsHistory'),
+        description: t('settings.privacySecurity.approvalsHistoryDesc'),
+        icon: ApprovalsIcon,
+        onClick: () => navigateToSettings('approval-history'),
+      },
+    ],
+  };
+
+  // --- 🔔 Notifications group ---
+  const notificationsGroup: SettingsGroup = {
+    id: 'notifications',
+    label: t('settings.groups.notifications'),
+    items: [
+      {
+        id: 'notifications-hub',
+        title: t('settings.notifications.menuTitle'),
+        description: t('settings.notifications.menuDesc'),
+        icon: NotificationsIcon,
+        onClick: () => navigateToSettings('notifications-hub'),
+      },
+    ],
+  };
+
+  // --- ℹ️ About group (always visible) ---
+  const aboutGroup: SettingsGroup = {
+    id: 'about',
+    label: t('settings.groups.about'),
+    items: [
+      {
+        id: 'about',
+        title: t('settings.about'),
+        description: t('settings.aboutDesc'),
+        icon: AboutIcon,
+        onClick: () => navigateToSettings('about'),
+      },
+    ],
+  };
+
+  // --- Always-visible groups ---
+  const visibleGroups: SettingsGroup[] = [
+    accountGroup,
+    assistantGroup,
+    privacySecurityGroup,
+    notificationsGroup,
   ];
 
-  // Log Out and Clear App Data now live on the Account page (Settings → Account)
-  // alongside the recovery phrase, team, privacy, and migration entries.
+  // --- Billing section (hidden in local / offline mode) ---
+  // Billing & Rewards requires a backend-authenticated session.
+  // Hidden in local/offline mode — no auth headers are sent and the
+  // billing dashboard would not recognise the session.
+  const billingGroup: SettingsGroup | null = !isLocalSession
+    ? {
+        id: 'billing',
+        label: t('settings.billingAndRewards'),
+        items: [
+          {
+            id: 'billing',
+            title: t('settings.billingUsage'),
+            description: t('settings.billingUsageDesc'),
+            icon: BillingIcon,
+            onClick: () => {
+              openUrl(BILLING_DASHBOARD_URL).catch(() => {});
+            },
+          },
+        ],
+      }
+    : null;
+
+  // --- Developer & Diagnostics (gated) ---
+  // The Developer & Diagnostics entry is hidden when developer mode is off.
+  // About is always accessible — that's where the toggle lives (chicken-and-egg).
+  const developerGroup: SettingsGroup | null = developerMode
+    ? {
+        id: 'developer',
+        label: t('settings.advanced'),
+        items: [
+          {
+            id: 'developer-options',
+            title: t('settings.developerDiagnostics'),
+            description: t('settings.developerDiagnosticsDesc'),
+            icon: DeveloperIcon,
+            onClick: () => navigateToSettings('developer-options'),
+          },
+        ],
+      }
+    : null;
+
+  // Build the final ordered list of groups
+  const groups: SettingsGroup[] = [
+    ...visibleGroups,
+    ...(billingGroup ? [billingGroup] : []),
+    ...(developerGroup ? [developerGroup] : []),
+    aboutGroup,
+  ];
 
   return (
     <div className="z-10 relative">
@@ -225,25 +456,27 @@ const SettingsHome = () => {
       </div>
 
       <div>
-        {/* Flat list — group titles removed for clarity. Destructive
-            actions (Log Out, Clear App Data) now live on the Account page. */}
-        {(() => {
-          const flatItems = settingsSections.flatMap(s => s.items);
-          return flatItems.map((item, index) => (
-            <SettingsMenuItem
-              key={item.id}
-              icon={item.icon}
-              title={item.title}
-              description={item.description}
-              onClick={item.onClick}
-              testId={`settings-nav-${item.id}`}
-              dangerous={item.dangerous}
-              isFirst={index === 0}
-              isLast={index === flatItems.length - 1}
-              rightElement={item.rightElement}
-            />
-          ));
-        })()}
+        {groups.map(group => (
+          <div key={group.id} data-testid={`settings-group-${group.id}`}>
+            <GroupHeader label={group.label} />
+            <div className="rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">
+              {group.items.map((item, index) => (
+                <SettingsMenuItem
+                  key={item.id}
+                  icon={item.icon}
+                  title={item.title}
+                  description={item.description}
+                  onClick={item.onClick}
+                  testId={`settings-nav-${item.id}`}
+                  dangerous={item.dangerous}
+                  isFirst={index === 0}
+                  isLast={index === group.items.length - 1}
+                  rightElement={item.rightElement}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
