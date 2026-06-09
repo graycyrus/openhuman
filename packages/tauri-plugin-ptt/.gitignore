@@ -1,4 +1,0 @@
-target/
-ios/.build/
-.tauri/
-ios/Package.resolved
