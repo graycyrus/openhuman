@@ -323,9 +323,11 @@ const SettingsHome = () => {
       }
     : null;
 
-  // Build the final ordered list of groups
-  const groups: SettingsGroup[] = [
-    ...visibleGroups,
+  // The layman groups (Account / Assistant / Privacy / Notifications) render as a
+  // single flat card with no section subheadings. Developer & Diagnostics (when
+  // on) and About sit after a divider, each in their own card.
+  const laymanItems: SettingsItem[] = visibleGroups.flatMap(group => group.items);
+  const trailingGroups: SettingsGroup[] = [
     ...(developerGroup ? [developerGroup] : []),
     aboutGroup,
   ];
@@ -337,7 +339,27 @@ const SettingsHome = () => {
       </div>
 
       <div className="px-4 pb-5">
-        {groups.map(group => (
+        {/* Merged layman card — no Account/Assistant/… subheadings. */}
+        <div
+          data-testid="settings-group-main"
+          className="rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">
+          {laymanItems.map((item, index) => (
+            <SettingsMenuItem
+              key={item.id}
+              icon={item.icon}
+              title={item.title}
+              description={item.description}
+              onClick={item.onClick}
+              testId={`settings-nav-${item.id}`}
+              dangerous={item.dangerous}
+              isFirst={index === 0}
+              isLast={index === laymanItems.length - 1}
+              rightElement={item.rightElement}
+            />
+          ))}
+        </div>
+
+        {trailingGroups.map(group => (
           <div key={group.id} data-testid={`settings-group-${group.id}`}>
             <GroupHeader label={group.label} />
             <div className="rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">

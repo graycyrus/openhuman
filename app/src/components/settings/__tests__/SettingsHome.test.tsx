@@ -109,14 +109,14 @@ describe('SettingsHome', () => {
   });
 
   describe('layman groups structure', () => {
-    it('renders all five always-visible group containers', () => {
+    it('renders the merged layman card and the About container', () => {
       renderSettingsHome();
-      // Verify group containers via stable data-testid (group.id).
-      expect(screen.getByTestId('settings-group-account')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-group-assistant')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-group-privacy-security')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-group-notifications')).toBeInTheDocument();
+      // The layman groups (Account/Assistant/Privacy/Notifications) merge into a
+      // single card with no subheadings; About keeps its own container.
+      expect(screen.getByTestId('settings-group-main')).toBeInTheDocument();
       expect(screen.getByTestId('settings-group-about')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-group-account')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-group-assistant')).not.toBeInTheDocument();
     });
 
     it('renders the Account group items', () => {
