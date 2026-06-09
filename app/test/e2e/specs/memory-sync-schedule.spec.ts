@@ -9,8 +9,8 @@ import { startMockServer, stopMockServer } from '../mock-server';
 /**
  * E2E for the global memory-sync schedule control (#3302).
  *
- * Drives the real React UI + in-process core: navigate to Intelligence →
- * Memory, confirm the schedule defaults to "Every 24h", pick the 4h preset,
+ * Drives the real React UI + in-process core: navigate to Settings → Account →
+ * Data Sync, confirm the schedule defaults to "Every 24h", pick the 4h preset,
  * confirm the summary updates, then re-navigate to prove the choice persisted
  * through `config_update_memory_sync_settings` / `config_get_memory_sync_settings`.
  *
@@ -27,18 +27,11 @@ function stepLog(message: string, context?: unknown): void {
 }
 
 async function gotoMemoryWorkspace(): Promise<void> {
-  // Phase 3: /intelligence → /activity; Memory tab is dev-gated.
-  // Seed developer mode via persist:theme so the tab is visible, then navigate.
+  // The memory-sync schedule control lives on the layman Data Sync page
+  // (Settings → Account → Data Sync), which renders MemorySourcesRegistry and
+  // its schedule control without needing developer mode.
   await browser.execute(() => {
-    try {
-      const raw = localStorage.getItem('persist:theme');
-      const parsed: Record<string, string> = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-      parsed.developerMode = JSON.stringify(true);
-      localStorage.setItem('persist:theme', JSON.stringify(parsed));
-    } catch {
-      // best-effort dev-mode seed; ignore storage failures
-    }
-    window.location.hash = '/activity?tab=memory';
+    window.location.hash = '/settings/memory-sync';
   });
   await browser.pause(2_000);
 }
@@ -91,9 +84,8 @@ describe('Memory sync schedule', () => {
     ).toBe('true');
 
     // Navigate away and back to prove the value was persisted server-side.
-    // Phase 3: /intelligence → /activity
     await browser.execute(() => {
-      window.location.hash = '/activity?tab=tasks';
+      window.location.hash = '/settings';
     });
     await browser.pause(1_000);
     await gotoMemoryWorkspace();
