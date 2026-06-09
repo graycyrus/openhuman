@@ -15,7 +15,8 @@ test.describe('Channels Smoke', () => {
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
 
-    await expect(page.getByText('Channels')).toBeVisible();
+    // /channels redirects to /connections?tab=messaging; the standalone
+    // "Channels" label is gone, so the connector cards are the assertion.
     await expect(page.getByRole('heading', { name: 'Telegram', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /Telegram Disconnected/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Discord Disconnected/ })).toBeVisible();

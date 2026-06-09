@@ -33,11 +33,13 @@ test.describe('Skills registry flow', () => {
   });
 
   test('navigates to /connections and renders the current tabs', async ({ page }) => {
-    // Phase 2: tabs renamed — Apps (was Composio), Messaging (was Channels), Tools (was MCP)
-    await expect(page.getByRole('tab', { name: 'Apps' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Messaging' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Tools' })).toBeVisible();
-    await page.getByRole('tab', { name: 'Apps' }).click();
+    // Phase 2: tabs renamed — Apps (was Composio), Messaging (was Channels), Tools (was MCP).
+    // `exact: true` on Tools avoids colliding with the "Tools & Automation" skill
+    // category pill (also role="tab").
+    await expect(page.getByRole('tab', { name: 'Apps', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Messaging', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Tools', exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Apps', exact: true }).click();
     // Phase 2: heading is now "Apps" (skills.integrations), "Composio Integrations" removed
     await expect(page.getByRole('heading', { name: 'Apps', exact: true })).toBeVisible();
     await expect(
@@ -52,15 +54,16 @@ test.describe('Skills registry flow', () => {
   });
 
   test('messaging tab renders messaging connectors', async ({ page }) => {
-    // Phase 2: "Channels" tab renamed to "Messaging"
-    await page.getByRole('tab', { name: 'Messaging' }).click();
-    await expect(page.getByRole('heading', { name: 'Channels' })).toBeVisible();
+    // Phase 2: "Channels" tab renamed to "Messaging". The standalone "Channels"
+    // heading is gone; the connector cards are the meaningful content.
+    await page.getByRole('tab', { name: 'Messaging', exact: true }).click();
     await expect(page.getByText(/Telegram|Discord|Slack/).first()).toBeVisible();
   });
 
   test('tools tab renders the server table', async ({ page }) => {
-    // Phase 2: "MCP Servers" tab renamed to "Tools"
-    await page.getByRole('tab', { name: 'Tools' }).click();
+    // Phase 2: "MCP Servers" tab renamed to "Tools" (exact to avoid the
+    // "Tools & Automation" category pill).
+    await page.getByRole('tab', { name: 'Tools', exact: true }).click();
     await expect(
       page
         .getByRole('searchbox')

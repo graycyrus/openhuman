@@ -16,10 +16,9 @@ test.describe('Skill lifecycle smoke', () => {
       .toContain('/connections');
 
     const text = await page.locator('#root').innerText();
+    // Connections page tab labels (IA revamp): Apps/Messaging/Tools/Explorer/Talents.
     expect(
-      ['Composio Integrations', 'Install', 'Available', 'Channels'].some(marker =>
-        text.includes(marker)
-      )
+      ['Apps', 'Messaging', 'Tools', 'Explorer', 'Talents'].some(marker => text.includes(marker))
     ).toBe(true);
 
     const rpcResult = await callCoreRpc<unknown>('openhuman.workflows_list', {});
