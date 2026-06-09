@@ -243,7 +243,8 @@ async function seedLocalStorage(page: Page) {
 }
 
 async function navigateToMcpTab(page: Page) {
-  await page.goto('/#/skills?tab=mcp');
+  // Phase 2: /skills → /connections, ?tab=mcp → ?tab=tools (back-compat alias also works)
+  await page.goto('/#/connections?tab=tools');
   await page.waitForSelector('#root', { state: 'visible', timeout: 20_000 });
   await page.locator('input[type="search"]').waitFor({ state: 'visible', timeout: 10_000 });
   await page.locator('table').waitFor({ state: 'visible', timeout: 10_000 });

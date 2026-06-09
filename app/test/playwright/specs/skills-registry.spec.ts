@@ -16,11 +16,12 @@ async function openSkillsPage(page: Parameters<typeof test>[0]['page'], userId: 
       localStorage.setItem('openhuman:walkthrough_completed', 'true');
       localStorage.removeItem('openhuman:walkthrough_pending');
     } catch {}
-    window.location.hash = '/skills';
+    // /skills redirects to /connections (Phase 2 rename)
+    window.location.hash = '/connections';
   });
   await expect
     .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
-    .toContain('/skills');
+    .toContain('/connections');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
 }
@@ -31,11 +32,12 @@ test.describe('Skills registry flow', () => {
     await openSkillsPage(page, 'pw-skills-registry-' + testSlug);
   });
 
-  test('navigates to /skills and renders the current tabs', async ({ page }) => {
-    await expect(page.getByRole('tab', { name: 'Composio' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Channels' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'MCP Servers' })).toBeVisible();
-    await page.getByRole('tab', { name: 'Composio' }).click();
+  test('navigates to /connections and renders the current tabs', async ({ page }) => {
+    // Phase 2: tabs renamed — Apps (was Composio), Messaging (was Channels), Tools (was MCP)
+    await expect(page.getByRole('tab', { name: 'Apps' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Messaging' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Tools' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Apps' }).click();
     await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible();
     await expect(
       page.getByText(/Gmail|Notion|Telegram|GitHub|Google Drive/, { exact: false }).first()
@@ -48,14 +50,16 @@ test.describe('Skills registry flow', () => {
     ).toBeVisible();
   });
 
-  test('channels tab renders messaging connectors', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Channels' }).click();
+  test('messaging tab renders messaging connectors', async ({ page }) => {
+    // Phase 2: "Channels" tab renamed to "Messaging"
+    await page.getByRole('tab', { name: 'Messaging' }).click();
     await expect(page.getByRole('heading', { name: 'Channels' })).toBeVisible();
     await expect(page.getByText(/Telegram|Discord|Slack/).first()).toBeVisible();
   });
 
-  test('mcp tab renders the server table', async ({ page }) => {
-    await page.getByRole('tab', { name: 'MCP Servers' }).click();
+  test('tools tab renders the server table', async ({ page }) => {
+    // Phase 2: "MCP Servers" tab renamed to "Tools"
+    await page.getByRole('tab', { name: 'Tools' }).click();
     await expect(
       page
         .getByRole('searchbox')

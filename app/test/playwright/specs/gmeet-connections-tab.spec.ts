@@ -8,7 +8,9 @@ import {
 
 test.describe('Google Meet Connections tab', () => {
   test.beforeEach(async ({ page }) => {
-    await bootAuthenticatedPage(page, 'pw-gmeet-connections-tab-user', '/skills?tab=meetings');
+    // Phase 2: /skills → /connections, meetings folded into the Tools tab (?tab=tools)
+    // Back-compat: ?tab=meetings alias still works and resolves to tools
+    await bootAuthenticatedPage(page, 'pw-gmeet-connections-tab-user', '/connections?tab=tools');
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
   });
@@ -16,7 +18,7 @@ test.describe('Google Meet Connections tab', () => {
   test('opens the dedicated tab and shows a one-field meeting link modal', async ({ page }) => {
     await expect
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
-      .toContain('/skills?tab=meetings');
+      .toContain('/connections');
 
     await expect(page.getByRole('tab', { name: 'Google Meet', exact: true })).toHaveAttribute(
       'aria-selected',
