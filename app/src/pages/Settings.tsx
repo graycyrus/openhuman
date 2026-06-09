@@ -10,6 +10,7 @@ import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
 import AgentEditorPage from '../components/settings/panels/AgentEditorPage';
 import AgentsPanel from '../components/settings/panels/AgentsPanel';
 import AIPanel from '../components/settings/panels/AIPanel';
+import AnalysisViewsPanel from '../components/settings/panels/AnalysisViewsPanel';
 import AppearancePanel from '../components/settings/panels/AppearancePanel';
 import ApprovalHistoryPanel from '../components/settings/panels/ApprovalHistoryPanel';
 import AutocompleteDebugPanel from '../components/settings/panels/AutocompleteDebugPanel';
@@ -648,6 +649,10 @@ const Settings = () => {
         />
         <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
         <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
+        <Route
+          path="analysis-views"
+          element={wrapSettingsPage(<AnalysisViewsPanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
         <Route path="intelligence" element={<Intelligence />} />
         <Route path="webhooks-triggers" element={<Webhooks />} />
         <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
