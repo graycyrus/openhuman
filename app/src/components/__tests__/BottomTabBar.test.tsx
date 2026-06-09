@@ -1,13 +1,13 @@
 /**
  * Tests for BottomTabBar — verifies that:
- *  - 6 tabs are rendered (no Rewards tab), Activity label is present
- *  - Human and Chat are present
+ *  - 5 tabs are rendered (no Rewards tab, no Human tab), Activity label is present
+ *  - Assistant tab is present (was "Chat", id stays 'chat', label now 'Assistant')
  *  - Walkthrough attributes reflect the new ids (tab-connections, tab-activity)
  *  - Avatar menu opens and shows Account / Billing / Rewards / Invites / Wallet
  *  - Clicking an avatar menu item navigates or opens URL
  *  - The bar is hidden on '/' and '/login' paths
  *
- * Updated for IA Phase 1: Rewards removed from bottom bar; connections/activity ids.
+ * Updated for IA Phase 6: Human tab removed; Chat renamed to Assistant.
  */
 import { configureStore } from '@reduxjs/toolkit';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -156,12 +156,12 @@ describe('BottomTabBar', () => {
     agentProfilesApiMock.select.mockResolvedValue(testProfiles);
   });
 
-  it('renders exactly 6 tab buttons', async () => {
+  it('renders exactly 5 tab buttons (Phase 6: Human merged into Assistant)', async () => {
     await renderBottomTabBar('/home');
     // Query only buttons inside <nav> to exclude the avatar button
     const nav = document.querySelector('nav');
     const navButtons = nav?.querySelectorAll('button:not([aria-haspopup])');
-    expect(navButtons).toHaveLength(6);
+    expect(navButtons).toHaveLength(5);
   });
 
   it('does NOT render a Rewards tab', async () => {
@@ -169,21 +169,21 @@ describe('BottomTabBar', () => {
     expect(screen.queryByRole('button', { name: 'Rewards' })).toBeNull();
   });
 
+  it('does NOT render a Human tab (Phase 6: merged into Assistant)', async () => {
+    await renderBottomTabBar('/home');
+    expect(screen.queryByRole('button', { name: 'Human' })).toBeNull();
+  });
+
   it('renders the Activity tab', async () => {
     await renderBottomTabBar('/home');
     expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument();
   });
 
-  it('renders the Human tab', async () => {
+  it('renders the Assistant tab (was Chat, Phase 6 rename)', async () => {
     await renderBottomTabBar('/home');
-    expect(screen.getByRole('button', { name: 'Human' })).toBeInTheDocument();
-  });
-
-  it('renders the Chat tab', async () => {
-    await renderBottomTabBar('/home');
-    const chatBtn = screen.getByRole('button', { name: 'Chat' });
-    expect(chatBtn).toBeInTheDocument();
-    expect(chatBtn).toHaveAttribute('data-walkthrough', 'tab-chat');
+    const assistantBtn = screen.getByRole('button', { name: 'Assistant' });
+    expect(assistantBtn).toBeInTheDocument();
+    expect(assistantBtn).toHaveAttribute('data-walkthrough', 'tab-chat');
   });
 
   it('renders the Connections tab with data-walkthrough="tab-connections"', async () => {
@@ -237,7 +237,8 @@ describe('BottomTabBar', () => {
     const { trackEvent } = await import('../../services/analytics');
     await renderBottomTabBar('/home');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    // Tab id is still 'chat' (back-compat) even though label is now 'Assistant'.
+    fireEvent.click(screen.getByRole('button', { name: 'Assistant' }));
 
     expect(trackEvent).toHaveBeenCalledWith('tab_bar_change', {
       from_tab: 'home',

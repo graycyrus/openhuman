@@ -3,6 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import AddAccountModal from '../components/accounts/AddAccountModal';
 import { AgentIcon, ProviderIcon } from '../components/accounts/providerIcons';
 import WebviewHost from '../components/accounts/WebviewHost';
+import {
+  CustomGifMascot,
+  getMascotPalette,
+  hexToArgbInt,
+  RiveMascot,
+} from '../features/human/Mascot';
+import { useHumanMascot } from '../features/human/useHumanMascot';
 import { usePrewarmMostRecentAccount } from '../hooks/usePrewarmMostRecentAccount';
 import { useT } from '../lib/i18n/I18nContext';
 import { trackEvent } from '../services/analytics';
@@ -19,9 +26,18 @@ import {
   setLastActiveAccount,
 } from '../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  selectCustomMascotGifUrl,
+  selectCustomPrimaryColor,
+  selectCustomSecondaryColor,
+  selectMascotColor,
+} from '../store/mascotSlice';
 import type { Account, AccountProvider, ProviderDescriptor } from '../types/accounts';
 import { AGENT_ACCOUNT_ID as AGENT_ID } from '../utils/accountsFullscreen';
-import { AgentChatPanel } from './Conversations';
+import Conversations, { AgentChatPanel } from './Conversations';
+
+// Persistence key for face-toggle state across sessions.
+const FACE_MODE_KEY = 'chat.faceMode';
 
 function makeAccountId(): string {
   const c = globalThis.crypto;
@@ -99,6 +115,83 @@ interface ContextMenuState {
   y: number;
 }
 
+/**
+ * Mascot + TTS panel rendered in face mode (right column of the Assistant
+ * surface).  Extracted as a separate component so its hooks only run when
+ * face mode is on — keeps the main Accounts component lean when the toggle
+ * is off.
+ *
+ * Phase 6 — reuses the exact same mascot subcomponents and useHumanMascot
+ * hook from features/human/ rather than duplicating any logic.
+ */
+const FaceModePanel = () => {
+  const { t } = useT();
+  const [speakReplies, setSpeakReplies] = useState<boolean>(() => {
+    try {
+      const raw = window.localStorage.getItem('human.speakReplies');
+      return raw === null ? true : raw === '1';
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('human.speakReplies', speakReplies ? '1' : '0');
+    } catch {
+      // localStorage may be unavailable in sandboxed contexts.
+    }
+  }, [speakReplies]);
+
+  const { face, visemeCode } = useHumanMascot({ speakReplies });
+  const mascotColor = useAppSelector(selectMascotColor);
+  const customPrimary = useAppSelector(selectCustomPrimaryColor);
+  const customSecondary = useAppSelector(selectCustomSecondaryColor);
+  const customMascotGifUrl = useAppSelector(selectCustomMascotGifUrl);
+
+  const palette = getMascotPalette(mascotColor);
+  const primaryColor = useMemo(
+    () => hexToArgbInt(mascotColor === 'custom' ? customPrimary : palette.bodyFill),
+    [mascotColor, customPrimary, palette]
+  );
+  const secondaryColor = useMemo(
+    () => hexToArgbInt(mascotColor === 'custom' ? customSecondary : palette.neckShadowColor),
+    [mascotColor, customSecondary, palette]
+  );
+
+  return (
+    <aside
+      className="flex w-[320px] flex-none flex-col items-center gap-4 bg-stone-50 dark:bg-neutral-900/60 rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0 py-4 px-3 overflow-hidden"
+      data-testid="face-mode-panel">
+      {/* Mascot stage */}
+      <div className="relative w-full aspect-square max-h-[260px]">
+        {customMascotGifUrl ? (
+          <CustomGifMascot src={customMascotGifUrl} face={face} />
+        ) : (
+          <RiveMascot
+            face={face}
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            visemeCode={visemeCode}
+          />
+        )}
+      </div>
+
+      {/* TTS / speak-replies toggle */}
+      <label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-full border border-stone-300 dark:border-neutral-700 bg-white/80 dark:bg-neutral-900/80 px-3 py-1.5 text-xs text-stone-700 dark:text-neutral-200 shadow-soft backdrop-blur-sm">
+        <input
+          type="checkbox"
+          checked={speakReplies}
+          onChange={e => setSpeakReplies(e.target.checked)}
+          className="cursor-pointer"
+          data-testid="speak-replies-toggle"
+        />
+        {t('voice.pushToTalk')}
+      </label>
+    </aside>
+  );
+};
+
 const Accounts = () => {
   const { t } = useT();
   const dispatch = useAppDispatch();
@@ -108,6 +201,28 @@ const Accounts = () => {
   const unreadByAccount = useAppSelector(state => state.accounts.unread);
   const [addOpen, setAddOpen] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
+
+  // Face-mode toggle — persists across sessions.  Face mode only affects the
+  // agent-chat surface (external webview accounts ignore it).
+  const [faceMode, setFaceMode] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(FACE_MODE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleFaceMode = () => {
+    setFaceMode(prev => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(FACE_MODE_KEY, next ? '1' : '0');
+      } catch {
+        // Swallow storage errors.
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     startWebviewAccountService();
@@ -282,10 +397,60 @@ const Accounts = () => {
         </button>
       </aside>
 
-      {/* Main pane */}
-      <main className="flex min-w-0 flex-1 flex-col">
+      {/* Main pane
+          In face mode (agent selected), the layout is a horizontal split:
+          the chat panel on the left and the mascot panel on the right.
+          Face mode is ignored when an external webview account is active. */}
+      <main
+        className={`flex min-w-0 flex-1 gap-3 ${isAgentSelected && faceMode ? 'flex-row' : 'flex-col'}`}>
         {isAgentSelected ? (
-          <AgentChatPanel />
+          <>
+            {/* Agent chat — face mode uses sidebar variant to avoid a second
+                thread list; normal mode uses the full-page variant (AgentChatPanel). */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              {faceMode ? (
+                <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
+                  {/* Face-mode header strip with toggle button */}
+                  <div className="flex shrink-0 items-center justify-end gap-2 border-b border-stone-200/70 dark:border-neutral-800/70 bg-white/80 dark:bg-neutral-900/80 px-3 py-1.5">
+                    <button
+                      type="button"
+                      onClick={toggleFaceMode}
+                      data-testid="face-toggle-button"
+                      aria-pressed={faceMode}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2.5 py-1 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/50"
+                      aria-label={t('assistant.faceMode.turnOff')}>
+                      <span aria-hidden="true">🙂</span>
+                      {t('assistant.faceMode.on')}
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <Conversations variant="sidebar" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Face-off header strip — subtle toggle button */}
+                  <div className="flex shrink-0 items-center justify-end gap-2 px-3 py-1.5">
+                    <button
+                      type="button"
+                      onClick={toggleFaceMode}
+                      data-testid="face-toggle-button"
+                      aria-pressed={faceMode}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 dark:border-neutral-700 bg-white/80 dark:bg-neutral-900/80 px-2.5 py-1 text-xs text-stone-500 dark:text-neutral-400 hover:border-primary-300 hover:text-primary-600 dark:hover:text-primary-400"
+                      aria-label={t('assistant.faceMode.turnOn')}>
+                      <span aria-hidden="true">🙂</span>
+                      {t('assistant.faceMode.off')}
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <AgentChatPanel />
+                  </div>
+                </>
+              )}
+            </div>
+            {/* Mascot + TTS panel — only visible in face mode */}
+            {faceMode && <FaceModePanel />}
+          </>
         ) : active ? (
           <div className="flex-1 py-3 pr-3">
             <WebviewHost accountId={active.id} provider={active.provider} />

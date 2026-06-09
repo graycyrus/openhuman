@@ -1,20 +1,23 @@
 /**
  * Tests for navConfig — verifies the shape, count, and key values of NAV_TABS
  * and AVATAR_MENU_ITEMS so regressions are caught early.
+ *
+ * Phase 6 update: Human tab removed; Chat tab renamed to "Assistant"
+ * (id stays 'chat', labelKey 'nav.assistant', walkthroughAttr 'tab-chat').
+ * Nav drops from 6 tabs to 5.
  */
 import { describe, expect, it } from 'vitest';
 
 import { AVATAR_MENU_ITEMS, NAV_TABS } from '../navConfig';
 
 describe('NAV_TABS', () => {
-  it('has exactly 6 entries', () => {
-    expect(NAV_TABS).toHaveLength(6);
+  it('has exactly 5 entries (Phase 6: Human merged into Assistant)', () => {
+    expect(NAV_TABS).toHaveLength(5);
   });
 
   it('has the correct ids in order', () => {
     expect(NAV_TABS.map(t => t.id)).toEqual([
       'home',
-      'human',
       'chat',
       'connections',
       'activity',
@@ -25,7 +28,6 @@ describe('NAV_TABS', () => {
   it('has the correct paths', () => {
     expect(NAV_TABS.map(t => t.path)).toEqual([
       '/home',
-      '/human',
       '/chat',
       '/connections',
       '/activity',
@@ -36,8 +38,7 @@ describe('NAV_TABS', () => {
   it('has the correct labelKeys', () => {
     expect(NAV_TABS.map(t => t.labelKey)).toEqual([
       'nav.home',
-      'nav.human',
-      'nav.chat',
+      'nav.assistant',
       'nav.connections',
       'nav.activity',
       'nav.settings',
@@ -47,12 +48,15 @@ describe('NAV_TABS', () => {
   it('has the correct walkthroughAttrs', () => {
     expect(NAV_TABS.map(t => t.walkthroughAttr)).toEqual([
       'tab-home',
-      'tab-human',
       'tab-chat',
       'tab-connections',
       'tab-activity',
       'tab-settings',
     ]);
+  });
+
+  it('does not contain a Human tab (Phase 6: merged into Assistant)', () => {
+    expect(NAV_TABS.find(t => t.id === 'human')).toBeUndefined();
   });
 
   it('does not contain a rewards tab', () => {
@@ -62,6 +66,14 @@ describe('NAV_TABS', () => {
   it('does not contain an intelligence or skills tab id', () => {
     expect(NAV_TABS.find(t => t.id === 'intelligence')).toBeUndefined();
     expect(NAV_TABS.find(t => t.id === 'skills')).toBeUndefined();
+  });
+
+  it('Assistant tab uses nav.assistant label key and tab-chat walkthrough attr', () => {
+    const assistantTab = NAV_TABS.find(t => t.id === 'chat');
+    expect(assistantTab).toBeDefined();
+    expect(assistantTab?.labelKey).toBe('nav.assistant');
+    expect(assistantTab?.walkthroughAttr).toBe('tab-chat');
+    expect(assistantTab?.path).toBe('/chat');
   });
 });
 

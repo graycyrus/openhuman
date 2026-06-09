@@ -20,13 +20,17 @@ export interface NavTab {
 }
 
 /**
- * Ordered list of bottom-bar tabs.  Exactly 6 entries:
- *   home → human → chat → connections → activity → settings
+ * Ordered list of bottom-bar tabs.  Exactly 5 entries (Phase 6: Human merged
+ * into Assistant):
+ *   home → chat (Assistant) → connections → activity → settings
+ *
+ * The tab id stays `chat` and walkthroughAttr stays `tab-chat` for
+ * back-compat with analytics and the walkthrough tour. The Human tab has been
+ * retired; `/human` redirects to `/chat`.
  */
 export const NAV_TABS: NavTab[] = [
   { id: 'home', labelKey: 'nav.home', path: '/home', walkthroughAttr: 'tab-home' },
-  { id: 'human', labelKey: 'nav.human', path: '/human', walkthroughAttr: 'tab-human' },
-  { id: 'chat', labelKey: 'nav.chat', path: '/chat', walkthroughAttr: 'tab-chat' },
+  { id: 'chat', labelKey: 'nav.assistant', path: '/chat', walkthroughAttr: 'tab-chat' },
   {
     id: 'connections',
     labelKey: 'nav.connections',

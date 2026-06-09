@@ -5,6 +5,13 @@ const en: TranslationMap = {
   'nav.home': 'Home',
   'nav.human': 'Human',
   'nav.chat': 'Chat',
+  'nav.assistant': 'Assistant',
+
+  // Assistant surface — face mode toggle (Phase 6)
+  'assistant.faceMode.on': 'Face on',
+  'assistant.faceMode.off': 'Face',
+  'assistant.faceMode.turnOn': 'Show mascot face',
+  'assistant.faceMode.turnOff': 'Hide mascot face',
   'nav.connections': 'Connections',
   'nav.memory': 'Intelligence',
   'nav.alerts': 'Alerts',

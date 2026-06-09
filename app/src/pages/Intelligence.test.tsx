@@ -20,9 +20,7 @@ vi.mock('../utils/config', async () => {
 });
 // useDeveloperMode combines IS_DEV with the persisted Redux preference.
 // Mock it here so tests don't need a Redux Provider — just respect isDev.value.
-vi.mock('../hooks/useDeveloperMode', () => ({
-  useDeveloperMode: () => isDev.value,
-}));
+vi.mock('../hooks/useDeveloperMode', () => ({ useDeveloperMode: () => isDev.value }));
 
 // Heavy hooks → minimal stubs.
 vi.mock('../hooks/useIntelligenceSocket', () => ({
