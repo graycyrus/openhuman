@@ -90,6 +90,9 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': '데스크탑 동반자',
   'settings.assistant.desktopCompanionDesc':
     '시스템 트레이 단축키가 있는 항상 활성화된 동반자 모드',
+  'settings.assistant.permissions': '권한',
+  'settings.assistant.permissionsDesc':
+    '어시스턴트가 무엇을 할 수 있고 어디서 작업할 수 있는지 선택하세요',
   'settings.privacySecurity.privacy': '개인정보',
   'settings.privacySecurity.privacyDesc': '컴퓨터를 떠나는 데이터 제어',
   'settings.privacySecurity.security': '보안',
@@ -3915,6 +3918,27 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistory': '승인 이력',
   'settings.agentAccess.approvalHistoryDesc': '에이전트가 요청한 이전 승인/거부 결정을 검토합니다.',
   'settings.agentAccess.viewApprovalHistory': '승인 기록 보기',
+
+  // ── 권한 패널 ─────────────────────────────────────────────────────
+  'settings.permissions.title': '권한',
+  'settings.permissions.menuDesc':
+    '어시스턴트가 무엇을 할 수 있고 어디서 작업할 수 있는지 선택하세요.',
+  'settings.permissions.accessMode': '어시스턴트가 무엇을 할 수 있나요?',
+  'settings.permissions.accessModeDesc':
+    '어시스턴트가 컴퓨터에서 작업을 수행할 때 얼마나 많은 자유를 허용할지 선택하세요.',
+  'settings.permissions.preset.readonly.title': '보기만 가능',
+  'settings.permissions.preset.readonly.desc':
+    '어시스턴트는 파일을 읽고 탐색할 수 있지만, 상태를 변경하는 쓰기, 편집 또는 실행은 절대 할 수 없습니다.',
+  'settings.permissions.preset.supervised.title': '먼저 물어보기',
+  'settings.permissions.preset.supervised.desc':
+    '새 파일을 자유롭게 만들 수 있지만, 편집, 명령 실행 또는 네트워크 접근 전에 항상 승인을 요청합니다.',
+  'settings.permissions.preset.full.title': '전체 제어',
+  'settings.permissions.preset.full.desc':
+    '전체 계정 접근 권한으로 실행됩니다. 파괴적 명령, 네트워크 접근 및 설치는 여전히 승인이 필요합니다.',
+  'settings.permissions.folders': '어디서 작업할 수 있나요?',
+  'settings.permissions.foldersDesc':
+    '어시스턴트가 읽고 쓰는 기본 폴더입니다. 고급 설정에서 추가 폴더를 추가할 수 있습니다.',
+
   'settings.sandbox.title': '샌드박스 실행',
   'settings.sandbox.menuDesc': '에이전트 도구 격리를 위한 샌드박스 백엔드를 구성합니다.',
   'settings.sandbox.loading': '로딩 중…',

@@ -49,6 +49,7 @@ export type SettingsRoute =
   | 'mcp-server'
   | 'dev-workflow'
   | 'sandbox-settings'
+  | 'permissions'
   | 'devices';
 
 export interface BreadcrumbItem {
@@ -141,6 +142,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     // shorter `agents` (the manage-agents registry panel) so it isn't swallowed.
     if (path.includes('/settings/agents-settings')) return 'agents-settings';
     if (path.includes('/settings/sandbox-settings')) return 'sandbox-settings';
+    if (path.includes('/settings/permissions')) return 'permissions';
     if (path.includes('/settings/agent-access')) return 'agent-access';
     if (path.includes('/settings/agents')) return 'agents';
     if (path.includes('/settings/mcp-server')) return 'mcp-server';
@@ -299,6 +301,10 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
         return [settingsCrumb, developerCrumb, notificationsHubCrumb];
 
       case 'devices':
+        return [settingsCrumb];
+
+      // Permissions panel lives at the top level of Settings (Assistant group).
+      case 'permissions':
         return [settingsCrumb];
 
       // Mascot appearance panel sits at the top level of Settings.

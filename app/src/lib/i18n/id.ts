@@ -90,6 +90,9 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': 'Pendamping desktop',
   'settings.assistant.desktopCompanionDesc':
     'Mode pendamping selalu aktif dengan pintasan baki sistem',
+  'settings.assistant.permissions': 'Izin',
+  'settings.assistant.permissionsDesc':
+    'Pilih apa yang dapat dilakukan asisten dan di mana ia dapat bekerja',
   'settings.privacySecurity.privacy': 'Privasi',
   'settings.privacySecurity.privacyDesc': 'Kontrol data apa yang meninggalkan komputer Anda',
   'settings.privacySecurity.security': 'Keamanan',
@@ -3973,6 +3976,27 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'Tinjau keputusan Setuju / Tolak yang diminta oleh agen sebelumnya.',
   'settings.agentAccess.viewApprovalHistory': 'Lihat riwayat persetujuan',
+
+  // ── Panel Izin ────────────────────────────────────────────────────
+  'settings.permissions.title': 'Izin',
+  'settings.permissions.menuDesc':
+    'Pilih apa yang dapat dilakukan asisten Anda dan di mana ia dapat bekerja.',
+  'settings.permissions.accessMode': 'Apa yang bisa dilakukan asisten?',
+  'settings.permissions.accessModeDesc':
+    'Pilih seberapa banyak kebebasan yang dimiliki asisten saat mengambil tindakan di komputer Anda.',
+  'settings.permissions.preset.readonly.title': 'Lihat, jangan sentuh',
+  'settings.permissions.preset.readonly.desc':
+    'Asisten dapat membaca file dan menjelajah — tetapi tidak pernah menulis, mengedit, atau menjalankan apa pun yang mengubah status.',
+  'settings.permissions.preset.supervised.title': 'Tanya saya dulu',
+  'settings.permissions.preset.supervised.desc':
+    'Dapat membuat file baru secara bebas, tetapi selalu meminta persetujuan Anda sebelum mengedit, menjalankan perintah, atau mengakses jaringan.',
+  'settings.permissions.preset.full.title': 'Kontrol penuh',
+  'settings.permissions.preset.full.desc':
+    'Berjalan dengan akses akun penuh Anda. Perintah destruktif, akses jaringan, dan instalasi masih meminta persetujuan.',
+  'settings.permissions.folders': 'Di mana bisa bekerja?',
+  'settings.permissions.foldersDesc':
+    'Folder default yang dibaca dan ditulis asisten. Anda dapat menambahkan folder lain di pengaturan Lanjutan.',
+
   'settings.sandbox.title': 'Eksekusi sandbox',
   'settings.sandbox.menuDesc': 'Konfigurasikan backend sandbox untuk isolasi alat agen.',
   'settings.sandbox.loading': 'Memuat…',

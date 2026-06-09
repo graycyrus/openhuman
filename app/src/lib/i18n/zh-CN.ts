@@ -88,6 +88,8 @@ const messages: TranslationMap = {
   'settings.assistant.screenAwarenessDesc': '允许助手查看您的活动窗口',
   'settings.assistant.desktopCompanion': '桌面伴侣',
   'settings.assistant.desktopCompanionDesc': '带有系统托盘快捷方式的常驻伴侣模式',
+  'settings.assistant.permissions': '权限',
+  'settings.assistant.permissionsDesc': '选择助手可以做什么以及可以在哪里工作',
   'settings.privacySecurity.privacy': '隐私',
   'settings.privacySecurity.privacyDesc': '控制哪些数据离开您的计算机',
   'settings.privacySecurity.security': '安全',
@@ -3761,6 +3763,24 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistory': '审批历史',
   'settings.agentAccess.approvalHistoryDesc': '查看智能体请求的历次批准/拒绝决定。',
   'settings.agentAccess.viewApprovalHistory': '查看审批历史',
+
+  // ── 权限面板 ──────────────────────────────────────────────────────
+  'settings.permissions.title': '权限',
+  'settings.permissions.menuDesc': '选择您的助手可以做什么以及可以在哪里工作。',
+  'settings.permissions.accessMode': '助手可以做什么？',
+  'settings.permissions.accessModeDesc': '选择助手在您的电脑上执行操作时拥有多大的自由度。',
+  'settings.permissions.preset.readonly.title': '只看不动',
+  'settings.permissions.preset.readonly.desc':
+    '助手可以读取文件并进行探索 — 但绝不会写入、编辑或运行任何改变状态的内容。',
+  'settings.permissions.preset.supervised.title': '先征求意见',
+  'settings.permissions.preset.supervised.desc':
+    '可以自由创建新文件，但在编辑、运行命令或访问网络之前，始终会请求您的批准。',
+  'settings.permissions.preset.full.title': '完全控制',
+  'settings.permissions.preset.full.desc':
+    '以您的完整账户权限运行。破坏性命令、网络访问和安装仍需批准。',
+  'settings.permissions.folders': '它可以在哪里工作？',
+  'settings.permissions.foldersDesc': '助手读写的默认文件夹。您可以在高级设置中添加更多文件夹。',
+
   'settings.sandbox.title': '沙盒执行',
   'settings.sandbox.menuDesc': '配置沙盒后端以隔离代理工具。',
   'settings.sandbox.loading': '加载中…',

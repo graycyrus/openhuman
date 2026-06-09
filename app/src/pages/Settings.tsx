@@ -35,6 +35,7 @@ import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import ModelHealthPanel from '../components/settings/panels/ModelHealthPanel';
 import NotificationsTabbedPanel from '../components/settings/panels/NotificationsTabbedPanel';
+import PermissionsPanel from '../components/settings/panels/PermissionsPanel';
 import PersonaPanel from '../components/settings/panels/PersonaPanel';
 import PrivacyPanel from '../components/settings/panels/PrivacyPanel';
 import RecoveryPhrasePanel from '../components/settings/panels/RecoveryPhrasePanel';
@@ -588,6 +589,7 @@ const Settings = () => {
         <Route path="persona" element={wrapSettingsPage(<PersonaPanel />)} />
         <Route path="appearance" element={wrapSettingsPage(<AppearancePanel />)} />
         <Route path="agent-access" element={wrapSettingsPage(<AgentAccessPanel />)} />
+        <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
         <Route path="activity-level" element={wrapSettingsPage(<AgentActivityPanel />)} />
         <Route path="sandbox-settings" element={wrapSettingsPage(<SandboxSettingsPanel />)} />
         <Route path="approval-history" element={wrapSettingsPage(<ApprovalHistoryPanel />)} />

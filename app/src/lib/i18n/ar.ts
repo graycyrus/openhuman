@@ -88,6 +88,8 @@ const messages: TranslationMap = {
   'settings.assistant.screenAwarenessDesc': 'اسمح للمساعد برؤية النافذة النشطة',
   'settings.assistant.desktopCompanion': 'المرافق لسطح المكتب',
   'settings.assistant.desktopCompanionDesc': 'وضع المرافق الدائم مع اختصار شريط النظام',
+  'settings.assistant.permissions': 'الأذونات',
+  'settings.assistant.permissionsDesc': 'اختر ما يمكن للمساعد فعله والمكان الذي يمكنه العمل فيه',
   'settings.privacySecurity.privacy': 'الخصوصية',
   'settings.privacySecurity.privacyDesc': 'تحكم في البيانات التي تغادر جهازك',
   'settings.privacySecurity.security': 'الأمان',
@@ -3876,6 +3878,26 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'مراجعة قرارات الموافقة / الرفض السابقة التي طلبها الوكيل.',
   'settings.agentAccess.viewApprovalHistory': 'عرض سجل الموافقات',
+
+  // ── لوحة الأذونات ────────────────────────────────────────────────
+  'settings.permissions.title': 'الأذونات',
+  'settings.permissions.menuDesc': 'اختر ما يمكن للمساعد فعله والمكان الذي يمكنه العمل فيه.',
+  'settings.permissions.accessMode': 'ماذا يمكن للمساعد أن يفعل؟',
+  'settings.permissions.accessModeDesc':
+    'اختر مقدار الحرية التي يتمتع بها المساعد عند اتخاذ الإجراءات على جهاز الكمبيوتر الخاص بك.',
+  'settings.permissions.preset.readonly.title': 'انظر ولا تلمس',
+  'settings.permissions.preset.readonly.desc':
+    'يمكن للمساعد قراءة الملفات والاستكشاف — لكنه لن يكتب أو يعدّل أو يُشغّل أي شيء يغير الحالة.',
+  'settings.permissions.preset.supervised.title': 'اسألني أولاً',
+  'settings.permissions.preset.supervised.desc':
+    'يمكنه إنشاء ملفات جديدة بحرية، لكنه يطلب موافقتك دائمًا قبل التعديل أو تشغيل الأوامر أو الوصول إلى الشبكة.',
+  'settings.permissions.preset.full.title': 'تحكم كامل',
+  'settings.permissions.preset.full.desc':
+    'يعمل بصلاحيات حسابك الكاملة. الأوامر المدمرة والوصول إلى الشبكة والتثبيت لا تزال تطلب الموافقة.',
+  'settings.permissions.folders': 'أين يمكنه العمل؟',
+  'settings.permissions.foldersDesc':
+    'المجلد الافتراضي الذي يقرأ ويكتب فيه المساعد. يمكنك إضافة مجلدات أخرى في الإعدادات المتقدمة.',
+
   'settings.sandbox.title': 'تنفيذ Sandbox',
   'settings.sandbox.menuDesc': 'تكوين خلفيات Sandbox لعزل أدوات الوكيل.',
   'settings.sandbox.loading': 'جارٍ التحميل…',

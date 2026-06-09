@@ -89,6 +89,8 @@ const messages: TranslationMap = {
   'settings.assistant.screenAwarenessDesc': 'সহকারীকে আপনার সক্রিয় উইন্ডো দেখতে দিন',
   'settings.assistant.desktopCompanion': 'ডেস্কটপ সঙ্গী',
   'settings.assistant.desktopCompanionDesc': 'সিস্টেম ট্রে শর্টকাট সহ সর্বদা-চালু সঙ্গী মোড',
+  'settings.assistant.permissions': 'অনুমতি',
+  'settings.assistant.permissionsDesc': 'সহকারী কী করতে পারে এবং কোথায় কাজ করতে পারে তা বেছে নিন',
   'settings.privacySecurity.privacy': 'গোপনীয়তা',
   'settings.privacySecurity.privacyDesc': 'আপনার কম্পিউটার ছেড়ে যাওয়া ডেটা নিয়ন্ত্রণ করুন',
   'settings.privacySecurity.security': 'নিরাপত্তা',
@@ -3957,6 +3959,27 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'এজেন্টের অনুরোধ করা পূর্ববর্তী অনুমোদন/প্রত্যাখ্যান সিদ্ধান্ত পর্যালোচনা করুন।',
   'settings.agentAccess.viewApprovalHistory': 'অনুমোদনের ইতিহাস দেখুন',
+
+  // ── অনুমতি প্যানেল ───────────────────────────────────────────────
+  'settings.permissions.title': 'অনুমতি',
+  'settings.permissions.menuDesc':
+    'আপনার সহকারী কী করতে পারে এবং কোথায় কাজ করতে পারে তা বেছে নিন।',
+  'settings.permissions.accessMode': 'সহকারী কী করতে পারে?',
+  'settings.permissions.accessModeDesc':
+    'আপনার কম্পিউটারে পদক্ষেপ নেওয়ার সময় সহকারীর কতটুকু স্বাধীনতা থাকবে তা বেছে নিন।',
+  'settings.permissions.preset.readonly.title': 'দেখো, স্পর্শ করো না',
+  'settings.permissions.preset.readonly.desc':
+    'সহকারী ফাইল পড়তে এবং অন্বেষণ করতে পারে — কিন্তু কখনো লিখতে, সম্পাদনা করতে বা এমন কিছু চালাতে পারবে না যা অবস্থা পরিবর্তন করে।',
+  'settings.permissions.preset.supervised.title': 'আগে আমাকে জিজ্ঞেস করো',
+  'settings.permissions.preset.supervised.desc':
+    'নতুন ফাইল তৈরি করতে পারে, কিন্তু সম্পাদনা, কমান্ড চালানো বা নেটওয়ার্ক অ্যাক্সেসের আগে সবসময় আপনার অনুমতি চাইবে।',
+  'settings.permissions.preset.full.title': 'পূর্ণ নিয়ন্ত্রণ',
+  'settings.permissions.preset.full.desc':
+    'আপনার পূর্ণ অ্যাকাউন্ট অ্যাক্সেস দিয়ে কাজ করে। ধ্বংসাত্মক কমান্ড, নেটওয়ার্ক অ্যাক্সেস এবং ইনস্টলেশন এখনও অনুমতি চাইবে।',
+  'settings.permissions.folders': 'এটি কোথায় কাজ করতে পারে?',
+  'settings.permissions.foldersDesc':
+    'সহকারী যে ডিফল্ট ফোল্ডার পড়ে এবং লেখে। উন্নত সেটিংসে আপনি আরও ফোল্ডার যোগ করতে পারেন।',
+
   'settings.sandbox.title': 'Sandbox কার্যকরী',
   'settings.sandbox.menuDesc': 'এজেন্ট টুল আইসোলেশনের জন্য Sandbox ব্যাকএন্ড কনফিগার করুন।',
   'settings.sandbox.loading': 'লোড হচ্ছে…',

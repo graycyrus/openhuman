@@ -90,6 +90,9 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': 'Компаньон рабочего стола',
   'settings.assistant.desktopCompanionDesc':
     'Режим постоянного компаньона с ярлыком в системном лотке',
+  'settings.assistant.permissions': 'Разрешения',
+  'settings.assistant.permissionsDesc':
+    'Выберите, что может делать помощник и где он может работать',
   'settings.privacySecurity.privacy': 'Конфиденциальность',
   'settings.privacySecurity.privacyDesc': 'Контроль данных, покидающих ваш компьютер',
   'settings.privacySecurity.security': 'Безопасность',
@@ -3994,6 +3997,27 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'Просмотр прошлых решений Одобрить / Отклонить, запрошенных агентом.',
   'settings.agentAccess.viewApprovalHistory': 'Просмотреть историю утверждений',
+
+  // ── Панель разрешений ─────────────────────────────────────────────
+  'settings.permissions.title': 'Разрешения',
+  'settings.permissions.menuDesc':
+    'Выберите, что может делать ваш помощник и где он может работать.',
+  'settings.permissions.accessMode': 'Что может делать помощник?',
+  'settings.permissions.accessModeDesc':
+    'Выберите, насколько свободен помощник при выполнении действий на вашем компьютере.',
+  'settings.permissions.preset.readonly.title': 'Смотреть, не трогать',
+  'settings.permissions.preset.readonly.desc':
+    'Помощник может читать файлы и исследовать систему — но никогда не пишет, не редактирует и не запускает ничего, что изменяет состояние.',
+  'settings.permissions.preset.supervised.title': 'Сначала спросить',
+  'settings.permissions.preset.supervised.desc':
+    'Может свободно создавать новые файлы, но всегда запрашивает ваше одобрение перед редактированием, выполнением команд или доступом к сети.',
+  'settings.permissions.preset.full.title': 'Полный контроль',
+  'settings.permissions.preset.full.desc':
+    'Работает с полным доступом к вашей учётной записи. Деструктивные команды, доступ к сети и установка всё равно требуют одобрения.',
+  'settings.permissions.folders': 'Где он может работать?',
+  'settings.permissions.foldersDesc':
+    'Папка по умолчанию, которую помощник читает и в которую пишет. В расширенных настройках можно добавить другие папки.',
+
   'settings.sandbox.title': 'Выполнение в песочнице',
   'settings.sandbox.menuDesc': 'Настройте бэкенды песочницы для изоляции инструментов агента.',
   'settings.sandbox.loading': 'Загрузка…',

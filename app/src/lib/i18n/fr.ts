@@ -90,6 +90,9 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': 'Compagnon de bureau',
   'settings.assistant.desktopCompanionDesc':
     'Mode compagnon toujours actif avec raccourci dans la barre système',
+  'settings.assistant.permissions': 'Autorisations',
+  'settings.assistant.permissionsDesc':
+    "Choisissez ce que l'assistant peut faire et où il peut travailler",
   'settings.privacySecurity.privacy': 'Confidentialité',
   'settings.privacySecurity.privacyDesc': 'Contrôler quelles données quittent votre ordinateur',
   'settings.privacySecurity.security': 'Sécurité',
@@ -4048,6 +4051,27 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     "Consultez les décisions Approuver / Refuser passées demandées par l'agent.",
   'settings.agentAccess.viewApprovalHistory': "Voir l'historique des approbations",
+
+  // ── Panneau des autorisations ─────────────────────────────────────
+  'settings.permissions.title': 'Autorisations',
+  'settings.permissions.menuDesc':
+    'Choisissez ce que votre assistant peut faire et où il peut travailler.',
+  'settings.permissions.accessMode': "Que peut faire l'assistant ?",
+  'settings.permissions.accessModeDesc':
+    "Choisissez la liberté accordée à l'assistant lorsqu'il effectue des actions sur votre ordinateur.",
+  'settings.permissions.preset.readonly.title': 'Regarder sans toucher',
+  'settings.permissions.preset.readonly.desc':
+    "L'assistant peut lire des fichiers et explorer, mais ne peut jamais écrire, modifier ou exécuter quoi que ce soit qui change l'état.",
+  'settings.permissions.preset.supervised.title': "M'interroger d'abord",
+  'settings.permissions.preset.supervised.desc':
+    "Peut créer de nouveaux fichiers librement, mais demande toujours votre approbation avant de modifier, d'exécuter des commandes ou d'accéder au réseau.",
+  'settings.permissions.preset.full.title': 'Contrôle total',
+  'settings.permissions.preset.full.desc':
+    "Fonctionne avec votre accès de compte complet. Les commandes destructives, l'accès réseau et les installations demandent toujours une approbation.",
+  'settings.permissions.folders': 'Où peut-il travailler ?',
+  'settings.permissions.foldersDesc':
+    "Le dossier par défaut que l'assistant lit et écrit. Vous pouvez ajouter d'autres dossiers dans les paramètres avancés.",
+
   'settings.sandbox.title': 'Exécution en sandbox',
   'settings.sandbox.menuDesc':
     "Configurer les backends sandbox pour l'isolation des outils de l'agent.",

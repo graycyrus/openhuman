@@ -90,6 +90,8 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': 'Desktop-Begleiter',
   'settings.assistant.desktopCompanionDesc':
     'Immer aktiver Begleiter-Modus mit System-Tray-Shortcut',
+  'settings.assistant.permissions': 'Berechtigungen',
+  'settings.assistant.permissionsDesc': 'Wähle, was der Assistent tun darf und wo er arbeiten kann',
   'settings.privacySecurity.privacy': 'Datenschutz',
   'settings.privacySecurity.privacyDesc': 'Kontrollieren, welche Daten Ihren Computer verlassen',
   'settings.privacySecurity.security': 'Sicherheit',
@@ -4059,6 +4061,26 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'Vergangene Genehmigen-/Ablehnen-Entscheidungen des Agenten überprüfen.',
   'settings.agentAccess.viewApprovalHistory': 'Genehmigungsverlauf anzeigen',
+
+  // ── Berechtigungen-Panel ──────────────────────────────────────────
+  'settings.permissions.title': 'Berechtigungen',
+  'settings.permissions.menuDesc': 'Wähle, was dein Assistent tun darf und wo er arbeiten kann.',
+  'settings.permissions.accessMode': 'Was darf der Assistent tun?',
+  'settings.permissions.accessModeDesc':
+    'Wähle, wie viel Freiheit der Assistent hat, wenn er Aktionen auf deinem Computer ausführt.',
+  'settings.permissions.preset.readonly.title': 'Schauen, nicht anfassen',
+  'settings.permissions.preset.readonly.desc':
+    'Der Assistent kann Dateien lesen und erkunden – aber niemals schreiben, bearbeiten oder etwas ausführen, das den Zustand ändert.',
+  'settings.permissions.preset.supervised.title': 'Erst fragen',
+  'settings.permissions.preset.supervised.desc':
+    'Kann neue Dateien frei erstellen, fragt aber immer um Erlaubnis, bevor er bearbeitet, Befehle ausführt oder auf das Netzwerk zugreift.',
+  'settings.permissions.preset.full.title': 'Volle Kontrolle',
+  'settings.permissions.preset.full.desc':
+    'Läuft mit deinem vollen Kontozugriff. Destruktive Befehle, Netzwerkzugriff und Installationen erfordern weiterhin eine Genehmigung.',
+  'settings.permissions.folders': 'Wo darf er arbeiten?',
+  'settings.permissions.foldersDesc':
+    'Der Standardordner, den der Assistent liest und beschreibt. In den erweiterten Einstellungen kannst du weitere Ordner hinzufügen.',
+
   'settings.sandbox.title': 'Sandbox-Ausführung',
   'settings.sandbox.menuDesc':
     'Sandbox-Backends für die Isolation von Agentenwerkzeugen konfigurieren.',

@@ -89,6 +89,8 @@ const messages: TranslationMap = {
   'settings.assistant.screenAwarenessDesc': 'सहायक को आपकी सक्रिय विंडो देखने दें',
   'settings.assistant.desktopCompanion': 'डेस्कटॉप साथी',
   'settings.assistant.desktopCompanionDesc': 'सिस्टम ट्रे शॉर्टकट के साथ हमेशा-चालू साथी मोड',
+  'settings.assistant.permissions': 'अनुमतियाँ',
+  'settings.assistant.permissionsDesc': 'चुनें कि सहायक क्या कर सकता है और कहाँ काम कर सकता है',
   'settings.privacySecurity.privacy': 'गोपनीयता',
   'settings.privacySecurity.privacyDesc': 'नियंत्रित करें कि आपके कंप्यूटर से कौन सा डेटा जाता है',
   'settings.privacySecurity.security': 'सुरक्षा',
@@ -3964,6 +3966,26 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'एजेंट द्वारा अनुरोधित पिछले स्वीकृति/अस्वीकृति निर्णयों की समीक्षा करें।',
   'settings.agentAccess.viewApprovalHistory': 'अनुमोदन इतिहास देखें',
+
+  // ── अनुमति पैनल ──────────────────────────────────────────────────
+  'settings.permissions.title': 'अनुमतियाँ',
+  'settings.permissions.menuDesc': 'चुनें कि आपका सहायक क्या कर सकता है और कहाँ काम कर सकता है।',
+  'settings.permissions.accessMode': 'सहायक क्या कर सकता है?',
+  'settings.permissions.accessModeDesc':
+    'चुनें कि आपके कंप्यूटर पर कार्रवाई करते समय सहायक को कितनी स्वतंत्रता है।',
+  'settings.permissions.preset.readonly.title': 'देखो, छुओ मत',
+  'settings.permissions.preset.readonly.desc':
+    'सहायक फ़ाइलें पढ़ और खोज सकता है — लेकिन कभी लिखेगा, संपादित करेगा या ऐसा कुछ नहीं चलाएगा जो स्थिति बदले।',
+  'settings.permissions.preset.supervised.title': 'पहले पूछो',
+  'settings.permissions.preset.supervised.desc':
+    'नई फ़ाइलें स्वतंत्र रूप से बना सकता है, लेकिन संपादन, कमांड चलाने या नेटवर्क तक पहुँचने से पहले हमेशा आपकी अनुमति माँगेगा।',
+  'settings.permissions.preset.full.title': 'पूर्ण नियंत्रण',
+  'settings.permissions.preset.full.desc':
+    'आपके पूर्ण खाता पहुँच के साथ काम करता है। विनाशकारी कमांड, नेटवर्क एक्सेस और इंस्टॉलेशन फिर भी अनुमोदन माँगेंगे।',
+  'settings.permissions.folders': 'यह कहाँ काम कर सकता है?',
+  'settings.permissions.foldersDesc':
+    'डिफ़ॉल्ट फ़ोल्डर जिसे सहायक पढ़ता और लिखता है। आप उन्नत सेटिंग्स में और फ़ोल्डर जोड़ सकते हैं।',
+
   'settings.sandbox.title': 'Sandbox निष्पादन',
   'settings.sandbox.menuDesc': 'एजेंट टूल आइसोलेशन के लिए Sandbox बैकएंड कॉन्फ़िगर करें।',
   'settings.sandbox.loading': 'लोड हो रहा है…',

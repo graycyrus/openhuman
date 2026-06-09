@@ -90,6 +90,9 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': 'Companheiro de área de trabalho',
   'settings.assistant.desktopCompanionDesc':
     'Modo companheiro sempre ativo com atalho na bandeja do sistema',
+  'settings.assistant.permissions': 'Permissões',
+  'settings.assistant.permissionsDesc':
+    'Escolha o que o assistente pode fazer e onde pode trabalhar',
   'settings.privacySecurity.privacy': 'Privacidade',
   'settings.privacySecurity.privacyDesc': 'Controlar quais dados saem do seu computador',
   'settings.privacySecurity.security': 'Segurança',
@@ -4026,6 +4029,27 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'Revise as decisões anteriores de Aprovar / Negar solicitadas pelo agente.',
   'settings.agentAccess.viewApprovalHistory': 'Ver histórico de aprovações',
+
+  // ── Painel de Permissões ──────────────────────────────────────────
+  'settings.permissions.title': 'Permissões',
+  'settings.permissions.menuDesc':
+    'Escolha o que o seu assistente pode fazer e onde pode trabalhar.',
+  'settings.permissions.accessMode': 'O que o assistente pode fazer?',
+  'settings.permissions.accessModeDesc':
+    'Escolha quanta liberdade o assistente tem ao realizar ações no seu computador.',
+  'settings.permissions.preset.readonly.title': 'Olhar, não tocar',
+  'settings.permissions.preset.readonly.desc':
+    'O assistente pode ler ficheiros e explorar — mas nunca escrever, editar ou executar qualquer coisa que mude o estado.',
+  'settings.permissions.preset.supervised.title': 'Perguntar primeiro',
+  'settings.permissions.preset.supervised.desc':
+    'Pode criar novos ficheiros livremente, mas pede sempre a sua aprovação antes de editar, executar comandos ou aceder à rede.',
+  'settings.permissions.preset.full.title': 'Controlo total',
+  'settings.permissions.preset.full.desc':
+    'Opera com o seu acesso completo à conta. Comandos destrutivos, acesso à rede e instalações ainda pedem aprovação.',
+  'settings.permissions.folders': 'Onde pode trabalhar?',
+  'settings.permissions.foldersDesc':
+    'A pasta predefinida que o assistente lê e escreve. Pode adicionar mais pastas nas definições Avançadas.',
+
   'settings.sandbox.title': 'Execução em sandbox',
   'settings.sandbox.menuDesc':
     'Configure backends de sandbox para isolamento das ferramentas do agente.',

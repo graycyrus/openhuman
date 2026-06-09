@@ -89,6 +89,8 @@ const messages: TranslationMap = {
   'settings.assistant.desktopCompanion': 'Towarzysz pulpitu',
   'settings.assistant.desktopCompanionDesc':
     'Tryb towarzyski zawsze aktywny ze skrótem w zasobniku systemowym',
+  'settings.assistant.permissions': 'Uprawnienia',
+  'settings.assistant.permissionsDesc': 'Wybierz, co może robić asystent i gdzie może pracować',
   'settings.privacySecurity.privacy': 'Prywatność',
   'settings.privacySecurity.privacyDesc': 'Kontroluj, jakie dane opuszczają Twój komputer',
   'settings.privacySecurity.security': 'Bezpieczeństwo',
@@ -4024,6 +4026,26 @@ const messages: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'Przegląd wcześniejszych decyzji Zatwierdź / Odrzuć żądanych przez agenta.',
   'settings.agentAccess.viewApprovalHistory': 'Wyświetl historię zatwierdzeń',
+
+  // ── Panel Uprawnień ───────────────────────────────────────────────
+  'settings.permissions.title': 'Uprawnienia',
+  'settings.permissions.menuDesc': 'Wybierz, co może robić Twój asystent i gdzie może pracować.',
+  'settings.permissions.accessMode': 'Co może robić asystent?',
+  'settings.permissions.accessModeDesc':
+    'Wybierz, ile swobody ma asystent podczas wykonywania działań na Twoim komputerze.',
+  'settings.permissions.preset.readonly.title': 'Patrzeć, nie dotykać',
+  'settings.permissions.preset.readonly.desc':
+    'Asystent może czytać pliki i eksplorować — ale nigdy nie pisze, edytuje ani nie uruchamia niczego zmieniającego stan.',
+  'settings.permissions.preset.supervised.title': 'Najpierw zapytaj',
+  'settings.permissions.preset.supervised.desc':
+    'Może swobodnie tworzyć nowe pliki, ale zawsze prosi o Twoją zgodę przed edycją, uruchamianiem poleceń lub dostępem do sieci.',
+  'settings.permissions.preset.full.title': 'Pełna kontrola',
+  'settings.permissions.preset.full.desc':
+    'Działa z pełnym dostępem do Twojego konta. Destrukcyjne polecenia, dostęp do sieci i instalacje nadal wymagają zatwierdzenia.',
+  'settings.permissions.folders': 'Gdzie może pracować?',
+  'settings.permissions.foldersDesc':
+    'Domyślny folder, który asystent odczytuje i zapisuje. Możesz dodać więcej folderów w ustawieniach zaawansowanych.',
+
   'settings.sandbox.title': 'Wykonanie w piaskownicy',
   'settings.sandbox.menuDesc': 'Konfiguruj backendy piaskownicy do izolacji narzędzi agenta.',
   'settings.sandbox.loading': 'Ładowanie…',

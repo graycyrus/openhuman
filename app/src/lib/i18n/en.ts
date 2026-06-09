@@ -104,6 +104,8 @@ const en: TranslationMap = {
   'settings.assistant.screenAwarenessDesc': 'Let the assistant see your active window',
   'settings.assistant.desktopCompanion': 'Desktop companion',
   'settings.assistant.desktopCompanionDesc': 'Always-on companion mode with a system-tray shortcut',
+  'settings.assistant.permissions': 'Permissions',
+  'settings.assistant.permissionsDesc': 'Choose what the assistant can do and where it can work',
 
   // Settings — privacy & security group items
   'settings.privacySecurity.privacy': 'Privacy',
@@ -4497,6 +4499,25 @@ const en: TranslationMap = {
   'settings.agentAccess.approvalHistoryDesc':
     'Review past Approve / Deny decisions the agent requested.',
   'settings.agentAccess.viewApprovalHistory': 'View approval history',
+
+  // ── Permissions panel (layman split from Agent Access, Deferred-3) ────────
+  'settings.permissions.title': 'Permissions',
+  'settings.permissions.menuDesc': 'Choose what your assistant can do and where it can work.',
+  'settings.permissions.accessMode': 'What can the assistant do?',
+  'settings.permissions.accessModeDesc':
+    'Choose how much freedom the assistant has when it takes actions on your computer.',
+  'settings.permissions.preset.readonly.title': "Look, don't touch",
+  'settings.permissions.preset.readonly.desc':
+    'The assistant can read files and explore — but never write, edit, or run anything that changes state.',
+  'settings.permissions.preset.supervised.title': 'Ask me first',
+  'settings.permissions.preset.supervised.desc':
+    'Can create new files freely, but always asks your approval before editing, running commands, or accessing the network.',
+  'settings.permissions.preset.full.title': 'Full control',
+  'settings.permissions.preset.full.desc':
+    'Runs with your full account access. Destructive commands, network access, and installs still ask for approval.',
+  'settings.permissions.folders': 'Where can it work?',
+  'settings.permissions.foldersDesc':
+    'The default folder the assistant reads and writes. You can add more folders in Advanced settings.',
 
   // ── Sandbox execution backend ─────────────────────────────────────
   'settings.sandbox.title': 'Sandbox execution',
