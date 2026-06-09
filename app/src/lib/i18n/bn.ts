@@ -4752,6 +4752,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'সর্বোচ্চ প্রসঙ্গ অক্ষর',
   'autocomplete.overlayTtlMs': 'ওভারলে টাইমআউট (মিলিসেকেন্ড)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'অটোমেশন',
+  'activity.tabs.automationsDescription':
+    'পুনর্ব্যবহারযোগ্য, রানযোগ্য পদ্ধতি — একটি লক্ষ্য এবং সেখানে পৌঁছানোর ধাপগুলি।',
+  'activity.tabs.backgroundActivity': 'ব্যাকগ্রাউন্ড কার্যকলাপ',
+
   'intelligence.agents.title': 'এজেন্ট লাইব্রেরি',
   'intelligence.agents.subtitle':
     'চালানো যায় এমন বিশেষজ্ঞদের দেখুন এবং নির্দিষ্ট এজেন্টকে একটি কাজ পাঠান।',

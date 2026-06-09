@@ -114,7 +114,7 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       },
     },
 
-    // ── Step 6 — /intelligence (Activity) ────────────────────────────────
+    // ── Step 6 — /activity (Activity) ────────────────────────────────────
     {
       target: '[data-walkthrough="intelligence-header"]',
       title: 'Your activity hub',
@@ -123,7 +123,7 @@ export function createWalkthroughSteps(navigate: NavigateFunction): Step[] {
       placement: 'bottom',
       skipBeacon: true,
       before: async () => {
-        navigate('/intelligence');
+        navigate('/activity');
         await waitForTarget('intelligence-header');
       },
     },

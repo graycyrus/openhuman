@@ -4661,6 +4661,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'أقصى عدد لأحرف السياق',
   'autocomplete.overlayTtlMs': 'مهلة الطبقة (مللي ثانية)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'أتمتة',
+  'activity.tabs.automationsDescription':
+    'إجراءات قابلة لإعادة الاستخدام والتشغيل — هدف مع الخطوات للوصول إليه.',
+  'activity.tabs.backgroundActivity': 'نشاط الخلفية',
+
   'intelligence.agents.title': 'مكتبة الوكلاء',
   'intelligence.agents.subtitle':
     'استعرض المتخصصين القابلين للتشغيل وأرسل مهمة واحدة إلى وكيل محدد.',

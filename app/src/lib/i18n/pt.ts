@@ -4836,6 +4836,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'Máximo de caracteres de contexto',
   'autocomplete.overlayTtlMs': 'Tempo limite da sobreposição (ms)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'Automações',
+  'activity.tabs.automationsDescription':
+    'Procedimentos reutilizáveis e executáveis — um objetivo e os passos para alcançá-lo.',
+  'activity.tabs.backgroundActivity': 'Atividade em segundo plano',
+
   'intelligence.agents.title': 'Biblioteca de agentes',
   'intelligence.agents.subtitle':
     'Inspecione especialistas executáveis e envie uma tarefa para um agente nomeado.',

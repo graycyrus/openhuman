@@ -4801,6 +4801,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'Макс. символов контекста',
   'autocomplete.overlayTtlMs': 'Тайм-аут наложения (мс)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'Автоматизации',
+  'activity.tabs.automationsDescription':
+    'Многократно используемые, запускаемые процедуры — цель и шаги для её достижения.',
+  'activity.tabs.backgroundActivity': 'Фоновая активность',
+
   'intelligence.agents.title': 'Библиотека агентов',
   'intelligence.agents.subtitle':
     'Просматривайте доступных специалистов и отправляйте задачу выбранному агенту.',

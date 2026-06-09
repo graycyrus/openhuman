@@ -4879,6 +4879,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'Maximale Kontextzeichen',
   'autocomplete.overlayTtlMs': 'Overlay-Timeout (ms)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'Automatisierungen',
+  'activity.tabs.automationsDescription':
+    'Wiederverwendbare, ausführbare Abläufe — ein Ziel und die Schritte dorthin.',
+  'activity.tabs.backgroundActivity': 'Hintergrundaktivität',
+
   'intelligence.agents.title': 'Agentenbibliothek',
   'intelligence.agents.subtitle':
     'Prüfe ausführbare Spezialisten und sende eine Aufgabe an einen benannten Agenten.',

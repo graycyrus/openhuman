@@ -4771,6 +4771,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'Karakter konteks maks',
   'autocomplete.overlayTtlMs': 'Batas waktu overlay (md)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'Otomatisasi',
+  'activity.tabs.automationsDescription':
+    'Prosedur yang dapat digunakan kembali dan dijalankan — tujuan beserta langkah-langkah untuk mencapainya.',
+  'activity.tabs.backgroundActivity': 'Aktivitas latar belakang',
+
   'intelligence.agents.title': 'Pustaka Agen',
   'intelligence.agents.subtitle':
     'Periksa spesialis yang dapat dijalankan dan kirim satu tugas ke agen tertentu.',

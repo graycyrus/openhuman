@@ -361,6 +361,13 @@ const en: TranslationMap = {
   'memory.tab.cohesion': 'Cohesion',
   'memory.tab.settings': 'Settings',
   'memory.tab.council': 'Council',
+
+  // Activity surface — Phase 3 renamed tabs
+  'activity.tabs.automations': 'Automations',
+  'activity.tabs.automationsDescription':
+    'Reusable, runnable procedures — a goal plus the steps to reach it. Create one, install from a URL, or open a workflow to run it.',
+  'activity.tabs.backgroundActivity': 'Background activity',
+
   'intelligence.agents.title': 'Agents Library',
   'intelligence.agents.subtitle':
     'Inspect runnable specialists and send one task to a named agent.',

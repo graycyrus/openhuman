@@ -4802,6 +4802,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'Maksymalna liczba znaków kontekstu',
   'autocomplete.overlayTtlMs': 'Limit czasu nakładki (ms)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'Automatyzacje',
+  'activity.tabs.automationsDescription':
+    'Wielokrotnego użytku, uruchamialne procedury — cel i kroki do jego osiągnięcia.',
+  'activity.tabs.backgroundActivity': 'Aktywność w tle',
+
   'intelligence.agents.title': 'Biblioteka agentów',
   'intelligence.agents.subtitle':
     'Przeglądaj uruchamialnych specjalistów i wyślij zadanie do wskazanego agenta.',

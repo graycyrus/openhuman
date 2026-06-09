@@ -4762,6 +4762,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': 'अधिकतम संदर्भ वर्ण',
   'autocomplete.overlayTtlMs': 'ओवरले समय-समाप्ति (ms)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': 'स्वचालन',
+  'activity.tabs.automationsDescription':
+    'पुन: उपयोग योग्य, चलाने योग्य प्रक्रियाएँ — एक लक्ष्य और उसे प्राप्त करने के चरण।',
+  'activity.tabs.backgroundActivity': 'पृष्ठभूमि गतिविधि',
+
   'intelligence.agents.title': 'एजेंट लाइब्रेरी',
   'intelligence.agents.subtitle':
     'चलाए जा सकने वाले विशेषज्ञ देखें और किसी नामित एजेंट को एक काम भेजें।',

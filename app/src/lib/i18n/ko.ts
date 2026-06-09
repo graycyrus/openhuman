@@ -4708,6 +4708,11 @@ const messages: TranslationMap = {
   'autocomplete.maxChars': '최대 컨텍스트 문자 수',
   'autocomplete.overlayTtlMs': '오버레이 시간 초과 (ms)',
   'memory.tab.council': 'Council',
+  'activity.tabs.automations': '자동화',
+  'activity.tabs.automationsDescription':
+    '재사용 가능하고 실행 가능한 절차 — 목표와 그것을 달성하기 위한 단계.',
+  'activity.tabs.backgroundActivity': '백그라운드 활동',
+
   'intelligence.agents.title': '에이전트 라이브러리',
   'intelligence.agents.subtitle':
     '실행 가능한 전문가를 살펴보고 지정한 에이전트에 작업을 보냅니다.',

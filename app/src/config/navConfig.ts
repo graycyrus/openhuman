@@ -33,12 +33,7 @@ export const NAV_TABS: NavTab[] = [
     path: '/connections',
     walkthroughAttr: 'tab-connections',
   },
-  {
-    id: 'activity',
-    labelKey: 'nav.activity',
-    path: '/intelligence',
-    walkthroughAttr: 'tab-activity',
-  },
+  { id: 'activity', labelKey: 'nav.activity', path: '/activity', walkthroughAttr: 'tab-activity' },
   { id: 'settings', labelKey: 'nav.settings', path: '/settings', walkthroughAttr: 'tab-settings' },
 ];
 

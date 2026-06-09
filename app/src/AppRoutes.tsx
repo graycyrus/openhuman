@@ -7,14 +7,13 @@ import PublicRoute from './components/PublicRoute';
 import HumanPage from './features/human/HumanPage';
 import { getIsMobile } from './lib/platform';
 import Accounts from './pages/Accounts';
+import Activity from './pages/Activity';
 import Home from './pages/Home';
-import Intelligence from './pages/Intelligence';
 import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
 import { PttOverlayPage } from './pages/PttOverlayPage';
 import Rewards from './pages/Rewards';
-import Routines from './pages/Routines';
 import Settings from './pages/Settings';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
@@ -73,14 +72,20 @@ const AppRoutes = () => {
         }
       />
 
+      {/* Primary Activity surface — replaces /intelligence (Phase 3). */}
       <Route
-        path="/intelligence"
+        path="/activity"
         element={
           <ProtectedRoute requireAuth={true}>
-            <Intelligence />
+            <Activity />
           </ProtectedRoute>
         }
       />
+
+      {/* Back-compat: /intelligence → /activity (preserves ?tab= deep links).
+          Deep links such as ?tab=memory or ?tab=agents still resolve but fall
+          back to the tasks tab in prod (dev-only tabs are gated inside Activity). */}
+      <Route path="/intelligence" element={<Navigate to="/activity" replace />} />
 
       {/* Connections page lives at /connections (Phase 2 rename from /skills).
           The old /skills path is kept as a back-compat redirect so bookmarks
@@ -153,14 +158,10 @@ const AppRoutes = () => {
         }
       />
 
-      <Route
-        path="/routines"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <Routines />
-          </ProtectedRoute>
-        }
-      />
+      {/* Back-compat: /routines was an orphaned dead page (superseded by the
+          Cron Jobs settings panel).  Redirect to Activity → Automations so
+          any surviving deep links land somewhere sensible. */}
+      <Route path="/routines" element={<Navigate to="/activity?tab=automations" replace />} />
 
       <Route
         path="/rewards"
@@ -171,9 +172,9 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Workflows moved onto the Intelligence page (its own tab). Keep the
+      {/* Workflows moved onto the Activity page (Automations tab). Keep the
           old /workflows path working as a deep link into that tab. */}
-      <Route path="/workflows" element={<Navigate to="/intelligence?tab=workflows" replace />} />
+      <Route path="/workflows" element={<Navigate to="/activity?tab=automations" replace />} />
 
       <Route path="/webhooks" element={<Navigate to="/settings/webhooks-triggers" replace />} />
 
