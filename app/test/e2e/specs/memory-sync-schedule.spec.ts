@@ -35,7 +35,9 @@ async function gotoMemoryWorkspace(): Promise<void> {
       const parsed: Record<string, string> = raw ? (JSON.parse(raw) as Record<string, string>) : {};
       parsed.developerMode = JSON.stringify(true);
       localStorage.setItem('persist:theme', JSON.stringify(parsed));
-    } catch (_) {}
+    } catch {
+      // best-effort dev-mode seed; ignore storage failures
+    }
     window.location.hash = '/activity?tab=memory';
   });
   await browser.pause(2_000);
