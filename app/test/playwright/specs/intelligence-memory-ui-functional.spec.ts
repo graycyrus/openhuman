@@ -29,10 +29,13 @@ async function seedDeveloperMode(page: Page): Promise<void> {
 }
 
 async function openMemory(page: Page): Promise<void> {
-  // Phase 3: Memory tab is dev-gated on the Activity page (/activity replaced /intelligence).
-  // Seed developer mode before navigating so the tab is visible.
+  // Phase 3: Memory moved out of /activity entirely — it now lives at
+  // /settings/intelligence (the full Intelligence dev surface).  The Memory tab
+  // there is not dev-gated (only "council" is), so no developer mode seeding
+  // is required for the tab itself; seedDeveloperMode is still called so any
+  // code that checks developerMode elsewhere behaves consistently.
   await seedDeveloperMode(page);
-  await bootAuthenticatedPage(page, 'pw-intelligence-memory-ui', '/activity');
+  await bootAuthenticatedPage(page, 'pw-intelligence-memory-ui', '/settings/intelligence');
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
   const memoryTab = page.getByRole('tab', { name: /^Memory$/ });
