@@ -512,7 +512,7 @@ const DeveloperOptionsPanel = () => {
   return (
     <div className="z-10 relative">
       <SettingsHeader
-        title={t('devOptions.title')}
+        title={t('devOptions.titleDiagnostics')}
         showBackButton={true}
         onBack={navigateBack}
         breadcrumbs={breadcrumbs}

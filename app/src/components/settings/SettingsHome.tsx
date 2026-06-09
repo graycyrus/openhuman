@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { useDeveloperMode } from '../../hooks/useDeveloperMode';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { BILLING_DASHBOARD_URL } from '../../utils/links';
@@ -30,6 +31,7 @@ const SettingsHome = () => {
   const { t } = useT();
   const { snapshot } = useCoreState();
   const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
+  const developerMode = useDeveloperMode();
 
   const settingsSections: SettingsSection[] = [
     {
@@ -184,27 +186,33 @@ const SettingsHome = () => {
           } satisfies SettingsSection,
         ]
       : []),
-    {
-      label: t('settings.advanced'),
-      items: [
-        {
-          id: 'developer-options',
-          title: t('settings.developerOptions'),
-          description: t('settings.developerOptionsDesc'),
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-              />
-            </svg>
-          ),
-          onClick: () => navigateToSettings('developer-options'),
-        },
-      ],
-    },
+    // Developer & Diagnostics entry is hidden when developer mode is off.
+    // About is always accessible (chicken-and-egg: that's where the toggle lives).
+    ...(developerMode
+      ? [
+          {
+            label: t('settings.advanced'),
+            items: [
+              {
+                id: 'developer-options',
+                title: t('settings.developerDiagnostics'),
+                description: t('settings.developerDiagnosticsDesc'),
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                    />
+                  </svg>
+                ),
+                onClick: () => navigateToSettings('developer-options'),
+              },
+            ],
+          } satisfies SettingsSection,
+        ]
+      : []),
   ];
 
   // Log Out and Clear App Data now live on the Account page (Settings → Account)

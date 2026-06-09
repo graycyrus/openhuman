@@ -94,6 +94,13 @@ const messages: TranslationMap = {
   'settings.developerOptions': 'Дополнительно',
   'settings.developerOptionsDesc':
     'Настройки AI, каналы связи, инструменты, диагностика и панели отладки',
+  'settings.developerDiagnostics': 'Разработчик и Диагностика',
+  'settings.developerDiagnosticsDesc':
+    'Расширенные инструменты разработчика, диагностика, память, агенты и панели отладки',
+  'settings.developerMode.title': 'Режим разработчика',
+  'settings.developerMode.description':
+    'Показывать расширенные инструменты разработчика и диагностики',
+  'settings.developerMode.enabledByBuild': 'Всегда включён в сборках разработки',
   'settings.clearAppData': 'Очистить данные приложения',
   'settings.clearAppDataDesc': 'Выйти из аккаунта и удалить все локальные данные приложения',
   'settings.logOut': 'Выйти',
@@ -712,6 +719,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'Не удалось изменить роль.',
   'team.failedRemoveMember': 'Не удалось удалить участника.',
   'devOptions.title': 'Дополнительно',
+  'devOptions.titleDiagnostics': 'Разработчик и Диагностика',
   'devOptions.diagnostics': 'Диагностика',
   'devOptions.diagnosticsDesc': 'Состояние системы, логи и метрики производительности',
   'devOptions.toolPolicyDiagnosticsDesc':

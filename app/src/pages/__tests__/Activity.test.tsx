@@ -44,7 +44,16 @@ vi.mock('../../hooks/useSubconscious', () => ({
   }),
 }));
 
-// IS_DEV gates the dev-only tabs (memory, agents, council); default to prod build.
+// `useDeveloperMode` gates the dev-only tabs (memory, agents, council).
+// It combines IS_DEV || developerModePref.  We mock the hook so tests can
+// control the gate without a Redux store or build-time flag.
+const developerModeHoisted = vi.hoisted(() => ({ value: false }));
+vi.mock('../../hooks/useDeveloperMode', () => ({
+  useDeveloperMode: () => developerModeHoisted.value,
+}));
+
+// IS_DEV is still imported by Activity.tsx for other purposes;
+// keep it accessible in case a future test needs it.
 const isDev = vi.hoisted(() => ({ value: false }));
 vi.mock('../../utils/config', async () => {
   const actual = await vi.importActual<typeof import('../../utils/config')>('../../utils/config');
@@ -70,6 +79,7 @@ describe('Activity URL-backed tab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     isDev.value = false;
+    developerModeHoisted.value = false;
   });
 
   it('defaults to the tasks tab when no ?tab is present', async () => {
@@ -97,41 +107,41 @@ describe('Activity URL-backed tab', () => {
     await waitFor(() => expect(screen.getByTestId('tab-tasks')).toBeInTheDocument());
   });
 
-  it('dev-gates memory tab in prod (falls back to tasks)', async () => {
-    isDev.value = false;
+  it('hides memory tab when developerMode is off (falls back to tasks)', async () => {
+    developerModeHoisted.value = false;
     renderAt('/activity?tab=memory');
     await waitFor(() => expect(screen.getByTestId('tab-tasks')).toBeInTheDocument());
     expect(screen.queryByTestId('tab-memory')).not.toBeInTheDocument();
   });
 
-  it('dev-gates agents tab in prod (falls back to tasks)', async () => {
-    isDev.value = false;
+  it('hides agents tab when developerMode is off (falls back to tasks)', async () => {
+    developerModeHoisted.value = false;
     renderAt('/activity?tab=agents');
     await waitFor(() => expect(screen.getByTestId('tab-tasks')).toBeInTheDocument());
     expect(screen.queryByTestId('tab-agents')).not.toBeInTheDocument();
   });
 
-  it('dev-gates council tab in prod (falls back to tasks)', async () => {
-    isDev.value = false;
+  it('hides council tab when developerMode is off (falls back to tasks)', async () => {
+    developerModeHoisted.value = false;
     renderAt('/activity?tab=council');
     await waitFor(() => expect(screen.getByTestId('tab-tasks')).toBeInTheDocument());
     expect(screen.queryByTestId('tab-council')).not.toBeInTheDocument();
   });
 
-  it('shows memory tab when IS_DEV', async () => {
-    isDev.value = true;
+  it('shows memory tab when developerMode is on', async () => {
+    developerModeHoisted.value = true;
     renderAt('/activity?tab=memory');
     await waitFor(() => expect(screen.getByTestId('tab-memory')).toBeInTheDocument());
   });
 
-  it('shows agents tab when IS_DEV', async () => {
-    isDev.value = true;
+  it('shows agents tab when developerMode is on', async () => {
+    developerModeHoisted.value = true;
     renderAt('/activity?tab=agents');
     await waitFor(() => expect(screen.getByTestId('tab-agents')).toBeInTheDocument());
   });
 
-  it('shows council tab when IS_DEV', async () => {
-    isDev.value = true;
+  it('shows council tab when developerMode is on', async () => {
+    developerModeHoisted.value = true;
     renderAt('/activity?tab=council');
     await waitFor(() => expect(screen.getByTestId('tab-council')).toBeInTheDocument());
   });
@@ -147,6 +157,7 @@ describe('Activity URL-backed tab', () => {
 describe('Activity tab — prod tab visibility', () => {
   beforeEach(() => {
     isDev.value = false;
+    developerModeHoisted.value = false;
   });
 
   it('does not render memory, agents, or council pills in prod', async () => {

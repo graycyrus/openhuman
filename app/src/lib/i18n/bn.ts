@@ -93,6 +93,12 @@ const messages: TranslationMap = {
   'settings.developerOptions': 'অ্যাডভান্সড',
   'settings.developerOptionsDesc':
     'AI কনফিগারেশন, মেসেজিং চ্যানেল, টুলস, ডায়াগনস্টিক্স এবং ডিবাগ প্যানেল',
+  'settings.developerDiagnostics': 'ডেভেলপার ও ডায়াগনস্টিক্স',
+  'settings.developerDiagnosticsDesc':
+    'উন্নত ডেভেলপার টুলস, ডায়াগনস্টিক্স, মেমোরি, এজেন্ট এবং ডিবাগ প্যানেল',
+  'settings.developerMode.title': 'ডেভেলপার মোড',
+  'settings.developerMode.description': 'উন্নত ডেভেলপার ও ডায়াগনস্টিক টুলস দেখান',
+  'settings.developerMode.enabledByBuild': 'ডেভেলপমেন্ট বিল্ডে সবসময় চালু',
   'settings.clearAppData': 'অ্যাপ ডেটা মুছুন',
   'settings.clearAppDataDesc': 'সাইন আউট করুন এবং সব লোকাল ডেটা স্থায়ীভাবে মুছুন',
   'settings.logOut': 'লগ আউট',
@@ -709,6 +715,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'ভূমিকা পরিবর্তন করতে ব্যর্থ হয়েছে',
   'team.failedRemoveMember': 'সদস্য সরাতে ব্যর্থ হয়েছে',
   'devOptions.title': 'অ্যাডভান্সড',
+  'devOptions.titleDiagnostics': 'ডেভেলপার ও ডায়াগনস্টিক্স',
   'devOptions.diagnostics': 'ডায়াগনস্টিক্স',
   'devOptions.diagnosticsDesc': 'সিস্টেম স্বাস্থ্য, লগ এবং পারফরম্যান্স মেট্রিক্স',
   'devOptions.toolPolicyDiagnosticsDesc': 'টুল- মেকআপ, নীতি পোস্ট, xqxqxs, এবং সম্প্রতি ব্যবহৃত',

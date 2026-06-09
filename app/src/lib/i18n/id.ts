@@ -92,6 +92,12 @@ const messages: TranslationMap = {
   'settings.aboutDesc': 'Versi aplikasi dan pembaruan perangkat lunak',
   'settings.developerOptions': 'Opsi Developer',
   'settings.developerOptionsDesc': 'Diagnostik, panel debug, webhook, dan inspeksi memori',
+  'settings.developerDiagnostics': 'Developer & Diagnostik',
+  'settings.developerDiagnosticsDesc':
+    'Alat developer lanjutan, diagnostik, memori, agen, dan panel debug',
+  'settings.developerMode.title': 'Mode developer',
+  'settings.developerMode.description': 'Tampilkan alat developer & diagnostik lanjutan',
+  'settings.developerMode.enabledByBuild': 'Selalu aktif di build pengembangan',
   'settings.clearAppData': 'Bersihkan Data Aplikasi',
   'settings.clearAppDataDesc': 'Keluar dan hapus permanen semua data aplikasi lokal',
   'settings.logOut': 'Keluar',
@@ -712,6 +718,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'Gagal mengubah peran',
   'team.failedRemoveMember': 'Gagal menghapus anggota',
   'devOptions.title': 'Opsi Developer',
+  'devOptions.titleDiagnostics': 'Developer & Diagnostik',
   'devOptions.diagnostics': 'Diagnostik',
   'devOptions.diagnosticsDesc': 'Kesehatan sistem, log, dan metrik performa',
   'devOptions.toolPolicyDiagnosticsDesc':

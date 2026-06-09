@@ -10,6 +10,7 @@ import ModelCouncilTab from '../components/intelligence/ModelCouncilTab';
 import { ToastContainer } from '../components/intelligence/Toast';
 import WorkflowsTab from '../components/intelligence/WorkflowsTab';
 import PillTabBar from '../components/PillTabBar';
+import { useDeveloperMode } from '../hooks/useDeveloperMode';
 import {
   useIntelligenceSocket,
   useIntelligenceSocketManager,
@@ -20,7 +21,6 @@ import type {
   ConfirmationModal as ConfirmationModalType,
   ToastNotification,
 } from '../types/intelligence';
-import { IS_DEV } from '../utils/config';
 
 // Visible tab IDs for the Activity surface.
 // memory and agents are moved behind the dev gate in this phase.
@@ -35,16 +35,27 @@ const ACTIVITY_TABS: ActivityTab[] = [
   'council',
 ];
 
-// Tabs gated to dev builds only.  A ?tab= deep link is validated against the
-// *visible* set, not the full enum, so a prod user cannot force-open a dev tab.
+// Tabs gated to dev builds or runtime developer mode.  A ?tab= deep link is
+// validated against the *visible* set, not the full enum, so a user cannot
+// force-open a dev tab when developer mode is off.
 const DEV_ONLY_TABS: ActivityTab[] = ['council', 'memory', 'agents'];
 
-const isVisibleTab = (tab: string | null | undefined): tab is ActivityTab =>
-  (ACTIVITY_TABS as string[]).includes(tab ?? '') &&
-  (IS_DEV || !(DEV_ONLY_TABS as string[]).includes(tab ?? ''));
+/**
+ * Returns a type-guard predicate for the currently visible tabs.
+ * Accepts `developerModeEnabled` so callers can pass `IS_DEV || developerMode`
+ * without the function depending on a hook directly (hooks cannot be called
+ * conditionally or outside component render).
+ */
+const makeIsVisibleTab =
+  (developerModeEnabled: boolean) =>
+  (tab: string | null | undefined): tab is ActivityTab =>
+    (ACTIVITY_TABS as string[]).includes(tab ?? '') &&
+    (developerModeEnabled || !(DEV_ONLY_TABS as string[]).includes(tab ?? ''));
 
 export default function Activity() {
   const { t } = useT();
+  const developerMode = useDeveloperMode();
+  const isVisibleTab = makeIsVisibleTab(developerMode);
 
   // Tab is URL-backed (/activity?tab=…) so navigating away and coming back
   // restores the same tab.  `replace` so switching tabs doesn't stack history.
@@ -129,7 +140,7 @@ export default function Activity() {
     },
     { id: 'council', label: t('memory.tab.council'), devOnly: true },
   ];
-  const tabs = allTabs.filter(tab => !tab.devOnly || IS_DEV);
+  const tabs = allTabs.filter(tab => !tab.devOnly || developerMode);
   const activeTabDef = tabs.find(tab => tab.id === activeTab);
 
   return (

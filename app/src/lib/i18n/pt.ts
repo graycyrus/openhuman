@@ -94,6 +94,13 @@ const messages: TranslationMap = {
   'settings.developerOptions': 'Avançado',
   'settings.developerOptionsDesc':
     'Configuração de IA, canais de mensagens, ferramentas, diagnósticos e painéis de depuração',
+  'settings.developerDiagnostics': 'Desenvolvedor e Diagnósticos',
+  'settings.developerDiagnosticsDesc':
+    'Ferramentas avançadas de desenvolvedor, diagnósticos, memória, agentes e painéis de depuração',
+  'settings.developerMode.title': 'Modo desenvolvedor',
+  'settings.developerMode.description':
+    'Mostrar ferramentas avançadas de desenvolvedor e diagnóstico',
+  'settings.developerMode.enabledByBuild': 'Sempre ativado em builds de desenvolvimento',
   'settings.clearAppData': 'Limpar Dados do App',
   'settings.clearAppDataDesc': 'Sair e excluir permanentemente todos os dados locais do app',
   'settings.logOut': 'Sair',
@@ -724,6 +731,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'Falha ao alterar função',
   'team.failedRemoveMember': 'Falha ao remover membro',
   'devOptions.title': 'Avançado',
+  'devOptions.titleDiagnostics': 'Desenvolvedor e Diagnósticos',
   'devOptions.diagnostics': 'Diagnósticos',
   'devOptions.diagnosticsDesc': 'Saúde do sistema, logs e métricas de desempenho',
   'devOptions.toolPolicyDiagnosticsDesc':

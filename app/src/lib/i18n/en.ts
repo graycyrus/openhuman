@@ -96,6 +96,14 @@ const en: TranslationMap = {
   'settings.developerOptions': 'Advanced',
   'settings.developerOptionsDesc':
     'AI configuration, messaging channels, tools, diagnostics, and debug panels',
+  // Developer & Diagnostics (renamed from "Developer Options")
+  'settings.developerDiagnostics': 'Developer & Diagnostics',
+  'settings.developerDiagnosticsDesc':
+    'Advanced developer tools, diagnostics, memory, agents, and debug panels',
+  // Runtime Developer Mode toggle (in About panel)
+  'settings.developerMode.title': 'Developer mode',
+  'settings.developerMode.description': 'Show advanced developer & diagnostic tools',
+  'settings.developerMode.enabledByBuild': 'Always on in development builds',
   'settings.clearAppData': 'Clear App Data',
   'settings.clearAppDataDesc': 'Sign out and permanently clear all local app data',
   'settings.logOut': 'Log out',
@@ -1029,8 +1037,9 @@ const en: TranslationMap = {
   'team.failedChangeRole': 'Failed to change role',
   'team.failedRemoveMember': 'Failed to remove member',
 
-  // Developer Options
+  // Developer Options / Developer & Diagnostics
   'devOptions.title': 'Advanced',
+  'devOptions.titleDiagnostics': 'Developer & Diagnostics',
   'devOptions.diagnostics': 'Diagnostics',
   'devOptions.diagnosticsDesc': 'System health, logs, and performance metrics',
   'devOptions.toolPolicyDiagnosticsDesc':

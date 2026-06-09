@@ -92,6 +92,12 @@ const messages: TranslationMap = {
   'settings.aboutDesc': 'ऐप वर्जन और सॉफ्टवेयर अपडेट',
   'settings.developerOptions': 'एडवांस्ड',
   'settings.developerOptionsDesc': 'AI कॉन्फिग, मैसेजिंग चैनल, टूल्स, डायग्नोस्टिक्स और डिबग पैनल',
+  'settings.developerDiagnostics': 'डेवलपर और डायग्नोस्टिक्स',
+  'settings.developerDiagnosticsDesc':
+    'उन्नत डेवलपर टूल्स, डायग्नोस्टिक्स, मेमोरी, एजेंट और डिबग पैनल',
+  'settings.developerMode.title': 'डेवलपर मोड',
+  'settings.developerMode.description': 'उन्नत डेवलपर और डायग्नोस्टिक टूल्स दिखाएं',
+  'settings.developerMode.enabledByBuild': 'डेवलपमेंट बिल्ड में हमेशा चालू',
   'settings.clearAppData': 'ऐप डेटा क्लियर करें',
   'settings.clearAppDataDesc': 'साइन आउट करें और सारा लोकल ऐप डेटा हमेशा के लिए मिटाएं',
   'settings.logOut': 'लॉग आउट',
@@ -706,6 +712,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'भूमिका बदलने में विफल',
   'team.failedRemoveMember': 'सदस्य को हटाने में विफल',
   'devOptions.title': 'एडवांस्ड',
+  'devOptions.titleDiagnostics': 'डेवलपर और डायग्नोस्टिक्स',
   'devOptions.diagnostics': 'डायग्नोस्टिक्स',
   'devOptions.diagnosticsDesc': 'सिस्टम हेल्थ, लॉग्स और परफॉर्मेंस मेट्रिक्स',
   'devOptions.toolPolicyDiagnosticsDesc':

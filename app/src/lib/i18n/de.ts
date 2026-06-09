@@ -93,6 +93,12 @@ const messages: TranslationMap = {
   'settings.developerOptions': 'Fortgeschritten',
   'settings.developerOptionsDesc':
     'KI-Konfiguration, Nachrichtenkanäle, Tools, Diagnose und Debug-Panels',
+  'settings.developerDiagnostics': 'Entwickler & Diagnose',
+  'settings.developerDiagnosticsDesc':
+    'Erweiterte Entwickler-Tools, Diagnose, Speicher, Agents und Debug-Panels',
+  'settings.developerMode.title': 'Entwicklermodus',
+  'settings.developerMode.description': 'Erweiterte Entwickler- und Diagnose-Tools anzeigen',
+  'settings.developerMode.enabledByBuild': 'In Entwicklungs-Builds immer aktiviert',
   'settings.clearAppData': 'App-Daten löschen',
   'settings.clearAppDataDesc': 'Melde dich ab und lösche alle lokalen App-Daten dauerhaft',
   'settings.logOut': 'Abmelden',
@@ -726,6 +732,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'Rolle konnte nicht geändert werden.',
   'team.failedRemoveMember': 'Mitglied konnte nicht entfernt werden.',
   'devOptions.title': 'Fortgeschritten',
+  'devOptions.titleDiagnostics': 'Entwickler & Diagnose',
   'devOptions.diagnostics': 'Diagnose',
   'devOptions.diagnosticsDesc': 'Systemzustand, Protokolle und Leistungsmetriken',
   'devOptions.toolPolicyDiagnosticsDesc':

@@ -93,6 +93,12 @@ const messages: TranslationMap = {
   'settings.developerOptions': 'متقدم',
   'settings.developerOptionsDesc':
     'إعداد الذكاء الاصطناعي وقنوات المراسلة والأدوات والتشخيص ولوحات التصحيح',
+  'settings.developerDiagnostics': 'المطور والتشخيص',
+  'settings.developerDiagnosticsDesc':
+    'أدوات المطور المتقدمة والتشخيص والذاكرة والوكلاء ولوحات التصحيح',
+  'settings.developerMode.title': 'وضع المطور',
+  'settings.developerMode.description': 'إظهار أدوات المطور والتشخيص المتقدمة',
+  'settings.developerMode.enabledByBuild': 'مفعّل دائمًا في إصدارات التطوير',
   'settings.clearAppData': 'مسح بيانات التطبيق',
   'settings.clearAppDataDesc': 'تسجيل الخروج وحذف جميع البيانات المحلية للتطبيق نهائيًا',
   'settings.logOut': 'تسجيل الخروج',
@@ -692,6 +698,7 @@ const messages: TranslationMap = {
   'team.failedChangeRole': 'فشل تغيير الدور',
   'team.failedRemoveMember': 'فشلت إزالة العضو',
   'devOptions.title': 'متقدم',
+  'devOptions.titleDiagnostics': 'المطور والتشخيص',
   'devOptions.diagnostics': 'التشخيص',
   'devOptions.diagnosticsDesc': 'صحة النظام والسجلات ومقاييس الأداء',
   'devOptions.toolPolicyDiagnosticsDesc':

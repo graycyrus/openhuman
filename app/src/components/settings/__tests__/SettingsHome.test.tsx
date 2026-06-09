@@ -8,12 +8,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
 import localeReducer from '../../../store/localeSlice';
+import themeReducer, {
+  type AgentMessageViewMode,
+  type FontSize,
+  type TabBarLabels,
+  type ThemeMode,
+} from '../../../store/themeSlice';
 import SettingsHome from '../SettingsHome';
 
-function makeTestStore(locale: Locale = 'en') {
+// `useDeveloperMode` combines IS_DEV || developerMode.  In tests IS_DEV is
+// true (Vite test mode), so mock the hook to control the gate explicitly.
+const devModeHoisted = vi.hoisted(() => ({ value: false }));
+vi.mock('../../../hooks/useDeveloperMode', () => ({
+  useDeveloperMode: () => devModeHoisted.value,
+}));
+
+function makeTestStore(locale: Locale = 'en', developerMode = false) {
   return configureStore({
-    reducer: { locale: localeReducer },
-    preloadedState: { locale: { current: locale } },
+    reducer: { locale: localeReducer, theme: themeReducer },
+    preloadedState: {
+      locale: { current: locale },
+      theme: {
+        mode: 'system' as ThemeMode,
+        tabBarLabels: 'hover' as TabBarLabels,
+        fontSize: 'medium' as FontSize,
+        agentMessageViewMode: 'bubbles' as AgentMessageViewMode,
+        developerMode,
+      },
+    },
   });
 }
 
@@ -59,7 +81,10 @@ vi.mock('../../walkthrough/AppWalkthrough', () => ({ resetWalkthrough: vi.fn() }
 
 // --- helpers ---
 
-function renderSettingsHome({ locale = 'en', withI18n = false } = {}) {
+function renderSettingsHome({ locale = 'en', withI18n = false, developerMode = false } = {}) {
+  // Set the mocked hook value before rendering.
+  devModeHoisted.value = developerMode;
+
   const content = withI18n ? (
     <I18nProvider>
       <SettingsHome />
@@ -69,7 +94,7 @@ function renderSettingsHome({ locale = 'en', withI18n = false } = {}) {
   );
 
   return render(
-    <Provider store={makeTestStore(locale as Locale)}>
+    <Provider store={makeTestStore(locale as Locale, developerMode)}>
       <MemoryRouter>{content}</MemoryRouter>
     </Provider>
   );
@@ -80,6 +105,7 @@ function renderSettingsHome({ locale = 'en', withI18n = false } = {}) {
 describe('SettingsHome', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    devModeHoisted.value = false;
   });
 
   describe('flat menu', () => {
@@ -98,7 +124,8 @@ describe('SettingsHome', () => {
       renderSettingsHome();
       expect(screen.getByText('Account')).toBeInTheDocument();
       expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
-      expect(screen.getByText('Advanced')).toBeInTheDocument();
+      // Developer & Diagnostics entry is hidden by default (developerMode=false)
+      expect(screen.queryByTestId('settings-nav-developer-options')).not.toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-account')).toBeInTheDocument();
     });
 
@@ -179,12 +206,28 @@ describe('SettingsHome', () => {
       expect(openUrl).toHaveBeenCalledWith('https://billing.example.com');
     });
 
-    it('navigates to developer-options when Advanced is clicked', async () => {
+    it('navigates to developer-options when "Developer & Diagnostics" is clicked (developerMode=true)', async () => {
       const user = userEvent.setup();
-      renderSettingsHome();
+      renderSettingsHome({ developerMode: true });
 
-      await user.click(screen.getByText('Advanced').closest('button')!);
+      await user.click(screen.getByText('Developer & Diagnostics').closest('button')!);
       expect(mockNavigateToSettings).toHaveBeenCalledWith('developer-options');
+    });
+  });
+
+  describe('developer mode gate', () => {
+    it('hides the developer-options entry when developerMode is off', () => {
+      renderSettingsHome({ developerMode: false });
+      expect(screen.queryByTestId('settings-nav-developer-options')).not.toBeInTheDocument();
+      // The English resolved text should also be absent
+      expect(screen.queryByText('Developer & Diagnostics')).not.toBeInTheDocument();
+    });
+
+    it('shows the developer-options entry when developerMode is on', () => {
+      renderSettingsHome({ developerMode: true });
+      expect(screen.getByTestId('settings-nav-developer-options')).toBeInTheDocument();
+      // useT() resolves to English even without I18nProvider
+      expect(screen.getByText('Developer & Diagnostics')).toBeInTheDocument();
     });
   });
 
