@@ -318,10 +318,16 @@ test.describe('MCP Tab — Table View & Filtering', () => {
   test('search filters both installed and registry servers', async ({ page }) => {
     const search = page.locator('input[type="search"]');
     await search.fill('notion');
-    // Wait for the table to reflect the filtered results rather than using a fixed delay
+    // Wait for a Notion row to appear AND for non-matching rows (e.g. "Memory
+    // Server") to disappear — the table re-renders asynchronously and a naive
+    // count() immediately after the first visible check can race against the
+    // previous state still being in the DOM.
     await expect(
       page.locator('table tbody tr', { has: page.locator('td:has-text("Notion")') })
     ).toBeVisible({ timeout: 5_000 });
+    await expect(
+      page.locator('table tbody tr', { has: page.locator('td:has-text("Memory Server")') })
+    ).toHaveCount(0, { timeout: 5_000 });
     const rows = page.locator('table tbody tr');
     const count = await rows.count();
     expect(count).toBeGreaterThanOrEqual(1);
