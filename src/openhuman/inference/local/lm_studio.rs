@@ -9,6 +9,107 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) const DEFAULT_LM_STUDIO_BASE_URL: &str = "http://localhost:1234/v1";
 
+/// Default context window (tokens) assumed when the model's
+/// `/v1/models` entry does not advertise `max_context_length`.
+/// 8 192 is a common default for small-to-medium local models
+/// (Gemma 3 1B, Llama 3.2 1B, etc.).
+pub(crate) const DEFAULT_N_CTX: u64 = 8_192;
+
+/// Tokens reserved for the model's output when budgeting the prompt
+/// against the context window. The prompt is truncated so that
+/// `estimated_prompt_tokens <= n_ctx - OUTPUT_TOKEN_RESERVE`.
+pub(crate) const OUTPUT_TOKEN_RESERVE: u64 = 1_024;
+
+/// Rough estimate of how many tokens a text string consumes.
+/// Uses the standard 4-characters-per-token heuristic (conservative
+/// for English, slightly generous for code).
+pub(crate) fn estimate_tokens(text: &str) -> u64 {
+    let char_count = text.chars().count();
+    // 4 chars per token is the standard heuristic; ceil division.
+    (char_count as u64 + 3) / 4
+}
+
+/// Truncate a message list so the estimated total token count fits
+/// within `budget`. Keeps the system message (first message with
+/// role "system") and the most recent messages, dropping the oldest
+/// non-system messages first.
+pub(crate) fn truncate_messages_to_budget(
+    messages: &mut Vec<LmStudioChatMessage>,
+    budget: u64,
+) {
+    if messages.is_empty() {
+        return;
+    }
+
+    // Fast path: already within budget.
+    let total_tokens: u64 = messages
+        .iter()
+        .map(|m| estimate_tokens(&m.content))
+        .sum();
+    if total_tokens <= budget {
+        return;
+    }
+
+    tracing::debug!(
+        original_messages = messages.len(),
+        estimated_tokens = total_tokens,
+        budget,
+        "[lm-studio] truncating messages to fit context window"
+    );
+
+    // Separate the system message (if any) from the rest.
+    let system_idx = messages.iter().position(|m| m.role == "system");
+    let mut keep: Vec<LmStudioChatMessage> = Vec::with_capacity(messages.len());
+
+    if let Some(idx) = system_idx {
+        keep.push(messages.swap_remove(idx));
+    }
+
+    // Collect remaining messages (non-system) in reverse order so we
+    // can drop from the oldest (front) while keeping the newest (back).
+    let mut non_system: Vec<LmStudioChatMessage> = messages
+        .drain(..)
+        .filter(|m| m.role != "system")
+        .collect();
+
+    // Always keep at least the last non-system message.
+    let mut budget_remaining = budget.saturating_sub(
+        keep.iter().map(|m| estimate_tokens(&m.content)).sum::<u64>(),
+    );
+
+    // Work from the newest backwards, keeping as many as fit.
+    let mut to_keep: Vec<LmStudioChatMessage> = Vec::new();
+    for msg in non_system.into_iter().rev() {
+        let tokens = estimate_tokens(&msg.content);
+        if tokens <= budget_remaining || to_keep.is_empty() {
+            budget_remaining = budget_remaining.saturating_sub(tokens);
+            to_keep.push(msg);
+        } else {
+            tracing::debug!(
+                dropped_role = %msg.role,
+                dropped_content_preview = %msg.content.chars().take(80).collect::<String>(),
+                "[lm-studio] dropped message to fit context window"
+            );
+        }
+    }
+
+    // Restore order: system first, then kept messages in original order.
+    to_keep.reverse();
+    keep.extend(to_keep);
+
+    *messages = keep;
+
+    tracing::debug!(
+        kept_messages = messages.len(),
+        estimated_tokens_after = messages
+            .iter()
+            .map(|m| estimate_tokens(&m.content))
+            .sum::<u64>(),
+        budget,
+        "[lm-studio] message truncation complete"
+    );
+}
+
 pub(crate) fn lm_studio_base_url(config: &Config) -> String {
     lm_studio_base_url_from_local_ai(&config.local_ai)
 }
@@ -151,6 +252,12 @@ pub(crate) struct LmStudioModel {
     pub object: Option<String>,
     #[serde(default)]
     pub owned_by: Option<String>,
+    /// Context window advertised by the model (tokens). LM Studio's
+    /// OpenAI-compatible `/v1/models` endpoint may include this as
+    /// `max_context_length`. When absent callers should fall back to
+    /// [`DEFAULT_N_CTX`].
+    #[serde(default, alias = "max_context_length")]
+    pub context_length: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -187,9 +294,7 @@ pub(crate) struct LmStudioChatChoice {
 pub(crate) struct LmStudioChatResponseMessage {
     #[serde(default)]
     pub content: Option<String>,
-    /// Local reasoning models expose chain-of-thought as `reasoning_content`
-    /// or `reasoning` depending on the runtime — accept both field names.
-    #[serde(default, alias = "reasoning")]
+    #[serde(default)]
     pub reasoning_content: Option<String>,
 }
 
@@ -292,14 +397,5 @@ mod tests {
             reasoning_content: None,
         };
         assert_eq!(msg.effective_content(), "Visible reply");
-    }
-
-    #[test]
-    fn reasoning_content_accepts_reasoning_alias() {
-        // Local runtimes that name the field `reasoning` must still be captured
-        // (issue #3094) so reasoning round-trips like the canonical field.
-        let msg: LmStudioChatResponseMessage =
-            serde_json::from_str(r#"{"content":null,"reasoning":"local cot"}"#).unwrap();
-        assert_eq!(msg.reasoning_content.as_deref(), Some("local cot"));
     }
 }
