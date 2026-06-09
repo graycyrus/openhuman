@@ -24,6 +24,7 @@ export type SettingsRoute =
   | 'voice'
   | 'tools'
   | 'memory-data'
+  | 'memory-sync'
   | 'memory-debug'
   | 'crypto'
   | 'recovery-phrase'
@@ -112,6 +113,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     if (path.includes('/settings/voice-debug')) return 'voice-debug';
     if (path.includes('/settings/voice')) return 'voice';
     if (path.includes('/settings/tools')) return 'tools';
+    if (path.includes('/settings/memory-sync')) return 'memory-sync';
     if (path.includes('/settings/memory-data')) return 'memory-data';
     if (path.includes('/settings/memory-debug')) return 'memory-debug';
     if (path.includes('/settings/webhooks-debug')) return 'webhooks-debug';
@@ -304,6 +306,10 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
         return [settingsCrumb, developerCrumb, notificationsHubCrumb];
 
       case 'devices':
+        return [settingsCrumb];
+
+      // Data Sync is a top-level leaf in the Account group (#3301).
+      case 'memory-sync':
         return [settingsCrumb];
 
       // Permissions panel lives at the top level of Settings (Assistant group).

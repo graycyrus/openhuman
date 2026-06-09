@@ -33,6 +33,7 @@ import MascotPanel from '../components/settings/panels/MascotPanel';
 import McpServerPanel from '../components/settings/panels/McpServerPanel';
 import MemoryDataPanel from '../components/settings/panels/MemoryDataPanel';
 import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
+import MemorySyncPanel from '../components/settings/panels/MemorySyncPanel';
 import MigrationPanel from '../components/settings/panels/MigrationPanel';
 import ModelHealthPanel from '../components/settings/panels/ModelHealthPanel';
 import NotificationsTabbedPanel from '../components/settings/panels/NotificationsTabbedPanel';
@@ -648,6 +649,10 @@ const Settings = () => {
         <Route
           path="model-health"
           element={wrapSettingsPage(<ModelHealthPanel />, { maxWidthClass: 'max-w-4xl' })}
+        />
+        <Route
+          path="memory-sync"
+          element={wrapSettingsPage(<MemorySyncPanel />, { maxWidthClass: 'max-w-4xl' })}
         />
         <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
         <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
