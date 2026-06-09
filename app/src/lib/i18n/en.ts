@@ -8,8 +8,8 @@ const en: TranslationMap = {
   'nav.assistant': 'Assistant',
 
   // Assistant surface — face mode toggle (Phase 6)
-  'assistant.faceMode.on': 'Face on',
-  'assistant.faceMode.off': 'Face',
+  'assistant.faceMode.on': 'Talking to Tiny',
+  'assistant.faceMode.off': 'Talk to Tiny',
   'assistant.faceMode.turnOn': 'Show mascot face',
   'assistant.faceMode.turnOff': 'Hide mascot face',
   'nav.connections': 'Connections',

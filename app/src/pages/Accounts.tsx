@@ -161,10 +161,10 @@ const FaceModePanel = () => {
 
   return (
     <aside
-      className="flex w-[320px] flex-none flex-col items-center gap-4 bg-stone-50 dark:bg-neutral-900/60 rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0 py-4 px-3 overflow-hidden"
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-stone-50 dark:bg-neutral-900/60 rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0 py-4 px-3 overflow-hidden"
       data-testid="face-mode-panel">
-      {/* Mascot stage */}
-      <div className="relative w-full aspect-square max-h-[260px]">
+      {/* Mascot stage — the dominant element of the "Talk to Tiny" surface */}
+      <div className="relative w-full max-w-[460px] aspect-square">
         {customMascotGifUrl ? (
           <CustomGifMascot src={customMascotGifUrl} face={face} />
         ) : (
@@ -407,7 +407,7 @@ const Accounts = () => {
           <>
             {/* Agent chat — face mode uses sidebar variant to avoid a second
                 thread list; normal mode uses the full-page variant (AgentChatPanel). */}
-            <div className="flex min-w-0 flex-1 flex-col">
+            <div className={`flex min-w-0 flex-col ${faceMode ? 'w-[360px] flex-none' : 'flex-1'}`}>
               {faceMode ? (
                 <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
                   {/* Face-mode header strip with toggle button */}
