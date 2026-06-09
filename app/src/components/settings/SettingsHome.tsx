@@ -478,7 +478,7 @@ const SettingsHome = () => {
         <SettingsHeader />
       </div>
 
-      <div>
+      <div className="px-4 pb-5">
         {groups.map(group => (
           <div key={group.id} data-testid={`settings-group-${group.id}`}>
             <GroupHeader label={group.label} />

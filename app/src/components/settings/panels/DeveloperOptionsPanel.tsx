@@ -866,7 +866,7 @@ const DeveloperOptionsPanel = () => {
       />
 
       {/* 7 labeled sub-sections replacing the previous flat list */}
-      <div>
+      <div className="px-4 pb-5">
         {DEV_GROUPS.map(group => (
           <div key={group.labelKey} data-testid={`dev-group-${group.labelKey.split('.').pop()}`}>
             <DevGroupHeader label={t(group.labelKey)} />

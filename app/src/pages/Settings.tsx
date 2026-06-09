@@ -227,7 +227,9 @@ const WalletIcon = (
 
 const WrappedSettingsPage = ({
   children,
-  maxWidthClass = 'max-w-lg',
+  // Default widened ~30% (max-w-lg 512px → max-w-2xl 672px) for a roomier
+  // settings list per design feedback.
+  maxWidthClass = 'max-w-2xl',
 }: {
   children: ReactNode;
   maxWidthClass?: string;
