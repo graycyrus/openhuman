@@ -105,12 +105,14 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': '工具与能力',
   'settings.devGroups.council': '委员会',
   'settings.analysisViews.title': '分析视图',
-  'settings.analysisViews.menuDesc': '内存图分析 — 关系图、中心性、内聚性、关联、新鲜度、时间线、路径和命名空间',
+  'settings.analysisViews.menuDesc':
+    '内存图分析 — 关系图、中心性、内聚性、关联、新鲜度、时间线、路径和命名空间',
   'settings.buildInfo.title': '构建/版本信息',
   'settings.buildInfo.menuDesc': '应用构建、版本和核心连接详情',
   'settings.dataSync.title': '数据同步',
   'settings.dataSync.menuDesc': '助手同步的内容 — 来源、新鲜度和状态',
-  'settings.dataSync.description': '管理同步到助手记忆中的内容：每个已连接的来源及其上次同步时间、已同步的数量，以及当前是否正在同步。',
+  'settings.dataSync.description':
+    '管理同步到助手记忆中的内容：每个已连接的来源及其上次同步时间、已同步的数量，以及当前是否正在同步。',
   'settings.devGroups.diagnosticsLogs': '诊断与日志',
   'settings.featuresAndAI': '功能与 AI',
   'settings.billingAndRewards': '账单与奖励',

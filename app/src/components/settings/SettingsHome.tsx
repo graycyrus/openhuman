@@ -327,10 +327,7 @@ const SettingsHome = () => {
   // single flat card with no section subheadings. Developer & Diagnostics (when
   // on) and About sit after a divider, each in their own card.
   const laymanItems: SettingsItem[] = visibleGroups.flatMap(group => group.items);
-  const trailingGroups: SettingsGroup[] = [
-    ...(developerGroup ? [developerGroup] : []),
-    aboutGroup,
-  ];
+  const trailingGroups: SettingsGroup[] = [...(developerGroup ? [developerGroup] : []), aboutGroup];
 
   return (
     <div className="z-10 relative">

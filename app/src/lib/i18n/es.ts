@@ -108,12 +108,14 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': 'Herramientas y capacidades',
   'settings.devGroups.council': 'Consejo',
   'settings.analysisViews.title': 'Vistas de análisis',
-  'settings.analysisViews.menuDesc': 'Análisis del grafo de memoria: diagrama, centralidad, cohesión, asociaciones, frescura, línea de tiempo, rutas y espacios de nombres',
+  'settings.analysisViews.menuDesc':
+    'Análisis del grafo de memoria: diagrama, centralidad, cohesión, asociaciones, frescura, línea de tiempo, rutas y espacios de nombres',
   'settings.buildInfo.title': 'Información de compilación/versión',
   'settings.buildInfo.menuDesc': 'Compilación de la app, versión y detalles de conexión del núcleo',
   'settings.dataSync.title': 'Sincronización de datos',
   'settings.dataSync.menuDesc': 'Lo que sincroniza tu asistente: fuentes, actualidad y estado',
-  'settings.dataSync.description': 'Gestiona qué se sincroniza en la memoria de tu asistente: cada fuente conectada con su última sincronización, cuánto se ha sincronizado y si se está sincronizando ahora.',
+  'settings.dataSync.description':
+    'Gestiona qué se sincroniza en la memoria de tu asistente: cada fuente conectada con su última sincronización, cuánto se ha sincronizado y si se está sincronizando ahora.',
   'settings.devGroups.diagnosticsLogs': 'Diagnósticos y registros',
   'settings.featuresAndAI': 'Funciones e IA',
   'settings.billingAndRewards': 'Facturación y recompensas',

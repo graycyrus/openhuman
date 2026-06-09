@@ -108,12 +108,14 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': '도구 및 기능',
   'settings.devGroups.council': '위원회',
   'settings.analysisViews.title': '분석 보기',
-  'settings.analysisViews.menuDesc': '메모리 그래프 분석 — 다이어그램, 중심성, 응집도, 연관, 최신성, 타임라인, 경로 및 네임스페이스',
+  'settings.analysisViews.menuDesc':
+    '메모리 그래프 분석 — 다이어그램, 중심성, 응집도, 연관, 최신성, 타임라인, 경로 및 네임스페이스',
   'settings.buildInfo.title': '빌드 / 버전 정보',
   'settings.buildInfo.menuDesc': '앱 빌드, 버전 및 코어 연결 세부 정보',
   'settings.dataSync.title': '데이터 동기화',
   'settings.dataSync.menuDesc': '어시스턴트가 동기화하는 항목 — 소스, 최신성 및 상태',
-  'settings.dataSync.description': '어시스턴트의 메모리에 무엇이 동기화되는지 관리하세요: 연결된 각 소스의 마지막 동기화 시간, 동기화된 양, 지금 동기화 중인지 여부를 확인할 수 있습니다.',
+  'settings.dataSync.description':
+    '어시스턴트의 메모리에 무엇이 동기화되는지 관리하세요: 연결된 각 소스의 마지막 동기화 시간, 동기화된 양, 지금 동기화 중인지 여부를 확인할 수 있습니다.',
   'settings.devGroups.diagnosticsLogs': '진단 및 로그',
   'settings.featuresAndAI': '기능 및 AI',
   'settings.billingAndRewards': '결제 및 보상',

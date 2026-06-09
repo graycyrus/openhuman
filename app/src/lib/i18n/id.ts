@@ -108,12 +108,14 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': 'Alat & Kemampuan',
   'settings.devGroups.council': 'Dewan',
   'settings.analysisViews.title': 'Tampilan analisis',
-  'settings.analysisViews.menuDesc': 'Analisis grafik memori — diagram, sentralitas, kohesi, asosiasi, kesegaran, lini masa, jalur, dan namespace',
+  'settings.analysisViews.menuDesc':
+    'Analisis grafik memori — diagram, sentralitas, kohesi, asosiasi, kesegaran, lini masa, jalur, dan namespace',
   'settings.buildInfo.title': 'Info build / versi',
   'settings.buildInfo.menuDesc': 'Build aplikasi, versi, dan detail koneksi core',
   'settings.dataSync.title': 'Sinkronisasi Data',
   'settings.dataSync.menuDesc': 'Yang disinkronkan asisten Anda — sumber, kesegaran, dan status',
-  'settings.dataSync.description': 'Kelola apa yang disinkronkan ke memori asisten Anda: setiap sumber terhubung dengan waktu sinkronisasi terakhirnya, seberapa banyak yang disinkronkan, dan apakah sedang menyinkronkan sekarang.',
+  'settings.dataSync.description':
+    'Kelola apa yang disinkronkan ke memori asisten Anda: setiap sumber terhubung dengan waktu sinkronisasi terakhirnya, seberapa banyak yang disinkronkan, dan apakah sedang menyinkronkan sekarang.',
   'settings.devGroups.diagnosticsLogs': 'Diagnostik & Log',
   'settings.featuresAndAI': 'Fitur & AI',
   'settings.billingAndRewards': 'Tagihan & Hadiah',

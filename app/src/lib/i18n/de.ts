@@ -108,12 +108,15 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': 'Tools & Fähigkeiten',
   'settings.devGroups.council': 'Rat',
   'settings.analysisViews.title': 'Analyseansichten',
-  'settings.analysisViews.menuDesc': 'Speichergraph-Analyse — Diagramm, Zentralität, Kohäsion, Verknüpfungen, Aktualität, Zeitachse, Pfade und Namensräume',
+  'settings.analysisViews.menuDesc':
+    'Speichergraph-Analyse — Diagramm, Zentralität, Kohäsion, Verknüpfungen, Aktualität, Zeitachse, Pfade und Namensräume',
   'settings.buildInfo.title': 'Build-/Versionsinfo',
   'settings.buildInfo.menuDesc': 'App-Build, Version und Details zur Core-Verbindung',
   'settings.dataSync.title': 'Datensynchronisierung',
-  'settings.dataSync.menuDesc': 'Was dein Assistent synchronisiert — Quellen, Aktualität und Status',
-  'settings.dataSync.description': 'Verwalte, was in den Speicher deines Assistenten synchronisiert wird: jede verbundene Quelle mit ihrer letzten Synchronisierungszeit, wie viel synchronisiert ist und ob gerade synchronisiert wird.',
+  'settings.dataSync.menuDesc':
+    'Was dein Assistent synchronisiert — Quellen, Aktualität und Status',
+  'settings.dataSync.description':
+    'Verwalte, was in den Speicher deines Assistenten synchronisiert wird: jede verbundene Quelle mit ihrer letzten Synchronisierungszeit, wie viel synchronisiert ist und ob gerade synchronisiert wird.',
   'settings.devGroups.diagnosticsLogs': 'Diagnose & Protokolle',
   'settings.featuresAndAI': 'Funktionen und KI',
   'settings.billingAndRewards': 'Abrechnung und Prämien',

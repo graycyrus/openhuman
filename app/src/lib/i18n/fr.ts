@@ -109,12 +109,14 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': 'Outils et capacités',
   'settings.devGroups.council': 'Conseil',
   'settings.analysisViews.title': 'Vues d’analyse',
-  'settings.analysisViews.menuDesc': 'Analyse du graphe mémoire — diagramme, centralité, cohésion, associations, fraîcheur, chronologie, chemins et espaces de noms',
+  'settings.analysisViews.menuDesc':
+    'Analyse du graphe mémoire — diagramme, centralité, cohésion, associations, fraîcheur, chronologie, chemins et espaces de noms',
   'settings.buildInfo.title': 'Infos de build/version',
   'settings.buildInfo.menuDesc': 'Build de l’application, version et détails de connexion du cœur',
   'settings.dataSync.title': 'Synchronisation des données',
   'settings.dataSync.menuDesc': 'Ce que votre assistant synchronise — sources, fraîcheur et état',
-  'settings.dataSync.description': 'Gérez ce qui est synchronisé dans la mémoire de votre assistant : chaque source connectée avec sa dernière synchronisation, la quantité synchronisée et si une synchronisation est en cours.',
+  'settings.dataSync.description':
+    'Gérez ce qui est synchronisé dans la mémoire de votre assistant : chaque source connectée avec sa dernière synchronisation, la quantité synchronisée et si une synchronisation est en cours.',
   'settings.devGroups.diagnosticsLogs': 'Diagnostics et journaux',
   'settings.featuresAndAI': 'Fonctionnalités & IA',
   'settings.billingAndRewards': 'Facturation & Récompenses',

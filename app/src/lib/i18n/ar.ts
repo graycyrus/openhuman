@@ -105,12 +105,14 @@ const messages: TranslationMap = {
   'settings.devGroups.toolsCapabilities': 'الأدوات والقدرات',
   'settings.devGroups.council': 'المجلس',
   'settings.analysisViews.title': 'طرق العرض التحليلية',
-  'settings.analysisViews.menuDesc': 'تحليل رسم الذاكرة البياني — المخطط، والمركزية، والتماسك، والارتباطات، والحداثة، والجدول الزمني، والمسارات، والمساحات',
+  'settings.analysisViews.menuDesc':
+    'تحليل رسم الذاكرة البياني — المخطط، والمركزية، والتماسك، والارتباطات، والحداثة، والجدول الزمني، والمسارات، والمساحات',
   'settings.buildInfo.title': 'معلومات الإصدار / البناء',
   'settings.buildInfo.menuDesc': 'تفاصيل بناء التطبيق وإصداره واتصال النواة',
   'settings.dataSync.title': 'مزامنة البيانات',
   'settings.dataSync.menuDesc': 'ما يقوم مساعدك بمزامنته — المصادر والحداثة والحالة',
-  'settings.dataSync.description': 'تحكم في ما تتم مزامنته في ذاكرة مساعدك: كل مصدر متصل مع وقت آخر مزامنة له، ومقدار ما تمت مزامنته، وما إذا كان قيد المزامنة الآن.',
+  'settings.dataSync.description':
+    'تحكم في ما تتم مزامنته في ذاكرة مساعدك: كل مصدر متصل مع وقت آخر مزامنة له، ومقدار ما تمت مزامنته، وما إذا كان قيد المزامنة الآن.',
   'settings.devGroups.diagnosticsLogs': 'التشخيصات والسجلات',
   'settings.featuresAndAI': 'الميزات والذكاء الاصطناعي',
   'settings.billingAndRewards': 'الفوترة والمكافآت',

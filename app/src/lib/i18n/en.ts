@@ -127,12 +127,14 @@ const en: TranslationMap = {
   'settings.devGroups.toolsCapabilities': 'Tools & Capabilities',
   'settings.devGroups.council': 'Council',
   'settings.analysisViews.title': 'Analysis views',
-  'settings.analysisViews.menuDesc': 'Memory graph analysis — diagram, centrality, cohesion, associations, freshness, timeline, paths, and namespaces',
+  'settings.analysisViews.menuDesc':
+    'Memory graph analysis — diagram, centrality, cohesion, associations, freshness, timeline, paths, and namespaces',
   'settings.buildInfo.title': 'Build / version info',
   'settings.buildInfo.menuDesc': 'App build, version, and core connection details',
   'settings.dataSync.title': 'Data Sync',
   'settings.dataSync.menuDesc': 'What your assistant syncs — sources, freshness, and status',
-  'settings.dataSync.description': 'Manage what gets synced into your assistant\'s memory: every connected source with its last-synced time, how much is synced, and whether it\'s syncing right now.',
+  'settings.dataSync.description':
+    "Manage what gets synced into your assistant's memory: every connected source with its last-synced time, how much is synced, and whether it's syncing right now.",
   'settings.devGroups.diagnosticsLogs': 'Diagnostics & Logs',
   'settings.notifications': 'Notifications',
   'settings.notificationsDesc': 'Do Not Disturb and per-account notification controls',
