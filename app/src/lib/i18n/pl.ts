@@ -4854,6 +4854,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     'Wielokrotnego użytku, uruchamialne procedury — cel i kroki do jego osiągnięcia.',
   'activity.tabs.backgroundActivity': 'Aktywność w tle',
+  'activity.tabs.alerts': 'Alerty',
 
   'intelligence.agents.title': 'Biblioteka agentów',
   'intelligence.agents.subtitle':

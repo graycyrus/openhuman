@@ -4822,6 +4822,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     'Prosedur yang dapat digunakan kembali dan dijalankan — tujuan beserta langkah-langkah untuk mencapainya.',
   'activity.tabs.backgroundActivity': 'Aktivitas latar belakang',
+  'activity.tabs.alerts': 'Peringatan',
 
   'intelligence.agents.title': 'Pustaka Agen',
   'intelligence.agents.subtitle':

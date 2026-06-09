@@ -4812,6 +4812,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     'पुन: उपयोग योग्य, चलाने योग्य प्रक्रियाएँ — एक लक्ष्य और उसे प्राप्त करने के चरण।',
   'activity.tabs.backgroundActivity': 'पृष्ठभूमि गतिविधि',
+  'activity.tabs.alerts': 'अलर्ट',
 
   'intelligence.agents.title': 'एजेंट लाइब्रेरी',
   'intelligence.agents.subtitle':

@@ -4921,6 +4921,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     "Procédures réutilisables et exécutables — un objectif et les étapes pour l'atteindre.",
   'activity.tabs.backgroundActivity': 'Activité en arrière-plan',
+  'activity.tabs.alerts': 'Alertes',
 
   'intelligence.agents.title': "Bibliothèque d'agents",
   'intelligence.agents.subtitle':

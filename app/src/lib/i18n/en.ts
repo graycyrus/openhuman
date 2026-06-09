@@ -425,6 +425,7 @@ const en: TranslationMap = {
   'activity.tabs.automationsDescription':
     'Reusable, runnable procedures — a goal plus the steps to reach it. Create one, install from a URL, or open a workflow to run it.',
   'activity.tabs.backgroundActivity': 'Background activity',
+  'activity.tabs.alerts': 'Alerts',
 
   'intelligence.agents.title': 'Agents Library',
   'intelligence.agents.subtitle':

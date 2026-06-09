@@ -4565,6 +4565,7 @@ const messages: TranslationMap = {
   'activity.tabs.automations': '自动化',
   'activity.tabs.automationsDescription': '可复用、可运行的流程 — 目标及达成目标的步骤。',
   'activity.tabs.backgroundActivity': '后台活动',
+  'activity.tabs.alerts': '提醒',
 
   'intelligence.agents.title': '智能体库',
   'intelligence.agents.subtitle': '查看可运行的专家，并把一个任务交给指定智能体。',

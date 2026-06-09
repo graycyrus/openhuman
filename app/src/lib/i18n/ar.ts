@@ -4710,6 +4710,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     'إجراءات قابلة لإعادة الاستخدام والتشغيل — هدف مع الخطوات للوصول إليه.',
   'activity.tabs.backgroundActivity': 'نشاط الخلفية',
+  'activity.tabs.alerts': 'التنبيهات',
 
   'intelligence.agents.title': 'مكتبة الوكلاء',
   'intelligence.agents.subtitle':

@@ -4904,6 +4904,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     'Procedimientos reutilizables y ejecutables — un objetivo y los pasos para alcanzarlo.',
   'activity.tabs.backgroundActivity': 'Actividad en segundo plano',
+  'activity.tabs.alerts': 'Alertas',
 
   'intelligence.agents.title': 'Biblioteca de agentes',
   'intelligence.agents.subtitle':

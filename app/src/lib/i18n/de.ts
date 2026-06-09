@@ -4931,6 +4931,7 @@ const messages: TranslationMap = {
   'activity.tabs.automationsDescription':
     'Wiederverwendbare, ausführbare Abläufe — ein Ziel und die Schritte dorthin.',
   'activity.tabs.backgroundActivity': 'Hintergrundaktivität',
+  'activity.tabs.alerts': 'Benachrichtigungen',
 
   'intelligence.agents.title': 'Agentenbibliothek',
   'intelligence.agents.subtitle':
