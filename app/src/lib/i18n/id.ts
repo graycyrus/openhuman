@@ -375,6 +375,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'Pesan',
   'connections.tabs.tools': 'Alat',
   'connections.tabs.explorer': 'Penjelajah',
+  'connections.tabs.talents': 'Talenta',
   'memory.title': 'Memori',
   'memory.search': 'Cari memori...',
   'memory.noResults': 'Memori tidak ditemukan',

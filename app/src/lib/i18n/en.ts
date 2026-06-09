@@ -412,6 +412,7 @@ const en: TranslationMap = {
   'connections.tabs.messaging': 'Messaging',
   'connections.tabs.tools': 'Tools',
   'connections.tabs.explorer': 'Explorer',
+  'connections.tabs.talents': 'Talents',
   // Intelligence / Memory
   'memory.title': 'Memory',
   'memory.search': 'Search memories...',

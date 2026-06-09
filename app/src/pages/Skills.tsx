@@ -355,7 +355,7 @@ interface SkillItem {
  * Back-compat: the old ?tab= values (composio, channels, mcp, meetings) are
  * normalised to the new values so existing deep links continue to work.
  */
-type ConnectionsTab = 'apps' | 'messaging' | 'tools' | 'explorer';
+type ConnectionsTab = 'apps' | 'messaging' | 'tools' | 'explorer' | 'talents';
 
 export default function Skills() {
   const { t } = useT();
@@ -370,11 +370,19 @@ export default function Skills() {
     const params = new URLSearchParams(location.search);
     const raw = params.get('tab');
     // New canonical values
-    if (raw === 'apps' || raw === 'messaging' || raw === 'tools' || raw === 'explorer') return raw;
+    if (
+      raw === 'apps' ||
+      raw === 'messaging' ||
+      raw === 'tools' ||
+      raw === 'explorer' ||
+      raw === 'talents'
+    )
+      return raw;
     // Legacy back-compat aliases
     if (raw === 'composio') return 'apps';
     if (raw === 'channels') return 'messaging';
-    if (raw === 'mcp' || raw === 'meetings') return 'tools';
+    if (raw === 'mcp') return 'tools';
+    if (raw === 'meetings') return 'talents';
     if (raw === 'skills') return 'explorer';
     return 'apps';
   })();
@@ -813,6 +821,7 @@ export default function Skills() {
                 { value: 'messaging', label: t('connections.tabs.messaging') },
                 { value: 'tools', label: t('connections.tabs.tools') },
                 { value: 'explorer', label: t('connections.tabs.explorer') },
+                { value: 'talents', label: t('connections.tabs.talents') },
               ]}
             />
             {
@@ -963,7 +972,12 @@ export default function Skills() {
                   <div className="space-y-4 animate-fade-up">
                     {/* MCP Servers */}
                     <McpServersTab />
-                    {/* Meeting bots folded into the Tools group (Phase 2) */}
+                  </div>
+                )}
+
+                {activeTab === 'talents' && (
+                  <div className="space-y-4 animate-fade-up">
+                    {/* Meeting bots live under Talents (moved out of Tools) */}
                     <MeetingBotsCard onToast={addToast} />
                   </div>
                 )}

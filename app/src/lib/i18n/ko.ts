@@ -372,6 +372,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': '메시징',
   'connections.tabs.tools': '도구',
   'connections.tabs.explorer': '탐색기',
+  'connections.tabs.talents': '재능',
   'memory.title': '메모리',
   'memory.search': '메모리 검색...',
   'memory.noResults': '메모리를 찾을 수 없습니다',

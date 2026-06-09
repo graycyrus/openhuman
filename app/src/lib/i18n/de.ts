@@ -382,6 +382,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'Nachrichten',
   'connections.tabs.tools': 'Werkzeuge',
   'connections.tabs.explorer': 'Erkunden',
+  'connections.tabs.talents': 'Talente',
   'memory.title': 'Erinnerung',
   'memory.search': 'Erinnerungen suchen...',
   'memory.noResults': 'Keine Erinnerungen gefunden',

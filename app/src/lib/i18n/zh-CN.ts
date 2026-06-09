@@ -356,6 +356,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': '消息',
   'connections.tabs.tools': '工具',
   'connections.tabs.explorer': '探索',
+  'connections.tabs.talents': '才能',
   'memory.title': '记忆',
   'memory.search': '搜索记忆...',
   'memory.noResults': '未找到记忆',

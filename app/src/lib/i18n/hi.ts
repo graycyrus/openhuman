@@ -371,6 +371,7 @@ const messages: TranslationMap = {
   'connections.tabs.messaging': 'मैसेजिंग',
   'connections.tabs.tools': 'टूल्स',
   'connections.tabs.explorer': 'एक्सप्लोरर',
+  'connections.tabs.talents': 'टैलेंट',
   'memory.title': 'मेमोरी',
   'memory.search': 'मेमोरी सर्च करें...',
   'memory.noResults': 'कोई मेमोरी नहीं मिली',
