@@ -121,31 +121,36 @@ describe('SettingsHome', () => {
 
     it('renders the Account group items', () => {
       renderSettingsHome();
-      // Account group has: Profile, Language, Appearance, Devices, Team & members, Data & migration
+      // Account group: Account (hub), Language, Appearance, Devices, Data Sync.
+      // Team & members and Data & migration moved out (dev / removed).
       expect(screen.getByTestId('settings-nav-profile')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-language')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-appearance')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-devices')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-team')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-migration')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-data-sync')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-team')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-migration')).not.toBeInTheDocument();
     });
 
     it('renders the Assistant group items', () => {
       renderSettingsHome();
-      // Personality, Voice, Face/Mascot, Background activity, Screen awareness, Desktop companion
+      // Only Personality + Face/Mascot stay layman-facing; the rest moved to
+      // Developer & Diagnostics.
       expect(screen.getByTestId('settings-nav-persona')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-voice')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-mascot')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-activity-level')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-screen-intelligence')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-companion')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-voice')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-permissions')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-activity-level')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-screen-intelligence')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-companion')).not.toBeInTheDocument();
     });
 
-    it('renders the Privacy & Security group items', () => {
+    it('renders the Privacy group items', () => {
       renderSettingsHome();
+      // Privacy stays; Security + Approvals moved to Developer & Diagnostics.
       expect(screen.getByTestId('settings-nav-privacy')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-security')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-nav-approval-history')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-security')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-nav-approval-history')).not.toBeInTheDocument();
     });
 
     it('renders the Notifications group item', () => {
@@ -223,14 +228,6 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('persona');
     });
 
-    it('navigates to voice when Voice is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-voice'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('voice');
-    });
-
     it('navigates to mascot when Face / Mascot is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
@@ -239,52 +236,12 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('mascot');
     });
 
-    it('navigates to activity-level when Background activity is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-activity-level'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('activity-level');
-    });
-
-    it('navigates to screen-intelligence when Screen awareness is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-screen-intelligence'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('screen-intelligence');
-    });
-
-    it('navigates to companion when Desktop companion is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-companion'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('companion');
-    });
-
     it('navigates to privacy when Privacy is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
       await user.click(screen.getByTestId('settings-nav-privacy'));
       expect(mockNavigateToSettings).toHaveBeenCalledWith('privacy');
-    });
-
-    it('navigates to security when Security is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-security'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('security');
-    });
-
-    it('navigates to approval-history when Approvals & history is clicked', async () => {
-      const user = userEvent.setup();
-      renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-approval-history'));
-      expect(mockNavigateToSettings).toHaveBeenCalledWith('approval-history');
     });
 
     it('navigates to notifications-hub when Notifications is clicked', async () => {

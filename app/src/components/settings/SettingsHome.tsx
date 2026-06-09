@@ -88,17 +88,6 @@ const PersonalityIcon = (
   </svg>
 );
 
-const VoiceIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-    />
-  </svg>
-);
-
 const MascotIcon = (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -110,50 +99,6 @@ const MascotIcon = (
   </svg>
 );
 
-const ActivityIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M13 10V3L4 14h7v7l9-11h-7z"
-    />
-  </svg>
-);
-
-const ScreenIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 5h18v12H3zM8 21h8m-4-4v4"
-    />
-  </svg>
-);
-
-const CompanionIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-    />
-  </svg>
-);
-
-const PermissionsIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-    />
-  </svg>
-);
-
 const PrivacyIcon = (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -161,28 +106,6 @@ const PrivacyIcon = (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-    />
-  </svg>
-);
-
-const SecurityIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-    />
-  </svg>
-);
-
-const ApprovalsIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
     />
   </svg>
 );
@@ -216,28 +139,6 @@ const AboutIcon = (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  </svg>
-);
-
-const TeamIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4 0m8-2a3 3 0 10-2-5.24M7 7.76A3 3 0 105 7"
-    />
-  </svg>
-);
-
-const MigrationIcon = (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 7h11m0 0l-3-3m3 3l-3 3m8 7H9m0 0l3 3m-3-3l3-3"
     />
   </svg>
 );
@@ -285,9 +186,11 @@ const SettingsHome = () => {
     label: t('settings.groups.account'),
     items: [
       {
+        // The Account row opens the account hub (recovery phrase, team,
+        // connections, privacy, sign-out) — named after what it actually holds.
         id: 'profile',
-        title: t('settings.account.profile'),
-        description: t('settings.account.profileDesc'),
+        title: t('pages.settings.accountSection.title'),
+        description: t('pages.settings.accountSection.description'),
         icon: AccountIcon,
         onClick: () => navigateToSettings('account'),
       },
@@ -313,20 +216,6 @@ const SettingsHome = () => {
         onClick: () => navigateToSettings('devices'),
       },
       {
-        id: 'team',
-        title: t('settings.account.teamMembers'),
-        description: t('settings.account.teamMembersDesc'),
-        icon: TeamIcon,
-        onClick: () => navigateToSettings('team'),
-      },
-      {
-        id: 'migration',
-        title: t('settings.account.dataMigration'),
-        description: t('settings.account.dataMigrationDesc'),
-        icon: MigrationIcon,
-        onClick: () => navigateToSettings('migration'),
-      },
-      {
         id: 'data-sync',
         title: t('settings.dataSync.title'),
         description: t('settings.dataSync.menuDesc'),
@@ -349,54 +238,19 @@ const SettingsHome = () => {
         onClick: () => navigateToSettings('persona'),
       },
       {
-        id: 'voice',
-        title: t('settings.assistant.voice'),
-        description: t('settings.assistant.voiceDesc'),
-        icon: VoiceIcon,
-        onClick: () => navigateToSettings('voice'),
-      },
-      {
         id: 'mascot',
         title: t('settings.assistant.faceMascot'),
         description: t('settings.assistant.faceMascotDesc'),
         icon: MascotIcon,
         onClick: () => navigateToSettings('mascot'),
       },
-      {
-        id: 'permissions',
-        title: t('settings.assistant.permissions'),
-        description: t('settings.assistant.permissionsDesc'),
-        icon: PermissionsIcon,
-        onClick: () => navigateToSettings('permissions'),
-      },
-      {
-        id: 'activity-level',
-        title: t('settings.assistant.backgroundActivity'),
-        description: t('settings.assistant.backgroundActivityDesc'),
-        icon: ActivityIcon,
-        onClick: () => navigateToSettings('activity-level'),
-      },
-      {
-        id: 'screen-intelligence',
-        title: t('settings.assistant.screenAwareness'),
-        description: t('settings.assistant.screenAwarenessDesc'),
-        icon: ScreenIcon,
-        onClick: () => navigateToSettings('screen-intelligence'),
-      },
-      {
-        id: 'companion',
-        title: t('settings.assistant.desktopCompanion'),
-        description: t('settings.assistant.desktopCompanionDesc'),
-        icon: CompanionIcon,
-        onClick: () => navigateToSettings('companion'),
-      },
     ],
   };
 
-  // --- 🔒 Privacy & Security group ---
+  // --- 🔒 Privacy group (Security + Approvals moved to Developer & Diagnostics) ---
   const privacySecurityGroup: SettingsGroup = {
     id: 'privacy-security',
-    label: t('settings.groups.privacySecurity'),
+    label: t('settings.privacySecurity.privacy'),
     items: [
       {
         id: 'privacy',
@@ -404,20 +258,6 @@ const SettingsHome = () => {
         description: t('settings.privacySecurity.privacyDesc'),
         icon: PrivacyIcon,
         onClick: () => navigateToSettings('privacy'),
-      },
-      {
-        id: 'security',
-        title: t('settings.privacySecurity.security'),
-        description: t('settings.privacySecurity.securityDesc'),
-        icon: SecurityIcon,
-        onClick: () => navigateToSettings('security'),
-      },
-      {
-        id: 'approval-history',
-        title: t('settings.privacySecurity.approvalsHistory'),
-        description: t('settings.privacySecurity.approvalsHistoryDesc'),
-        icon: ApprovalsIcon,
-        onClick: () => navigateToSettings('approval-history'),
       },
     ],
   };

@@ -104,6 +104,23 @@ const knowledgeMemoryGroup: DevGroup = {
         </svg>
       ),
     },
+    {
+      // Moved out of the layman Account group.
+      id: 'migration',
+      titleKey: 'settings.account.dataMigration',
+      descriptionKey: 'settings.account.dataMigrationDesc',
+      route: 'migration',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 7h11m0 0l-3-3m3 3l-3 3m8 7H9m0 0l3 3m-3-3l3-3"
+          />
+        </svg>
+      ),
+    },
   ],
 };
 
@@ -218,6 +235,40 @@ const agentsAutonomyGroup: DevGroup = {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
+        </svg>
+      ),
+    },
+    {
+      // Layman Permissions picker, moved out of the Assistant group.
+      id: 'permissions',
+      titleKey: 'settings.assistant.permissions',
+      descriptionKey: 'settings.assistant.permissionsDesc',
+      route: 'permissions',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+          />
+        </svg>
+      ),
+    },
+    {
+      // Background activity (activity level), moved out of the Assistant group.
+      id: 'activity-level',
+      titleKey: 'settings.assistant.backgroundActivity',
+      descriptionKey: 'settings.assistant.backgroundActivityDesc',
+      route: 'activity-level',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 10V3L4 14h7v7l9-11h-7z"
           />
         </svg>
       ),
@@ -518,6 +569,57 @@ const toolsCapabilitiesGroup: DevGroup = {
         </svg>
       ),
     },
+    {
+      // Voice (TTS/STT) settings, moved out of the Assistant group.
+      id: 'voice',
+      titleKey: 'settings.assistant.voice',
+      descriptionKey: 'settings.assistant.voiceDesc',
+      route: 'voice',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+          />
+        </svg>
+      ),
+    },
+    {
+      // Screen awareness, moved out of the Assistant group.
+      id: 'screen-intelligence',
+      titleKey: 'settings.assistant.screenAwareness',
+      descriptionKey: 'settings.assistant.screenAwarenessDesc',
+      route: 'screen-intelligence',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 5h18v12H3zM8 21h8m-4-4v4"
+          />
+        </svg>
+      ),
+    },
+    {
+      // Desktop companion, moved out of the Assistant group.
+      id: 'companion',
+      titleKey: 'settings.assistant.desktopCompanion',
+      descriptionKey: 'settings.assistant.desktopCompanionDesc',
+      route: 'companion',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+          />
+        </svg>
+      ),
+    },
   ],
 };
 
@@ -608,6 +710,24 @@ const diagnosticsLogsGroup: DevGroup = {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      // Security (secret storage / keychain), moved out of the layman
+      // Privacy & Security group.
+      id: 'security',
+      titleKey: 'settings.privacySecurity.security',
+      descriptionKey: 'settings.privacySecurity.securityDesc',
+      route: 'security',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
           />
         </svg>
       ),
