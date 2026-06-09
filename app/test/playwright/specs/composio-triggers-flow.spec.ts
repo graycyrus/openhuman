@@ -84,16 +84,10 @@ async function bootSkillsPage(page: Page, userId: string) {
   await dismissWalkthroughIfPresent(page);
   // Phase 2: "Composio" tab renamed to "Apps"
   await page.getByRole('tab', { name: 'Apps' }).click();
-  const heading = page.getByRole('heading', { name: 'Composio Integrations' });
-  if (!(await heading.isVisible().catch(() => false))) {
-    const connectionsButton = page.getByRole('button', { name: 'Connections' });
-    if (await connectionsButton.isVisible().catch(() => false)) {
-      await connectionsButton.click({ force: true });
-      await waitForAppReady(page);
-      await dismissWalkthroughIfPresent(page);
-    }
-  }
-  await expect(heading).toBeVisible({ timeout: 20_000 });
+  // Phase 2: heading is now "Apps" (skills.integrations), "Composio Integrations" removed
+  await expect(page.getByRole('heading', { name: 'Apps', exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 async function openGmailManageModal(page: Page) {
@@ -192,9 +186,9 @@ test.describe('Composio triggers flow', () => {
     await page.reload();
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
-    // Phase 2: "Composio" tab renamed to "Apps"
+    // Phase 2: "Composio" tab renamed to "Apps"; heading is now "Apps"
     await page.getByRole('tab', { name: 'Apps' }).click();
-    await expect(page.getByRole('heading', { name: 'Composio Integrations' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Apps', exact: true })).toBeVisible({
       timeout: 20_000,
     });
 
