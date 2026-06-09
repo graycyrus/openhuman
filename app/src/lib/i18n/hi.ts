@@ -1884,7 +1884,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     '2 मिनट बाद भी एजेंट से कोई जवाब नहीं मिला। दोबारा कोशिश करें या अपना कनेक्शन चेक करें।',
   'chat.filter.general': 'सामान्य',
-  'chat.filter.subconscious': 'सबकॉन्शस',
+  'chat.filter.subconscious': 'पृष्ठभूमि गतिविधि',
   'chat.filter.tasks': 'टास्क',
   'chat.selectThread': 'एक थ्रेड चुनें',
   'chat.threads': 'थ्रेड्स',

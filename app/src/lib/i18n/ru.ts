@@ -1902,7 +1902,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     'Агент не ответил в течение 2 минут. Попробуй снова или проверь соединение.',
   'chat.filter.general': 'Общее',
-  'chat.filter.subconscious': 'Подсознание',
+  'chat.filter.subconscious': 'Фоновая активность',
   'chat.filter.tasks': 'Задачи',
   'chat.selectThread': 'Выбери чат',
   'chat.threads': 'Чаты',

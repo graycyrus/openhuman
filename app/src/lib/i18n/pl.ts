@@ -1907,7 +1907,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     'Brak odpowiedzi agenta po 2 minutach. Spróbuj ponownie lub sprawdź połączenie.',
   'chat.filter.general': 'Ogólne',
-  'chat.filter.subconscious': 'Podświadomość',
+  'chat.filter.subconscious': 'Aktywność w tle',
   'chat.filter.tasks': 'Zadania',
   'chat.selectThread': 'Wybierz wątek',
   'chat.threads': 'Wątki',

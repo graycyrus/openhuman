@@ -1864,7 +1864,7 @@ const messages: TranslationMap = {
   'common.enable': '활성화',
   'chat.safetyTimeout': '2분 후에도 에이전트의 응답이 없습니다. 다시 시도하거나 연결을 확인하세요.',
   'chat.filter.general': '일반',
-  'chat.filter.subconscious': '잠재의식',
+  'chat.filter.subconscious': '백그라운드 활동',
   'chat.filter.tasks': '작업',
   'chat.selectThread': '스레드 선택',
   'chat.threads': '스레드',

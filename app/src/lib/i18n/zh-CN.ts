@@ -1779,7 +1779,7 @@ const messages: TranslationMap = {
   'common.enable': '启用',
   'chat.safetyTimeout': '助手 2 分钟内未响应。请重试或检查你的连接。',
   'chat.filter.general': '常规',
-  'chat.filter.subconscious': '潜意识',
+  'chat.filter.subconscious': '后台活动',
   'chat.filter.tasks': '任务',
   'chat.selectThread': '选择一个对话',
   'chat.threads': '对话列表',

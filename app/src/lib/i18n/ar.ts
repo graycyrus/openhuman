@@ -1842,7 +1842,7 @@ const messages: TranslationMap = {
   'common.enable': 'تفعيل',
   'chat.safetyTimeout': 'لا استجابة من الوكيل بعد دقيقتين. حاول مرة أخرى أو تحقق من اتصالك.',
   'chat.filter.general': 'عام',
-  'chat.filter.subconscious': 'اللاوعي',
+  'chat.filter.subconscious': 'نشاط الخلفية',
   'chat.filter.tasks': 'المهام',
   'chat.selectThread': 'اختر محادثة',
   'chat.threads': 'المحادثات',

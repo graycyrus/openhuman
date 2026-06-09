@@ -1885,7 +1885,7 @@ const messages: TranslationMap = {
   'chat.safetyTimeout':
     '২ মিনিট পরেও এজেন্টের কোনো সাড়া নেই। আবার চেষ্টা করুন বা সংযোগ পরীক্ষা করুন।',
   'chat.filter.general': 'সাধারণ',
-  'chat.filter.subconscious': 'সাবকনশাস',
+  'chat.filter.subconscious': 'ব্যাকগ্রাউন্ড কার্যকলাপ',
   'chat.filter.tasks': 'টাস্ক',
   'chat.selectThread': 'একটি থ্রেড বেছে নিন',
   'chat.threads': 'থ্রেড',

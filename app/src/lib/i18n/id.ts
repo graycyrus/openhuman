@@ -1889,7 +1889,7 @@ const messages: TranslationMap = {
   'common.enable': 'Aktifkan',
   'chat.safetyTimeout': 'Tidak ada respons dari agen setelah 2 menit. Coba lagi atau cek koneksi.',
   'chat.filter.general': 'Umum',
-  'chat.filter.subconscious': 'Bawah sadar',
+  'chat.filter.subconscious': 'Aktivitas latar belakang',
   'chat.filter.tasks': 'Tugas',
   'chat.selectThread': 'Pilih thread',
   'chat.threads': 'Thread',
