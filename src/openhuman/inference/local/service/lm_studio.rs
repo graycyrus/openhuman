@@ -1,9 +1,10 @@
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::local::lm_studio::{
-    apply_lm_studio_auth, lm_studio_base_url, LmStudioChatCompletionRequest,
+    apply_lm_studio_auth, lm_studio_base_url, estimate_tokens,
+    truncate_messages_to_budget, LmStudioChatCompletionRequest,
     LmStudioChatCompletionResponse, LmStudioChatMessage, LmStudioModelsResponse,
+    LmStudioModel, DEFAULT_N_CTX, OUTPUT_TOKEN_RESERVE,
 };
-use crate::openhuman::inference::local::ollama::OllamaModelTag;
 use crate::openhuman::inference::model_ids;
 
 use super::LocalAiService;
@@ -40,7 +41,7 @@ impl LocalAiService {
     pub(in crate::openhuman::inference::local::service) async fn list_lm_studio_models(
         &self,
         config: &Config,
-    ) -> Result<Vec<OllamaModelTag>, String> {
+    ) -> Result<Vec<LmStudioModel>, String> {
         let base = lm_studio_base_url(config);
         let url = format!("{base}/models");
         tracing::debug!(
@@ -109,15 +110,7 @@ impl LocalAiService {
             format!("lm studio models parse failed: {e}")
         })?;
 
-        Ok(payload
-            .data
-            .into_iter()
-            .map(|model| OllamaModelTag {
-                name: model.id,
-                size: None,
-                modified_at: None,
-            })
-            .collect())
+        Ok(payload.data)
     }
 
     pub(in crate::openhuman::inference::local::service) async fn has_lm_studio_model(
@@ -130,7 +123,29 @@ impl LocalAiService {
             .list_lm_studio_models(config)
             .await?
             .into_iter()
-            .any(|m| m.name.to_ascii_lowercase() == target))
+            .any(|m| m.id.to_ascii_lowercase() == target))
+    }
+
+    /// Resolve the context window (`n_ctx`) for a model loaded in LM Studio.
+    ///
+    /// Queries the LM Studio `/v1/models` endpoint and looks for the
+    /// `max_context_length` (or `context_length`) field on the matching
+    /// model entry. Returns `None` when the model is not found or the
+    /// server did not advertise a context length — callers should fall
+    /// back to [`DEFAULT_N_CTX`].
+    pub(in crate::openhuman::inference::local::service) async fn resolve_lm_studio_model_context(
+        &self,
+        config: &Config,
+        model_id: &str,
+    ) -> Option<u64> {
+        let target = model_id.trim().to_ascii_lowercase();
+        let models = self.list_lm_studio_models(config).await.ok()?;
+        for model in &models {
+            if model.id.to_ascii_lowercase() == target {
+                return model.context_length;
+            }
+        }
+        None
     }
 
     pub(in crate::openhuman::inference::local::service) async fn lm_studio_chat_completion(
@@ -144,6 +159,35 @@ impl LocalAiService {
         let base = lm_studio_base_url(config);
         let url = format!("{base}/chat/completions");
         let model = model_ids::effective_chat_model_id(config);
+
+        // ── Context-window guard ──────────────────────────────────────
+        // Estimate the prompt token count and truncate messages if they
+        // would exceed the model's context window (minus a reserve for
+        // output tokens). This prevents LM Studio from returning a 400
+        // "context overflow" error when the prompt exceeds the loaded
+        // model's `n_ctx`.
+        let n_ctx = self
+            .resolve_lm_studio_model_context(config, &model)
+            .await
+            .unwrap_or(DEFAULT_N_CTX);
+        let prompt_budget = n_ctx.saturating_sub(OUTPUT_TOKEN_RESERVE);
+
+        let mut messages = messages;
+        let estimated_prompt: u64 = messages
+            .iter()
+            .map(|m| estimate_tokens(&m.content))
+            .sum();
+        if estimated_prompt > prompt_budget {
+            tracing::warn!(
+                target: "local_ai::lm_studio",
+                estimated_prompt_tokens = estimated_prompt,
+                n_ctx,
+                prompt_budget,
+                message_count = messages.len(),
+                "[local_ai:lm_studio] prompt exceeds context window, truncating"
+            );
+            truncate_messages_to_budget(&mut messages, prompt_budget);
+        }
 
         tracing::debug!(
             target: "local_ai::lm_studio",
