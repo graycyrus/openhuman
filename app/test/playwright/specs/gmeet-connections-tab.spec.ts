@@ -8,9 +8,10 @@ import {
 
 test.describe('Google Meet Connections tab', () => {
   test.beforeEach(async ({ page }) => {
-    // Phase 2: /skills → /connections, meetings folded into the Tools tab (?tab=tools)
-    // Back-compat: ?tab=meetings alias still works and resolves to tools
-    await bootAuthenticatedPage(page, 'pw-gmeet-connections-tab-user', '/connections?tab=tools');
+    // Phase 2: /skills → /connections; Phase 2b: MeetingBotsCard moved from
+    // Tools tab to the new Talents tab (?tab=talents). Back-compat: ?tab=meetings
+    // alias still works and resolves to talents.
+    await bootAuthenticatedPage(page, 'pw-gmeet-connections-tab-user', '/connections?tab=talents');
     await waitForAppReady(page);
     await dismissWalkthroughIfPresent(page);
   });
@@ -20,7 +21,10 @@ test.describe('Google Meet Connections tab', () => {
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
       .toContain('/connections');
 
-    await expect(page.getByRole('tab', { name: 'Google Meet', exact: true })).toHaveAttribute(
+    // Phase 2b: MeetingBotsCard moved to the Talents tab; there is no longer a
+    // "Google Meet" sub-tab.  The PillTabBar "Talents" pill carries the
+    // aria-selected=true attribute when the Talents surface is active.
+    await expect(page.getByRole('tab', { name: 'Talents', exact: true })).toHaveAttribute(
       'aria-selected',
       'true'
     );
