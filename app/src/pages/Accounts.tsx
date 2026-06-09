@@ -346,6 +346,7 @@ const Accounts = () => {
 
   return (
     <div
+      // `h-full` makes this page fill the shell's content box, which bypasses
       className="relative flex h-full gap-3 overflow-hidden"
       data-testid="accounts-page"
       data-analytics-id="chat-right-sidebar">
@@ -397,6 +398,26 @@ const Accounts = () => {
         </button>
       </aside>
 
+      {/* Floating "Talk to Tiny" face-mode toggle. Kept out of the layout flow
+          (absolute) so it never steals vertical space from the chat composer —
+          the previous in-flow header strip pushed the input below the viewport. */}
+      {isAgentSelected && (
+        <button
+          type="button"
+          onClick={toggleFaceMode}
+          data-testid="face-toggle-button"
+          aria-pressed={faceMode}
+          className={`absolute right-4 top-4 z-40 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium shadow-soft backdrop-blur-sm transition-colors ${
+            faceMode
+              ? 'border-primary-300 bg-primary-50/90 text-primary-700 dark:bg-primary-900/40 dark:text-primary-200'
+              : 'border-stone-300/80 bg-white/90 text-stone-600 hover:border-primary-300 hover:text-primary-600 dark:border-neutral-700/80 dark:bg-neutral-900/90 dark:text-neutral-300 dark:hover:text-primary-300'
+          }`}
+          aria-label={faceMode ? t('assistant.faceMode.turnOff') : t('assistant.faceMode.turnOn')}>
+          <span aria-hidden="true">🙂</span>
+          {faceMode ? t('assistant.faceMode.on') : t('assistant.faceMode.off')}
+        </button>
+      )}
+
       {/* Main pane
           In face mode (agent selected), the layout is a horizontal split:
           the chat panel on the left and the mascot panel on the right.
@@ -407,45 +428,23 @@ const Accounts = () => {
           <>
             {/* Agent chat — face mode uses sidebar variant to avoid a second
                 thread list; normal mode uses the full-page variant (AgentChatPanel). */}
-            <div className={`flex min-w-0 flex-col ${faceMode ? 'w-[360px] flex-none' : 'flex-1'}`}>
+            <div
+              className={`flex min-h-0 min-w-0 flex-col ${faceMode ? 'w-[360px] flex-none' : 'flex-1'}`}>
               {faceMode ? (
-                <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
-                  {/* Face-mode header strip with toggle button */}
-                  <div className="flex shrink-0 items-center justify-end gap-2 border-b border-stone-200/70 dark:border-neutral-800/70 bg-white/80 dark:bg-neutral-900/80 px-3 py-1.5">
-                    <button
-                      type="button"
-                      onClick={toggleFaceMode}
-                      data-testid="face-toggle-button"
-                      aria-pressed={faceMode}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2.5 py-1 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/50"
-                      aria-label={t('assistant.faceMode.turnOff')}>
-                      <span aria-hidden="true">🙂</span>
-                      {t('assistant.faceMode.on')}
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <Conversations variant="sidebar" />
-                  </div>
+                // Face mode: mascot sidebar chat. The toggle floats on the page
+                // root (see below) so it never steals height from the composer.
+                // `min-h-0` lets the inner message list scroll instead of growing
+                // and pushing the composer off-screen.
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200/70 dark:border-neutral-800/70 my-3 mr-0">
+                  <Conversations variant="sidebar" />
                 </div>
               ) : (
-                <>
-                  {/* Face-off header strip — subtle toggle button */}
-                  <div className="flex shrink-0 items-center justify-end gap-2 px-3 py-1.5">
-                    <button
-                      type="button"
-                      onClick={toggleFaceMode}
-                      data-testid="face-toggle-button"
-                      aria-pressed={faceMode}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 dark:border-neutral-700 bg-white/80 dark:bg-neutral-900/80 px-2.5 py-1 text-xs text-stone-500 dark:text-neutral-400 hover:border-primary-300 hover:text-primary-600 dark:hover:text-primary-400"
-                      aria-label={t('assistant.faceMode.turnOn')}>
-                      <span aria-hidden="true">🙂</span>
-                      {t('assistant.faceMode.off')}
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <AgentChatPanel />
-                  </div>
-                </>
+                // `min-h-0` is required so the chat's internal message list owns
+                // the overflow (scrolls) rather than expanding and shoving the
+                // composer below the viewport on long threads.
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <AgentChatPanel />
+                </div>
               )}
             </div>
             {/* Mascot + TTS panel — only visible in face mode */}
