@@ -157,6 +157,14 @@ const messages: TranslationMap = {
   'settings.languageDesc': "Langue d'affichage de l'interface",
   'settings.alerts': 'Alertes',
   'settings.alertsDesc': "Voir les alertes récentes et l'activité dans ta boîte de réception",
+  'settings.account.profile': 'Profil',
+  'settings.account.profileDesc': 'Nom, e-mail et avatar',
+  'settings.account.devices': 'Appareils',
+  'settings.account.devicesDesc': 'Associer et gérer les appareils mobiles',
+  'settings.account.teamMembers': 'Équipe & membres',
+  'settings.account.teamMembersDesc': "Gérer l'accès à l'équipe et les rôles des membres",
+  'settings.account.dataMigration': 'Données & migration',
+  'settings.account.dataMigrationDesc': 'Importer la mémoire depuis un autre assistant',
   'settings.account.recoveryPhrase': 'Phrase de récupération',
   'settings.account.recoveryPhraseDesc': 'Voir et sauvegarder ta phrase de récupération',
   'settings.account.team': 'Équipe',
@@ -324,7 +332,7 @@ const messages: TranslationMap = {
   'skills.connected': 'Connecté',
   'skills.available': 'Disponible',
   'skills.addAccount': 'Ajouter un compte',
-  'skills.channels': 'Canaux',
+  'skills.channels': 'Messagerie',
   'skills.explorer.emptyCta': 'Installer depuis une URL',
   'skills.explorer.emptyDescription':
     'Installez un paquet SKILL.md ou placez des dossiers de style Hermes dans ~/.openhuman/skills.',
@@ -352,9 +360,9 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Installée',
   'skills.explorer.install': 'Installer',
   'skills.explorer.installing': 'Installation…',
-  'skills.integrations': 'Intégrations',
+  'skills.integrations': 'Applications',
   'skills.integrationsSubtitle':
-    'Connexions OAuth cloud — connectez-vous avec votre compte et Composio gère les jetons pour que les agents puissent lire et agir en votre nom. Aucune clé API à gérer.',
+    'Connexions OAuth cloud — connectez-vous avec votre compte et les jetons sont gérés en toute sécurité pour que les agents puissent lire et agir en votre nom. Aucune clé API à gérer.',
   'skills.composio.noApiKeyTitle': 'Aucune clé API Composio configurée',
   'skills.composio.noApiKeyDescription':
     'Le mode local utilise votre propre clé API Composio. Ouvrez Paramètres → Avancé → Composio pour en ajouter une avant de connecter des intégrations ici.',
@@ -3948,6 +3956,12 @@ const messages: TranslationMap = {
   'settings.developerMenu.autonomy.title': 'Autonomie de l’agent',
   'settings.developerMenu.autonomy.desc':
     'Limites de fréquence des actions des outils et seuils de sécurité',
+  'settings.developerMenu.autocomplete.title': 'Autocomplétion',
+  'settings.developerMenu.autocomplete.desc':
+    'Paramètres d’autocomplétion IA en ligne et panneau de débogage',
+  'settings.developerMenu.voiceDebug.title': 'Voix (débogage)',
+  'settings.developerMenu.voiceDebug.desc':
+    'État d’exécution de la dictée vocale et paramètres de débogage',
   'settings.mcpServer.title': 'Serveur MCP',
   'settings.mcpServer.toolsSectionTitle': 'Outils disponibles',
   'settings.mcpServer.toolsSectionDesc':
@@ -4296,7 +4310,7 @@ const messages: TranslationMap = {
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
   'skills.channelIcon.yuanbao': 'Yuanbao',
-  'skills.composio.poweredBy': 'Propulsé par Composio',
+  'skills.composio.poweredBy': 'OAuth',
   'skills.composio.staleStatusTitle': 'Les connexions affichent un état obsolète',
   'skills.create.allowedTools': 'Outils autorisés',
   'skills.create.allowedToolsHelp': 'Rendu dans le frontmatter SKILL.md comme',

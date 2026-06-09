@@ -50,7 +50,8 @@ export type SettingsRoute =
   | 'dev-workflow'
   | 'sandbox-settings'
   | 'permissions'
-  | 'devices';
+  | 'devices'
+  | 'heartbeat';
 
 export interface BreadcrumbItem {
   label: string;
@@ -147,6 +148,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     if (path.includes('/settings/agents')) return 'agents';
     if (path.includes('/settings/mcp-server')) return 'mcp-server';
     if (path.includes('/settings/dev-workflow')) return 'dev-workflow';
+    if (path.includes('/settings/heartbeat')) return 'heartbeat';
     return 'home';
   };
 
@@ -288,6 +290,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'notification-routing':
       case 'mcp-server':
       case 'dev-workflow':
+      case 'heartbeat':
       case 'notifications-hub': // Notifications hub section page lives under Advanced.
         return [settingsCrumb, developerCrumb];
 

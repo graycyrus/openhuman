@@ -168,6 +168,16 @@ const en: TranslationMap = {
   'settings.alerts': 'Alerts',
   'settings.alertsDesc': 'View recent alerts and activity in your inbox',
 
+  // Settings: Account — IA revamp group items (SettingsHome.tsx)
+  'settings.account.profile': 'Profile',
+  'settings.account.profileDesc': 'Name, email, and avatar',
+  'settings.account.devices': 'Devices',
+  'settings.account.devicesDesc': 'Pair and manage mobile devices',
+  'settings.account.teamMembers': 'Team & members',
+  'settings.account.teamMembersDesc': 'Manage team access and member roles',
+  'settings.account.dataMigration': 'Data & migration',
+  'settings.account.dataMigrationDesc': 'Import memory from another assistant',
+
   // Settings: Account
   'settings.account.recoveryPhrase': 'Recovery Phrase',
   'settings.account.recoveryPhraseDesc': 'View and back up your account recovery phrase',
@@ -350,7 +360,7 @@ const en: TranslationMap = {
   'skills.connected': 'Connected',
   'skills.available': 'Available',
   'skills.addAccount': 'Add Account',
-  'skills.channels': 'Channels',
+  'skills.channels': 'Messaging',
   'skills.explorer.emptyCta': 'Install from URL',
   'skills.explorer.emptyDescription':
     'Install a SKILL.md package or place Hermes-style folders under ~/.openhuman/skills.',
@@ -378,9 +388,9 @@ const en: TranslationMap = {
   'skills.explorer.installed': 'Installed',
   'skills.explorer.install': 'Install',
   'skills.explorer.installing': 'Installing…',
-  'skills.integrations': 'Composio Integrations',
+  'skills.integrations': 'Apps',
   'skills.integrationsSubtitle':
-    'Cloud-based OAuth connections — sign in with your account and Composio brokers the tokens so agents can read and act on your behalf. No API keys to manage.',
+    'Cloud-based OAuth connections — sign in with your account and tokens are brokered securely so agents can read and act on your behalf. No API keys to manage.',
   'skills.composio.noApiKeyTitle': 'No Composio API Key Configured',
   'skills.composio.noApiKeyDescription':
     'Local mode uses your own Composio API key. Open Settings → Advanced → Composio to add one before connecting integrations here.',
@@ -4398,6 +4408,11 @@ const en: TranslationMap = {
   'settings.developerMenu.mcpServer.desc': 'Configure external MCP clients to connect to OpenHuman',
   'settings.developerMenu.autonomy.title': 'Agent autonomy',
   'settings.developerMenu.autonomy.desc': 'Tool action rate limits and safety thresholds',
+  // Tools & Capabilities group — autocomplete and voice debug (doc § Tools & Capabilities)
+  'settings.developerMenu.autocomplete.title': 'Autocomplete',
+  'settings.developerMenu.autocomplete.desc': 'AI inline autocomplete settings and debug panel',
+  'settings.developerMenu.voiceDebug.title': 'Voice (debug)',
+  'settings.developerMenu.voiceDebug.desc': 'Voice dictation runtime status and debug settings',
   'settings.mcpServer.title': 'MCP Server',
   'settings.mcpServer.toolsSectionTitle': 'Available Tools',
   'settings.mcpServer.toolsSectionDesc':
@@ -4738,7 +4753,7 @@ const en: TranslationMap = {
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
   'skills.channelIcon.yuanbao': 'Yuanbao',
-  'skills.composio.poweredBy': 'Powered by Composio',
+  'skills.composio.poweredBy': 'OAuth',
   'skills.composio.staleStatusTitle': 'Connections are showing stale status',
   'skills.create.allowedTools': 'Allowed tools',
   'skills.create.allowedToolsHelp': 'Rendered into the SKILL.md frontmatter as',

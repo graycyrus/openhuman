@@ -2,10 +2,6 @@ import type { ReactNode } from 'react';
 
 import { useDeveloperMode } from '../../hooks/useDeveloperMode';
 import { useT } from '../../lib/i18n/I18nContext';
-import { useCoreState } from '../../providers/CoreStateProvider';
-import { BILLING_DASHBOARD_URL } from '../../utils/links';
-import { isLocalSessionToken } from '../../utils/localSession';
-import { openUrl } from '../../utils/openUrl';
 import LanguageSelect from '../LanguageSelect';
 import SettingsHeader from './components/SettingsHeader';
 import SettingsMenuItem from './components/SettingsMenuItem';
@@ -224,13 +220,24 @@ const AboutIcon = (
   </svg>
 );
 
-const BillingIcon = (
+const TeamIcon = (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H5a3 3 0 00-3 3v8a3 3 0 003 3z"
+      d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4 0m8-2a3 3 0 10-2-5.24M7 7.76A3 3 0 105 7"
+    />
+  </svg>
+);
+
+const MigrationIcon = (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 7h11m0 0l-3-3m3 3l-3 3m8 7H9m0 0l3 3m-3-3l3-3"
     />
   </svg>
 );
@@ -239,13 +246,18 @@ const BillingIcon = (
 // Group header (visual separator label above each settings card)
 // ---------------------------------------------------------------------------
 
-const GroupHeader = ({ label }: { label: string }) => (
-  <div className="px-1 pt-5 pb-1">
-    <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
-      {label}
-    </span>
-  </div>
-);
+const GroupHeader = ({ label }: { label: string }) =>
+  label ? (
+    <div className="px-1 pt-5 pb-1">
+      <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+        {label}
+      </span>
+    </div>
+  ) : (
+    // Empty label → a plain divider (the doc places Developer & Diagnostics and
+    // About after a divider, not under their own section headers).
+    <div className="mx-1 mt-6 mb-2 border-t border-stone-200 dark:border-neutral-800" />
+  );
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -254,8 +266,6 @@ const GroupHeader = ({ label }: { label: string }) => (
 const SettingsHome = () => {
   const { navigateToSettings } = useSettingsNavigation();
   const { t } = useT();
-  const { snapshot } = useCoreState();
-  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
   const developerMode = useDeveloperMode();
 
   // --- 👤 Account group ---
@@ -264,9 +274,9 @@ const SettingsHome = () => {
     label: t('settings.groups.account'),
     items: [
       {
-        id: 'account',
-        title: t('settings.account'),
-        description: t('settings.accountDesc'),
+        id: 'profile',
+        title: t('settings.account.profile'),
+        description: t('settings.account.profileDesc'),
         icon: AccountIcon,
         onClick: () => navigateToSettings('account'),
       },
@@ -286,10 +296,24 @@ const SettingsHome = () => {
       },
       {
         id: 'devices',
-        title: 'Devices',
-        description: 'Pair iOS phones with this OpenHuman',
+        title: t('settings.account.devices'),
+        description: t('settings.account.devicesDesc'),
         icon: DevicesIcon,
         onClick: () => navigateToSettings('devices'),
+      },
+      {
+        id: 'team',
+        title: t('settings.account.teamMembers'),
+        description: t('settings.account.teamMembersDesc'),
+        icon: TeamIcon,
+        onClick: () => navigateToSettings('team'),
+      },
+      {
+        id: 'migration',
+        title: t('settings.account.dataMigration'),
+        description: t('settings.account.dataMigrationDesc'),
+        icon: MigrationIcon,
+        onClick: () => navigateToSettings('migration'),
       },
     ],
   };
@@ -321,6 +345,13 @@ const SettingsHome = () => {
         onClick: () => navigateToSettings('mascot'),
       },
       {
+        id: 'permissions',
+        title: t('settings.assistant.permissions'),
+        description: t('settings.assistant.permissionsDesc'),
+        icon: PermissionsIcon,
+        onClick: () => navigateToSettings('permissions'),
+      },
+      {
         id: 'activity-level',
         title: t('settings.assistant.backgroundActivity'),
         description: t('settings.assistant.backgroundActivityDesc'),
@@ -340,13 +371,6 @@ const SettingsHome = () => {
         description: t('settings.assistant.desktopCompanionDesc'),
         icon: CompanionIcon,
         onClick: () => navigateToSettings('companion'),
-      },
-      {
-        id: 'permissions',
-        title: t('settings.assistant.permissions'),
-        description: t('settings.assistant.permissionsDesc'),
-        icon: PermissionsIcon,
-        onClick: () => navigateToSettings('permissions'),
       },
     ],
   };
@@ -395,10 +419,10 @@ const SettingsHome = () => {
     ],
   };
 
-  // --- ℹ️ About group (always visible) ---
+  // --- ℹ️ About group (always visible; no section header — just a divider) ---
   const aboutGroup: SettingsGroup = {
     id: 'about',
-    label: t('settings.groups.about'),
+    label: '',
     items: [
       {
         id: 'about',
@@ -418,35 +442,17 @@ const SettingsHome = () => {
     notificationsGroup,
   ];
 
-  // --- Billing section (hidden in local / offline mode) ---
-  // Billing & Rewards requires a backend-authenticated session.
-  // Hidden in local/offline mode — no auth headers are sent and the
-  // billing dashboard would not recognise the session.
-  const billingGroup: SettingsGroup | null = !isLocalSession
-    ? {
-        id: 'billing',
-        label: t('settings.billingAndRewards'),
-        items: [
-          {
-            id: 'billing',
-            title: t('settings.billingUsage'),
-            description: t('settings.billingUsageDesc'),
-            icon: BillingIcon,
-            onClick: () => {
-              openUrl(BILLING_DASHBOARD_URL).catch(() => {});
-            },
-          },
-        ],
-      }
-    : null;
+  // Billing / Rewards / Wallet are NOT in Settings — per the design doc they
+  // live in the avatar menu (monetisation out of the settings tree).
 
   // --- Developer & Diagnostics (gated) ---
   // The Developer & Diagnostics entry is hidden when developer mode is off.
   // About is always accessible — that's where the toggle lives (chicken-and-egg).
+  // No section header — it sits after a divider, then About (per the doc).
   const developerGroup: SettingsGroup | null = developerMode
     ? {
         id: 'developer',
-        label: t('settings.advanced'),
+        label: '',
         items: [
           {
             id: 'developer-options',
@@ -462,7 +468,6 @@ const SettingsHome = () => {
   // Build the final ordered list of groups
   const groups: SettingsGroup[] = [
     ...visibleGroups,
-    ...(billingGroup ? [billingGroup] : []),
     ...(developerGroup ? [developerGroup] : []),
     aboutGroup,
   ];

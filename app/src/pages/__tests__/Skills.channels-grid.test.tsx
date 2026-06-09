@@ -63,7 +63,7 @@ vi.mock('../../lib/composio/hooks', () => ({
 
 describe('Skills page — Channels grid', () => {
   beforeEach(() => {
-    // The default tab is 'composio'; click 'Channels' to reveal the Channels card.
+    // The default tab is 'composio'; click 'Messaging' to reveal the Channels card.
   });
 
   it('renders configured channels as tiles in a dedicated card and opens the setup modal on click', async () => {
@@ -72,7 +72,7 @@ describe('Skills page — Channels grid', () => {
     // Switch to the Messaging tab to make the Channels card visible.
     fireEvent.click(screen.getByRole('tab', { name: 'Messaging' }));
 
-    const channelsHeading = screen.getByRole('heading', { name: 'Channels' });
+    const channelsHeading = screen.getByRole('heading', { name: 'Messaging' });
     expect(channelsHeading).toBeInTheDocument();
 
     const channelsCard = channelsHeading.closest('.rounded-2xl');
@@ -138,7 +138,7 @@ describe('Skills page — Channels grid', () => {
       // Switch to the Messaging tab so the Channels card is visible.
       fireEvent.click(screen.getByRole('tab', { name: 'Messaging' }));
       const channelsCard = screen
-        .getByRole('heading', { name: 'Channels' })
+        .getByRole('heading', { name: 'Messaging' })
         .closest('.rounded-2xl');
       const telegramTile = within(channelsCard as HTMLElement).getByRole('button', {
         name: new RegExp(`Telegram.*${labelPattern.source}`, 'i'),
@@ -152,7 +152,7 @@ describe('Skills page — Channels grid', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Apps' }));
 
     // The Apps tab owns the Integrations category filter.
-    const integrationsHeading = screen.getByRole('heading', { name: 'Composio Integrations' });
+    const integrationsHeading = screen.getByRole('heading', { name: 'Apps' });
     const integrationsCard = integrationsHeading.closest('.rounded-2xl');
     expect(integrationsCard).not.toBeNull();
     const filterTabs = within(integrationsCard as HTMLElement)

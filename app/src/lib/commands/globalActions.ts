@@ -32,11 +32,11 @@ export function registerGlobalActions(
     },
     {
       id: 'nav.intelligence',
-      label: 'Go to Intelligence',
+      label: 'Go to Knowledge & Memory',
       group: 'Navigation',
       shortcut: 'mod+3',
       handler: nav('/settings/intelligence'),
-      keywords: ['memory', 'knowledge'],
+      keywords: ['memory', 'knowledge', 'intelligence'],
     },
     {
       id: 'nav.skills',
@@ -45,6 +45,14 @@ export function registerGlobalActions(
       shortcut: 'mod+4',
       handler: nav('/connections'),
       keywords: ['plugins', 'tools', 'connections', 'apps', 'skills'],
+    },
+    {
+      id: 'nav.activity',
+      label: 'Go to Activity',
+      group: 'Navigation',
+      shortcut: 'mod+5',
+      handler: nav('/activity'),
+      keywords: ['tasks', 'automations', 'alerts', 'background'],
     },
     {
       id: 'nav.settings',

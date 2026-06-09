@@ -121,11 +121,13 @@ describe('SettingsHome', () => {
 
     it('renders the Account group items', () => {
       renderSettingsHome();
-      // Account group has: Account, Language, Appearance, Devices
-      expect(screen.getByTestId('settings-nav-account')).toBeInTheDocument();
+      // Account group has: Profile, Language, Appearance, Devices, Team & members, Data & migration
+      expect(screen.getByTestId('settings-nav-profile')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-language')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-appearance')).toBeInTheDocument();
       expect(screen.getByTestId('settings-nav-devices')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-team')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-nav-migration')).toBeInTheDocument();
     });
 
     it('renders the Assistant group items', () => {
@@ -205,11 +207,11 @@ describe('SettingsHome', () => {
   });
 
   describe('navigation — layman groups', () => {
-    it('navigates to account settings when Account is clicked', async () => {
+    it('navigates to account settings when Profile is clicked', async () => {
       const user = userEvent.setup();
       renderSettingsHome();
 
-      await user.click(screen.getByTestId('settings-nav-account'));
+      await user.click(screen.getByTestId('settings-nav-profile'));
       expect(mockNavigateToSettings).toHaveBeenCalledWith('account');
     });
 
@@ -301,13 +303,11 @@ describe('SettingsHome', () => {
       expect(mockNavigateToSettings).toHaveBeenCalledWith('about');
     });
 
-    it('opens billing URL when Billing & Usage is clicked', async () => {
-      const { openUrl } = await import('../../../utils/openUrl');
-      const user = userEvent.setup();
+    it('does not render Billing & Usage in Settings (billing is in avatar menu)', () => {
+      // Per the IA redesign doc, billing/rewards live in the avatar menu — not in Settings.
       renderSettingsHome();
-
-      await user.click(screen.getByTestId('settings-nav-billing'));
-      expect(openUrl).toHaveBeenCalledWith('https://billing.example.com');
+      expect(screen.queryByTestId('settings-nav-billing')).not.toBeInTheDocument();
+      expect(screen.queryByText('Billing & Usage')).not.toBeInTheDocument();
     });
 
     it('navigates to developer-options when "Developer & Diagnostics" is clicked (developerMode=true)', async () => {
@@ -345,15 +345,17 @@ describe('SettingsHome', () => {
       mockSessionToken = null;
     });
 
-    it('hides the Billing & Usage item in local mode', () => {
+    it('does not render Billing & Usage in Settings regardless of session type (billing is in avatar menu)', () => {
+      // Billing moved to avatar menu per IA redesign — never shown in Settings.
       renderSettingsHome();
       expect(screen.queryByText('Billing & Usage')).not.toBeInTheDocument();
     });
 
-    it('shows "Billing & Usage" when not in local mode', () => {
+    it('does not render Billing & Usage in Settings even when not in local mode', () => {
+      // Billing moved to avatar menu per IA redesign — never shown in Settings.
       mockSessionToken = null;
       renderSettingsHome();
-      expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
+      expect(screen.queryByText('Billing & Usage')).not.toBeInTheDocument();
     });
   });
 
