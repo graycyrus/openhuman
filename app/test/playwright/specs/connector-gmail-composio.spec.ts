@@ -124,7 +124,6 @@ async function ensureComposioSurface(page: Page) {
         return;
       }
     }
-    await page.waitForTimeout(500);
   }
   await expect(heading).toBeVisible({ timeout: 20_000 });
 }

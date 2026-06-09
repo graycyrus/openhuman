@@ -394,6 +394,9 @@ const messages: TranslationMap = {
   'memory.tab.tasksDescription':
     'Aufgaben erstellen und verfolgen – eigene To-dos sowie die Boards, die Agenten in Gesprächen anlegen.',
   'memory.tab.subconscious': 'Unterbewusstsein',
+  'memory.tab.agentWork': 'Agentenarbeit',
+  'memory.tab.agentWorkDescription':
+    'Eine Kommandozentrale für jeden Hintergrund-Agentenlauf — gruppiert danach, was deine Eingabe braucht, was läuft und was abgeschlossen ist.',
   'memory.tab.agents': 'Bibliothek',
   'memory.tab.agentsDescription':
     'Verfügbare Agenten durchsuchen und starten — jeder mit eigenen Werkzeugen, Fähigkeiten und Schwerpunkten.',
@@ -1990,7 +1993,7 @@ const messages: TranslationMap = {
   'chat.attachment.unsupportedType':
     'Nicht unterstützter Dateityp. Verwenden Sie ein Bild (PNG, JPEG, WebP, GIF, BMP) oder eine PDF-, TXT- oder Markdown-Datei.',
   'chat.attachment.imageNotSupported':
-    'Dieses Modell kann keine Bilder lesen. Hängen Sie stattdessen eine PDF-, TXT- oder Markdown-Datei an.',
+    'Dieses Modell kann keine Bilder lesen. Du kannst die OpenHuman-Stufe „Denkmodus“ verwenden, um dein Bild anzuhängen.',
   'chat.attachment.readFailed': 'Datei konnte nicht gelesen werden',
   'memory.searchAria': 'Speicher durchsuchen',
   'memory.searchPlaceholder': 'Speichereinträge durchsuchen...',
@@ -2968,6 +2971,36 @@ const messages: TranslationMap = {
   'intelligence.workTask.urlLine': '- Adresse: {url}',
   'intelligence.workTask.closingInstruction':
     'Beginne damit, den konkreten Umsetzungsplan kurz zu wiederholen, und führe ihn dann aus. Halte den Fortschritt in diesem Thread sichtbar und aktualisiere das Aufgabenboard, wenn sich der Arbeitsstand ändert.',
+  'intelligence.agentWork.subtitle':
+    'Jeder Hintergrund-Agentenlauf, gruppiert nach Lebenszyklusstatus.',
+  'intelligence.agentWork.loading': 'Agentenarbeit wird geladen…',
+  'intelligence.agentWork.failedToLoad': 'Agentenarbeit konnte nicht geladen werden',
+  'intelligence.agentWork.empty': 'Noch keine Hintergrund-Agentenläufe.',
+  'intelligence.agentWork.bucket.needsInput': 'Eingabe nötig',
+  'intelligence.agentWork.bucket.working': 'In Arbeit',
+  'intelligence.agentWork.bucket.completed': 'Abgeschlossen',
+  'intelligence.agentWork.bucket.failed': 'Fehlgeschlagen',
+  'intelligence.agentWork.bucket.stopped': 'Angehalten',
+  'intelligence.agentWork.column.agent': 'Agent',
+  'intelligence.agentWork.column.status': 'Status',
+  'intelligence.agentWork.column.elapsed': 'Verstrichen',
+  'intelligence.agentWork.column.cost': 'Kosten',
+  'intelligence.agentWork.column.tokens': 'Tokens',
+  'intelligence.agentWork.status.pending': 'Ausstehend',
+  'intelligence.agentWork.status.running': 'Läuft',
+  'intelligence.agentWork.status.awaitingUser': 'Eingabe nötig',
+  'intelligence.agentWork.status.paused': 'Pausiert',
+  'intelligence.agentWork.status.completed': 'Abgeschlossen',
+  'intelligence.agentWork.status.failed': 'Fehlgeschlagen',
+  'intelligence.agentWork.status.cancelled': 'Abgebrochen',
+  'intelligence.agentWork.status.interrupted': 'Unterbrochen',
+  'intelligence.agentWork.kind.subagent': 'Subagent',
+  'intelligence.agentWork.kind.workerThread': 'Worker-Thread',
+  'intelligence.agentWork.kind.backgroundAgent': 'Hintergrundagent',
+  'intelligence.agentWork.kind.teamMember': 'Teammitglied',
+  'intelligence.agentWork.kind.workflowChild': 'Workflow-Unterelement',
+  'intelligence.agentWork.openThread': 'Thread öffnen',
+  'intelligence.agentWork.openWorker': 'Worker öffnen',
   'intelligence.refine.objectiveDefault':
     'Verwandle die Quellaufgabe in eine umsetzungsbereite Agentenaufgabe: {title}',
   'intelligence.refine.sourceLine': 'Quelle: {url}',

@@ -395,6 +395,9 @@ const messages: TranslationMap = {
   'memory.tab.tasksDescription':
     'Crie e acompanhe tarefas — seus próprios afazeres e os painéis que seus agentes constroem ao longo das conversas.',
   'memory.tab.subconscious': 'Subconsciente',
+  'memory.tab.agentWork': 'Trabalho do agente',
+  'memory.tab.agentWorkDescription':
+    'Um centro de comando para cada execução de agente em segundo plano, agrupada conforme o que precisa da sua intervenção, o que está em andamento e o que foi concluído.',
   'memory.tab.agents': 'Biblioteca',
   'memory.tab.agentsDescription':
     'Navegue e execute os agentes disponíveis — cada um com suas próprias ferramentas, capacidades e área de foco.',
@@ -1983,7 +1986,7 @@ const messages: TranslationMap = {
   'chat.attachment.unsupportedType':
     'Tipo de arquivo não suportado. Use uma imagem (PNG, JPEG, WebP, GIF, BMP) ou um arquivo PDF, TXT ou Markdown.',
   'chat.attachment.imageNotSupported':
-    'Este modelo não consegue ler imagens. Anexe um arquivo PDF, TXT ou Markdown.',
+    'Este modelo não consegue ler imagens. Você pode usar o nível Raciocínio do OpenHuman para anexar sua imagem.',
   'chat.attachment.readFailed': 'Não foi possível ler o arquivo',
   'memory.searchAria': 'Pesquisar memória',
   'memory.searchPlaceholder': 'Pesquisar entradas de memória...',
@@ -2951,6 +2954,36 @@ const messages: TranslationMap = {
   'intelligence.workTask.urlLine': '- Endereço: {url}',
   'intelligence.workTask.closingInstruction':
     'Comece reformulando brevemente o plano de implementação concreto e depois execute-o. Mantenha o progresso visível neste tópico e atualize o quadro de tarefas quando o estado do trabalho mudar.',
+  'intelligence.agentWork.subtitle':
+    'Cada execução de agente em segundo plano, agrupada por estado do ciclo de vida.',
+  'intelligence.agentWork.loading': 'Carregando trabalho do agente…',
+  'intelligence.agentWork.failedToLoad': 'Não foi possível carregar o trabalho do agente',
+  'intelligence.agentWork.empty': 'Ainda não há execuções de agente em segundo plano.',
+  'intelligence.agentWork.bucket.needsInput': 'Requer intervenção',
+  'intelligence.agentWork.bucket.working': 'Em andamento',
+  'intelligence.agentWork.bucket.completed': 'Concluído',
+  'intelligence.agentWork.bucket.failed': 'Falhou',
+  'intelligence.agentWork.bucket.stopped': 'Parado',
+  'intelligence.agentWork.column.agent': 'Agente',
+  'intelligence.agentWork.column.status': 'Status',
+  'intelligence.agentWork.column.elapsed': 'Decorrido',
+  'intelligence.agentWork.column.cost': 'Custo',
+  'intelligence.agentWork.column.tokens': 'Tokens',
+  'intelligence.agentWork.status.pending': 'Pendente',
+  'intelligence.agentWork.status.running': 'Em andamento',
+  'intelligence.agentWork.status.awaitingUser': 'Requer intervenção',
+  'intelligence.agentWork.status.paused': 'Pausado',
+  'intelligence.agentWork.status.completed': 'Concluído',
+  'intelligence.agentWork.status.failed': 'Falhou',
+  'intelligence.agentWork.status.cancelled': 'Cancelado',
+  'intelligence.agentWork.status.interrupted': 'Interrompido',
+  'intelligence.agentWork.kind.subagent': 'Subagente',
+  'intelligence.agentWork.kind.workerThread': 'Thread de worker',
+  'intelligence.agentWork.kind.backgroundAgent': 'Agente em segundo plano',
+  'intelligence.agentWork.kind.teamMember': 'Membro da equipe',
+  'intelligence.agentWork.kind.workflowChild': 'Filho de fluxo de trabalho',
+  'intelligence.agentWork.openThread': 'Abrir tópico',
+  'intelligence.agentWork.openWorker': 'Abrir trabalhador',
   'intelligence.refine.objectiveDefault':
     'Transforme a tarefa de origem em uma tarefa de agente pronta para implementação: {title}',
   'intelligence.refine.sourceLine': 'Origem: {url}',

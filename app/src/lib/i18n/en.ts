@@ -424,6 +424,9 @@ const en: TranslationMap = {
   'memory.tab.tasksDescription':
     'Create and track tasks — your own to-dos plus the boards your agents build across conversations.',
   'memory.tab.subconscious': 'Subconscious',
+  'memory.tab.agentWork': 'Agent Work',
+  'memory.tab.agentWorkDescription':
+    'A command center for every background agent run — grouped by what needs your input, what is working, and what has finished.',
   'memory.tab.agents': 'Library',
   'memory.tab.agentsDescription':
     'Browse and run your available agents — each with its own tools, capabilities, and focus area.',
@@ -2339,7 +2342,7 @@ const en: TranslationMap = {
   'chat.attachment.unsupportedType':
     'Unsupported file type. Use an image (PNG, JPEG, WebP, GIF, BMP) or a PDF, TXT, or Markdown file.',
   'chat.attachment.imageNotSupported':
-    'This model can’t read images. You can attach a pdf, txt, or md file.',
+    'This model can’t read images. You can use the OpenHuman Reasoning tier to attach your image.',
   'chat.attachment.readFailed': 'Could not read file',
 
   // Memory (additional)
@@ -3437,6 +3440,35 @@ const en: TranslationMap = {
   'intelligence.workTask.urlLine': '- URL: {url}',
   'intelligence.workTask.closingInstruction':
     'Start by restating the concrete implementation plan briefly, then execute it. Keep progress visible in this thread and update the task board when the work state changes.',
+  'intelligence.agentWork.subtitle': 'Every background agent run, grouped by lifecycle state.',
+  'intelligence.agentWork.loading': 'Loading agent work…',
+  'intelligence.agentWork.failedToLoad': 'Failed to load agent work',
+  'intelligence.agentWork.empty': 'No background agent runs yet.',
+  'intelligence.agentWork.bucket.needsInput': 'Needs input',
+  'intelligence.agentWork.bucket.working': 'Working',
+  'intelligence.agentWork.bucket.completed': 'Completed',
+  'intelligence.agentWork.bucket.failed': 'Failed',
+  'intelligence.agentWork.bucket.stopped': 'Stopped',
+  'intelligence.agentWork.column.agent': 'Agent',
+  'intelligence.agentWork.column.status': 'Status',
+  'intelligence.agentWork.column.elapsed': 'Elapsed',
+  'intelligence.agentWork.column.cost': 'Cost',
+  'intelligence.agentWork.column.tokens': 'Tokens',
+  'intelligence.agentWork.status.pending': 'Pending',
+  'intelligence.agentWork.status.running': 'Running',
+  'intelligence.agentWork.status.awaitingUser': 'Awaiting input',
+  'intelligence.agentWork.status.paused': 'Paused',
+  'intelligence.agentWork.status.completed': 'Completed',
+  'intelligence.agentWork.status.failed': 'Failed',
+  'intelligence.agentWork.status.cancelled': 'Cancelled',
+  'intelligence.agentWork.status.interrupted': 'Interrupted',
+  'intelligence.agentWork.kind.subagent': 'Subagent',
+  'intelligence.agentWork.kind.workerThread': 'Worker thread',
+  'intelligence.agentWork.kind.backgroundAgent': 'Background agent',
+  'intelligence.agentWork.kind.teamMember': 'Team member',
+  'intelligence.agentWork.kind.workflowChild': 'Workflow child',
+  'intelligence.agentWork.openThread': 'Open thread',
+  'intelligence.agentWork.openWorker': 'Open worker',
   'intelligence.refine.objectiveDefault':
     'Turn the source task into an implementation-ready agent task: {title}',
   'intelligence.refine.sourceLine': 'Source: {url}',
