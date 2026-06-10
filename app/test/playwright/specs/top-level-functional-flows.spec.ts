@@ -97,7 +97,7 @@ test.describe('Top-level functional flows', () => {
     //   /skills → /connections (back-compat redirect tested; use new canonical route here)
     //   /intelligence → /activity (back-compat redirect; use new canonical route here)
     //   Connections tabs renamed: Composio→Apps, Channels→Messaging, MCP→Tools
-    //   Activity tabs: Tasks, Automations, Background activity
+    //   Activity tabs: Tasks, Automations, Subconscious
     //   Memory/Agents/Council are dev-gated; test against the always-visible tabs only
     const routes: Array<[string, RegExp]> = [
       ['/home', /Ask your assistant anything|Start/],

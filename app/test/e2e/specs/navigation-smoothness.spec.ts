@@ -43,7 +43,7 @@ const ROUTES: RouteCheck[] = [
   },
   { hash: '/rewards', markers: ['Rewards', 'Referral', 'Credits', 'Earn', 'Invite'] },
   { hash: '/settings', markers: ['Settings', 'Account', 'Billing', 'Advanced'] },
-  // Activity page (was /intelligence) — tabs: Tasks, Automations, Background activity
+  // Activity page (was /intelligence) — tabs: Tasks, Automations, Subconscious
   { hash: '/activity', markers: ['Tasks', 'Automations', 'Background', 'Activity'] },
   { hash: '/home', markers: ['Ask your assistant anything', 'Your device is connected', 'Home'] },
 ];
