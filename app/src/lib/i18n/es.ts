@@ -1940,6 +1940,7 @@ const messages: TranslationMap = {
     'Sin respuesta del agente después de 2 minutos. Intenta de nuevo o verifica tu conexión.',
   'chat.filter.general': 'General',
   'chat.filter.subconscious': 'Actividad en segundo plano',
+  'chat.filter.meetings': 'Reuniones',
   'chat.filter.tasks': 'Tareas',
   'chat.selectThread': 'Selecciona un hilo',
   'chat.threads': 'Hilos',
@@ -4484,13 +4485,14 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveTitle': 'En reunión',
   'skills.meetingBots.liveStatusJoining': 'Uniéndose\u2026',
   'skills.meetingBots.liveStatusActive': 'En vivo en la reunión',
+  'skills.meetingBots.liveStatusListening': 'Escuchando (silenciado)',
   'skills.meetingBots.liveStatusEnded': 'Reunión finalizada',
   'skills.meetingBots.liveStatusError': 'Error al unirse',
   'skills.meetingBots.leaveButton': 'Salir',
   'skills.meetingBots.respondToParticipant': 'Tu nombre en esta reunión',
   'skills.meetingBots.respondToParticipantHint': 'p. ej. Ana (tu nombre visible en la llamada)',
   'skills.meetingBots.respondToParticipantDesc':
-    'El bot solo te responderá a ti. Deja en blanco para que cualquiera pueda activarlo.',
+    'Introduce tu nombre de visualización exacto de la reunión. El bot solo responde cuando dices su nombre (frase de activación).',
   'skills.meetingBots.wakePhrase': 'Frase de activación',
   'skills.meetingBots.wakePhraseHint': 'Hey OpenHuman',
   'skills.meetingBots.wakePhraseDesc':
