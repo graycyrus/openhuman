@@ -121,7 +121,7 @@ export function AgentProcessSourcePanel({
               {t('conversations.agentTaskInsights.stepsHeading')}
             </h3>
             {entries.length > 0 ? (
-              <ToolTimelineBlock entries={entries} onViewSubagent={onViewSubagent} />
+              <ToolTimelineBlock entries={entries} onViewSubagent={onViewSubagent} expandAllRows />
             ) : (
               <p className="text-xs text-stone-400 italic dark:text-neutral-500">
                 {t('conversations.agentTaskInsights.noSteps')}

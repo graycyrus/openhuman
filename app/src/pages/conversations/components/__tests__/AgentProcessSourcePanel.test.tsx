@@ -55,6 +55,24 @@ describe('AgentProcessSourcePanel', () => {
     expect(rows[1].textContent).toContain('example.org');
   });
 
+  it('expands every step row by default (whole run visible at a glance)', () => {
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[
+          fetchEntry('e1', 'https://news-gazette.com/a'),
+          fetchEntry('e2', 'https://example.org/b'),
+        ]}
+        onClose={() => {}}
+      />
+    );
+    const panel = screen.getByTestId('agent-process-source-panel');
+    const allDetails = panel.querySelectorAll('details');
+    // Every <details> (the group + each expandable row) is open.
+    expect(allDetails.length).toBeGreaterThan(1);
+    allDetails.forEach(d => expect(d.hasAttribute('open')).toBe(true));
+  });
+
   it('renders no source rows when no web tools were used', () => {
     renderPanel(
       <AgentProcessSourcePanel

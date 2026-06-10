@@ -193,12 +193,17 @@ const BODY_SURFACE = 'bg-stone-50 dark:bg-neutral-800/60';
 export function ToolTimelineBlock({
   entries,
   onViewSubagent,
+  expandAllRows = false,
 }: {
   entries: ToolTimelineEntry[];
   /** Opens the full-transcript drawer for a subagent row. When omitted,
    * subagent cards render without the "view full processing" affordance
    * (e.g. interrupted-snapshot rendering with no live driver). */
   onViewSubagent?: (subagent: SubagentActivity) => void;
+  /** Expand every row's details by default (used by the "Agent Process
+   * Source" panel, where the whole run should be visible at a glance).
+   * In the inline chat only the latest running row auto-expands. */
+  expandAllRows?: boolean;
 }) {
   const { t } = useT();
   const latestRunningEntryId = [...entries].reverse().find(entry => entry.status === 'running')?.id;
@@ -231,7 +236,7 @@ export function ToolTimelineBlock({
           // expands when it has detail content.
           const expandable = detailContent != null || subagent != null;
           const shouldAutoExpand =
-            latestRunningEntryId != null && latestRunningEntryId === entry.id;
+            expandAllRows || (latestRunningEntryId != null && latestRunningEntryId === entry.id);
           const nameTone = agentNameTone(entry.status);
 
           return (
