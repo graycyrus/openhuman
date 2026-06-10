@@ -51,6 +51,7 @@ export type SettingsRoute =
   | 'dev-workflow'
   | 'sandbox-settings'
   | 'permissions'
+  | 'activity-level'
   | 'devices'
   | 'heartbeat';
 
@@ -145,6 +146,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     // shorter `agents` (the manage-agents registry panel) so it isn't swallowed.
     if (path.includes('/settings/agents-settings')) return 'agents-settings';
     if (path.includes('/settings/sandbox-settings')) return 'sandbox-settings';
+    if (path.includes('/settings/activity-level')) return 'activity-level';
     if (path.includes('/settings/permissions')) return 'permissions';
     if (path.includes('/settings/agent-access')) return 'agent-access';
     if (path.includes('/settings/agents')) return 'agents';
@@ -241,6 +243,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'agents':
       case 'agent-access':
       case 'sandbox-settings':
+      case 'activity-level':
       case 'autonomy':
       case 'persona':
         return [settingsCrumb, agentsCrumb];
