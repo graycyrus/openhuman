@@ -144,12 +144,12 @@ const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => 
       </div>
 
       {isSearching && (
-        <div className="pt-3">
+        <div className="pt-3 pb-5">
           {results.length === 0 ? (
             <div
               role="status"
               data-testid="settings-search-empty"
-              className="rounded-2xl border border-stone-200 px-4 py-6 text-center text-sm text-stone-500 dark:border-neutral-800 dark:text-neutral-400">
+              className="rounded-3xl border border-stone-200 bg-stone-50 px-4 py-6 text-center text-sm text-stone-500 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400">
               {t('settings.settingsSearch.noResults').replace('{query}', value.trim())}
             </div>
           ) : (
@@ -158,7 +158,7 @@ const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => 
               role="listbox"
               aria-label={t('settings.settingsSearch.resultsLabel')}
               data-testid="settings-search-results"
-              className="overflow-hidden rounded-2xl border border-stone-200 dark:border-neutral-800">
+              className="overflow-hidden rounded-3xl border border-stone-200 dark:border-neutral-800">
               {results.map((result, index) => (
                 <li
                   key={result.entry.id}
@@ -168,10 +168,10 @@ const SettingsSearchBar = ({ value, onValueChange }: SettingsSearchBarProps) => 
                   data-testid={`settings-search-result-${result.entry.id}`}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => goToResult(index)}
-                  className={`flex cursor-pointer items-center justify-between gap-3 border-b border-stone-100 px-4 py-3 last:border-b-0 dark:border-neutral-800 ${
+                  className={`flex cursor-pointer items-center justify-between gap-3 border-b border-stone-200 px-4 py-3 last:border-b-0 dark:border-neutral-800 ${
                     index === activeIndex
                       ? 'bg-primary-50 dark:bg-primary-500/10'
-                      : 'bg-white dark:bg-neutral-900'
+                      : 'bg-stone-50 dark:bg-neutral-900/40'
                   }`}>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">

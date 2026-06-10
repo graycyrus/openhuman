@@ -346,7 +346,7 @@ const SettingsHome = () => {
       {/* While searching, the search bar renders its own results and the normal
           settings menu is hidden to avoid a confusing double list. */}
       {isSearching ? null : (
-        <div className="px-4 pb-5">
+        <div className="px-4 pt-3 pb-5">
           {/* Merged layman card — no Account/Assistant/… subheadings. */}
           <div
             data-testid="settings-group-main"
