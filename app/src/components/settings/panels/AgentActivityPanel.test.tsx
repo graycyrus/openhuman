@@ -12,6 +12,21 @@ vi.mock('../hooks/useSettingsNavigation', () => ({
   }),
 }));
 
+// Mock SettingsHeader so the test does not depend on i18n resolution of the
+// header title (which varies with the active locale / brand rename). We assert
+// the panel wiring instead: that the shared header renders with a back button
+// and that the level options drive the RPC.
+vi.mock('../components/SettingsHeader', () => ({
+  default: ({ title, onBack }: { title: string; onBack?: () => void }) => (
+    <div data-testid="settings-header">
+      <span data-testid="settings-header-title">{title}</span>
+      <button type="button" data-testid="settings-header-back" onClick={onBack}>
+        back
+      </button>
+    </div>
+  ),
+}));
+
 const callCoreRpc = vi.fn();
 vi.mock('../../../services/coreRpcClient', () => ({
   callCoreRpc: (arg: { method: string; params: unknown }) => callCoreRpc(arg),
@@ -34,6 +49,13 @@ function settingsResult(level = 2) {
 
 const costResult = { result: { month: '2026-06', total_cost_usd: 0, total_syncs: 0 } };
 
+/** All buttons except the mocked SettingsHeader back button = the level options. */
+function levelButtons() {
+  return screen
+    .getAllByRole('button')
+    .filter(b => b.getAttribute('data-testid') !== 'settings-header-back');
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   callCoreRpc.mockImplementation((arg: { method: string }) => {
@@ -43,7 +65,7 @@ beforeEach(() => {
       case 'openhuman.memory_sources_monthly_cost_summary':
         return Promise.resolve(costResult);
       case 'openhuman.config_update_activity_level_settings':
-        return Promise.resolve(settingsResult(3));
+        return Promise.resolve(settingsResult(4));
       default:
         return Promise.reject(new Error(`unexpected method ${arg.method}`));
     }
@@ -51,37 +73,30 @@ beforeEach(() => {
 });
 
 describe('<AgentActivityPanel />', () => {
-  it('renders the SettingsHeader (title + back button) and the level options once loaded', async () => {
+  it('renders the shared SettingsHeader and the five level options once loaded', async () => {
     render(<AgentActivityPanel />);
 
-    // Header title appears (rendered by the shared SettingsHeader).
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Background activity' })).toBeInTheDocument();
-    });
-    // The shared header back button is present.
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
-    // All five activity levels render as selectable buttons.
-    expect(screen.getByRole('button', { name: /Off/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Always-on/i })).toBeInTheDocument();
+    // Header only renders after the initial load resolves (loading state has no
+    // header), so this also asserts the panel left the loading state.
+    await screen.findByTestId('settings-header');
+    expect(levelButtons()).toHaveLength(5);
   });
 
   it('invokes the back handler from the SettingsHeader', async () => {
     render(<AgentActivityPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Background activity' })).toBeInTheDocument()
-    );
+    await screen.findByTestId('settings-header');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByTestId('settings-header-back'));
     expect(navigateBack).toHaveBeenCalledTimes(1);
   });
 
   it('persists a new level selection via the update RPC', async () => {
     render(<AgentActivityPanel />);
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Background activity' })).toBeInTheDocument()
-    );
+    await screen.findByTestId('settings-header');
 
-    fireEvent.click(screen.getByRole('button', { name: /Always-on/i }));
+    // The last option is "Always-on" (level 4 -> api key "always_on").
+    const options = levelButtons();
+    fireEvent.click(options[options.length - 1]);
 
     await waitFor(() => {
       expect(callCoreRpc).toHaveBeenCalledWith(
