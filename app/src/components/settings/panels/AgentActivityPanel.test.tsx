@@ -56,7 +56,7 @@ describe('<AgentActivityPanel />', () => {
 
     // Header title appears (rendered by the shared SettingsHeader).
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Agent activity level' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Background activity' })).toBeInTheDocument();
     });
     // The shared header back button is present.
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('<AgentActivityPanel />', () => {
   it('invokes the back handler from the SettingsHeader', async () => {
     render(<AgentActivityPanel />);
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Agent activity level' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Background activity' })).toBeInTheDocument()
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
@@ -78,7 +78,7 @@ describe('<AgentActivityPanel />', () => {
   it('persists a new level selection via the update RPC', async () => {
     render(<AgentActivityPanel />);
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Agent activity level' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Background activity' })).toBeInTheDocument()
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Always-on/i }));

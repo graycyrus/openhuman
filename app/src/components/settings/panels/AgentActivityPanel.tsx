@@ -106,8 +106,12 @@ export default function AgentActivityPanel() {
 
   return (
     <div className="z-10 relative">
+      {/* Header title intentionally reuses the menu-row label key
+          (settings.assistant.backgroundActivity) so the page heading always
+          matches the entry the user clicked — including the "Subconscious"
+          brand rename — instead of the internal "Agent activity level" copy. */}
       <SettingsHeader
-        title={t('activityLevel.title')}
+        title={t('settings.assistant.backgroundActivity')}
         showBackButton
         onBack={navigateBack}
         breadcrumbs={breadcrumbs}
