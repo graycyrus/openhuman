@@ -53,7 +53,20 @@ export type SettingsRoute =
   | 'permissions'
   | 'activity-level'
   | 'devices'
-  | 'heartbeat';
+  | 'heartbeat'
+  | 'security'
+  | 'migration'
+  | 'companion'
+  | 'embeddings'
+  | 'ledger-usage'
+  | 'cost-dashboard'
+  | 'search'
+  | 'skills-runner'
+  | 'event-log'
+  | 'model-health'
+  | 'analysis-views'
+  | 'tool-policy-diagnostics'
+  | 'about';
 
 export interface BreadcrumbItem {
   label: string;
@@ -153,6 +166,21 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
     if (path.includes('/settings/mcp-server')) return 'mcp-server';
     if (path.includes('/settings/dev-workflow')) return 'dev-workflow';
     if (path.includes('/settings/heartbeat')) return 'heartbeat';
+    // `tool-policy-diagnostics` must precede the shorter `tools` check above is
+    // unaffected (distinct prefix), but keep it explicit here for clarity.
+    if (path.includes('/settings/tool-policy-diagnostics')) return 'tool-policy-diagnostics';
+    if (path.includes('/settings/security')) return 'security';
+    if (path.includes('/settings/migration')) return 'migration';
+    if (path.includes('/settings/companion')) return 'companion';
+    if (path.includes('/settings/embeddings')) return 'embeddings';
+    if (path.includes('/settings/ledger-usage')) return 'ledger-usage';
+    if (path.includes('/settings/cost-dashboard')) return 'cost-dashboard';
+    if (path.includes('/settings/skills-runner')) return 'skills-runner';
+    if (path.includes('/settings/event-log')) return 'event-log';
+    if (path.includes('/settings/model-health')) return 'model-health';
+    if (path.includes('/settings/analysis-views')) return 'analysis-views';
+    if (path.includes('/settings/search')) return 'search';
+    if (path.includes('/settings/about')) return 'about';
     return 'home';
   };
 
@@ -256,6 +284,8 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       // Leaf panels under account
       case 'team':
       case 'privacy':
+      case 'security':
+      case 'migration':
         return [settingsCrumb, accountCrumb];
 
       case 'billing':
@@ -266,11 +296,15 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'autocomplete':
       case 'messaging':
       case 'tools':
+      case 'companion':
         return [settingsCrumb, featuresCrumb];
 
       // Leaf panels under AI
       case 'voice':
       case 'llm':
+      case 'embeddings':
+      case 'ledger-usage':
+      case 'cost-dashboard':
         return [settingsCrumb, aiCrumb];
 
       // Team sub-pages
@@ -296,6 +330,12 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       case 'mcp-server':
       case 'dev-workflow':
       case 'heartbeat':
+      case 'search':
+      case 'skills-runner':
+      case 'event-log':
+      case 'model-health':
+      case 'analysis-views':
+      case 'tool-policy-diagnostics':
       case 'notifications-hub': // Notifications hub section page lives under Advanced.
         return [settingsCrumb, developerCrumb];
 
@@ -309,6 +349,11 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
         return [settingsCrumb, developerCrumb, notificationsHubCrumb];
 
       case 'devices':
+        return [settingsCrumb];
+
+      // About sits at the top level of Settings (and hosts the Developer Mode
+      // toggle), so its trail is just Settings.
+      case 'about':
         return [settingsCrumb];
 
       // Data Sync is a top-level leaf in the Account group (#3301).
