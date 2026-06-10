@@ -137,6 +137,12 @@ pub fn discover_automations(
     workspace_dir: Option<&Path>,
     trusted: bool,
 ) -> Vec<Workflow> {
+    tracing::debug!(
+        trusted,
+        has_home = home_dir.is_some(),
+        has_workspace = workspace_dir.is_some(),
+        "[workflows] discover:automations:enter"
+    );
     discover_filtered(home_dir, workspace_dir, trusted, WORKFLOW_ROOT_KINDS)
 }
 
@@ -149,6 +155,14 @@ fn discover_filtered(
     trusted: bool,
     kinds: &[RootKind],
 ) -> Vec<Workflow> {
+    tracing::debug!(
+        trusted,
+        has_home = home_dir.is_some(),
+        has_workspace = workspace_dir.is_some(),
+        include_skills = kinds.contains(&RootKind::Skill),
+        include_workflows = kinds.contains(&RootKind::Workflow),
+        "[workflows] discover:enter"
+    );
     // Scan order matters for collision resolution: the last scope to register
     // a name wins, so we scan user first, then project, then legacy.
     let mut by_name: HashMap<String, Workflow> = HashMap::new();
@@ -156,6 +170,12 @@ fn discover_filtered(
     if let Some(home) = home_dir {
         for (root, kind) in user_roots(home) {
             if kinds.contains(&kind) {
+                tracing::trace!(
+                    root = %root.display(),
+                    ?kind,
+                    scope = ?WorkflowScope::User,
+                    "[workflows] discover:branch:user"
+                );
                 absorb(&mut by_name, scan_root(&root, WorkflowScope::User));
             }
         }
@@ -165,6 +185,12 @@ fn discover_filtered(
         if trusted {
             for (root, kind) in project_roots(ws) {
                 if kinds.contains(&kind) {
+                    tracing::trace!(
+                        root = %root.display(),
+                        ?kind,
+                        scope = ?WorkflowScope::Project,
+                        "[workflows] discover:branch:project"
+                    );
                     absorb(&mut by_name, scan_root(&root, WorkflowScope::Project));
                 }
             }
@@ -174,15 +200,19 @@ fn discover_filtered(
         // automations-only view. Flagged with `legacy = true` so the UI can
         // nudge migration.
         if kinds.contains(&RootKind::Skill) {
-            absorb(
-                &mut by_name,
-                scan_root(&ws.join("skills"), WorkflowScope::Legacy),
+            let legacy_root = ws.join("skills");
+            tracing::trace!(
+                root = %legacy_root.display(),
+                scope = ?WorkflowScope::Legacy,
+                "[workflows] discover:branch:legacy"
             );
+            absorb(&mut by_name, scan_root(&legacy_root, WorkflowScope::Legacy));
         }
     }
 
     let mut out: Vec<Workflow> = by_name.into_values().collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
+    tracing::debug!(discovered_count = out.len(), "[workflows] discover:exit");
     out
 }
 
