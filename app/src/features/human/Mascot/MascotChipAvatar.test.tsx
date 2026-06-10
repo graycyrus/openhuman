@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { MascotChipAvatar } from './MascotChipAvatar';
-import { getMascotPalette } from './mascotPalette';
+import { getMascotPalette, shadeHex } from './mascotPalette';
 
 describe('MascotChipAvatar', () => {
   it('renders the custom GIF (decorative) when a gifUrl is provided', () => {
@@ -43,6 +43,18 @@ describe('MascotChipAvatar', () => {
 
     const wrapper = screen.getByTestId('mascot-chip-avatar');
     expect(wrapper.innerHTML.toLowerCase()).toContain(bodyFill.toLowerCase());
+  });
+
+  it('renders the bright "flat" body so the chip matches the Rive mascot stage', () => {
+    // The flat variant derives a lightened highlight stop from the body colour;
+    // its presence proves we are NOT using the dark, moody body gradient.
+    const highlight = shadeHex(getMascotPalette('yellow').bodyFill, 0.32);
+    render(<MascotChipAvatar color="yellow" />);
+
+    const wrapper = screen.getByTestId('mascot-chip-avatar');
+    expect(wrapper.innerHTML.toLowerCase()).toContain(highlight.toLowerCase());
+    // The dark-gradient sentinel stop (#050506) must be absent in flat mode.
+    expect(wrapper.innerHTML.toLowerCase()).not.toContain('#050506');
   });
 
   it('applies the requested pixel size to the avatar box', () => {

@@ -54,7 +54,14 @@ export const MascotChipAvatar: FC<MascotChipAvatarProps> = ({
       style={{ width: size, height: size }}
       data-testid="mascot-chip-avatar"
       data-variant="ghosty">
-      <Ghosty bodyColor={bodyColor} face="idle" arm="none" size={size} animated={false} />
+      <Ghosty
+        bodyColor={bodyColor}
+        face="idle"
+        arm="none"
+        size={size}
+        animated={false}
+        variant="flat"
+      />
     </span>
   );
 };
