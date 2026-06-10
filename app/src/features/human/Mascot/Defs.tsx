@@ -12,11 +12,17 @@ import { BODY_PATH } from './paths';
  */
 export type GhostyVariant = 'shaded' | 'flat';
 
-export const GhostyDefs: React.FC<{
+export interface GhostyDefsProps {
   idPrefix: string;
   bodyColor: string;
   variant?: GhostyVariant;
-}> = ({ idPrefix, bodyColor, variant = 'shaded' }) => {
+}
+
+export const GhostyDefs: React.FC<GhostyDefsProps> = ({
+  idPrefix,
+  bodyColor,
+  variant = 'shaded',
+}) => {
   const id = (k: string) => `${idPrefix}-${k}`;
   const flat = variant === 'flat';
   // Derive a soft highlight + edge shadow from the body colour so any palette
