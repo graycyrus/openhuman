@@ -115,4 +115,23 @@ describe('AgentProcessSourcePanel', () => {
     await userEvent.click(screen.getByText('✕'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('closes on Escape', async () => {
+    const onClose = vi.fn();
+    renderPanel(<AgentProcessSourcePanel open entries={[]} onClose={onClose} />);
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on backdrop click', async () => {
+    const onClose = vi.fn();
+    const { container } = renderPanel(
+      <AgentProcessSourcePanel open entries={[]} onClose={onClose} />
+    );
+    // The backdrop is the first (full-bleed) Close button.
+    const backdrop = container.querySelector('button[aria-label="Close"]');
+    expect(backdrop).not.toBeNull();
+    await userEvent.click(backdrop as HTMLElement);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
