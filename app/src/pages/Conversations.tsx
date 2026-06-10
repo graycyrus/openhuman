@@ -2352,7 +2352,6 @@ const Conversations = ({
         open={showProcessSource}
         entries={selectedThreadToolTimeline}
         onClose={() => setShowProcessSource(false)}
-        onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
       />
     </div>
   );

@@ -137,7 +137,6 @@ export default function AgentInsightsPreview() {
         open={panelOpen}
         entries={SETTLED_ENTRIES}
         onClose={() => setPanelOpen(false)}
-        onViewSubagent={() => {}}
       />
     </div>
   );

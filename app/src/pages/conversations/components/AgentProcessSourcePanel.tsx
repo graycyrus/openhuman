@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { SubagentActivity, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
+import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { type AgentSource, extractAgentSources } from '../../../utils/toolTimelineFormatting';
 import { AgentSparkIcon } from './AgentTimelineRail';
 import { ToolTimelineBlock } from './ToolTimelineBlock';
@@ -55,21 +55,20 @@ function AgentSourceRow({ source }: { source: AgentSource }) {
  * Unlike {@link SubagentDrawer} (which drills into one sub-agent's live
  * transcript), this panel shows the *whole* run: the full agent-insights
  * timeline plus the distinct web sources the agents visited. It reuses
- * {@link ToolTimelineBlock} so the in-chat and in-panel timelines stay a
- * single source of truth, and keeps the per-subagent drawer reachable via
- * the rows' "view full processing" affordance.
+ * {@link ToolTimelineBlock} as a single source of truth.
+ *
+ * Note: this panel IS the full-processing view, so it does NOT forward an
+ * `onViewSubagent` handler — the rows render without the redundant
+ * "view full processing →" affordance.
  */
 export function AgentProcessSourcePanel({
   open,
   entries,
   onClose,
-  onViewSubagent,
 }: {
   open: boolean;
   entries: ToolTimelineEntry[];
   onClose: () => void;
-  /** Forwarded to the timeline so subagent rows can still open their drawer. */
-  onViewSubagent?: (subagent: SubagentActivity) => void;
 }) {
   const { t } = useT();
 
@@ -121,7 +120,7 @@ export function AgentProcessSourcePanel({
               {t('conversations.agentTaskInsights.stepsHeading')}
             </h3>
             {entries.length > 0 ? (
-              <ToolTimelineBlock entries={entries} onViewSubagent={onViewSubagent} expandAllRows />
+              <ToolTimelineBlock entries={entries} expandAllRows />
             ) : (
               <p className="text-xs text-stone-400 italic dark:text-neutral-500">
                 {t('conversations.agentTaskInsights.noSteps')}

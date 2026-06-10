@@ -73,6 +73,31 @@ describe('AgentProcessSourcePanel', () => {
     allDetails.forEach(d => expect(d.hasAttribute('open')).toBe(true));
   });
 
+  it('never shows the "view full processing" affordance (the panel IS that view)', () => {
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[
+          {
+            id: 'sa',
+            name: 'subagent:researcher',
+            round: 1,
+            status: 'success',
+            subagent: {
+              taskId: 'sub-1',
+              agentId: 'researcher',
+              toolCalls: [{ callId: 'c1', toolName: 'web_search', status: 'success' }],
+            },
+          },
+        ]}
+        onClose={() => {}}
+      />
+    );
+    // The subagent activity renders, but with no onView → no button.
+    expect(screen.getByTestId('subagent-activity')).toBeInTheDocument();
+    expect(screen.queryByTestId('subagent-view-processing')).toBeNull();
+  });
+
   it('renders no source rows when no web tools were used', () => {
     renderPanel(
       <AgentProcessSourcePanel
