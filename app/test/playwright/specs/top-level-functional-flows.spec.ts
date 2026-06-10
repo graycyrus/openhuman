@@ -103,7 +103,7 @@ test.describe('Top-level functional flows', () => {
       ['/home', /Ask your assistant anything|Start/],
       ['/connections', /Composio Integrations|Apps|Messaging|Tools/],
       ['/chat', /How can I help you today|No messages yet|Threads/],
-      ['/activity', /Tasks|Automations|Background/],
+      ['/activity', /Tasks|Automations|Subconscious/],
       ['/notifications', /Notifications|System Events/],
       ['/rewards', /Rewards|Referrals|Redeem/],
     ];

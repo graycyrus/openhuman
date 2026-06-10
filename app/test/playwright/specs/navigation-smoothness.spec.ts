@@ -22,7 +22,7 @@ const routes: RouteCheck[] = [
   { hash: '/rewards', markers: ['Rewards', 'Referral', 'Credits', 'Invite'] },
   { hash: '/settings', markers: ['Settings', 'Account', 'Billing', 'Advanced'] },
   // Activity page (was /intelligence) — tabs: Tasks, Automations, Subconscious
-  { hash: '/activity', markers: ['Tasks', 'Automations', 'Background'] },
+  { hash: '/activity', markers: ['Tasks', 'Automations', 'Subconscious'] },
   { hash: '/home', markers: ['Ask your assistant anything', 'Your device is connected'] },
 ];
 
