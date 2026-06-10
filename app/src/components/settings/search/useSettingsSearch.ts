@@ -35,7 +35,7 @@ export const normalize = (value: string): string =>
   value
     .normalize('NFD')
     // Strip combining diacritical marks (U+0300–U+036F) so "Tóol" matches "tool".
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 
