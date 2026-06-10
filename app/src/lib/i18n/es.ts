@@ -2849,7 +2849,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.stepsHeading': 'Pasos',
   'conversations.agentTaskInsights.sourcesHeading': 'Fuentes',
   'conversations.agentTaskInsights.noSteps': 'No hay pasos registrados',
-  'conversations.agentTaskInsights.viewProcessSource': 'Ver la fuente completa del proceso del agente',
+  'conversations.agentTaskInsights.viewProcessSource':
+    'Ver la fuente completa del proceso del agente',
   'daemon.serviceBlockingGate.body': 'Cuerpo',
   'daemon.serviceBlockingGate.downloadHint': 'Sugerencia de descarga',
   'daemon.serviceBlockingGate.downloadLatest': 'Descargar la última versión',

@@ -160,9 +160,12 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       },
     ];
     renderInStore(<ToolTimelineBlock entries={entries} />);
-    expect(screen.getByTestId('agent-task-insights')).toBeInTheDocument();
-    // A running entry present → the working label is shown.
-    expect(screen.getByTestId('agent-task-insights').textContent).toContain('Working');
+    const group = screen.getByTestId('agent-task-insights');
+    expect(group).toBeInTheDocument();
+    // Static section label — NOT a duplicate "Working…" string (the live
+    // state lives on the pulsing row names, not the header).
+    expect(group.textContent).toContain('Agentic task insights');
+    expect(group.textContent).not.toContain('Working');
     // Two rows on the timeline rail.
     expect(screen.getAllByTestId('agent-timeline-row')).toHaveLength(2);
     // Running row name pulses; done row name is solid.

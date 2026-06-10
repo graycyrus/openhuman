@@ -202,20 +202,17 @@ export function ToolTimelineBlock({
 }) {
   const { t } = useT();
   const latestRunningEntryId = [...entries].reverse().find(entry => entry.status === 'running')?.id;
-  const isWorking = entries.some(
-    entry => entry.status === 'running' || entry.status === 'awaiting_user'
-  );
 
   if (entries.length === 0) return null;
 
+  // The group header is a static section label — the live "working" state is
+  // conveyed by the pulsing agent-name rows (and the chat's own activity
+  // indicator), so the header does NOT repeat a "Working…" string.
   return (
     <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
       <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
-        {isWorking ? <span aria-hidden>⚙️</span> : null}
         <span className="text-[11px] font-medium text-stone-500 dark:text-neutral-400">
-          {isWorking
-            ? t('conversations.subagent.working')
-            : t('conversations.agentTaskInsights.title')}
+          {t('conversations.agentTaskInsights.title')}
         </span>
         <span className="text-[9px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
           ▶
