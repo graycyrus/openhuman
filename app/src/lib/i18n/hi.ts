@@ -357,7 +357,7 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'इंस्टॉल किया गया',
   'skills.explorer.install': 'इंस्टॉल करें',
   'skills.explorer.installing': 'इंस्टॉल हो रहा है…',
-  'skills.integrations': 'इंटीग्रेशन',
+  'skills.integrations': 'Composio इंटीग्रेशन',
   'skills.integrationsSubtitle':
     'क्लाउड-आधारित OAuth कनेक्शन — अपने अकाउंट से साइन इन करें और Composio टोकन ब्रोकर करता है ताकि एजेंट आपकी ओर से पढ़ और कार्य कर सकें। कोई API कुंजी प्रबंधित नहीं करनी।',
   'skills.composio.noApiKeyTitle': 'कोई Composio API key कॉन्फ़िगर नहीं है',

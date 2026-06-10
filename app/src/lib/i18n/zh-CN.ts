@@ -342,7 +342,7 @@ const messages: TranslationMap = {
   'skills.explorer.installed': '已安装',
   'skills.explorer.install': '安装',
   'skills.explorer.installing': '安装中…',
-  'skills.integrations': '集成',
+  'skills.integrations': 'Composio 集成',
   'skills.integrationsSubtitle':
     '基于云端的 OAuth 连接——使用您的账户登录，Composio 代管令牌，让智能体能以您的名义读取数据并执行操作，无需管理 API 密钥。',
   'skills.composio.noApiKeyTitle': '尚未配置 Composio API 密钥',

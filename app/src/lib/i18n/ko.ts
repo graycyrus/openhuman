@@ -358,7 +358,7 @@ const messages: TranslationMap = {
   'skills.explorer.installed': '설치됨',
   'skills.explorer.install': '설치',
   'skills.explorer.installing': '설치 중…',
-  'skills.integrations': '통합',
+  'skills.integrations': 'Composio 통합',
   'skills.integrationsSubtitle':
     '클라우드 기반 OAuth 연결 — 계정으로 로그인하면 Composio가 토큰을 관리하여 에이전트가 사용자를 대신해 읽고 작동할 수 있습니다. API 키 관리가 필요 없습니다.',
   'skills.composio.noApiKeyTitle': '아니요 Composio API 키가 구성됨',

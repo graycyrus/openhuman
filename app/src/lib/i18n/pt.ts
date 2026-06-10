@@ -369,7 +369,7 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Instalada',
   'skills.explorer.install': 'Instalar',
   'skills.explorer.installing': 'Instalando…',
-  'skills.integrations': 'Integrações',
+  'skills.integrations': 'Integrações do Composio',
   'skills.integrationsSubtitle':
     'Conexões OAuth baseadas em nuvem — faça login com sua conta e o Composio gerencia os tokens para que os agentes possam ler e agir em seu nome. Sem chaves de API para gerenciar.',
   'skills.composio.noApiKeyTitle': 'Nenhuma chave de API do Composio configurada',

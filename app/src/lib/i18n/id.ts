@@ -361,7 +361,7 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'Terpasang',
   'skills.explorer.install': 'Pasang',
   'skills.explorer.installing': 'Memasang…',
-  'skills.integrations': 'Integrasi',
+  'skills.integrations': 'Integrasi Composio',
   'skills.integrationsSubtitle':
     'Koneksi OAuth berbasis cloud — masuk dengan akun Anda dan Composio mengelola token agar agen dapat membaca dan bertindak atas nama Anda. Tidak perlu mengelola API key.',
   'skills.composio.noApiKeyTitle': 'Belum ada API key Composio yang dikonfigurasi',

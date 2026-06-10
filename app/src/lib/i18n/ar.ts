@@ -353,7 +353,7 @@ const messages: TranslationMap = {
   'skills.explorer.installed': 'مثبت',
   'skills.explorer.install': 'تثبيت',
   'skills.explorer.installing': 'جارٍ التثبيت…',
-  'skills.integrations': 'التكاملات',
+  'skills.integrations': 'تكاملات Composio',
   'skills.integrationsSubtitle':
     'اتصالات OAuth السحابية — سجّل الدخول بحسابك ويتولى Composio إدارة الرموز حتى يتمكن الوكلاء من القراءة والتصرف نيابةً عنك. لا حاجة لإدارة مفاتيح API.',
   'skills.composio.noApiKeyTitle': 'لم يتم إعداد مفتاح Composio API',
