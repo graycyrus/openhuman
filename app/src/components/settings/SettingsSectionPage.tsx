@@ -63,9 +63,14 @@ const SettingsSectionPage = ({ title, description, items, footer }: SettingsSect
         </div>
 
         {footer && (
-          <div className="mt-4 rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">
-            {footer}
-          </div>
+          <>
+            {/* Divider + card, mirroring how SettingsHome separates its
+                trailing groups (e.g. the destructive logout/clear card). */}
+            <div className="mx-1 mt-6 mb-2 border-t border-stone-200 dark:border-neutral-800" />
+            <div className="rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">
+              {footer}
+            </div>
+          </>
         )}
       </div>
     </div>
