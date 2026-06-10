@@ -2003,43 +2003,50 @@ const Conversations = ({
                     </div>
                   </div>
                 )}
-              {/* Inference status indicator */}
-              {selectedInferenceStatus && (
-                <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-stone-500 dark:text-neutral-400">
-                  <span className="inline-block w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
-                  <span>
-                    {selectedInferenceStatus.phase === 'thinking' &&
-                      (selectedInferenceStatus.iteration > 0
-                        ? t('chat.thinkingIteration').replace(
-                            '{n}',
-                            String(selectedInferenceStatus.iteration)
-                          )
-                        : t('chat.thinkingDots'))}
-                    {selectedInferenceStatus.phase === 'tool_use' &&
-                      `${
-                        formatTimelineEntry(
-                          activeToolTimelineEntry ?? {
-                            id: 'active-tool',
-                            name: selectedInferenceStatus.activeTool ?? 'tool',
-                            round: selectedInferenceStatus.iteration,
-                            status: 'running',
-                          }
-                        ).title
-                      }...`}
-                    {selectedInferenceStatus.phase === 'subagent' &&
-                      `${
-                        formatTimelineEntry(
-                          activeSubagentTimelineEntry ?? {
-                            id: 'active-subagent',
-                            name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
-                            round: selectedInferenceStatus.iteration,
-                            status: 'running',
-                          }
-                        ).title
-                      }...`}
-                  </span>
-                </div>
-              )}
+              {/* Inference status indicator.
+                  For the tool_use / subagent phases this line just restates the
+                  active row already shown in the agentic-task-insights timeline,
+                  so suppress it once that timeline is on screen — keep it only
+                  for the `thinking` phase (which has no timeline row yet) or when
+                  there is no timeline to fall back on. */}
+              {selectedInferenceStatus &&
+                (selectedInferenceStatus.phase === 'thinking' ||
+                  selectedThreadToolTimeline.length === 0) && (
+                  <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-stone-500 dark:text-neutral-400">
+                    <span className="inline-block w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
+                    <span>
+                      {selectedInferenceStatus.phase === 'thinking' &&
+                        (selectedInferenceStatus.iteration > 0
+                          ? t('chat.thinkingIteration').replace(
+                              '{n}',
+                              String(selectedInferenceStatus.iteration)
+                            )
+                          : t('chat.thinkingDots'))}
+                      {selectedInferenceStatus.phase === 'tool_use' &&
+                        `${
+                          formatTimelineEntry(
+                            activeToolTimelineEntry ?? {
+                              id: 'active-tool',
+                              name: selectedInferenceStatus.activeTool ?? 'tool',
+                              round: selectedInferenceStatus.iteration,
+                              status: 'running',
+                            }
+                          ).title
+                        }...`}
+                      {selectedInferenceStatus.phase === 'subagent' &&
+                        `${
+                          formatTimelineEntry(
+                            activeSubagentTimelineEntry ?? {
+                              id: 'active-subagent',
+                              name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
+                              round: selectedInferenceStatus.iteration,
+                              status: 'running',
+                            }
+                          ).title
+                        }...`}
+                    </span>
+                  </div>
+                )}
               {/* Tool call timeline */}
               {selectedThreadToolTimeline.length > 0 &&
                 !shouldRenderTimelineBeforeLatestAgentMessage && (
