@@ -67,6 +67,12 @@ export interface GhostyProps {
   /** Override SVG element size; defaults to filling the parent. */
   size?: number | string;
   idPrefix?: string;
+  /**
+   * Drive the idle bob/blink/wave animation. Defaults to `true`. Pass `false`
+   * for a frozen, zero-RAF pose — cheap enough to render many times or in
+   * compact always-on UI (e.g. the "Talk to Tiny" chip avatar).
+   */
+  animated?: boolean;
 }
 
 interface FacePreset {
@@ -258,8 +264,9 @@ export const Ghosty: React.FC<GhostyProps> = ({
   viseme,
   size = '100%',
   idPrefix = 'mascot',
+  animated = true,
 }) => {
-  const t = useMascotClock();
+  const t = useMascotClock(animated);
   const preset = presetFor(face);
 
   // Gentle bob for the whole character.
