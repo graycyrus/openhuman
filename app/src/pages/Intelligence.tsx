@@ -196,7 +196,7 @@ export default function Intelligence() {
                     className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
                       active
                         ? 'border-white/30 bg-white/15 text-white'
-                        : 'border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 text-stone-500 dark:text-neutral-400'
+                        : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400'
                     }`}>
                     {t('misc.beta')}
                   </span>
@@ -206,7 +206,7 @@ export default function Intelligence() {
           }}
         />
 
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-stone-200 dark:border-neutral-800 p-6">
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-soft border border-neutral-200 dark:border-neutral-800 p-6">
           <div>
             {/* Sub-heading — reflects the active tab (e.g. "Agent Tasks") so
                 the panel body title matches what's shown below it, rather than
@@ -214,12 +214,12 @@ export default function Intelligence() {
             <div className="flex items-center justify-between mb-6">
               <div className="min-w-0">
                 <h2
-                  className="text-xl font-bold text-stone-900 dark:text-neutral-100"
+                  className="text-xl font-bold text-neutral-800 dark:text-neutral-100"
                   data-walkthrough="intelligence-header">
                   {activeTabDef?.label ?? t('memory.title')}
                 </h2>
                 {activeTabDef?.description && (
-                  <p className="mt-1 text-sm text-stone-500 dark:text-neutral-400">
+                  <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
                     {activeTabDef.description}
                   </p>
                 )}

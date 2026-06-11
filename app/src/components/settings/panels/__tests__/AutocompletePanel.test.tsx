@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../../test/test-utils';
@@ -132,9 +132,8 @@ describe('AutocompletePanel (simplified)', () => {
       expect(screen.getByText('Running: No')).toBeInTheDocument();
     });
 
-    // Change style preset and save
-    const presetRow = screen.getByText('Style Preset').closest('label');
-    const presetSelect = presetRow?.querySelector('select') as HTMLSelectElement;
+    // Change style preset and save using the labeled select
+    const presetSelect = screen.getByRole('combobox', { name: 'Style Preset' });
     fireEvent.change(presetSelect, { target: { value: 'concise' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
@@ -191,12 +190,9 @@ describe('AutocompletePanel (simplified)', () => {
       expect(screen.getByText('Running: No')).toBeInTheDocument();
     });
 
-    // Toggle enabled off and save
-    const enabledLabel = screen.getByText('Enabled').closest('label');
-    const enabledCheckbox = enabledLabel?.querySelector(
-      'input[type="checkbox"]'
-    ) as HTMLInputElement;
-    fireEvent.click(enabledCheckbox);
+    // Toggle enabled off via SettingsSwitch (role="switch")
+    const enabledSwitch = screen.getByRole('switch', { name: 'Enabled' });
+    fireEvent.click(enabledSwitch);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
 
@@ -228,9 +224,14 @@ describe('AutocompletePanel (simplified)', () => {
 
     await screen.findByText('Autocomplete');
 
-    const debounce = (await screen.findByTestId('autocomplete-debounce-ms')) as HTMLInputElement;
-    const maxChars = screen.getByTestId('autocomplete-max-chars') as HTMLInputElement;
-    const overlayTtl = screen.getByTestId('autocomplete-overlay-ttl-ms') as HTMLInputElement;
+    // SettingsNumberField wraps the input in a div; find the inner spinbutton
+    const debounceWrapper = await screen.findByTestId('autocomplete-debounce-ms');
+    const maxCharsWrapper = screen.getByTestId('autocomplete-max-chars');
+    const overlayTtlWrapper = screen.getByTestId('autocomplete-overlay-ttl-ms');
+
+    const debounce = within(debounceWrapper).getByRole('spinbutton') as HTMLInputElement;
+    const maxChars = within(maxCharsWrapper).getByRole('spinbutton') as HTMLInputElement;
+    const overlayTtl = within(overlayTtlWrapper).getByRole('spinbutton') as HTMLInputElement;
 
     // Seeded from loaded config.
     await waitFor(() => expect(debounce.value).toBe('500'));
@@ -255,8 +256,11 @@ describe('AutocompletePanel (simplified)', () => {
 
     await screen.findByText('Autocomplete');
 
-    const maxChars = (await screen.findByTestId('autocomplete-max-chars')) as HTMLInputElement;
-    const debounce = screen.getByTestId('autocomplete-debounce-ms') as HTMLInputElement;
+    const maxCharsWrapper = await screen.findByTestId('autocomplete-max-chars');
+    const debounceWrapper = screen.getByTestId('autocomplete-debounce-ms');
+
+    const maxChars = within(maxCharsWrapper).getByRole('spinbutton') as HTMLInputElement;
+    const debounce = within(debounceWrapper).getByRole('spinbutton') as HTMLInputElement;
 
     // Intermediate empty / zero states are preserved while typing (no snap).
     fireEvent.change(maxChars, { target: { value: '' } });

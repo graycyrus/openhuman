@@ -92,10 +92,11 @@ test.describe('Settings - Feature Preferences', () => {
 
     await expect(page.getByText('Features', { exact: true })).toBeVisible();
     await expect(page.getByTestId('settings-nav-screen-intelligence')).toBeVisible();
-    // Phase 2: default messaging channel moved to /connections (Messaging tab);
-    // the settings/features nav no longer has a dedicated "messaging" entry.
-    await expect(page.getByTestId('settings-nav-notifications')).toBeVisible();
+    // Phase 2: default messaging channel moved to /connections (Messaging tab).
+    // Settings consistency pass: Notifications now has its own home-level hub
+    // (notifications-hub) and is no longer nested under the Features section.
     await expect(page.getByTestId('settings-nav-tools')).toBeVisible();
+    await expect(page.getByTestId('settings-nav-companion')).toBeVisible();
   });
 
   test('persists the default messaging channel through redux state', async ({ page }) => {

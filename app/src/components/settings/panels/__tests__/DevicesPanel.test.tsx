@@ -88,11 +88,13 @@ describe('DevicesPanel', () => {
     renderWithProviders(<DevicesPanel />, { initialEntries: ['/settings/devices'] });
 
     await screen.findByText("Charlie's iPhone");
-    fireEvent.click(screen.getByRole('button', { name: /Revoke/i }));
+    // Click the per-row revoke button (may be many; pick the first one)
+    fireEvent.click(screen.getAllByRole('button', { name: /Revoke/i })[0]);
 
     // Confirmation dialog
     expect(await screen.findByText('Revoke device?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^Revoke$/i }));
+    // Use testid to unambiguously target the dialog confirm button
+    fireEvent.click(screen.getByTestId('confirm-revoke-btn'));
 
     await waitFor(() => {
       expect(mockCall).toHaveBeenCalledWith(

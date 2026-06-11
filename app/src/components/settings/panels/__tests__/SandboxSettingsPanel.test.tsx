@@ -82,11 +82,11 @@ describe('SandboxSettingsPanel', () => {
     );
   });
 
-  it('toggling the enabled checkbox persists the change', async () => {
+  it('toggling the enabled switch persists the change', async () => {
     renderWithProviders(<SandboxSettingsPanel />);
     await waitFor(() => expect(mockGet).toHaveBeenCalled());
-    const checkbox = await screen.findByRole('checkbox', { name: /enable sandbox/i });
-    fireEvent.click(checkbox);
+    const toggle = await screen.findByRole('switch', { name: /enable sandbox/i });
+    fireEvent.click(toggle);
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }))
     );

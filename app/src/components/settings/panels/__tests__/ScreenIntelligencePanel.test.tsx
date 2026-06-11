@@ -123,11 +123,9 @@ describe('ScreenIntelligencePanel', () => {
 
     renderPanel();
 
-    // Both the header h2 and section h3 say "Screen Awareness" — wait for either.
+    // The SettingsHeader renders "Screen Awareness" as the panel heading; wait for it.
     await waitFor(() => {
-      expect(screen.getAllByRole('heading', { name: 'Screen Awareness' }).length).toBeGreaterThan(
-        0
-      );
+      expect(screen.getAllByText('Screen Awareness').length).toBeGreaterThan(0);
     });
 
     const enabledLabel = screen.getByText('Enabled').closest('label');

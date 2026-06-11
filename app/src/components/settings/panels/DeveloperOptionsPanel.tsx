@@ -19,6 +19,7 @@ import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/comm
 import { resetWalkthrough } from '../../walkthrough/AppWalkthrough';
 import SettingsHeader from '../components/SettingsHeader';
 import SettingsMenuItem from '../components/SettingsMenuItem';
+import { SettingsSection } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 // ---------------------------------------------------------------------------
@@ -449,7 +450,7 @@ const CoreModeBadge = () => {
 
   if (mode.kind === 'unset') {
     return (
-      <div className="px-4 py-3 rounded-lg border border-coral-300 dark:border-coral-500/40 bg-coral-50 dark:bg-coral-500/10 dark:border-coral-500/30">
+      <div className="px-4 py-3 rounded-xl border border-coral-300 dark:border-coral-500/40 bg-coral-50 dark:bg-coral-500/10">
         <div className="text-sm font-semibold text-coral-900 dark:text-coral-300">
           {t('devOptions.coreModeNotSet')}
         </div>
@@ -462,7 +463,7 @@ const CoreModeBadge = () => {
 
   if (mode.kind === 'local') {
     return (
-      <div className="px-4 py-3 rounded-lg border border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10 dark:border-primary-500/30">
+      <div className="px-4 py-3 rounded-xl border border-primary-300 dark:border-primary-500/40 bg-primary-50 dark:bg-primary-500/10">
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 rounded-full bg-primary-600 text-white text-[11px] font-medium">
             {t('devOptions.local')}
@@ -479,7 +480,7 @@ const CoreModeBadge = () => {
   }
 
   return (
-    <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10 dark:border-sage-500/30">
+    <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10">
       <div className="flex items-center gap-2">
         <span className="px-2 py-0.5 rounded-full bg-sage-600 text-white text-[11px] font-medium">
           {t('devOptions.cloud')}
@@ -529,7 +530,7 @@ const SentryTestRow = () => {
   };
 
   return (
-    <div className="px-4 py-3 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30">
+    <div className="px-4 py-3 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-amber-900 dark:text-amber-300">
@@ -593,24 +594,24 @@ const LogsFolderRow = () => {
   if (!isTauri()) return null;
 
   return (
-    <div className="px-4 py-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-800/60">
+    <div className="px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-slate-900 dark:text-neutral-100">
+          <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             {t('devOptions.appLogs')}
           </div>
-          <div className="text-xs text-slate-700 dark:text-neutral-300 mt-0.5">
+          <div className="text-xs text-neutral-700 dark:text-neutral-300 mt-0.5">
             {t('devOptions.appLogsDesc')}
           </div>
           {path && (
-            <div className="text-[11px] text-slate-500 dark:text-neutral-400 mt-1 font-mono truncate">
+            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono truncate">
               {path}
             </div>
           )}
         </div>
         <button
           onClick={onClick}
-          className="shrink-0 px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium transition-colors">
+          className="shrink-0 px-3 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-medium transition-colors">
           {t('devOptions.openLogsFolder')}
         </button>
       </div>
@@ -625,18 +626,6 @@ const LogsFolderRow = () => {
     </div>
   );
 };
-
-// ---------------------------------------------------------------------------
-// Group section header
-// ---------------------------------------------------------------------------
-
-const DevGroupHeader = ({ label }: { label: string }) => (
-  <div className="px-1 pt-5 pb-1">
-    <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
-      {label}
-    </span>
-  </div>
-);
 
 // ---------------------------------------------------------------------------
 // Main panel
@@ -679,11 +668,10 @@ const DeveloperOptionsPanel = () => {
       />
 
       {/* Debug-only sub-sections */}
-      <div className="px-4 pb-5">
+      <div className="p-4 pt-2 space-y-3">
         {DEV_GROUPS.map(group => (
           <div key={group.labelKey} data-testid={`dev-group-${group.labelKey.split('.').pop()}`}>
-            <DevGroupHeader label={t(group.labelKey)} />
-            <div className="rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">
+            <SettingsSection title={t(group.labelKey)}>
               {group.items.map((item, index) => (
                 <SettingsMenuItem
                   key={item.id}
@@ -696,30 +684,28 @@ const DeveloperOptionsPanel = () => {
                   isLast={index === group.items.length - 1}
                 />
               ))}
-            </div>
+            </SettingsSection>
           </div>
         ))}
 
         {/* Restart Tour lives outside the groups — utility action */}
-        <div className="pt-5">
-          <div className="rounded-3xl overflow-hidden border border-stone-200 dark:border-neutral-800">
-            <SettingsMenuItem
-              key={restartTourItem.id}
-              icon={restartTourItem.icon}
-              title={restartTourItem.title}
-              description={restartTourItem.description}
-              onClick={restartTourItem.onClick}
-              testId={`settings-nav-${restartTourItem.id}`}
-              isFirst={true}
-              isLast={true}
-            />
-          </div>
-        </div>
+        <SettingsSection>
+          <SettingsMenuItem
+            key={restartTourItem.id}
+            icon={restartTourItem.icon}
+            title={restartTourItem.title}
+            description={restartTourItem.description}
+            onClick={restartTourItem.onClick}
+            testId={`settings-nav-${restartTourItem.id}`}
+            isFirst={true}
+            isLast={true}
+          />
+        </SettingsSection>
       </div>
 
       {/* Diagnostics callouts live outside the menu card so the spacing
           and alignment don't clash with the SettingsMenuItem rows. */}
-      <div className="px-4 pt-6 flex flex-col gap-3">
+      <div className="px-4 pt-2 pb-5 flex flex-col gap-3">
         <CoreModeBadge />
         <LogsFolderRow />
         {showSentryTest && <SentryTestRow />}
