@@ -2,6 +2,7 @@
 // Uses the settingsRouteRegistry as the single source of truth so that every
 // registered route automatically yields a correct breadcrumb trail without
 // maintaining a parallel switch-statement.
+import debug from 'debug';
 import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -11,6 +12,8 @@ import {
   SETTINGS_ROUTE_REGISTRY,
   type SettingsSection,
 } from '../settingsRouteRegistry';
+
+const log = debug('settings:nav');
 
 // ---------------------------------------------------------------------------
 // SettingsRoute type — derived from the registry so it stays in sync.
@@ -137,7 +140,7 @@ const getCurrentRoute = (pathname: string): SettingsRoute => {
   // Try to find the route by first segment first (most routes are single-segment).
   const entry = findEntryByRoute(firstSegment);
   if (entry) {
-    console.debug(`[settings] getCurrentRoute: ${pathname} → ${entry.id}`);
+    log('getCurrentRoute: %s → %s', pathname, entry.id);
     return entry.id as SettingsRoute;
   }
 
@@ -145,14 +148,14 @@ const getCurrentRoute = (pathname: string): SettingsRoute => {
   // Check all registry entries whose resolved route matches.
   const byRoute = SETTINGS_ROUTE_REGISTRY.find(e => entryRoute(e) === firstSegment);
   if (byRoute) {
-    console.debug(`[settings] getCurrentRoute (via route alias): ${pathname} → ${byRoute.id}`);
+    log('getCurrentRoute (via route alias): %s → %s', pathname, byRoute.id);
     return byRoute.id as SettingsRoute;
   }
 
   // Legacy redirect targets that don't have a registry entry.
   if (firstSegment === 'notification-routing') return 'notification-routing';
 
-  console.debug(`[settings] getCurrentRoute: unknown slug "${firstSegment}", defaulting to home`);
+  log('getCurrentRoute: unknown slug "%s", defaulting to home', firstSegment);
   return 'home';
 };
 
@@ -280,7 +283,7 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
       SETTINGS_ROUTE_REGISTRY.find(e => entryRoute(e) === currentRoute);
 
     if (!entry) {
-      console.debug(`[settings] breadcrumbs: no registry entry for "${currentRoute}"`);
+      log('breadcrumbs: no registry entry for "%s"', currentRoute);
       return [settingsCrumb];
     }
 

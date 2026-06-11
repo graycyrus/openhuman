@@ -44,11 +44,11 @@ const LedgerUsagePanel = () => {
             routing={snapshot.routing}
             cloudProviders={snapshot.cloudProviders}
           />
-        ) : (
+        ) : !loadError ? (
           <div className="text-xs text-neutral-500 dark:text-neutral-400">
             {t('common.loading')}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

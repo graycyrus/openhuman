@@ -1,3 +1,5 @@
+import debug from 'debug';
+
 // ---------------------------------------------------------------------------
 // Settings Route Registry
 //
@@ -60,6 +62,8 @@ export interface SettingsRegistryEntry {
    */
   hiddenDeepLink?: boolean;
 }
+
+const log = debug('settings:registry');
 
 // ---------------------------------------------------------------------------
 // Registry entries
@@ -614,6 +618,5 @@ export const findEntryByRoute = (route: string): SettingsRegistryEntry | undefin
 
 // Debug log: confirm registry loaded.
 if (typeof window !== 'undefined') {
-  const count = SETTINGS_ROUTE_REGISTRY.length;
-  console.debug(`[settings] route registry loaded — ${count} entries`);
+  log('route registry loaded — %d entries', SETTINGS_ROUTE_REGISTRY.length);
 }

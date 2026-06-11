@@ -1,3 +1,5 @@
+import debug from 'debug';
+
 import SettingsHeader from '../components/settings/components/SettingsHeader';
 import { SettingsSection } from '../components/settings/controls';
 import { useSettingsNavigation } from '../components/settings/hooks/useSettingsNavigation';
@@ -7,11 +9,13 @@ import ComposeioTriggerHistory from '../components/webhooks/ComposeioTriggerHist
 import { useComposeioTriggerHistory } from '../hooks/useComposeioTriggerHistory';
 import { useT } from '../lib/i18n/I18nContext';
 
+const log = debug('settings:webhooks');
+
 export default function Webhooks() {
   const { t } = useT();
   // [settings] Webhooks is rendered exclusively at /settings/webhooks-triggers.
   // Always apply the settings shell — no standalone usage exists.
-  console.debug('[settings] Webhooks: rendering with settings shell');
+  log('rendering with settings shell');
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
   const { archiveDir, currentDayFile, entries, loading, error, coreConnected, refresh } =
     useComposeioTriggerHistory(100);

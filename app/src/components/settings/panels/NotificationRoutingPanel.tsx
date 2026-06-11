@@ -8,7 +8,7 @@ import {
 } from '../../../services/notificationService';
 import type { NotificationStats } from '../../../types/notifications';
 import SettingsHeader from '../components/SettingsHeader';
-import { SettingsSection } from '../controls';
+import { SettingsCheckbox, SettingsSection } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 const PROVIDERS = ['gmail', 'slack', 'discord', 'whatsapp'];
@@ -217,17 +217,21 @@ const NotificationRoutingPanel = ({ embedded = false }: NotificationRoutingPanel
                   <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 capitalize">
                     {provider}
                   </p>
-                  <label className="text-xs text-neutral-600 dark:text-neutral-300 flex items-center gap-2">
-                    {t('common.enabled')}
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor={`notification-enabled-${provider}`}
+                      className="text-xs text-neutral-600 dark:text-neutral-300">
+                      {t('common.enabled')}
+                    </label>
+                    <SettingsCheckbox
+                      id={`notification-enabled-${provider}`}
                       checked={s.enabled}
                       disabled={controlsDisabled}
-                      onChange={e => {
-                        void updateSetting(provider, { enabled: e.target.checked });
+                      onCheckedChange={next => {
+                        void updateSetting(provider, { enabled: next });
                       }}
                     />
-                  </label>
+                  </div>
                 </div>
                 <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
                   {t('notifications.routing.threshold')}

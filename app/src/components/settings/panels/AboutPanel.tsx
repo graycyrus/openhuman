@@ -7,6 +7,7 @@
  * here would race with that component's own state machine.
  */
 import { invoke } from '@tauri-apps/api/core';
+import debug from 'debug';
 import { useEffect, useState } from 'react';
 
 import { useAppUpdate } from '../../../hooks/useAppUpdate';
@@ -21,6 +22,8 @@ import Button from '../../ui/Button';
 import SettingsHeader from '../components/SettingsHeader';
 import { SettingsRow, SettingsSection, SettingsSwitch } from '../controls';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+
+const log = debug('settings:developer-mode');
 
 const AboutPanel = () => {
   const { t } = useT();
@@ -175,7 +178,7 @@ const AboutPanel = () => {
                   id="switch-developer-mode"
                   checked={developerModePref}
                   onCheckedChange={next => {
-                    console.debug('[developer-mode] toggled to', next);
+                    log('toggled to %s', String(next));
                     dispatch(setDeveloperMode(next));
                   }}
                   aria-label={t('settings.developerMode.title')}

@@ -1,3 +1,4 @@
+import debug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -25,6 +26,8 @@ import type {
   ConfirmationModal as ConfirmationModalType,
   ToastNotification,
 } from '../types/intelligence';
+
+const log = debug('settings:intelligence');
 
 type IntelligenceTab =
   | 'memory'
@@ -67,7 +70,7 @@ export default function Intelligence() {
   // [settings] Intelligence is rendered exclusively at /settings/intelligence.
   // Always apply the settings shell (SettingsHeader + breadcrumbs) — no need
   // for an `embedded` prop since this page has no standalone usage.
-  console.debug('[settings] Intelligence: rendering with settings shell');
+  log('rendering with settings shell');
 
   // Tab is URL-backed (`/intelligence?tab=…`) so navigating away — e.g. to
   // Settings → Task Sources from the Agent Tasks tab — and coming back via

@@ -14,11 +14,15 @@
 // `devOnly` entries are only surfaced when developer mode is on.
 // Routes map 1:1 to the <Route> table in app/src/pages/Settings.tsx.
 // ---------------------------------------------------------------------------
+import debug from 'debug';
+
 import {
   entryRoute,
   SETTINGS_ROUTE_REGISTRY,
   type SettingsSection,
 } from '../settingsRouteRegistry';
+
+const log = debug('settings:search');
 
 export interface SettingsSearchEntry {
   /** Stable unique id — used as the React key and test id. */
@@ -92,5 +96,5 @@ export const SETTINGS_SEARCH_ENTRIES: SettingsSearchEntry[] = SETTINGS_ROUTE_REG
 
 // Debug log: confirm derived entries.
 if (typeof window !== 'undefined') {
-  console.debug(`[settings] search registry derived — ${SETTINGS_SEARCH_ENTRIES.length} entries`);
+  log('search registry derived — %d entries', SETTINGS_SEARCH_ENTRIES.length);
 }
