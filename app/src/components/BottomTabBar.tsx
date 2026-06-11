@@ -312,8 +312,8 @@ const BottomTabBar = () => {
 
   // Home is pinned to the far-left of the pill behind a divider — mirroring the
   // avatar pinned to the far-right behind its own divider. The rest of the row
-  // splits evenly around the centered Brain button:
-  //   [ home ] | assistant · connections  ( 🧠 )  activity · settings | [ avatar ]
+  // splits around the centered Brain button:
+  //   [ home ] | human · assistant  ( 🧠 )  connections · activity · settings | [ avatar ]
   const homeTab = tabs[0];
   const leftTabs = tabs.slice(1, 3);
   const rightTabs = tabs.slice(3);

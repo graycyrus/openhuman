@@ -1,13 +1,14 @@
 /**
  * Tests for BottomTabBar — verifies that:
- *  - 5 tabs are rendered (no Rewards tab, no Human tab), Activity label is present
+ *  - 6 tabs are rendered (no Rewards tab; Human restored), Activity label is present
  *  - Assistant tab is present (was "Chat", id stays 'chat', label now 'Assistant')
  *  - Walkthrough attributes reflect the new ids (tab-connections, tab-activity)
  *  - Avatar menu opens and shows Account / Billing / Rewards / Invites / Wallet
  *  - Clicking an avatar menu item navigates or opens URL
  *  - The bar is hidden on '/' and '/login' paths
  *
- * Updated for IA Phase 6: Human tab removed; Chat renamed to Assistant.
+ * Human tab restored as a first-class entry (after the IA Phase 6 merge into
+ * Assistant); Chat keeps its "Assistant" label.
  */
 import { configureStore } from '@reduxjs/toolkit';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -156,7 +157,7 @@ describe('BottomTabBar', () => {
     agentProfilesApiMock.select.mockResolvedValue(testProfiles);
   });
 
-  it('renders exactly 5 regular tab buttons (Brain is rendered separately)', async () => {
+  it('renders exactly 6 regular tab buttons (Brain is rendered separately)', async () => {
     await renderBottomTabBar('/home');
     // Query only the regular pill tabs inside <nav>: exclude the avatar button
     // (aria-haspopup) and the special raised Brain button (tab-brain).
@@ -164,7 +165,7 @@ describe('BottomTabBar', () => {
     const navButtons = nav?.querySelectorAll(
       'button:not([aria-haspopup]):not([data-walkthrough="tab-brain"])'
     );
-    expect(navButtons).toHaveLength(5);
+    expect(navButtons).toHaveLength(6);
   });
 
   it('renders the raised Brain button with data-walkthrough="tab-brain"', async () => {
@@ -194,9 +195,25 @@ describe('BottomTabBar', () => {
     expect(screen.queryByRole('button', { name: 'Rewards' })).toBeNull();
   });
 
-  it('does NOT render a Human tab (Phase 6: merged into Assistant)', async () => {
+  it('renders the Human tab (restored as a first-class entry)', async () => {
     await renderBottomTabBar('/home');
-    expect(screen.queryByRole('button', { name: 'Human' })).toBeNull();
+    const humanBtn = screen.getByRole('button', { name: 'Human' });
+    expect(humanBtn).toBeInTheDocument();
+    expect(humanBtn).toHaveAttribute('data-walkthrough', 'tab-human');
+  });
+
+  it('navigates to /human and tracks the change when the Human tab is clicked', async () => {
+    const { trackEvent } = await import('../../services/analytics');
+    await renderBottomTabBar('/home');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Human' }));
+
+    expect(trackEvent).toHaveBeenCalledWith('tab_bar_change', {
+      from_tab: 'home',
+      to_tab: 'human',
+      from_path: '/home',
+      to_path: '/human',
+    });
   });
 
   it('renders the Activity tab', async () => {
