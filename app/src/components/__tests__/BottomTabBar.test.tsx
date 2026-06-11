@@ -20,6 +20,7 @@ import accountsReducer from '../../store/accountsSlice';
 import agentProfileReducer, { setAgentProfilesFromResponse } from '../../store/agentProfileSlice';
 import companionReducer from '../../store/companionSlice';
 import notificationReducer from '../../store/notificationSlice';
+import themeReducer, { setTabBarLabels, type TabBarLabels } from '../../store/themeSlice';
 import BottomTabBar from '../BottomTabBar';
 
 // ── Module-level mocks ─────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn().mockResolvedValue(undef
 
 interface BuildStoreOpts {
   companionSessionActive?: boolean;
+  tabBarLabels?: TabBarLabels;
 }
 
 const testProfiles = {
@@ -87,6 +89,7 @@ function buildStore(opts: BuildStoreOpts = {}) {
       notifications: notificationReducer,
       companion: companionReducer,
       agentProfiles: agentProfileReducer,
+      theme: themeReducer,
     },
   });
   store.dispatch(setAgentProfilesFromResponse(testProfiles));
@@ -96,6 +99,9 @@ function buildStore(opts: BuildStoreOpts = {}) {
       payload: { active: true, sessionId: 'sess-test' },
     });
   }
+  if (opts.tabBarLabels) {
+    store.dispatch(setTabBarLabels(opts.tabBarLabels));
+  }
   return store;
 }
 
@@ -104,6 +110,7 @@ interface RenderOpts {
   companionSessionActive?: boolean;
   tokenValue?: string;
   currentUser?: unknown;
+  tabBarLabels?: TabBarLabels;
 }
 
 async function renderBottomTabBar(pathname = '/home', opts: RenderOpts | boolean = {}) {
@@ -139,7 +146,10 @@ async function renderBottomTabBar(pathname = '/home', opts: RenderOpts | boolean
     refreshSnapshot: vi.fn(),
   } as never);
 
-  const store = buildStore({ companionSessionActive: resolved.companionSessionActive });
+  const store = buildStore({
+    companionSessionActive: resolved.companionSessionActive,
+    tabBarLabels: resolved.tabBarLabels,
+  });
   return render(
     <Provider store={store}>
       <MemoryRouter initialEntries={[pathname]}>
@@ -166,6 +176,16 @@ describe('BottomTabBar', () => {
       'button:not([aria-haspopup]):not([data-walkthrough="tab-brain"])'
     );
     expect(navButtons).toHaveLength(6);
+  });
+
+  it('gives every labelled tab a fixed width when labels are always visible', async () => {
+    await renderBottomTabBar('/home', { tabBarLabels: 'always' });
+    // With the "always show labels" theme setting, each regular tab is given the
+    // same fixed width (w-32) and its label is shown with a truncating class so
+    // the row stays symmetric — this exercises the `labelsAlwaysVisible` branch.
+    const humanBtn = screen.getByRole('button', { name: 'Human' });
+    expect(humanBtn).toHaveClass('w-32');
+    expect(humanBtn.querySelector('.truncate')).not.toBeNull();
   });
 
   it('renders the raised Brain button with data-walkthrough="tab-brain"', async () => {

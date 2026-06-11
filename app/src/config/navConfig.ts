@@ -47,7 +47,7 @@ export const NAV_TABS: NavTab[] = [
  * specially by BottomTabBar.tsx as a raised circular button in the dead
  * center of the bar (a notch the button rises out of), NOT as part of the
  * regular `NAV_TABS` row. Kept separate so its special, elevated nature is
- * explicit and the 5-tab invariants for the regular row stay intact.
+ * explicit and the 6-tab invariants for the regular row stay intact.
  */
 export const BRAIN_TAB: NavTab = {
   id: 'brain',
