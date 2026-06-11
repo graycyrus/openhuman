@@ -297,11 +297,13 @@ jobs:
     env:
       CARGO_INCREMENTAL: "0"
       # Coverage-instrumented test binaries are dominated by DWARF debug info,
-      # which exhausts the runner disk and SIGBUSes the linker. line-tables-only
-      # keeps source/line data while cutting binary size sharply. llvm-cov line
-      # coverage is read from the embedded __llvm_covmap, not DWARF, so the
-      # coverage numbers are unaffected.
-      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      # which exhausts the runner disk and SIGBUSes the linker. Drop debug info
+      # entirely for this job — llvm-cov line/region coverage is read from the
+      # embedded __llvm_covmap/__llvm_covfun sections (filenames + line numbers
+      # included), NOT from DWARF, so coverage numbers are unaffected. This is
+      # the maximum-shrink setting; line-tables-only was still too large for the
+      # instrumented build.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
       - name: Free disk space
         run: |
