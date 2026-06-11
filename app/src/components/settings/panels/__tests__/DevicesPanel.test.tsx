@@ -157,26 +157,25 @@ describe('DevicesPanel', () => {
     expect(await screen.findByText(/Failed to load devices/)).toBeInTheDocument();
   });
 
-  it('renders PeerDot with bg-sage-500 class when peer_online is true (line 88)', async () => {
+  it('shows the online status indicator when a peer is online', async () => {
     const device = makeDevice({ label: 'Online iPhone', peer_online: true });
     mockCall.mockResolvedValue(listResponse([device]));
     renderWithProviders(<DevicesPanel />, { initialEntries: ['/settings/devices'] });
 
     await screen.findByText('Online iPhone');
 
-    // The PeerDot span should have the online class (bg-sage-500)
-    const dots = document.querySelectorAll('span.bg-sage-500');
-    expect(dots.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('peer-status-online')).toBeInTheDocument();
+    expect(screen.queryByTestId('peer-status-offline')).not.toBeInTheDocument();
   });
 
-  it('renders PeerDot with bg-neutral-300 class when peer_online is false (offline branch)', async () => {
+  it('shows the offline status indicator when a peer is offline', async () => {
     const device = makeDevice({ label: 'Offline iPhone', peer_online: false });
     mockCall.mockResolvedValue(listResponse([device]));
     renderWithProviders(<DevicesPanel />, { initialEntries: ['/settings/devices'] });
 
     await screen.findByText('Offline iPhone');
 
-    const dots = document.querySelectorAll('span.bg-neutral-300');
-    expect(dots.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('peer-status-offline')).toBeInTheDocument();
+    expect(screen.queryByTestId('peer-status-online')).not.toBeInTheDocument();
   });
 });

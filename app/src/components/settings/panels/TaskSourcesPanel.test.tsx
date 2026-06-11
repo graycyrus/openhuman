@@ -22,6 +22,7 @@ const removeMock = vi.fn();
 const fetchMock = vi.fn();
 const syncMock = vi.fn();
 const previewMock = vi.fn();
+const listDatabasesMock = vi.fn();
 
 vi.mock('../../../utils/tauriCommands', () => ({
   openhumanTaskSourcesList: () => listMock(),
@@ -32,6 +33,7 @@ vi.mock('../../../utils/tauriCommands', () => ({
   openhumanTaskSourcesFetch: (id: string) => fetchMock(id),
   openhumanTaskSourcesSync: () => syncMock(),
   openhumanTaskSourcesPreviewFilter: (...args: unknown[]) => previewMock(...args),
+  openhumanTaskSourcesListDatabases: (provider: string) => listDatabasesMock(provider),
 }));
 
 function sampleSource(overrides: Record<string, unknown> = {}) {
@@ -84,6 +86,7 @@ describe('<TaskSourcesPanel />', () => {
       { sourceId: 's-1', provider: 'github', fetched: 3, routed: 2, skippedDupe: 1, pruned: 1 },
     ]);
     previewMock.mockResolvedValue([{ externalId: '1' }, { externalId: '2' }]);
+    listDatabasesMock.mockResolvedValue([]);
   });
 
   afterEach(() => vi.restoreAllMocks());
@@ -259,35 +262,18 @@ describe('<TaskSourcesPanel />', () => {
     expect(screen.getByRole('button', { name: /Browse Databases/i })).toBeInTheDocument();
   });
 
-  it('shows database dropdown after browseDatabases returns results (lines 422, 425, 428-429)', async () => {
-    const listDatabasesMock = vi.fn().mockResolvedValue([{ id: 'db-1', title: 'My Notion DB' }]);
-    vi.mock('../../../utils/tauriCommands', async () => ({
-      openhumanTaskSourcesList: () => listMock(),
-      openhumanTaskSourcesStatus: () => statusMock(),
-      openhumanTaskSourcesAdd: (p: unknown) => addMock(p),
-      openhumanTaskSourcesUpdate: (id: string, patch: unknown) => updateMock(id, patch),
-      openhumanTaskSourcesRemove: (id: string) => removeMock(id),
-      openhumanTaskSourcesFetch: (id: string) => fetchMock(id),
-      openhumanTaskSourcesSync: () => syncMock(),
-      openhumanTaskSourcesPreviewFilter: (...args: unknown[]) => previewMock(...args),
-      openhumanTaskSourcesListDatabases: () => listDatabasesMock(),
-    }));
-
-    // Re-render with the hoisted mock already in place (listDatabasesMock via vi.mock is hoisted)
-    // Instead, directly test via the existing mock surface:
-    const { default: TaskSourcesPanelLocal } = await import('./TaskSourcesPanel');
-    const { render: renderLocal } = await import('@testing-library/react');
-    const { MemoryRouter: MemoryRouterLocal } = await import('react-router-dom');
-
-    renderLocal(
-      <MemoryRouterLocal>
-        <TaskSourcesPanelLocal />
-      </MemoryRouterLocal>
-    );
-
+  it('shows the database dropdown after Browse Databases returns results', async () => {
+    listDatabasesMock.mockResolvedValue([{ id: 'db-1', title: 'My Notion DB' }]);
+    renderPanel();
     await screen.findByTestId('task-source-s-1');
-    // This test is intentionally lightweight — Browse Databases click path covered by the
-    // mock wiring test below that uses the hoisted mock surface.
+
+    // Switch the add-source provider to Notion so the Browse Databases control appears.
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'notion' } });
+    fireEvent.click(screen.getByRole('button', { name: /Browse Databases/i }));
+
+    // The returned database surfaces as a selectable option.
+    expect(await screen.findByRole('option', { name: 'My Notion DB' })).toBeInTheDocument();
+    expect(listDatabasesMock).toHaveBeenCalledWith('notion');
   });
 
   it('toggles "Assigned to me" checkbox and it affects state (line 464)', async () => {
