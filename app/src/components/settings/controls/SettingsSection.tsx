@@ -15,9 +15,11 @@ const SettingsSection = ({ title, description, children, className }: SettingsSe
     <div className={[base, className ?? ''].filter(Boolean).join(' ')}>
       {title && (
         <div className="px-4 pt-4 pb-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+          {/* Real heading (h3, one level below SettingsHeader's h2) for a11y
+              and so getByRole('heading') keeps resolving section titles. */}
+          <h3 className="text-xs font-semibold tracking-wide text-neutral-500 dark:text-neutral-400">
             {title}
-          </p>
+          </h3>
           {description && (
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
               {description}

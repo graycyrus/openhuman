@@ -138,9 +138,9 @@ test.describe('Settings - Feature Preferences', () => {
     await reloadAndWait(page);
 
     await expect(page.getByText('Tools', { exact: true })).toBeVisible();
-    const shellToggle = page
-      .locator('button')
-      .filter({ has: page.getByText('Shell Commands', { exact: true }) });
+    // Tool rows are now SettingsRow + SettingsSwitch (role="switch", aria-label =
+    // the tool's display name), not a single text-bearing button.
+    const shellToggle = page.getByRole('switch', { name: 'Shell Commands', exact: true });
     await expect(shellToggle).toHaveAttribute('aria-checked', 'true');
     await shellToggle.click();
     await expect(shellToggle).toHaveAttribute('aria-checked', 'false');
