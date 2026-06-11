@@ -228,17 +228,16 @@ const BottomTabBar = () => {
     trackEvent('avatar_menu_item_click', { item_id: itemId });
   };
 
-  // One regular pill tab. `iconOnly` renders just the glyph (no label) — used
-  // for the pinned Home button so it reads as a fixed icon, like the avatar.
+  // One regular pill tab.
   //
   // When labels are always visible (theme setting), every labelled tab is given
   // the SAME fixed width so the row stays symmetric. In the default hover mode
   // the label still expands on hover (no fixed width) — unchanged behaviour.
-  const renderTab = (tab: (typeof tabs)[number], iconOnly = false) => {
+  const renderTab = (tab: (typeof tabs)[number]) => {
     const active = isActive(tab.path);
     const showBadge = tab.id === 'notifications' && unreadCount > 0;
     const showCompanionDot = tab.id === 'settings' && companionActive;
-    const fixedWidth = !iconOnly && labelsAlwaysVisible;
+    const fixedWidth = labelsAlwaysVisible;
     return (
       <button
         key={tab.id}
@@ -246,11 +245,7 @@ const BottomTabBar = () => {
         onClick={() => handleTabClick(tab, active)}
         title={tab.label}
         className={`group relative flex items-center rounded-sm text-sm transition-colors duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer ${
-          iconOnly
-            ? 'h-9 w-9 justify-center'
-            : fixedWidth
-              ? 'w-32 justify-center px-2 py-2'
-              : 'px-2 py-2'
+          fixedWidth ? 'w-32 justify-center px-2 py-2' : 'px-2 py-2'
         } ${
           active
             ? 'bg-white dark:bg-neutral-800 text-stone-900 dark:text-neutral-100 font-semibold shadow-sm'
@@ -272,16 +267,14 @@ const BottomTabBar = () => {
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
           )}
         </span>
-        {!iconOnly && (
-          <span
-            className={`min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,margin-left,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              active || labelsAlwaysVisible
-                ? `${fixedWidth ? 'truncate ' : ''}max-w-[160px] ml-2 opacity-100`
-                : 'max-w-0 ml-0 opacity-0 group-hover:max-w-[160px] group-hover:ml-2 group-hover:opacity-100 group-focus-visible:max-w-[160px] group-focus-visible:ml-2 group-focus-visible:opacity-100'
-            }`}>
-            {tab.label}
-          </span>
-        )}
+        <span
+          className={`min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,margin-left,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            active || labelsAlwaysVisible
+              ? `${fixedWidth ? 'truncate ' : ''}max-w-[160px] ml-2 opacity-100`
+              : 'max-w-0 ml-0 opacity-0 group-hover:max-w-[160px] group-hover:ml-2 group-hover:opacity-100 group-focus-visible:max-w-[160px] group-focus-visible:ml-2 group-focus-visible:opacity-100'
+          }`}>
+          {tab.label}
+        </span>
       </button>
     );
   };
@@ -310,12 +303,11 @@ const BottomTabBar = () => {
     );
   };
 
-  // Home is pinned to the far-left of the pill behind a divider — mirroring the
-  // avatar pinned to the far-right behind its own divider. The rest of the row
-  // splits around the centered Brain button:
-  //   [ home ] | human · assistant  ( 🧠 )  connections · activity · settings | [ avatar ]
-  const homeTab = tabs[0];
-  const leftTabs = tabs.slice(1, 3);
+  // Home is a normal pill tab now (no longer pinned/icon-only). The regular
+  // tabs split evenly around the centered Brain button; only the avatar stays
+  // pinned to the far-right behind a divider:
+  //   | home · human · assistant  ( 🧠 )  connections · activity · settings | [ avatar ]
+  const leftTabs = tabs.slice(0, 3);
   const rightTabs = tabs.slice(3);
 
   return (
@@ -342,9 +334,6 @@ const BottomTabBar = () => {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) setRevealed(false);
         }}>
         <nav className="pointer-events-auto inline-flex items-center gap-1 rounded-sm border border-stone-300 dark:border-neutral-700 bg-stone-200 dark:bg-neutral-900 shadow-soft px-1 py-1">
-          <div className="relative mr-1 border-r border-stone-300 pr-1 dark:border-neutral-700">
-            {renderTab(homeTab, true)}
-          </div>
           {leftTabs.map(tab => renderTab(tab))}
           {renderBrainButton()}
           {rightTabs.map(tab => renderTab(tab))}
