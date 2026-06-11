@@ -282,6 +282,12 @@ const BottomTabBar = () => {
   // The Brain — a raised circular button rising out of the center of the bar.
   // The bg-colored ring fakes a notch cut into the pill's top edge. `brain-fab`
   // is targeted by the reduced-motion gate in index.css to silence the glow.
+  //
+  // `-my-3` collapses the button's 48px (h-12) layout footprint so it no longer
+  // forces the nav row taller than the ~32px pill tabs — the bar height is
+  // driven by the tabs, while `-translate-y-5` still lifts the circle above the
+  // top edge. Without it the lower half of the raised circle left a dead band
+  // of empty bar height beneath the tabs.
   const renderBrainButton = () => {
     const active = isActive(BRAIN_TAB.path);
     const brainTab = { ...BRAIN_TAB, label: t(BRAIN_TAB.labelKey) };
@@ -293,7 +299,7 @@ const BottomTabBar = () => {
         onClick={() => handleTabClick(brainTab, active)}
         aria-label={brainTab.label}
         title={brainTab.label}
-        className={`brain-fab group relative mx-1 flex h-12 w-12 -translate-y-5 items-center justify-center rounded-full text-white shadow-soft ring-4 ring-stone-200 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer dark:ring-neutral-900 ${
+        className={`brain-fab group relative mx-1 flex h-12 w-12 -my-3 -translate-y-4 items-center justify-center rounded-full text-white shadow-soft ring-4 ring-stone-200 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer dark:ring-neutral-900 ${
           active
             ? 'bg-primary-600 animate-glow-pulse shadow-[0_0_16px_rgba(74,131,221,0.55)] scale-105'
             : 'bg-primary-500 hover:bg-primary-600 hover:scale-105'
