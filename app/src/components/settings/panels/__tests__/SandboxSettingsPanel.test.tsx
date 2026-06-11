@@ -144,4 +144,96 @@ describe('SandboxSettingsPanel', () => {
     fireEvent.change(select, { target: { value: 'docker' } });
     expect(await screen.findByText('Save failed')).toBeInTheDocument();
   });
+
+  // ─── Memory limit field ───────────────────────────────────────────────────
+
+  it('renders memory limit input with current value', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /memory limit/i });
+    expect(input).toHaveValue(512);
+  });
+
+  it('blurring the memory limit input persists the value', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /memory limit/i });
+    fireEvent.change(input, { target: { value: '1024' } });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ docker_memory_limit_mb: 1024 })
+      )
+    );
+  });
+
+  it('pressing Enter in the memory limit input persists the value', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /memory limit/i });
+    fireEvent.change(input, { target: { value: '256' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ docker_memory_limit_mb: 256 })
+      )
+    );
+  });
+
+  it('clearing the memory limit and blurring persists null', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /memory limit/i });
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ docker_memory_limit_mb: null })
+      )
+    );
+  });
+
+  // ─── CPU limit field ──────────────────────────────────────────────────────
+
+  it('renders CPU limit input with current value', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /cpu limit/i });
+    expect(input).toHaveValue(1.0);
+  });
+
+  it('blurring the CPU limit input persists the value', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /cpu limit/i });
+    fireEvent.change(input, { target: { value: '2' } });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ docker_cpu_limit: 2 }))
+    );
+  });
+
+  it('pressing Enter in the CPU limit input persists the value', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /cpu limit/i });
+    fireEvent.change(input, { target: { value: '0.5' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ docker_cpu_limit: 0.5 }))
+    );
+  });
+
+  it('clearing the CPU limit and blurring persists null', async () => {
+    renderWithProviders(<SandboxSettingsPanel />);
+    const input = await screen.findByRole('spinbutton', { name: /cpu limit/i });
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ docker_cpu_limit: null }))
+    );
+  });
+
+  // ─── Empty env passthrough ────────────────────────────────────────────────
+
+  it('shows empty state when no env passthrough variables are configured', async () => {
+    mockGet.mockResolvedValue({ result: sandboxSettings({ env_passthrough: [] }), logs: [] });
+    renderWithProviders(<SandboxSettingsPanel />);
+    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    // Empty state text appears when env_passthrough is empty
+    expect(await screen.findByText(/no environment variables configured/i)).toBeInTheDocument();
+  });
 });

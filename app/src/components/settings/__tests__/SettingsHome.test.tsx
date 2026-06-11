@@ -375,6 +375,32 @@ describe('SettingsHome', () => {
     });
   });
 
+  describe('navigation — account group items (lines 261, 268, 275)', () => {
+    it('navigates to devices when Devices is clicked (line 268)', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-devices'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('devices');
+    });
+
+    it('navigates to memory-sync when Data Sync is clicked (line 275)', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-data-sync'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('memory-sync');
+    });
+
+    it('navigates to appearance when Appearance is clicked (line 261)', async () => {
+      const user = userEvent.setup();
+      renderSettingsHome();
+
+      await user.click(screen.getByTestId('settings-nav-appearance'));
+      expect(mockNavigateToSettings).toHaveBeenCalledWith('appearance');
+    });
+  });
+
   // Clear App Data flow moved to LogoutAndClearActions (rendered on Account
   // page) — see LogoutAndClearActions.test.tsx.
 });

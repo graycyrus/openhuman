@@ -156,4 +156,27 @@ describe('DevicesPanel', () => {
 
     expect(await screen.findByText(/Failed to load devices/)).toBeInTheDocument();
   });
+
+  it('renders PeerDot with bg-sage-500 class when peer_online is true (line 88)', async () => {
+    const device = makeDevice({ label: 'Online iPhone', peer_online: true });
+    mockCall.mockResolvedValue(listResponse([device]));
+    renderWithProviders(<DevicesPanel />, { initialEntries: ['/settings/devices'] });
+
+    await screen.findByText('Online iPhone');
+
+    // The PeerDot span should have the online class (bg-sage-500)
+    const dots = document.querySelectorAll('span.bg-sage-500');
+    expect(dots.length).toBeGreaterThan(0);
+  });
+
+  it('renders PeerDot with bg-neutral-300 class when peer_online is false (offline branch)', async () => {
+    const device = makeDevice({ label: 'Offline iPhone', peer_online: false });
+    mockCall.mockResolvedValue(listResponse([device]));
+    renderWithProviders(<DevicesPanel />, { initialEntries: ['/settings/devices'] });
+
+    await screen.findByText('Offline iPhone');
+
+    const dots = document.querySelectorAll('span.bg-neutral-300');
+    expect(dots.length).toBeGreaterThan(0);
+  });
 });

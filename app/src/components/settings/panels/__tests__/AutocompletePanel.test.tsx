@@ -278,4 +278,108 @@ describe('AutocompletePanel (simplified)', () => {
       );
     });
   });
+
+  // ─── Disabled apps textarea ───────────────────────────────────────────────
+
+  it('seeds the disabled-apps textarea from config and saves changes', async () => {
+    runtime.config.disabled_apps = ['Slack', 'Zoom'];
+
+    renderWithProviders(<AutocompletePanel />, { initialEntries: ['/settings/autocomplete'] });
+    await screen.findByText('Autocomplete');
+
+    const textarea = (await screen.findByRole('textbox', {
+      name: /disabled apps/i,
+    })) as HTMLTextAreaElement;
+
+    await waitFor(() => expect(textarea.value).toContain('Slack'));
+    expect(textarea.value).toContain('Zoom');
+
+    // Edit the textarea
+    fireEvent.change(textarea, { target: { value: 'Teams\nDiscord' } });
+    expect(textarea.value).toBe('Teams\nDiscord');
+
+    // Save includes updated disabled_apps
+    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
+    await waitFor(() => {
+      expect(openhumanAutocompleteSetStyle).toHaveBeenCalledWith(
+        expect.objectContaining({ disabled_apps: ['Teams', 'Discord'] })
+      );
+    });
+  });
+
+  // ─── onCommit callbacks on number fields ──────────────────────────────────
+
+  it('committing a debounce value via Enter triggers saveConfig', async () => {
+    renderWithProviders(<AutocompletePanel />, { initialEntries: ['/settings/autocomplete'] });
+    await screen.findByText('Autocomplete');
+
+    const debounceWrapper = await screen.findByTestId('autocomplete-debounce-ms');
+    const debounce = within(debounceWrapper).getByRole('spinbutton') as HTMLInputElement;
+
+    fireEvent.change(debounce, { target: { value: '300' } });
+    // onCommit fires when SettingsNumberField calls its onCommit prop; simulate by
+    // pressing Enter which SettingsNumberField forwards to onCommit.
+    fireEvent.keyDown(debounce, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(openhumanAutocompleteSetStyle).toHaveBeenCalledWith(
+        expect.objectContaining({ debounce_ms: 300 })
+      );
+    });
+  });
+
+  it('committing a max-chars value triggers saveConfig', async () => {
+    renderWithProviders(<AutocompletePanel />, { initialEntries: ['/settings/autocomplete'] });
+    await screen.findByText('Autocomplete');
+
+    const maxCharsWrapper = await screen.findByTestId('autocomplete-max-chars');
+    const maxChars = within(maxCharsWrapper).getByRole('spinbutton') as HTMLInputElement;
+
+    fireEvent.change(maxChars, { target: { value: '512' } });
+    fireEvent.keyDown(maxChars, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(openhumanAutocompleteSetStyle).toHaveBeenCalledWith(
+        expect.objectContaining({ max_chars: 512 })
+      );
+    });
+  });
+
+  it('committing an overlay-ttl value triggers saveConfig', async () => {
+    renderWithProviders(<AutocompletePanel />, { initialEntries: ['/settings/autocomplete'] });
+    await screen.findByText('Autocomplete');
+
+    const overlayWrapper = await screen.findByTestId('autocomplete-overlay-ttl-ms');
+    const overlayTtl = within(overlayWrapper).getByRole('spinbutton') as HTMLInputElement;
+
+    fireEvent.change(overlayTtl, { target: { value: '2500' } });
+    fireEvent.keyDown(overlayTtl, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(openhumanAutocompleteSetStyle).toHaveBeenCalledWith(
+        expect.objectContaining({ overlay_ttl_ms: 2500 })
+      );
+    });
+  });
+
+  // ─── didNotStart branch ───────────────────────────────────────────────────
+
+  it('shows "did not start" message when autocomplete start returns started=false', async () => {
+    vi.mocked(openhumanAutocompleteStart).mockResolvedValueOnce({
+      result: { started: false },
+      logs: [],
+    });
+
+    renderWithProviders(<AutocompletePanel />, { initialEntries: ['/settings/autocomplete'] });
+    await screen.findByText('Autocomplete');
+
+    await waitFor(() => expect(screen.getByText('Running: No')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    await waitFor(() => expect(openhumanAutocompleteStart).toHaveBeenCalled());
+
+    await waitFor(() =>
+      expect(screen.getByText(/did not start|autocomplete did not/i)).toBeInTheDocument()
+    );
+  });
 });
