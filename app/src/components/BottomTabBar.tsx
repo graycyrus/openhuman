@@ -306,7 +306,7 @@ const BottomTabBar = () => {
         title={centerTab.label}
         className={`center-fab group relative mx-1 flex h-12 w-12 -translate-y-5 items-center justify-center rounded-full text-white shadow-soft ring-4 ring-stone-200 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer dark:ring-neutral-900 ${
           active
-            ? 'bg-primary-600 animate-glow-pulse shadow-[0_0_16px_rgba(74,131,221,0.55)] scale-105'
+            ? 'bg-primary-600 shadow-[0_0_16px_rgba(74,131,221,0.55)] scale-105'
             : 'bg-primary-500 hover:bg-primary-600 hover:scale-105'
         }`}>
         <TabIcon id={CENTER_TAB.id} large />
