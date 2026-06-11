@@ -127,7 +127,7 @@ const PersonaPanel = () => {
   };
 
   return (
-    <div>
+    <div className="z-10 relative">
       <SettingsHeader
         title={t('settings.persona.title')}
         showBackButton={true}

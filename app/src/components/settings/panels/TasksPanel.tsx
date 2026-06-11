@@ -17,7 +17,7 @@ const TasksPanel = () => {
   const { navigateBack, breadcrumbs } = useSettingsNavigation();
 
   return (
-    <div data-testid="tasks-panel">
+    <div className="z-10 relative" data-testid="tasks-panel">
       <SettingsHeader
         title={t('memory.tab.tasks')}
         showBackButton={true}

@@ -308,7 +308,7 @@ const MascotPanel = () => {
   );
 
   return (
-    <div>
+    <div className="z-10 relative">
       <SettingsHeader
         title={t('settings.mascot.title')}
         showBackButton={true}

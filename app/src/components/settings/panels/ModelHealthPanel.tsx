@@ -165,7 +165,7 @@ const ModelHealthPanel = () => {
   const sortIcon = (col: SortCol) => (sortCol === col ? (sortAsc ? ' ↑' : ' ↓') : '');
 
   return (
-    <div data-testid="model-health-panel">
+    <div className="z-10 relative" data-testid="model-health-panel">
       <SettingsHeader
         title={t('settings.modelHealth.title')}
         showBackButton={true}

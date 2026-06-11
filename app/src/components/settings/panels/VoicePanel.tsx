@@ -483,7 +483,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   const piperReady = piperInstall?.state === 'installed';
 
   return (
-    <div>
+    <div className="z-10 relative">
       {!embedded && (
         <SettingsHeader
           title={t('voice.title')}

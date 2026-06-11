@@ -2926,7 +2926,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const sharedModelRef = useMemo(() => inferSharedModelRef(draft.routing), [draft.routing]);
 
   return (
-    <div className="relative">
+    <div className="z-10 relative">
       {!embedded && (
         <SettingsHeader
           title={t('pages.settings.ai.llm')}

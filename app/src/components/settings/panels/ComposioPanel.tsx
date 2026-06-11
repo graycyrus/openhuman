@@ -223,7 +223,7 @@ const ComposioPanel = ({ embedded = false, managedAuthEnabled }: ComposioPanelPr
   }
 
   return (
-    <div>
+    <div className="z-10 relative">
       {!embedded && (
         <SettingsHeader
           title={t('settings.composio.title')}

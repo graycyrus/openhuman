@@ -155,7 +155,7 @@ const WebhooksDebugPanel = () => {
   }, [loadData, t]);
 
   return (
-    <div data-testid="webhooks-debug-panel">
+    <div className="z-10 relative" data-testid="webhooks-debug-panel">
       <SettingsHeader
         title={t('webhooks.debugTitle')}
         showBackButton={true}

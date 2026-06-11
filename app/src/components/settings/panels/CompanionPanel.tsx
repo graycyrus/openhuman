@@ -97,7 +97,7 @@ const CompanionPanel = () => {
   const sessionActive = status?.active ?? false;
 
   return (
-    <div>
+    <div className="z-10 relative">
       <SettingsHeader
         title={t('settings.companion.title')}
         showBackButton

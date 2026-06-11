@@ -315,7 +315,7 @@ const TaskSourcesPanel = () => {
   };
 
   return (
-    <div data-testid="task-sources-panel">
+    <div className="z-10 relative" data-testid="task-sources-panel">
       <SettingsHeader
         title={t('settings.taskSources.title')}
         showBackButton={true}

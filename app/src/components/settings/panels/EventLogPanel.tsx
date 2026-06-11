@@ -209,7 +209,7 @@ const EventLogPanel = () => {
   const domains = [...new Set(entries.map(e => e.domain))].sort();
 
   return (
-    <div data-testid="event-log-panel">
+    <div className="z-10 relative" data-testid="event-log-panel">
       <SettingsHeader
         title={t('settings.developerMenu.eventLog.title')}
         showBackButton={true}

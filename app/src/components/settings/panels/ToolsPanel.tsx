@@ -95,7 +95,7 @@ const ToolsPanel = ({ embedded = false }: ToolsPanelProps = {}) => {
   };
 
   return (
-    <div>
+    <div className="z-10 relative">
       {!embedded && (
         <SettingsHeader
           title={t('settings.features.tools')}

@@ -187,7 +187,7 @@ const MemoryDebugPanel = () => {
   }, [clearNamespaceInput, refreshAll, t]);
 
   return (
-    <div data-testid="memory-debug-panel">
+    <div className="z-10 relative" data-testid="memory-debug-panel">
       <SettingsHeader
         title={t('memory.debugTitle')}
         showBackButton={true}

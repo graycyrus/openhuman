@@ -185,7 +185,7 @@ const CronJobsPanel = () => {
   };
 
   return (
-    <div data-testid="cron-jobs-panel">
+    <div className="z-10 relative" data-testid="cron-jobs-panel">
       <SettingsHeader
         title={t('cron.title')}
         showBackButton={true}
