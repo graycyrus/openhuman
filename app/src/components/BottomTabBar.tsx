@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { AVATAR_MENU_ITEMS, BRAIN_TAB, NAV_TABS } from '../config/navConfig';
+import { AVATAR_MENU_ITEMS, CENTER_TAB, NAV_TABS } from '../config/navConfig';
 import { useT } from '../lib/i18n/I18nContext';
 import { useCoreState } from '../providers/CoreStateProvider';
 import { trackEvent } from '../services/analytics';
@@ -16,11 +16,14 @@ import { resolveUserName } from '../utils/userName';
 
 // ── SVG icons, keyed by tab id ────────────────────────────────────────────────
 
-function TabIcon({ id }: { id: string }) {
+function TabIcon({ id, large = false }: { id: string; large?: boolean }) {
+  // Regular pill tabs render small (w-4); the raised center FAB renders large
+  // (w-6) so its glyph reads as the centerpiece.
+  const cls = large ? 'w-6 h-6' : 'w-4 h-4';
   switch (id) {
     case 'home':
       return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -31,7 +34,7 @@ function TabIcon({ id }: { id: string }) {
       );
     case 'human':
       return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -42,7 +45,7 @@ function TabIcon({ id }: { id: string }) {
       );
     case 'chat':
       return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -53,7 +56,7 @@ function TabIcon({ id }: { id: string }) {
       );
     case 'connections':
       return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -65,7 +68,7 @@ function TabIcon({ id }: { id: string }) {
     case 'activity':
       // Reuse the Intelligence/memory lightbulb icon for the Activity tab
       return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -76,7 +79,7 @@ function TabIcon({ id }: { id: string }) {
       );
     case 'settings':
       return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -95,7 +98,7 @@ function TabIcon({ id }: { id: string }) {
       // Two symmetric lobes — reads clearly as a brain. Rendered larger and
       // white inside the raised center circle.
       return (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -286,34 +289,35 @@ const BottomTabBar = () => {
     );
   };
 
-  // The Brain — a raised circular button rising out of the center of the bar.
-  // The bg-colored ring fakes a notch cut into the pill's top edge. `brain-fab`
-  // is targeted by the reduced-motion gate in index.css to silence the glow.
-  const renderBrainButton = () => {
-    const active = isActive(BRAIN_TAB.path);
-    const brainTab = { ...BRAIN_TAB, label: t(BRAIN_TAB.labelKey) };
+  // The Assistant — a raised circular button rising out of the center of the
+  // bar. The bg-colored ring fakes a notch cut into the pill's top edge.
+  // `center-fab` is targeted by the reduced-motion gate in index.css to
+  // silence the glow.
+  const renderCenterButton = () => {
+    const active = isActive(CENTER_TAB.path);
+    const centerTab = { ...CENTER_TAB, label: t(CENTER_TAB.labelKey) };
     return (
       <button
-        key="brain"
+        key={CENTER_TAB.id}
         type="button"
-        data-walkthrough={BRAIN_TAB.walkthroughAttr}
-        onClick={() => handleTabClick(brainTab, active)}
-        aria-label={brainTab.label}
-        title={brainTab.label}
-        className={`brain-fab group relative mx-1 flex h-12 w-12 -translate-y-5 items-center justify-center rounded-full text-white shadow-soft ring-4 ring-stone-200 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer dark:ring-neutral-900 ${
+        data-walkthrough={CENTER_TAB.walkthroughAttr}
+        onClick={() => handleTabClick(centerTab, active)}
+        aria-label={centerTab.label}
+        title={centerTab.label}
+        className={`center-fab group relative mx-1 flex h-12 w-12 -translate-y-5 items-center justify-center rounded-full text-white shadow-soft ring-4 ring-stone-200 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer dark:ring-neutral-900 ${
           active
             ? 'bg-primary-600 animate-glow-pulse shadow-[0_0_16px_rgba(74,131,221,0.55)] scale-105'
             : 'bg-primary-500 hover:bg-primary-600 hover:scale-105'
         }`}>
-        <TabIcon id="brain" />
+        <TabIcon id={CENTER_TAB.id} large />
       </button>
     );
   };
 
   // Home is pinned to the far-left of the pill behind a divider — mirroring the
   // avatar pinned to the far-right behind its own divider. The rest of the row
-  // splits evenly around the centered Brain button:
-  //   [ home ] | assistant · connections  ( 🧠 )  activity · settings | [ avatar ]
+  // splits evenly around the centered Assistant button:
+  //   [ home ] | brain · connections  ( 💬 )  activity · settings | [ avatar ]
   const homeTab = tabs[0];
   const leftTabs = tabs.slice(1, 3);
   const rightTabs = tabs.slice(3);
@@ -346,7 +350,7 @@ const BottomTabBar = () => {
             {renderTab(homeTab, true)}
           </div>
           {leftTabs.map(tab => renderTab(tab))}
-          {renderBrainButton()}
+          {renderCenterButton()}
           {rightTabs.map(tab => renderTab(tab))}
           <div
             className="relative ml-1 border-l border-stone-300 pl-1 dark:border-neutral-700"

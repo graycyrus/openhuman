@@ -22,15 +22,17 @@ export interface NavTab {
 /**
  * Ordered list of bottom-bar tabs.  Exactly 5 entries (Phase 6: Human merged
  * into Assistant):
- *   home → chat (Assistant) → connections → activity → settings
+ *   home → brain → connections → activity → settings
  *
- * The tab id stays `chat` and walkthroughAttr stays `tab-chat` for
- * back-compat with analytics and the walkthrough tour. The Human tab has been
- * retired; `/human` redirects to `/chat`.
+ * The Assistant is NOT in this row — it's the raised center FAB (see
+ * `CENTER_TAB`). The Brain now sits in the regular row where the Assistant
+ * used to be. Ids/paths/walkthroughAttrs travel with each tab, so analytics
+ * and the walkthrough tour stay attached to the right feature regardless of
+ * position. The Human tab has been retired; `/human` redirects to `/chat`.
  */
 export const NAV_TABS: NavTab[] = [
   { id: 'home', labelKey: 'nav.home', path: '/home', walkthroughAttr: 'tab-home' },
-  { id: 'chat', labelKey: 'nav.assistant', path: '/chat', walkthroughAttr: 'tab-chat' },
+  { id: 'brain', labelKey: 'nav.brain', path: '/brain', walkthroughAttr: 'tab-brain' },
   {
     id: 'connections',
     labelKey: 'nav.connections',
@@ -42,17 +44,19 @@ export const NAV_TABS: NavTab[] = [
 ];
 
 /**
- * The "Brain" — the app's centerpiece memory-graph surface. Rendered
- * specially by BottomTabBar.tsx as a raised circular button in the dead
- * center of the bar (a notch the button rises out of), NOT as part of the
- * regular `NAV_TABS` row. Kept separate so its special, elevated nature is
- * explicit and the 5-tab invariants for the regular row stay intact.
+ * The "Assistant" — the app's centerpiece chat surface. Rendered specially by
+ * BottomTabBar.tsx as a raised circular button in the dead center of the bar
+ * (a notch the button rises out of), NOT as part of the regular `NAV_TABS`
+ * row. Kept separate so its special, elevated nature is explicit and the
+ * 5-tab invariants for the regular row stay intact. The tab id stays `chat`
+ * and walkthroughAttr stays `tab-chat` for back-compat with analytics and the
+ * walkthrough tour.
  */
-export const BRAIN_TAB: NavTab = {
-  id: 'brain',
-  labelKey: 'nav.brain',
-  path: '/brain',
-  walkthroughAttr: 'tab-brain',
+export const CENTER_TAB: NavTab = {
+  id: 'chat',
+  labelKey: 'nav.assistant',
+  path: '/chat',
+  walkthroughAttr: 'tab-chat',
 };
 
 // ── Avatar / account menu ─────────────────────────────────────────────────────
