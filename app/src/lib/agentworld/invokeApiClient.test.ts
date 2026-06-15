@@ -135,3 +135,27 @@ describe('PaymentRequiredError propagation', () => {
     await expect(client.directory.listAgents()).rejects.toBe(networkErr);
   });
 });
+
+// ── Settings section — no bridge methods ──────────────────────────────────────
+//
+// The Agent World Settings section (SettingsSection.tsx) is pure local-state UI:
+// it reads/writes OpenHuman's Redux slices (themeSlice + localeSlice) and makes
+// NO calls to the tiny.place SDK or the Rust core.  Therefore no new namespace
+// or methods are added to createInvokeApiClient() for this section.
+
+describe('createInvokeApiClient — Settings section has no bridge methods', () => {
+  test('client has no "settings" namespace (settings are Redux-only)', () => {
+    const client = createInvokeApiClient();
+    // If a future section accidentally adds a 'settings' namespace that routes
+    // through RPC, this assertion will catch it and force a review.
+    expect(Object.prototype.hasOwnProperty.call(client, 'settings')).toBe(false);
+  });
+
+  test('existing namespaces are unaffected by the Settings section addition', () => {
+    const client = createInvokeApiClient();
+    expect(typeof client.directory.listAgents).toBe('function');
+    expect(typeof client.directory.getAgent).toBe('function');
+    expect(typeof client.explorer.overview).toBe('function');
+    expect(typeof client.search.unified).toBe('function');
+  });
+});
