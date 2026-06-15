@@ -100,6 +100,160 @@ describe('search.unified', () => {
   });
 });
 
+// ── profiles.get ─────────────────────────────────────────────────────────────
+
+describe('profiles.get', () => {
+  test('calls openhuman.tinyplace_profiles_get with username', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ username: 'alice', name: 'Alice' });
+    const client = createInvokeApiClient();
+    await client.profiles.get('alice');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_profiles_get',
+      params: { username: 'alice' },
+    });
+  });
+
+  test('returns the AgentProfile from core', async () => {
+    const profile = { username: 'bob', name: 'Bob', cryptoId: 'abc123' };
+    mockCallCoreRpc.mockResolvedValueOnce(profile);
+    const client = createInvokeApiClient();
+    const result = await client.profiles.get('bob');
+    expect(result).toEqual(profile);
+  });
+});
+
+// ── profiles.activity ─────────────────────────────────────────────────────────
+
+describe('profiles.activity', () => {
+  test('calls openhuman.tinyplace_profiles_activity with username', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ events: [] });
+    const client = createInvokeApiClient();
+    await client.profiles.activity('alice');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_profiles_activity',
+      params: { username: 'alice' },
+    });
+  });
+});
+
+// ── profiles.groups ───────────────────────────────────────────────────────────
+
+describe('profiles.groups', () => {
+  test('calls openhuman.tinyplace_profiles_groups with username', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ groups: [] });
+    const client = createInvokeApiClient();
+    await client.profiles.groups('alice');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_profiles_groups',
+      params: { username: 'alice' },
+    });
+  });
+
+  test('returns groups response', async () => {
+    const resp = { groups: [{ groupId: 'g1', name: 'Devs' }] };
+    mockCallCoreRpc.mockResolvedValueOnce(resp);
+    const client = createInvokeApiClient();
+    const result = await client.profiles.groups('alice');
+    expect(result).toEqual(resp);
+  });
+});
+
+// ── profiles.broadcasts ───────────────────────────────────────────────────────
+
+describe('profiles.broadcasts', () => {
+  test('calls openhuman.tinyplace_profiles_broadcasts with username', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ broadcasts: [] });
+    const client = createInvokeApiClient();
+    await client.profiles.broadcasts('alice');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_profiles_broadcasts',
+      params: { username: 'alice' },
+    });
+  });
+});
+
+// ── profiles.attestations ─────────────────────────────────────────────────────
+
+describe('profiles.attestations', () => {
+  test('calls openhuman.tinyplace_profiles_attestations with username', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ attestations: [] });
+    const client = createInvokeApiClient();
+    await client.profiles.attestations('alice');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_profiles_attestations',
+      params: { username: 'alice' },
+    });
+  });
+});
+
+// ── profiles.agentCard ────────────────────────────────────────────────────────
+
+describe('profiles.agentCard', () => {
+  test('calls openhuman.tinyplace_profiles_agent_card with username', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agentId: 'abc123', name: 'Alice Agent' });
+    const client = createInvokeApiClient();
+    await client.profiles.agentCard('alice');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_profiles_agent_card',
+      params: { username: 'alice' },
+    });
+  });
+});
+
+// ── users.get ─────────────────────────────────────────────────────────────────
+
+describe('users.get', () => {
+  test('calls openhuman.tinyplace_users_get with cryptoId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ cryptoId: 'xyz789', displayName: 'Alice' });
+    const client = createInvokeApiClient();
+    await client.users.get('xyz789');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_users_get',
+      params: { cryptoId: 'xyz789' },
+    });
+  });
+
+  test('returns User from core', async () => {
+    const user = { cryptoId: 'xyz789', displayName: 'Alice', bio: 'Hello' };
+    mockCallCoreRpc.mockResolvedValueOnce(user);
+    const client = createInvokeApiClient();
+    const result = await client.users.get('xyz789');
+    expect(result).toEqual(user);
+  });
+});
+
+// ── users.updateProfile ───────────────────────────────────────────────────────
+
+describe('users.updateProfile', () => {
+  test('calls openhuman.tinyplace_users_update_profile with cryptoId and update', async () => {
+    const updated = { cryptoId: 'xyz789', displayName: 'Alice Updated' };
+    mockCallCoreRpc.mockResolvedValueOnce(updated);
+    const client = createInvokeApiClient();
+    const update = { displayName: 'Alice Updated', bio: 'New bio' };
+    await client.users.updateProfile('xyz789', update);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_users_update_profile',
+      params: { cryptoId: 'xyz789', update },
+    });
+  });
+
+  test('returns updated User from core', async () => {
+    const updated = { cryptoId: 'xyz789', displayName: 'Alice Updated', bio: 'New bio' };
+    mockCallCoreRpc.mockResolvedValueOnce(updated);
+    const client = createInvokeApiClient();
+    const result = await client.users.updateProfile('xyz789', { displayName: 'Alice Updated' });
+    expect(result).toEqual(updated);
+  });
+});
+
 // ── PaymentRequiredError ──────────────────────────────────────────────────────
 
 describe('PaymentRequiredError propagation', () => {

@@ -105,6 +105,78 @@ export interface SearchResponse {
   [key: string]: unknown;
 }
 
+// ── Profiles types ────────────────────────────────────────────────────────────
+
+export interface AgentProfile {
+  username?: string;
+  name?: string;
+  description?: string;
+  cryptoId?: string;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface ProfileActivity {
+  [key: string]: unknown;
+}
+
+export interface ProfileGroupMembership {
+  groupId?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface ProfileGroupsResponse {
+  groups: ProfileGroupMembership[];
+  [key: string]: unknown;
+}
+
+export interface ProfileBroadcast {
+  id?: string;
+  content?: string;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface ProfileBroadcastsResponse {
+  broadcasts: ProfileBroadcast[];
+  [key: string]: unknown;
+}
+
+export interface ProfileAttestation {
+  id?: string;
+  attester?: string;
+  [key: string]: unknown;
+}
+
+export interface ProfileAttestationsResponse {
+  attestations: ProfileAttestation[];
+  [key: string]: unknown;
+}
+
+// ── Users types ───────────────────────────────────────────────────────────────
+
+export interface User {
+  cryptoId?: string;
+  displayName?: string;
+  bio?: string;
+  avatar?: string;
+  links?: string[];
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+export interface UserProfileUpdate {
+  displayName?: string;
+  bio?: string;
+  avatar?: string;
+  links?: string[];
+  tags?: string[];
+  actorType?: string;
+  signature?: unknown;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -135,6 +207,31 @@ export function createInvokeApiClient() {
     //   <sectionName>: {
     //     <methodCamel>: (...args) => call<ReturnType>('openhuman.tinyplace_<domain>_<method>', { ...args }),
     //   },
+
+    // ── Profiles section ─────────────────────────────────────────────────────
+    profiles: {
+      get: (username: string) =>
+        call<AgentProfile>('openhuman.tinyplace_profiles_get', { username }),
+      activity: (username: string) =>
+        call<ProfileActivity>('openhuman.tinyplace_profiles_activity', { username }),
+      groups: (username: string) =>
+        call<ProfileGroupsResponse>('openhuman.tinyplace_profiles_groups', { username }),
+      broadcasts: (username: string) =>
+        call<ProfileBroadcastsResponse>('openhuman.tinyplace_profiles_broadcasts', { username }),
+      attestations: (username: string) =>
+        call<ProfileAttestationsResponse>('openhuman.tinyplace_profiles_attestations', {
+          username,
+        }),
+      agentCard: (username: string) =>
+        call<AgentCard>('openhuman.tinyplace_profiles_agent_card', { username }),
+    },
+
+    // ── Users section ────────────────────────────────────────────────────────
+    users: {
+      get: (cryptoId: string) => call<User>('openhuman.tinyplace_users_get', { cryptoId }),
+      updateProfile: (cryptoId: string, update: UserProfileUpdate) =>
+        call<User>('openhuman.tinyplace_users_update_profile', { cryptoId, update }),
+    },
   };
 }
 
