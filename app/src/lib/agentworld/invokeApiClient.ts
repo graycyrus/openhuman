@@ -105,6 +105,170 @@ export interface SearchResponse {
   [key: string]: unknown;
 }
 
+// ── Marketplace types ─────────────────────────────────────────────────────────
+
+export interface MarketplacePrice {
+  amount: string;
+  asset: string;
+  network: string;
+}
+
+export interface Product {
+  productId: string;
+  seller: string;
+  sellerCryptoId: string;
+  name: string;
+  description: string;
+  category: string;
+  tags?: string[];
+  price: MarketplacePrice;
+  deliveryMethod: string;
+  status: string;
+  stock?: number;
+  createdAt: string;
+  updatedAt: string;
+  salesCount: number;
+  rating: number;
+  signature?: string;
+  signerPublicKey?: string;
+  [key: string]: unknown;
+}
+
+export interface ProductQueryParams {
+  q?: string;
+  type?: string;
+  category?: string;
+  tags?: string[];
+  seller?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  sortBy?: string;
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface ProductsResponse {
+  products: Product[];
+  [key: string]: unknown;
+}
+
+export interface MarketplaceCategory {
+  [key: string]: unknown;
+}
+
+export interface CategoriesResponse {
+  categories: MarketplaceCategory[];
+  [key: string]: unknown;
+}
+
+export interface FeaturedResponse {
+  items: unknown[];
+  [key: string]: unknown;
+}
+
+export interface ProductReview {
+  reviewId?: string;
+  productId?: string;
+  buyer?: string;
+  rating?: number;
+  comment?: string;
+  [key: string]: unknown;
+}
+
+export interface ProductReviewsResponse {
+  reviews: ProductReview[];
+  [key: string]: unknown;
+}
+
+export interface MarketplaceBrowseResponse {
+  [key: string]: unknown;
+}
+
+// ── Artifact types ────────────────────────────────────────────────────────────
+
+export interface Artifact {
+  artifactId: string;
+  owner: string;
+  ownerCryptoId?: string;
+  name?: string;
+  description?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  sha256?: string;
+  encryption?: string;
+  recipients?: string[];
+  recipientCryptoIds?: string[];
+  expiresAt?: string;
+  maxDownloads?: number;
+  downloadCount?: number;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
+export interface ArtifactQueryParams {
+  role?: string;
+  status?: string;
+  referenceKind?: string;
+  referenceId?: string;
+  limit?: number;
+  cursor?: string;
+  [key: string]: unknown;
+}
+
+export interface ArtifactListResult {
+  artifacts: Artifact[];
+  cursor?: string;
+}
+
+// ── Escrow types ──────────────────────────────────────────────────────────────
+
+export interface Escrow {
+  escrowId: string;
+  status: string;
+  client: string;
+  provider: string;
+  [key: string]: unknown;
+}
+
+export interface EscrowQueryParams {
+  role?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface EscrowListResponse {
+  escrows: Escrow[];
+  [key: string]: unknown;
+}
+
+// ── Jobs types ────────────────────────────────────────────────────────────────
+
+export interface JobPosting {
+  jobId: string;
+  status: string;
+  client: string;
+  [key: string]: unknown;
+}
+
+export interface JobQueryParams {
+  status?: string;
+  skill?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface JobListResponse {
+  jobs: JobPosting[];
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -131,10 +295,50 @@ export function createInvokeApiClient() {
         call<SearchResponse>('openhuman.tinyplace_search_unified', { query }),
     },
     // === AGENT-WORLD BRIDGE NAMESPACES (append here) ===
-    // Each fan-out section agent adds one namespace block:
-    //   <sectionName>: {
-    //     <methodCamel>: (...args) => call<ReturnType>('openhuman.tinyplace_<domain>_<method>', { ...args }),
-    //   },
+    // Marketplace section
+    marketplace: {
+      browseMarketplace: (params?: ProductQueryParams) =>
+        call<MarketplaceBrowseResponse>('openhuman.tinyplace_marketplace_browse', {
+          params: params ?? null,
+        }),
+      listProducts: (params?: ProductQueryParams) =>
+        call<ProductsResponse>('openhuman.tinyplace_marketplace_list_products', {
+          params: params ?? null,
+        }),
+      getProduct: (productId: string) =>
+        call<Product>('openhuman.tinyplace_marketplace_get_product', { productId }),
+      categories: () => call<CategoriesResponse>('openhuman.tinyplace_marketplace_categories'),
+      featured: () => call<FeaturedResponse>('openhuman.tinyplace_marketplace_featured'),
+      listProductReviews: (productId: string) =>
+        call<ProductReviewsResponse>('openhuman.tinyplace_marketplace_list_product_reviews', {
+          productId,
+        }),
+    },
+    // Artifacts section
+    artifacts: {
+      list: (params?: ArtifactQueryParams, actorId?: string) =>
+        call<ArtifactListResult>('openhuman.tinyplace_artifacts_list', {
+          params: params ?? null,
+          ...(actorId !== undefined ? { actorId } : {}),
+        }),
+      get: (artifactId: string, actorId?: string) =>
+        call<Artifact>('openhuman.tinyplace_artifacts_get', {
+          artifactId,
+          ...(actorId !== undefined ? { actorId } : {}),
+        }),
+    },
+    // Escrow section
+    escrow: {
+      list: (params?: EscrowQueryParams) =>
+        call<EscrowListResponse>('openhuman.tinyplace_escrow_list', { params: params ?? null }),
+      get: (escrowId: string) => call<Escrow>('openhuman.tinyplace_escrow_get', { escrowId }),
+    },
+    // Jobs section
+    jobs: {
+      list: (params?: JobQueryParams) =>
+        call<JobListResponse>('openhuman.tinyplace_jobs_list', { params: params ?? null }),
+      get: (jobId: string) => call<JobPosting>('openhuman.tinyplace_jobs_get', { jobId }),
+    },
   };
 }
 
