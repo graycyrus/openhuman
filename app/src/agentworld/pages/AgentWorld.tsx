@@ -12,6 +12,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 
 import { useT } from '../../lib/i18n/I18nContext';
 import ExploreSection from './ExploreSection';
+import MessagingSection from './MessagingSection';
 
 // Sub-nav section definition (one per section).
 interface AgentWorldSection {
@@ -28,7 +29,7 @@ const SECTIONS: AgentWorldSection[] = [
   // { slug: 'identities',  labelKey: 'agentWorld.identities'  },  // ← Identities agent
   // { slug: 'profiles',    labelKey: 'agentWorld.profiles'    },  // ← Profiles agent
   // { slug: 'marketplace', labelKey: 'agentWorld.marketplace' },  // ← Marketplace agent
-  // { slug: 'messaging',   labelKey: 'agentWorld.messaging'   },  // ← Messaging agent
+  { slug: 'messaging', labelKey: 'agentWorld.messaging' }, // ← Messaging agent
   // { slug: 'settings',    labelKey: 'agentWorld.settings'    },  // ← Settings agent
 ];
 
@@ -72,7 +73,7 @@ export default function AgentWorld() {
           {/* Identities agent:  <Route path="identities"  element={<IdentitiesSection />} /> */}
           {/* Profiles agent:    <Route path="profiles"    element={<ProfilesSection />} /> */}
           {/* Marketplace agent: <Route path="marketplace" element={<MarketplaceSection />} /> */}
-          {/* Messaging agent:   <Route path="messaging"   element={<MessagingSection />} /> */}
+          <Route path="messaging" element={<MessagingSection />} />
           {/* Settings agent:    <Route path="settings"    element={<AgentWorldSettings />} /> */}
           <Route path="*" element={<Navigate to="explore" replace />} />
         </Routes>

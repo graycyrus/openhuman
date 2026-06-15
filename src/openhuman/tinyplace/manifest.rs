@@ -114,3 +114,139 @@ pub(crate) fn handle_tinyplace_search_unified(params: Map<String, Value>) -> Con
         to_value(result)
     })
 }
+
+// === AGENT-WORLD SECTION MANIFEST (append rows here) ===
+// Messaging section — public metadata reads only (Signal/E2E methods excluded).
+
+// ── Channels: list ────────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_channels_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} channels_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::api::channels::ChannelQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid channels list params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .channels
+            .list(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Groups: list ──────────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_groups_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} groups_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::GroupQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid groups list params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .groups
+            .list(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        // GroupListResponse doesn't implement Serialize; serialize its inner vec.
+        to_value(result.groups)
+    })
+}
+
+// ── Broadcasts: list ──────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_broadcasts_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} broadcasts_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::BroadcastQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid broadcasts list params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .broadcasts
+            .list(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Inbox: list ───────────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_inbox_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} inbox_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::api::inbox::InboxQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid inbox list params: {e}"))
+            })
+            .transpose()?;
+        let owner: Option<String> = params
+            .get("owner")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let client = global_state().client().await?;
+        let result = client
+            .inbox
+            .list(query_params.as_ref(), owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Inbox: counts ─────────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_inbox_counts(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let owner: Option<String> = params
+            .get("owner")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        log::debug!("{LOG_PREFIX} inbox_counts owner={owner:?}");
+
+        let client = global_state().client().await?;
+        let result = client
+            .inbox
+            .counts(owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}

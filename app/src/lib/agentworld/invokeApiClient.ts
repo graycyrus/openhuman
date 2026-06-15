@@ -105,6 +105,127 @@ export interface SearchResponse {
   [key: string]: unknown;
 }
 
+// ── Messaging section types ───────────────────────────────────────────────────
+// Mirrors the Rust SDK types in sdk/rust/src/api/channels.rs, groups.rs,
+// broadcasts.rs, and inbox.rs (camelCase wire format).
+
+export interface Channel {
+  channelId: string;
+  name: string;
+  description?: string;
+  creator: string;
+  memberCount: number;
+  isPublic: boolean;
+  tags?: string[];
+  category?: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface ChannelListResponse {
+  channels: Channel[];
+  [key: string]: unknown;
+}
+
+export interface ChannelQueryParams {
+  q?: string;
+  tag?: string;
+  tags?: string[];
+  minMembers?: number;
+  maxMembers?: number;
+  sort?: string;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export interface GroupMetadata {
+  groupId: string;
+  name: string;
+  description?: string;
+  createdBy: string;
+  createdAt: string;
+  membershipPolicy: string;
+  memberCount: number;
+  membershipEpoch: number;
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+export interface GroupQueryParams {
+  q?: string;
+  tag?: string;
+  tags?: string[];
+  membershipPolicy?: string;
+  minMembers?: number;
+  maxMembers?: number;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export interface BroadcastChannel {
+  broadcastId: string;
+  name: string;
+  description?: string;
+  owner: string;
+  subscriberCount: number;
+  visibility: string;
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+export interface BroadcastQueryParams {
+  q?: string;
+  tag?: string;
+  tags?: string[];
+  owner?: string;
+  visibility?: string;
+  paymentType?: string;
+  sort?: string;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export interface InboxItem {
+  itemId: string;
+  type: string;
+  status: string;
+  priority: string;
+  timestamp: string;
+  subject: string;
+  summary?: string;
+  from?: string;
+  [key: string]: unknown;
+}
+
+export interface InboxListResult {
+  items: InboxItem[];
+  cursor?: string;
+  unreadCount: number;
+  totalCount: number;
+}
+
+export interface InboxCounts {
+  unread: number;
+  read: number;
+  archived: number;
+  byType: Record<string, number>;
+  urgent: number;
+}
+
+export interface InboxQueryParams {
+  status?: string[];
+  types?: string[];
+  from?: string;
+  priority?: string;
+  q?: string;
+  since?: string;
+  before?: string;
+  limit?: number;
+  cursor?: string;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -135,6 +256,29 @@ export function createInvokeApiClient() {
     //   <sectionName>: {
     //     <methodCamel>: (...args) => call<ReturnType>('openhuman.tinyplace_<domain>_<method>', { ...args }),
     //   },
+
+    // ── Messaging section — public metadata reads only (Signal/E2E excluded) ──
+    channels: {
+      list: (params?: ChannelQueryParams) =>
+        call<ChannelListResponse>('openhuman.tinyplace_channels_list', { params: params ?? null }),
+    },
+    groups: {
+      list: (params?: GroupQueryParams) =>
+        call<GroupMetadata[]>('openhuman.tinyplace_groups_list', { params: params ?? null }),
+    },
+    broadcasts: {
+      list: (params?: BroadcastQueryParams) =>
+        call<BroadcastChannel[]>('openhuman.tinyplace_broadcasts_list', { params: params ?? null }),
+    },
+    inbox: {
+      list: (params?: InboxQueryParams, owner?: string) =>
+        call<InboxListResult>('openhuman.tinyplace_inbox_list', {
+          params: params ?? null,
+          owner: owner ?? null,
+        }),
+      counts: (owner?: string) =>
+        call<InboxCounts>('openhuman.tinyplace_inbox_counts', { owner: owner ?? null }),
+    },
   };
 }
 

@@ -12,8 +12,10 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use crate::openhuman::tinyplace::manifest::{
+    handle_tinyplace_broadcasts_list, handle_tinyplace_channels_list,
     handle_tinyplace_directory_get_agent, handle_tinyplace_directory_list_agents,
-    handle_tinyplace_explorer_overview, handle_tinyplace_search_unified,
+    handle_tinyplace_explorer_overview, handle_tinyplace_groups_list,
+    handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list, handle_tinyplace_search_unified,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -102,6 +104,101 @@ fn schema_search_unified() -> ControllerSchema {
     }
 }
 
+// ── Messaging section schemas (public metadata reads only — Signal excluded) ──
+
+fn schema_channels_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "channels_list",
+        description:
+            "List public tiny.place channels, optionally filtered by query params (read-only).",
+        inputs: vec![optional_object(
+            "params",
+            "Optional ChannelQueryParams (q, tag, tags, minMembers, maxMembers, sort, limit).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "ChannelListResponse containing a list of Channel objects.",
+        )],
+    }
+}
+
+fn schema_groups_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_list",
+        description:
+            "List tiny.place groups, optionally filtered by query params (read-only).",
+        inputs: vec![optional_object(
+            "params",
+            "Optional GroupQueryParams (q, tag, tags, membershipPolicy, minMembers, maxMembers, limit).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "Array of GroupMetadata objects.",
+        )],
+    }
+}
+
+fn schema_broadcasts_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "broadcasts_list",
+        description:
+            "List tiny.place broadcast channels, optionally filtered by query params (read-only).",
+        inputs: vec![optional_object(
+            "params",
+            "Optional BroadcastQueryParams (q, tag, tags, owner, visibility, paymentType, sort, limit).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "Array of BroadcastChannel objects.",
+        )],
+    }
+}
+
+fn schema_inbox_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_list",
+        description: "List inbox items for the authenticated agent (or a named owner).",
+        inputs: vec![
+            optional_object(
+                "params",
+                "Optional InboxQueryParams (status, types, from, priority, q, since, before, limit, cursor).",
+            ),
+            FieldSchema {
+                name: "owner",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Optional agent ID to list inbox as (directory-auth). Defaults to agent auth.",
+                required: false,
+            },
+        ],
+        outputs: vec![json_output(
+            "result",
+            "InboxListResult containing items, cursor, unreadCount, and totalCount.",
+        )],
+    }
+}
+
+fn schema_inbox_counts() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_counts",
+        description: "Return inbox unread/read/archived counts for the authenticated agent.",
+        inputs: vec![FieldSchema {
+            name: "owner",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Optional agent ID to count as (directory-auth). Defaults to agent auth.",
+            required: false,
+        }],
+        outputs: vec![json_output(
+            "result",
+            "InboxCounts with unread, read, archived, byType, and urgent counts.",
+        )],
+    }
+}
+
 // ── Public exports ────────────────────────────────────────────────────────────
 
 /// All tinyplace controller schemas (for schema discovery / validation).
@@ -111,6 +208,12 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_directory_get_agent(),
         schema_explorer_overview(),
         schema_search_unified(),
+        // Messaging section — public metadata reads
+        schema_channels_list(),
+        schema_groups_list(),
+        schema_broadcasts_list(),
+        schema_inbox_list(),
+        schema_inbox_counts(),
     ]
 }
 
@@ -132,6 +235,27 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_search_unified(),
             handler: handle_tinyplace_search_unified,
+        },
+        // Messaging section — public metadata reads
+        RegisteredController {
+            schema: schema_channels_list(),
+            handler: handle_tinyplace_channels_list,
+        },
+        RegisteredController {
+            schema: schema_groups_list(),
+            handler: handle_tinyplace_groups_list,
+        },
+        RegisteredController {
+            schema: schema_broadcasts_list(),
+            handler: handle_tinyplace_broadcasts_list,
+        },
+        RegisteredController {
+            schema: schema_inbox_list(),
+            handler: handle_tinyplace_inbox_list,
+        },
+        RegisteredController {
+            schema: schema_inbox_counts(),
+            handler: handle_tinyplace_inbox_counts,
         },
     ]
 }
