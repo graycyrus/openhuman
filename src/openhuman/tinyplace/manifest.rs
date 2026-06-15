@@ -92,6 +92,90 @@ pub(crate) fn handle_tinyplace_directory_get_agent(params: Map<String, Value>) -
     })
 }
 
+// ── Directory: resolve ───────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_directory_resolve(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let name = req_str(&params, "name")?.to_string();
+        log::debug!("{LOG_PREFIX} directory_resolve name={name}");
+        let client = global_state().client().await?;
+        let result = client.directory.resolve(&name).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Directory: reverse ───────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_directory_reverse(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        log::debug!("{LOG_PREFIX} directory_reverse crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        let result = client
+            .directory
+            .reverse(&crypto_id)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Directory: list_identities ───────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_directory_list_identities(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} directory_list_identities params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::IdentityListingQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid directory list_identities params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .directory
+            .list_identities(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Directory: skills ────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_directory_skills(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} directory_skills params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::api::directory::DirectorySkillsParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid directory skills params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .directory
+            .skills(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 // ── Explorer: overview ────────────────────────────────────────────────────────
 
 pub(crate) fn handle_tinyplace_explorer_overview(_params: Map<String, Value>) -> ControllerFuture {

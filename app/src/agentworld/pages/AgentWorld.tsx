@@ -11,6 +11,7 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
 
 // Sub-nav section definition (one per section).
@@ -24,7 +25,8 @@ interface AgentWorldSection {
 // Fan-out agents: add a row here AND a <Route> below AND an i18n key.
 const SECTIONS: AgentWorldSection[] = [
   { slug: 'explore', labelKey: 'agentWorld.explore' },
-  // { slug: 'directory',   labelKey: 'agentWorld.directory'   },  // ← Directory agent
+  { slug: 'directory', labelKey: 'agentWorld.directory' },
+  // { slug: 'directory',   labelKey: 'agentWorld.directory'   },  // ← Directory agent (done)
   // { slug: 'identities',  labelKey: 'agentWorld.identities'  },  // ← Identities agent
   // { slug: 'profiles',    labelKey: 'agentWorld.profiles'    },  // ← Profiles agent
   // { slug: 'marketplace', labelKey: 'agentWorld.marketplace' },  // ← Marketplace agent
@@ -68,7 +70,8 @@ export default function AgentWorld() {
           <Route index element={<Navigate to="explore" replace />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
-          {/* Directory agent:   <Route path="directory"   element={<DirectorySection />} /> */}
+          <Route path="directory" element={<DirectorySection />} />
+          {/* Directory agent:   done (see above) */}
           {/* Identities agent:  <Route path="identities"  element={<IdentitiesSection />} /> */}
           {/* Profiles agent:    <Route path="profiles"    element={<ProfilesSection />} /> */}
           {/* Marketplace agent: <Route path="marketplace" element={<MarketplaceSection />} /> */}

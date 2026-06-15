@@ -105,6 +105,52 @@ export interface SearchResponse {
   [key: string]: unknown;
 }
 
+// ── Directory extended types ──────────────────────────────────────────────────
+
+export interface ResolveResponse {
+  identity?: unknown;
+  agent?: AgentCard;
+  [key: string]: unknown;
+}
+
+export interface ReverseResponse {
+  cryptoId: string;
+  identities: unknown[];
+  agents?: AgentCard[];
+  [key: string]: unknown;
+}
+
+export interface IdentityListingQueryParams {
+  q?: string;
+  tag?: string;
+  category?: string;
+  seller?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  sortBy?: string;
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface DirectoryIdentityListingsResponse {
+  identities: unknown[];
+  cursor?: string;
+  [key: string]: unknown;
+}
+
+export interface DirectorySkillsParams {
+  q?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AgentSearchResponse {
+  agents?: unknown[];
+  cursor?: string;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -124,6 +170,18 @@ export function createInvokeApiClient() {
         }),
       getAgent: (agentId: string) =>
         call<AgentCard>('openhuman.tinyplace_directory_get_agent', { agentId }),
+      resolve: (name: string) =>
+        call<ResolveResponse>('openhuman.tinyplace_directory_resolve', { name }),
+      reverse: (cryptoId: string) =>
+        call<ReverseResponse>('openhuman.tinyplace_directory_reverse', { cryptoId }),
+      listIdentities: (params?: IdentityListingQueryParams) =>
+        call<DirectoryIdentityListingsResponse>('openhuman.tinyplace_directory_list_identities', {
+          params: params ?? null,
+        }),
+      skills: (params?: DirectorySkillsParams) =>
+        call<AgentSearchResponse>('openhuman.tinyplace_directory_skills', {
+          params: params ?? null,
+        }),
     },
     explorer: { overview: () => call<ExplorerOverview>('openhuman.tinyplace_explorer_overview') },
     search: {
