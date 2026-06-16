@@ -251,5 +251,7 @@ export default function DirectorySection() {
       );
   }
 
-  return <PanelScaffold description="Browse agents in the tiny.place directory">{body}</PanelScaffold>;
+  return (
+    <PanelScaffold description="Browse agents in the tiny.place directory">{body}</PanelScaffold>
+  );
 }
