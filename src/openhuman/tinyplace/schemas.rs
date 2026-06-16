@@ -12,12 +12,17 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use crate::openhuman::tinyplace::manifest::{
+    handle_tinyplace_artifacts_get, handle_tinyplace_artifacts_list,
     handle_tinyplace_directory_get_agent, handle_tinyplace_directory_list_agents,
     handle_tinyplace_directory_list_identities, handle_tinyplace_directory_resolve,
     handle_tinyplace_directory_reverse, handle_tinyplace_directory_skills,
-    handle_tinyplace_explorer_overview, handle_tinyplace_marketplace_identity_floor,
+    handle_tinyplace_escrow_get, handle_tinyplace_escrow_list, handle_tinyplace_explorer_overview,
+    handle_tinyplace_jobs_get, handle_tinyplace_jobs_list, handle_tinyplace_marketplace_browse,
+    handle_tinyplace_marketplace_categories, handle_tinyplace_marketplace_featured,
+    handle_tinyplace_marketplace_get_product, handle_tinyplace_marketplace_identity_floor,
     handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
     handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
+    handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
     handle_tinyplace_marketplace_recent, handle_tinyplace_profiles_activity,
     handle_tinyplace_profiles_agent_card, handle_tinyplace_profiles_attestations,
     handle_tinyplace_profiles_broadcasts, handle_tinyplace_profiles_get,
@@ -56,6 +61,13 @@ fn json_output(name: &'static str, comment: &'static str) -> FieldSchema {
 }
 
 // ── Schema definitions ────────────────────────────────────────────────────────
+
+fn optional_product_query_params() -> FieldSchema {
+    optional_object(
+        "params",
+        "Optional ProductQueryParams (q, category, seller, tags, minPrice, maxPrice, sortBy, limit, offset).",
+    )
+}
 
 fn schema_directory_list_agents() -> ControllerSchema {
     ControllerSchema {
@@ -444,6 +456,187 @@ fn schema_registry_get() -> ControllerSchema {
     }
 }
 
+fn schema_artifacts_get() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "artifacts_get",
+        description: "Fetch a single artifact by its ID.",
+        inputs: vec![
+            required_string("artifactId", "The artifact's unique identifier."),
+            FieldSchema {
+                name: "actorId",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Optional agent identity to act as.",
+                required: false,
+            },
+        ],
+        outputs: vec![json_output("result", "Artifact object.")],
+    }
+}
+
+fn schema_artifacts_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "artifacts_list",
+        description: "List encrypted artifacts owned by or shared with the acting agent.",
+        inputs: vec![
+            optional_object(
+                "params",
+                "Optional ArtifactQueryParams (role, status, referenceKind, referenceId, limit, cursor).",
+            ),
+            FieldSchema {
+                name: "actorId",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Optional agent identity to act as.",
+                required: false,
+            },
+        ],
+        outputs: vec![json_output(
+            "result",
+            "ArtifactListResult { artifacts: Artifact[]; cursor?: string }.",
+        )],
+    }
+}
+
+fn schema_escrow_get() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "escrow_get",
+        description: "Fetch a single escrow contract by its ID.",
+        inputs: vec![required_string(
+            "escrowId",
+            "The escrow's unique identifier.",
+        )],
+        outputs: vec![json_output("result", "Escrow object.")],
+    }
+}
+
+fn schema_escrow_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "escrow_list",
+        description: "List escrow contracts associated with the authenticated agent.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional EscrowQueryParams (role, status, limit, offset).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "EscrowListResponse { escrows: Escrow[] }.",
+        )],
+    }
+}
+
+fn schema_jobs_get() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_get",
+        description: "Fetch a single job posting by its ID.",
+        inputs: vec![required_string(
+            "jobId",
+            "The job posting's unique identifier.",
+        )],
+        outputs: vec![json_output("result", "JobPosting object.")],
+    }
+}
+
+fn schema_jobs_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_list",
+        description: "List job postings on the tiny.place marketplace.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional JobQueryParams (status, skill, q, limit, offset).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "JobListResponse { jobs: JobPosting[] }.",
+        )],
+    }
+}
+
+fn schema_marketplace_browse() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_browse",
+        description: "Browse the combined tiny.place marketplace (products + identity listings).",
+        inputs: vec![optional_product_query_params()],
+        outputs: vec![json_output(
+            "result",
+            "MarketplaceBrowseResponse containing products and identity listings.",
+        )],
+    }
+}
+
+fn schema_marketplace_categories() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_categories",
+        description: "List all marketplace product categories.",
+        inputs: vec![],
+        outputs: vec![json_output(
+            "result",
+            "CategoriesResponse { categories: MarketplaceCategory[] }.",
+        )],
+    }
+}
+
+fn schema_marketplace_featured() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_featured",
+        description: "List featured marketplace items.",
+        inputs: vec![],
+        outputs: vec![json_output(
+            "result",
+            "FeaturedResponse { items: unknown[] }.",
+        )],
+    }
+}
+
+fn schema_marketplace_get_product() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_get_product",
+        description: "Fetch a single product by its ID.",
+        inputs: vec![required_string(
+            "productId",
+            "The product's unique identifier.",
+        )],
+        outputs: vec![json_output("result", "Product object.")],
+    }
+}
+
+fn schema_marketplace_list_product_reviews() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_list_product_reviews",
+        description: "List reviews for a product.",
+        inputs: vec![required_string(
+            "productId",
+            "The product whose reviews to fetch.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "ProductReviewsResponse { reviews: ProductReview[] }.",
+        )],
+    }
+}
+
+fn schema_marketplace_list_products() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_list_products",
+        description: "List product listings on the tiny.place marketplace.",
+        inputs: vec![optional_product_query_params()],
+        outputs: vec![json_output(
+            "result",
+            "ProductsResponse { products: Product[] }.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -472,6 +665,18 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_marketplace_list_offers(),
         schema_marketplace_recent(),
         schema_registry_get(),
+        schema_artifacts_get(),
+        schema_artifacts_list(),
+        schema_escrow_get(),
+        schema_escrow_list(),
+        schema_jobs_get(),
+        schema_jobs_list(),
+        schema_marketplace_browse(),
+        schema_marketplace_categories(),
+        schema_marketplace_featured(),
+        schema_marketplace_get_product(),
+        schema_marketplace_list_product_reviews(),
+        schema_marketplace_list_products(),
     ]
 }
 
@@ -571,6 +776,54 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_registry_get(),
             handler: handle_tinyplace_registry_get,
+        },
+        RegisteredController {
+            schema: schema_artifacts_get(),
+            handler: handle_tinyplace_artifacts_get,
+        },
+        RegisteredController {
+            schema: schema_artifacts_list(),
+            handler: handle_tinyplace_artifacts_list,
+        },
+        RegisteredController {
+            schema: schema_escrow_get(),
+            handler: handle_tinyplace_escrow_get,
+        },
+        RegisteredController {
+            schema: schema_escrow_list(),
+            handler: handle_tinyplace_escrow_list,
+        },
+        RegisteredController {
+            schema: schema_jobs_get(),
+            handler: handle_tinyplace_jobs_get,
+        },
+        RegisteredController {
+            schema: schema_jobs_list(),
+            handler: handle_tinyplace_jobs_list,
+        },
+        RegisteredController {
+            schema: schema_marketplace_browse(),
+            handler: handle_tinyplace_marketplace_browse,
+        },
+        RegisteredController {
+            schema: schema_marketplace_categories(),
+            handler: handle_tinyplace_marketplace_categories,
+        },
+        RegisteredController {
+            schema: schema_marketplace_featured(),
+            handler: handle_tinyplace_marketplace_featured,
+        },
+        RegisteredController {
+            schema: schema_marketplace_get_product(),
+            handler: handle_tinyplace_marketplace_get_product,
+        },
+        RegisteredController {
+            schema: schema_marketplace_list_product_reviews(),
+            handler: handle_tinyplace_marketplace_list_product_reviews,
+        },
+        RegisteredController {
+            schema: schema_marketplace_list_products(),
+            handler: handle_tinyplace_marketplace_list_products,
         },
     ]
 }

@@ -433,3 +433,249 @@ pub(crate) fn handle_tinyplace_registry_get(params: Map<String, Value>) -> Contr
         to_value(result)
     })
 }
+
+pub(crate) fn handle_tinyplace_artifacts_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let artifact_id = req_str(&params, "artifactId")?.to_string();
+        let actor_id = get_opt_str(&params, "actorId").map(str::to_string);
+        log::debug!("{LOG_PREFIX} artifacts_get artifact_id={artifact_id} actor_id={actor_id:?}");
+        let client = global_state().client().await?;
+        let result = client
+            .artifacts
+            .get(&artifact_id, actor_id.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_artifacts_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} artifacts_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::ArtifactQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid artifacts list params: {e}"))
+            })
+            .transpose()?;
+        let actor_id = get_opt_str(&params, "actorId").map(str::to_string);
+
+        let client = global_state().client().await?;
+        let result = client
+            .artifacts
+            .list(query_params.as_ref(), actor_id.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_escrow_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let escrow_id = req_str(&params, "escrowId")?.to_string();
+        log::debug!("{LOG_PREFIX} escrow_get escrow_id={escrow_id}");
+        let client = global_state().client().await?;
+        let result = client.escrow.get(&escrow_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_escrow_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} escrow_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::EscrowQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid escrow list params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .escrow
+            .list(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_get job_id={job_id}");
+        let client = global_state().client().await?;
+        let result = client.jobs.get(&job_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} jobs_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::JobQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid jobs list params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .jobs
+            .list(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_browse(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} marketplace_browse params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::ProductQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid marketplace browse params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .marketplace
+            .browse_marketplace(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_categories(
+    _params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} marketplace_categories");
+        let client = global_state().client().await?;
+        let result = client.marketplace.categories().await.map_err(map_err)?;
+        to_value(CategoriesWrapper {
+            categories: result.categories,
+        })
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_featured(
+    _params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} marketplace_featured");
+        let client = global_state().client().await?;
+        let result = client.marketplace.featured().await.map_err(map_err)?;
+        to_value(FeaturedWrapper {
+            items: result.items,
+        })
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_get_product(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let product_id = req_str(&params, "productId")?.to_string();
+        log::debug!("{LOG_PREFIX} marketplace_get_product product_id={product_id}");
+        let client = global_state().client().await?;
+        let result = client
+            .marketplace
+            .get_product(&product_id)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_list_product_reviews(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let product_id = req_str(&params, "productId")?.to_string();
+        log::debug!("{LOG_PREFIX} marketplace_list_product_reviews product_id={product_id}");
+        let client = global_state().client().await?;
+        let result = client
+            .marketplace
+            .list_product_reviews(&product_id)
+            .await
+            .map_err(map_err)?;
+        to_value(ProductReviewsWrapper {
+            reviews: result.reviews,
+        })
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_list_products(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} marketplace_list_products params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::ProductQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid marketplace list_products params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        let result = client
+            .marketplace
+            .list_products(query_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(ProductsWrapper {
+            products: result.products,
+        })
+    })
+}
+
+// Serialize wrappers for marketplace responses (from #5).
+#[derive(serde::Serialize)]
+struct ProductsWrapper {
+    products: Vec<tinyplace::types::Product>,
+}
+
+#[derive(serde::Serialize)]
+struct CategoriesWrapper {
+    categories: Vec<tinyplace::types::MarketplaceCategory>,
+}
+
+#[derive(serde::Serialize)]
+struct FeaturedWrapper {
+    items: Vec<serde_json::Value>,
+}
+
+#[derive(serde::Serialize)]
+struct ProductReviewsWrapper {
+    reviews: Vec<tinyplace::types::ProductReview>,
+}

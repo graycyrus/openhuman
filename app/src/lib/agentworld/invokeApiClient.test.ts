@@ -554,3 +554,215 @@ describe('marketplace.listOffers', () => {
     });
   });
 });
+
+describe('marketplace.browseMarketplace', () => {
+  test('calls openhuman.tinyplace_marketplace_browse with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ products: [] });
+    const client = createInvokeApiClient();
+    const params = { q: 'model', category: 'ai' };
+    await client.marketplace.browseMarketplace(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_browse',
+      params: { params },
+    });
+  });
+
+  test('calls with null when no params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ products: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.browseMarketplace();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_browse',
+      params: { params: null },
+    });
+  });
+});
+describe('marketplace.listProducts', () => {
+  test('calls openhuman.tinyplace_marketplace_list_products', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ products: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listProducts({ limit: 10 });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_products',
+      params: { params: { limit: 10 } },
+    });
+  });
+
+  test('calls with null params when omitted', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ products: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listProducts();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_products',
+      params: { params: null },
+    });
+  });
+});
+describe('marketplace.getProduct', () => {
+  test('calls openhuman.tinyplace_marketplace_get_product with productId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ productId: 'prod_abc' });
+    const client = createInvokeApiClient();
+    await client.marketplace.getProduct('prod_abc');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_get_product',
+      params: { productId: 'prod_abc' },
+    });
+  });
+});
+describe('marketplace.categories', () => {
+  test('calls openhuman.tinyplace_marketplace_categories with no params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ categories: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.categories();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_categories',
+      params: undefined,
+    });
+  });
+});
+describe('marketplace.featured', () => {
+  test('calls openhuman.tinyplace_marketplace_featured with no params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ items: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.featured();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_featured',
+      params: undefined,
+    });
+  });
+});
+describe('marketplace.listProductReviews', () => {
+  test('calls openhuman.tinyplace_marketplace_list_product_reviews with productId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ reviews: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listProductReviews('prod_xyz');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_product_reviews',
+      params: { productId: 'prod_xyz' },
+    });
+  });
+});
+describe('artifacts.list', () => {
+  test('calls openhuman.tinyplace_artifacts_list with params and actorId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ artifacts: [] });
+    const client = createInvokeApiClient();
+    await client.artifacts.list({ role: 'owner' }, 'agent123');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_artifacts_list',
+      params: { params: { role: 'owner' }, actorId: 'agent123' },
+    });
+  });
+
+  test('calls with null params when omitted', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ artifacts: [] });
+    const client = createInvokeApiClient();
+    await client.artifacts.list();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_artifacts_list',
+      params: { params: null },
+    });
+  });
+});
+describe('artifacts.get', () => {
+  test('calls openhuman.tinyplace_artifacts_get with artifactId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ artifactId: 'art_abc', owner: 'agent123' });
+    const client = createInvokeApiClient();
+    await client.artifacts.get('art_abc');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_artifacts_get',
+      params: { artifactId: 'art_abc' },
+    });
+  });
+
+  test('passes actorId when provided', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ artifactId: 'art_abc', owner: 'agent123' });
+    const client = createInvokeApiClient();
+    await client.artifacts.get('art_abc', 'agent456');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_artifacts_get',
+      params: { artifactId: 'art_abc', actorId: 'agent456' },
+    });
+  });
+});
+describe('escrow.list', () => {
+  test('calls openhuman.tinyplace_escrow_list with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ escrows: [] });
+    const client = createInvokeApiClient();
+    await client.escrow.list({ status: 'funded' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_escrow_list',
+      params: { params: { status: 'funded' } },
+    });
+  });
+
+  test('calls with null params when omitted', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ escrows: [] });
+    const client = createInvokeApiClient();
+    await client.escrow.list();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_escrow_list',
+      params: { params: null },
+    });
+  });
+});
+describe('escrow.get', () => {
+  test('calls openhuman.tinyplace_escrow_get with escrowId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ escrowId: 'esc_abc', status: 'funded' });
+    const client = createInvokeApiClient();
+    await client.escrow.get('esc_abc');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_escrow_get',
+      params: { escrowId: 'esc_abc' },
+    });
+  });
+});
+describe('jobs.list', () => {
+  test('calls openhuman.tinyplace_jobs_list with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ jobs: [] });
+    const client = createInvokeApiClient();
+    await client.jobs.list({ q: 'rust developer' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_jobs_list',
+      params: { params: { q: 'rust developer' } },
+    });
+  });
+
+  test('calls with null params when omitted', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ jobs: [] });
+    const client = createInvokeApiClient();
+    await client.jobs.list();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_jobs_list',
+      params: { params: null },
+    });
+  });
+});
+describe('jobs.get', () => {
+  test('calls openhuman.tinyplace_jobs_get with jobId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ jobId: 'job_abc', status: 'open' });
+    const client = createInvokeApiClient();
+    await client.jobs.get('job_abc');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_jobs_get',
+      params: { jobId: 'job_abc' },
+    });
+  });
+});

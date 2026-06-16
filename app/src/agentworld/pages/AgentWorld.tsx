@@ -17,6 +17,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
 import IdentitiesSection from './IdentitiesSection';
+import MarketplaceSection from './MarketplaceSection';
 import ProfilesSection from './ProfilesSection';
 
 // Sub-nav section definition (one per section).
@@ -60,6 +61,11 @@ const SECTIONS: AgentWorldSection[] = [
     iconPath:
       'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0',
   },
+  {
+    slug: 'marketplace',
+    labelKey: 'agentWorld.marketplace',
+    iconPath: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
+  },
 ];
 
 export default function AgentWorld() {
@@ -88,7 +94,7 @@ export default function AgentWorld() {
           <TwoPaneNav
             ariaLabel={t('nav.agentWorld')}
             selected={activeSlug}
-            onSelect={slug => navigate('/agent-world/' + slug)}
+            onSelect={slug => navigate(`/agent-world/${slug}`)}
             groups={[
               {
                 items: SECTIONS.map(section => ({
@@ -117,7 +123,7 @@ export default function AgentWorld() {
           <Route path="directory" element={<DirectorySection />} />
           <Route path="profiles" element={<ProfilesSection />} />
           <Route path="identities" element={<IdentitiesSection />} />
-          {/* Marketplace agent: <Route path="marketplace" element={<MarketplaceSection />} /> */}
+          <Route path="marketplace" element={<MarketplaceSection />} />
           {/* Messaging agent:   <Route path="messaging"   element={<MessagingSection />} /> */}
           {/* Settings agent:    <Route path="settings"    element={<SettingsSection />} /> */}
           <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
