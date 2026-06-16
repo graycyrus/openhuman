@@ -421,10 +421,10 @@ export default function MessagingSection() {
             onClick={() => setActiveTab(tab)}
             data-active={activeTab === tab}
             className={[
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
+              'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
               activeTab === tab
-                ? 'bg-ocean text-white'
-                : 'text-stone-500 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800',
+                ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
             ].join(' ')}>
             {TAB_LABELS[tab]}
           </button>
