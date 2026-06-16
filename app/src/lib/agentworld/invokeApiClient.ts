@@ -690,10 +690,8 @@ export function createInvokeApiClient() {
       list: (params?: ChannelQueryParams) =>
         call<ChannelListResponse>('openhuman.tinyplace_channels_list', { params: params ?? null }),
       // Membership — result bodies unused (the UI refetches).
-      join: (channelId: string) =>
-        call<void>('openhuman.tinyplace_channels_join', { channelId }),
-      leave: (channelId: string) =>
-        call<void>('openhuman.tinyplace_channels_leave', { channelId }),
+      join: (channelId: string) => call<void>('openhuman.tinyplace_channels_join', { channelId }),
+      leave: (channelId: string) => call<void>('openhuman.tinyplace_channels_leave', { channelId }),
     },
     groups: {
       list: (params?: GroupQueryParams) =>

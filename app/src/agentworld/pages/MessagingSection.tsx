@@ -417,7 +417,7 @@ function useRowActions() {
       setVersion(v => v + 1);
     } catch (err) {
       setError(
-        err instanceof PaymentRequiredError ? 'Payment required for this action.' : String(err),
+        err instanceof PaymentRequiredError ? 'Payment required for this action.' : String(err)
       );
     } finally {
       setBusyKey(null);
@@ -498,7 +498,9 @@ function InboxPanel() {
                   <RowAction
                     label="Mark read"
                     disabled={busy || anyBusy}
-                    onClick={() => runAction(item.itemId, () => apiClient.inbox.markRead(item.itemId))}
+                    onClick={() =>
+                      runAction(item.itemId, () => apiClient.inbox.markRead(item.itemId))
+                    }
                   />
                 ) : null}
                 {archived ? (
@@ -513,7 +515,9 @@ function InboxPanel() {
                   <RowAction
                     label="Archive"
                     disabled={busy || anyBusy}
-                    onClick={() => runAction(item.itemId, () => apiClient.inbox.archive(item.itemId))}
+                    onClick={() =>
+                      runAction(item.itemId, () => apiClient.inbox.archive(item.itemId))
+                    }
                   />
                 )}
                 <RowAction
