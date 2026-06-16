@@ -251,13 +251,16 @@ fn is_expired(expires_at: &str) -> bool {
     }
 }
 
-/// Truncate a base58/base64 identifier for logs (`head…tail`). Never used on
-/// secret material.
+/// Truncate an identifier for logs (`head…tail`). Char-based so it never panics
+/// on a multi-byte UTF-8 boundary. Never used on secret material.
 fn truncate(s: &str) -> String {
-    if s.len() <= 12 {
+    let count = s.chars().count();
+    if count <= 12 {
         s.to_string()
     } else {
-        format!("{}…{}", &s[..6], &s[s.len() - 4..])
+        let head: String = s.chars().take(6).collect();
+        let tail: String = s.chars().skip(count - 4).collect();
+        format!("{head}…{tail}")
     }
 }
 
@@ -364,6 +367,19 @@ mod tests {
         // Unparseable expiry is lenient (non-expired), not a hard failure.
         c.expires_at = Some("not-a-timestamp".into());
         assert!(validate_challenge(&c).is_ok());
+    }
+
+    // ── truncate (log helper) ─────────────────────────────────────────────────
+
+    #[test]
+    fn truncate_is_char_boundary_safe() {
+        // ASCII base58/base64 (the real inputs) abbreviate as head…tail.
+        assert_eq!(truncate("5SoLaNaTxSignature0000"), "5SoLaN…0000");
+        assert_eq!(truncate("short"), "short");
+        // Multi-byte UTF-8 must not panic on a byte-boundary slice.
+        let multibyte = "日本語のながいテキストです１２３４";
+        let out = truncate(multibyte); // would panic with byte slicing
+        assert!(out.contains('…'));
     }
 
     // ── to_transfer_params ────────────────────────────────────────────────────
