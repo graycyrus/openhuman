@@ -766,3 +766,170 @@ describe('jobs.get', () => {
     });
   });
 });
+
+describe('channels.list', () => {
+  test('calls openhuman.tinyplace_channels_list with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ channels: [] });
+    const client = createInvokeApiClient();
+    const params = { q: 'defi', limit: 10 };
+    await client.channels.list(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_channels_list',
+      params: { params },
+    });
+  });
+
+  test('calls with null when no params provided', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ channels: [] });
+    const client = createInvokeApiClient();
+    await client.channels.list();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_channels_list',
+      params: { params: null },
+    });
+  });
+
+  test('returns channel list response from core', async () => {
+    const mockResponse = {
+      channels: [{ channelId: 'ch1', name: 'General', memberCount: 42, isPublic: true }],
+    };
+    mockCallCoreRpc.mockResolvedValueOnce(mockResponse);
+    const client = createInvokeApiClient();
+    const result = await client.channels.list();
+    expect(result).toEqual(mockResponse);
+  });
+});
+describe('groups.list', () => {
+  test('calls openhuman.tinyplace_groups_list with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce([]);
+    const client = createInvokeApiClient();
+    const params = { q: 'research', limit: 5 };
+    await client.groups.list(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_list',
+      params: { params },
+    });
+  });
+
+  test('calls with null when no params provided', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce([]);
+    const client = createInvokeApiClient();
+    await client.groups.list();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_list',
+      params: { params: null },
+    });
+  });
+});
+describe('broadcasts.list', () => {
+  test('calls openhuman.tinyplace_broadcasts_list with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce([]);
+    const client = createInvokeApiClient();
+    const params = { visibility: 'public', limit: 20 };
+    await client.broadcasts.list(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_broadcasts_list',
+      params: { params },
+    });
+  });
+
+  test('calls with null when no params provided', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce([]);
+    const client = createInvokeApiClient();
+    await client.broadcasts.list();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_broadcasts_list',
+      params: { params: null },
+    });
+  });
+});
+describe('inbox.list', () => {
+  test('calls openhuman.tinyplace_inbox_list with params and no owner', async () => {
+    const mockResult = { items: [], unreadCount: 0, totalCount: 0, cursor: null };
+    mockCallCoreRpc.mockResolvedValueOnce(mockResult);
+    const client = createInvokeApiClient();
+    const params = { limit: 30 };
+    await client.inbox.list(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_list',
+      params: { params, owner: null },
+    });
+  });
+
+  test('passes owner when provided', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ items: [], unreadCount: 0, totalCount: 0 });
+    const client = createInvokeApiClient();
+    await client.inbox.list(undefined, 'agent-xyz');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_list',
+      params: { params: null, owner: 'agent-xyz' },
+    });
+  });
+
+  test('returns inbox list result from core', async () => {
+    const mockResult = {
+      items: [
+        {
+          itemId: 'i1',
+          type: 'SYSTEM',
+          status: 'unread',
+          priority: 'normal',
+          timestamp: '2024-01-01T00:00:00Z',
+          subject: 'Hello',
+        },
+      ],
+      unreadCount: 1,
+      totalCount: 1,
+    };
+    mockCallCoreRpc.mockResolvedValueOnce(mockResult);
+    const client = createInvokeApiClient();
+    const result = await client.inbox.list();
+    expect(result).toEqual(mockResult);
+  });
+});
+describe('inbox.counts', () => {
+  test('calls openhuman.tinyplace_inbox_counts with no owner', async () => {
+    const mockCounts = { unread: 3, read: 10, archived: 2, byType: {}, urgent: 0 };
+    mockCallCoreRpc.mockResolvedValueOnce(mockCounts);
+    const client = createInvokeApiClient();
+    await client.inbox.counts();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_counts',
+      params: { owner: null },
+    });
+  });
+
+  test('passes owner when provided', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({
+      unread: 0,
+      read: 0,
+      archived: 0,
+      byType: {},
+      urgent: 0,
+    });
+    const client = createInvokeApiClient();
+    await client.inbox.counts('agent-abc');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_counts',
+      params: { owner: 'agent-abc' },
+    });
+  });
+
+  test('returns counts from core', async () => {
+    const mockCounts = { unread: 5, read: 20, archived: 3, byType: { SYSTEM: 2 }, urgent: 1 };
+    mockCallCoreRpc.mockResolvedValueOnce(mockCounts);
+    const client = createInvokeApiClient();
+    const result = await client.inbox.counts();
+    expect(result).toEqual(mockCounts);
+  });
+});
