@@ -417,3 +417,140 @@ describe('PaymentRequiredError propagation', () => {
     await expect(client.directory.listAgents()).rejects.toBe(networkErr);
   });
 });
+
+describe('registry.get', () => {
+  test('calls openhuman.tinyplace_registry_get with name', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ available: true, name: '@atlas' });
+    const client = createInvokeApiClient();
+    await client.registry.get('@atlas');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_registry_get',
+      params: { name: '@atlas' },
+    });
+  });
+
+  test('returns availability response', async () => {
+    const mockResponse = { available: false, name: '@taken', identity: { cryptoId: 'abc' } };
+    mockCallCoreRpc.mockResolvedValueOnce(mockResponse);
+    const client = createInvokeApiClient();
+    const result = await client.registry.get('@taken');
+    expect(result).toEqual(mockResponse);
+  });
+});
+describe('marketplace.listIdentities', () => {
+  test('calls openhuman.tinyplace_marketplace_list_identities with status', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ identities: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listIdentities({ status: 'active' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_identities',
+      params: { limit: null, status: 'active' },
+    });
+  });
+
+  test('calls without params (null values)', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ identities: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listIdentities();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_identities',
+      params: { limit: null, status: null },
+    });
+  });
+});
+describe('marketplace.identityFloor', () => {
+  test('calls openhuman.tinyplace_marketplace_identity_floor with length', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ length: 3, price: { amount: '250', asset: 'USDC' } });
+    const client = createInvokeApiClient();
+    await client.marketplace.identityFloor(3);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_identity_floor',
+      params: { length: 3 },
+    });
+  });
+
+  test('calls without length (null)', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({});
+    const client = createInvokeApiClient();
+    await client.marketplace.identityFloor();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_identity_floor',
+      params: { length: null },
+    });
+  });
+});
+describe('marketplace.recent', () => {
+  test('calls openhuman.tinyplace_marketplace_recent with no params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ sales: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.recent();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_recent',
+      params: undefined,
+    });
+  });
+});
+describe('marketplace.identitySaleHistory', () => {
+  test('calls openhuman.tinyplace_marketplace_identity_sale_history with name', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ history: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.identitySaleHistory('@atlas');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_identity_sale_history',
+      params: { name: '@atlas' },
+    });
+  });
+});
+describe('marketplace.listBids', () => {
+  test('calls openhuman.tinyplace_marketplace_list_bids with listingId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ bids: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listBids('listing-123');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_bids',
+      params: { listingId: 'listing-123' },
+    });
+  });
+});
+describe('marketplace.listOffers', () => {
+  test('calls openhuman.tinyplace_marketplace_list_offers with name filter', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ offers: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listOffers({ name: '@atlas' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_offers',
+      params: { name: '@atlas', buyer: null },
+    });
+  });
+
+  test('calls with buyer filter', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ offers: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listOffers({ buyer: '@buyer' });
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_offers',
+      params: { name: null, buyer: '@buyer' },
+    });
+  });
+
+  test('calls without filters (null values)', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ offers: [] });
+    const client = createInvokeApiClient();
+    await client.marketplace.listOffers();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_marketplace_list_offers',
+      params: { name: null, buyer: null },
+    });
+  });
+});

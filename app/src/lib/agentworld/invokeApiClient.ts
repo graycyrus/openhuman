@@ -134,7 +134,7 @@ export interface IdentityListingQueryParams {
 }
 
 export interface DirectoryIdentityListingsResponse {
-  identities: unknown[];
+  identities: IdentityListing[];
   cursor?: string;
   [key: string]: unknown;
 }
@@ -148,6 +148,9 @@ export interface DirectorySkillsParams {
 export interface AgentSearchResponse {
   agents?: unknown[];
   cursor?: string;
+  [key: string]: unknown;
+}
+
 // ── Profiles types ────────────────────────────────────────────────────────────
 
 export interface AgentProfile {
@@ -220,6 +223,83 @@ export interface UserProfileUpdate {
   [key: string]: unknown;
 }
 
+export interface AvailabilityResponse {
+  available: boolean;
+  name: string;
+  identity?: { cryptoId: string; username?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}
+export interface BidsResponse {
+  bids: IdentityBid[];
+  [key: string]: unknown;
+}
+export interface IdentitiesResponse {
+  identities: IdentityListing[];
+  [key: string]: unknown;
+}
+export interface IdentityBid {
+  bidId?: string;
+  listingId?: string;
+  bidder?: string;
+  price: MarketplacePrice;
+  [key: string]: unknown;
+}
+export interface IdentityFloor {
+  length?: number;
+  price?: MarketplacePrice;
+  [key: string]: unknown;
+}
+export interface IdentityListing {
+  listingId: string;
+  name: string;
+  seller?: string;
+  sellerCryptoId?: string;
+  price: MarketplacePrice;
+  reservePrice?: MarketplacePrice;
+  highestBid?: { price: MarketplacePrice; [key: string]: unknown };
+  listingType?: 'fixed' | 'auction';
+  status?: string;
+  description?: string;
+  expiresAt?: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+export interface IdentityOffer {
+  offerId: string;
+  name?: string;
+  buyer: string;
+  price: MarketplacePrice;
+  status?: string;
+  [key: string]: unknown;
+}
+export interface IdentitySale {
+  saleId: string;
+  name: string;
+  price: MarketplacePrice;
+  buyer: string;
+  seller?: string;
+  createdAt: string;
+  [key: string]: unknown;
+}
+export interface IdentitySaleHistoryResponse {
+  history?: IdentitySale[];
+  [key: string]: unknown;
+}
+export interface MarketplacePrice {
+  amount: string;
+  asset: string;
+  network?: string;
+  [key: string]: unknown;
+}
+export interface OffersResponse {
+  offers: IdentityOffer[];
+  [key: string]: unknown;
+}
+export interface RecentSalesResponse {
+  sales: IdentitySale[];
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -286,6 +366,47 @@ export function createInvokeApiClient() {
       get: (cryptoId: string) => call<User>('openhuman.tinyplace_users_get', { cryptoId }),
       updateProfile: (cryptoId: string, update: UserProfileUpdate) =>
         call<User>('openhuman.tinyplace_users_update_profile', { cryptoId, update }),
+    },
+    marketplace: {
+      /** List identity listings, optionally filtered by status and limit. */
+      listIdentities: (params?: { limit?: number; status?: string }) =>
+        call<IdentitiesResponse>('openhuman.tinyplace_marketplace_list_identities', {
+          limit: params?.limit ?? null,
+          status: params?.status ?? null,
+        }),
+      /** Floor price for identity names of a given character length. */
+      identityFloor: (length?: number) =>
+        call<IdentityFloor>('openhuman.tinyplace_marketplace_identity_floor', {
+          length: length ?? null,
+        }),
+      /** Most recent completed identity sales. */
+      recent: () => call<RecentSalesResponse>('openhuman.tinyplace_marketplace_recent'),
+      /** Full sale history for a specific @handle. */
+      identitySaleHistory: (name: string) =>
+        call<IdentitySaleHistoryResponse>('openhuman.tinyplace_marketplace_identity_sale_history', {
+          name,
+        }),
+      /** Bids on an identity auction listing. */
+      listBids: (listingId: string) =>
+        call<BidsResponse>('openhuman.tinyplace_marketplace_list_bids', { listingId }),
+      /** Pending identity offers, filtered by name (seller view) or buyer. */
+      listOffers: (params?: { name?: string; buyer?: string }) =>
+        call<OffersResponse>('openhuman.tinyplace_marketplace_list_offers', {
+          name: params?.name ?? null,
+          buyer: params?.buyer ?? null,
+        }),
+    },
+    registry: {
+      /** Check availability of a @handle (with or without leading @). */
+      get: (name: string) =>
+        call<AvailabilityResponse>('openhuman.tinyplace_registry_get', { name }),
+    },
+    directoryIdentities: {
+      /** List identity listings from the directory. */
+      list: (params?: IdentityListingQueryParams) =>
+        call<DirectoryIdentityListingsResponse>('openhuman.tinyplace_directory_list_identities', {
+          params: params ?? null,
+        }),
     },
   };
 }

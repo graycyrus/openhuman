@@ -315,3 +315,121 @@ pub(crate) fn handle_tinyplace_users_update_profile(
         to_value(result)
     })
 }
+
+pub(crate) fn handle_tinyplace_marketplace_identity_floor(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let length = params.get("length").and_then(Value::as_i64);
+        log::debug!("{LOG_PREFIX} marketplace_identity_floor length={length:?}");
+        let client = global_state().client().await?;
+        // IdentityFloor derives Serialize via the types module.
+        let result = client
+            .marketplace
+            .identity_floor(length)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_identity_sale_history(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let name = req_str(&params, "name")?.to_string();
+        log::debug!("{LOG_PREFIX} marketplace_identity_sale_history name={name}");
+        let client = global_state().client().await?;
+        // IdentitySaleHistoryResponse only derives Deserialize; serialize the inner vec.
+        let result = client
+            .marketplace
+            .identity_sale_history(&name)
+            .await
+            .map_err(map_err)?;
+        let history = to_value(result.history)?;
+        Ok(serde_json::json!({ "history": history }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_list_bids(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let listing_id = req_str(&params, "listingId")?.to_string();
+        log::debug!("{LOG_PREFIX} marketplace_list_bids listing_id={listing_id}");
+        let client = global_state().client().await?;
+        // BidsResponse only derives Deserialize; serialize the inner vec.
+        let result = client
+            .marketplace
+            .list_bids(&listing_id)
+            .await
+            .map_err(map_err)?;
+        let bids = to_value(result.bids)?;
+        Ok(serde_json::json!({ "bids": bids }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_list_identities(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let status = get_opt_str(&params, "status").map(str::to_string);
+        log::debug!("{LOG_PREFIX} marketplace_list_identities limit={limit:?} status={status:?}");
+        let client = global_state().client().await?;
+        // IdentitiesResponse only derives Deserialize; serialize the inner vec.
+        let result = client
+            .marketplace
+            .list_identities(limit, status.as_deref())
+            .await
+            .map_err(map_err)?;
+        let identities = to_value(result.identities)?;
+        Ok(serde_json::json!({ "identities": identities }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_list_offers(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let name = get_opt_str(&params, "name").map(str::to_string);
+        let buyer = get_opt_str(&params, "buyer").map(str::to_string);
+        log::debug!("{LOG_PREFIX} marketplace_list_offers name={name:?} buyer={buyer:?}");
+        let client = global_state().client().await?;
+        use tinyplace::api::marketplace::OfferQueryParams;
+        let query_params = OfferQueryParams {
+            name,
+            buyer,
+            ..Default::default()
+        };
+        // OffersResponse only derives Deserialize; serialize the inner vec.
+        let result = client
+            .marketplace
+            .list_offers(Some(&query_params))
+            .await
+            .map_err(map_err)?;
+        let offers = to_value(result.offers)?;
+        Ok(serde_json::json!({ "offers": offers }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_marketplace_recent(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} marketplace_recent");
+        let client = global_state().client().await?;
+        // RecentSalesResponse only derives Deserialize; serialize the inner vec.
+        let result = client.marketplace.recent().await.map_err(map_err)?;
+        let sales = to_value(result.sales)?;
+        Ok(serde_json::json!({ "sales": sales }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_registry_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let name = req_str(&params, "name")?.to_string();
+        log::debug!("{LOG_PREFIX} registry_get name={name}");
+        let client = global_state().client().await?;
+        let result = client.registry.get(&name).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
