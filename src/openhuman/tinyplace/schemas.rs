@@ -12,10 +12,16 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use crate::openhuman::tinyplace::manifest::{
-    handle_tinyplace_broadcasts_list, handle_tinyplace_channels_list,
+    handle_tinyplace_broadcasts_list, handle_tinyplace_broadcasts_subscribe,
+    handle_tinyplace_broadcasts_unsubscribe, handle_tinyplace_channels_join,
+    handle_tinyplace_channels_leave, handle_tinyplace_channels_list,
     handle_tinyplace_directory_get_agent, handle_tinyplace_directory_list_agents,
-    handle_tinyplace_explorer_overview, handle_tinyplace_groups_list,
-    handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list, handle_tinyplace_search_unified,
+    handle_tinyplace_explorer_overview, handle_tinyplace_groups_join,
+    handle_tinyplace_groups_leave, handle_tinyplace_groups_list, handle_tinyplace_inbox_archive,
+    handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
+    handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
+    handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive,
+    handle_tinyplace_search_unified,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -199,6 +205,169 @@ fn schema_inbox_counts() -> ControllerSchema {
     }
 }
 
+// ── Inbox write-action schemas ────────────────────────────────────────────────
+
+/// Optional `owner` agent-id override (directory-auth); defaults to agent auth.
+fn optional_owner() -> FieldSchema {
+    FieldSchema {
+        name: "owner",
+        ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+        comment: "Optional agent ID to act as (directory-auth). Defaults to agent auth.",
+        required: false,
+    }
+}
+
+fn schema_inbox_mark_read() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_mark_read",
+        description: "Mark a single inbox item as read.",
+        inputs: vec![
+            required_string("itemId", "The inbox item ID."),
+            optional_owner(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "InboxMarkResult for the updated item.",
+        )],
+    }
+}
+
+fn schema_inbox_mark_all_read() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_mark_all_read",
+        description: "Mark all inbox items as read (optionally filtered).",
+        inputs: vec![
+            optional_object(
+                "params",
+                "Optional InboxClearParams filter (types, from, before).",
+            ),
+            optional_owner(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "InboxReadAllResult with the updated count.",
+        )],
+    }
+}
+
+fn schema_inbox_archive() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_archive",
+        description: "Archive a single inbox item.",
+        inputs: vec![
+            required_string("itemId", "The inbox item ID."),
+            optional_owner(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "InboxMarkResult for the archived item.",
+        )],
+    }
+}
+
+fn schema_inbox_unarchive() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_unarchive",
+        description: "Unarchive a single inbox item.",
+        inputs: vec![
+            required_string("itemId", "The inbox item ID."),
+            optional_owner(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "InboxMarkResult for the unarchived item.",
+        )],
+    }
+}
+
+fn schema_inbox_remove() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "inbox_remove",
+        description: "Permanently remove a single inbox item.",
+        inputs: vec![
+            required_string("itemId", "The inbox item ID."),
+            optional_owner(),
+        ],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+// ── Channels / Broadcasts / Groups membership schemas ─────────────────────────
+
+fn schema_channels_join() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "channels_join",
+        description: "Join a channel as the authenticated agent.",
+        inputs: vec![required_string("channelId", "The channel ID to join.")],
+        outputs: vec![json_output(
+            "result",
+            "ChannelMember for the joined channel.",
+        )],
+    }
+}
+
+fn schema_channels_leave() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "channels_leave",
+        description: "Leave a channel as the authenticated agent.",
+        inputs: vec![required_string("channelId", "The channel ID to leave.")],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_broadcasts_subscribe() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "broadcasts_subscribe",
+        description: "Subscribe to a broadcast channel as the authenticated agent.",
+        inputs: vec![required_string(
+            "broadcastId",
+            "The broadcast ID to subscribe to.",
+        )],
+        outputs: vec![json_output("result", "BroadcastSubscriber record.")],
+    }
+}
+
+fn schema_broadcasts_unsubscribe() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "broadcasts_unsubscribe",
+        description: "Unsubscribe from a broadcast channel as the authenticated agent.",
+        inputs: vec![required_string(
+            "broadcastId",
+            "The broadcast ID to unsubscribe from.",
+        )],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_groups_join() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_join",
+        description: "Join (or request to join) a group as the authenticated agent.",
+        inputs: vec![required_string("groupId", "The group ID to join.")],
+        outputs: vec![json_output("result", "GroupMember for the joined group.")],
+    }
+}
+
+fn schema_groups_leave() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_leave",
+        description: "Leave a group (removes the authenticated agent from its membership).",
+        inputs: vec![required_string("groupId", "The group ID to leave.")],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
 // ── Public exports ────────────────────────────────────────────────────────────
 
 /// All tinyplace controller schemas (for schema discovery / validation).
@@ -214,6 +383,19 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_broadcasts_list(),
         schema_inbox_list(),
         schema_inbox_counts(),
+        // Messaging section — inbox write actions
+        schema_inbox_mark_read(),
+        schema_inbox_mark_all_read(),
+        schema_inbox_archive(),
+        schema_inbox_unarchive(),
+        schema_inbox_remove(),
+        // Messaging section — channel / broadcast / group membership
+        schema_channels_join(),
+        schema_channels_leave(),
+        schema_broadcasts_subscribe(),
+        schema_broadcasts_unsubscribe(),
+        schema_groups_join(),
+        schema_groups_leave(),
     ]
 }
 
@@ -256,6 +438,52 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_inbox_counts(),
             handler: handle_tinyplace_inbox_counts,
+        },
+        // Messaging section — inbox write actions
+        RegisteredController {
+            schema: schema_inbox_mark_read(),
+            handler: handle_tinyplace_inbox_mark_read,
+        },
+        RegisteredController {
+            schema: schema_inbox_mark_all_read(),
+            handler: handle_tinyplace_inbox_mark_all_read,
+        },
+        RegisteredController {
+            schema: schema_inbox_archive(),
+            handler: handle_tinyplace_inbox_archive,
+        },
+        RegisteredController {
+            schema: schema_inbox_unarchive(),
+            handler: handle_tinyplace_inbox_unarchive,
+        },
+        RegisteredController {
+            schema: schema_inbox_remove(),
+            handler: handle_tinyplace_inbox_remove,
+        },
+        // Messaging section — channel / broadcast / group membership
+        RegisteredController {
+            schema: schema_channels_join(),
+            handler: handle_tinyplace_channels_join,
+        },
+        RegisteredController {
+            schema: schema_channels_leave(),
+            handler: handle_tinyplace_channels_leave,
+        },
+        RegisteredController {
+            schema: schema_broadcasts_subscribe(),
+            handler: handle_tinyplace_broadcasts_subscribe,
+        },
+        RegisteredController {
+            schema: schema_broadcasts_unsubscribe(),
+            handler: handle_tinyplace_broadcasts_unsubscribe,
+        },
+        RegisteredController {
+            schema: schema_groups_join(),
+            handler: handle_tinyplace_groups_join,
+        },
+        RegisteredController {
+            schema: schema_groups_leave(),
+            handler: handle_tinyplace_groups_leave,
         },
     ]
 }

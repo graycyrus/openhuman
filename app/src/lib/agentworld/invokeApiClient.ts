@@ -261,14 +261,25 @@ export function createInvokeApiClient() {
     channels: {
       list: (params?: ChannelQueryParams) =>
         call<ChannelListResponse>('openhuman.tinyplace_channels_list', { params: params ?? null }),
+      // Membership — result bodies unused (the UI refetches).
+      join: (channelId: string) =>
+        call<void>('openhuman.tinyplace_channels_join', { channelId }),
+      leave: (channelId: string) =>
+        call<void>('openhuman.tinyplace_channels_leave', { channelId }),
     },
     groups: {
       list: (params?: GroupQueryParams) =>
         call<GroupMetadata[]>('openhuman.tinyplace_groups_list', { params: params ?? null }),
+      join: (groupId: string) => call<void>('openhuman.tinyplace_groups_join', { groupId }),
+      leave: (groupId: string) => call<void>('openhuman.tinyplace_groups_leave', { groupId }),
     },
     broadcasts: {
       list: (params?: BroadcastQueryParams) =>
         call<BroadcastChannel[]>('openhuman.tinyplace_broadcasts_list', { params: params ?? null }),
+      subscribe: (broadcastId: string) =>
+        call<void>('openhuman.tinyplace_broadcasts_subscribe', { broadcastId }),
+      unsubscribe: (broadcastId: string) =>
+        call<void>('openhuman.tinyplace_broadcasts_unsubscribe', { broadcastId }),
     },
     inbox: {
       list: (params?: InboxQueryParams, owner?: string) =>
@@ -278,6 +289,20 @@ export function createInvokeApiClient() {
         }),
       counts: (owner?: string) =>
         call<InboxCounts>('openhuman.tinyplace_inbox_counts', { owner: owner ?? null }),
+      // Write actions — manage your own inbox. Result bodies are unused (the UI refetches).
+      markRead: (itemId: string, owner?: string) =>
+        call<void>('openhuman.tinyplace_inbox_mark_read', { itemId, owner: owner ?? null }),
+      markAllRead: (owner?: string) =>
+        call<void>('openhuman.tinyplace_inbox_mark_all_read', {
+          params: null,
+          owner: owner ?? null,
+        }),
+      archive: (itemId: string, owner?: string) =>
+        call<void>('openhuman.tinyplace_inbox_archive', { itemId, owner: owner ?? null }),
+      unarchive: (itemId: string, owner?: string) =>
+        call<void>('openhuman.tinyplace_inbox_unarchive', { itemId, owner: owner ?? null }),
+      remove: (itemId: string, owner?: string) =>
+        call<void>('openhuman.tinyplace_inbox_remove', { itemId, owner: owner ?? null }),
     },
   };
 }

@@ -129,7 +129,8 @@ function PaymentRequiredPane() {
 
 function ChannelsPanel() {
   const params: ChannelQueryParams = { limit: 20 };
-  const state = useAsyncCall(() => apiClient.channels.list(params), []);
+  const { version, busyKey, error: actionError, run } = useRowActions();
+  const state = useAsyncCall(() => apiClient.channels.list(params), [version]);
 
   if (state.status === 'loading') return <LoadingPane />;
   if (state.status === 'payment_required') return <PaymentRequiredPane />;
@@ -146,37 +147,55 @@ function ChannelsPanel() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {channels.map(ch => (
-        <div
-          key={ch.channelId}
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
-              {ch.name}
-            </span>
-            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
-              {ch.memberCount} members
-            </span>
-          </div>
-          {ch.description ? (
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
-              {ch.description}
-            </p>
-          ) : null}
-          {ch.tags && ch.tags.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {ch.tags.map(tag => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
-                  {tag}
+    <div className="space-y-2">
+      {actionError ? <ActionErrorBanner message={actionError} /> : null}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {channels.map(ch => {
+          const busy = busyKey === ch.channelId;
+          return (
+            <div
+              key={ch.channelId}
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+                  {ch.name}
                 </span>
-              ))}
+                <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
+                  {ch.memberCount} members
+                </span>
+              </div>
+              {ch.description ? (
+                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+                  {ch.description}
+                </p>
+              ) : null}
+              {ch.tags && ch.tags.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {ch.tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-2 flex gap-1">
+                <RowAction
+                  label="Join"
+                  disabled={busy}
+                  onClick={() => run(ch.channelId, () => apiClient.channels.join(ch.channelId))}
+                />
+                <RowAction
+                  label="Leave"
+                  disabled={busy}
+                  onClick={() => run(ch.channelId, () => apiClient.channels.leave(ch.channelId))}
+                />
+              </div>
             </div>
-          ) : null}
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -185,7 +204,8 @@ function ChannelsPanel() {
 
 function GroupsPanel() {
   const params: GroupQueryParams = { limit: 20 };
-  const state = useAsyncCall(() => apiClient.groups.list(params), []);
+  const { version, busyKey, error: actionError, run } = useRowActions();
+  const state = useAsyncCall(() => apiClient.groups.list(params), [version]);
 
   if (state.status === 'loading') return <LoadingPane />;
   if (state.status === 'payment_required') return <PaymentRequiredPane />;
@@ -202,30 +222,48 @@ function GroupsPanel() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {groups.map(group => (
-        <div
-          key={group.groupId}
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
-              {group.name}
-            </span>
-            <span className="shrink-0 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[8px] text-green-500">
-              Encrypted
-            </span>
-          </div>
-          {group.description ? (
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
-              {group.description}
-            </p>
-          ) : null}
-          <div className="mt-2 flex items-center gap-3 text-[10px] text-stone-400 dark:text-neutral-500">
-            <span>{group.memberCount} members</span>
-            <span>{group.membershipPolicy}</span>
-          </div>
-        </div>
-      ))}
+    <div className="space-y-2">
+      {actionError ? <ActionErrorBanner message={actionError} /> : null}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {groups.map(group => {
+          const busy = busyKey === group.groupId;
+          return (
+            <div
+              key={group.groupId}
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+                  {group.name}
+                </span>
+                <span className="shrink-0 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[8px] text-green-500">
+                  Encrypted
+                </span>
+              </div>
+              {group.description ? (
+                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+                  {group.description}
+                </p>
+              ) : null}
+              <div className="mt-2 flex items-center gap-3 text-[10px] text-stone-400 dark:text-neutral-500">
+                <span>{group.memberCount} members</span>
+                <span>{group.membershipPolicy}</span>
+              </div>
+              <div className="mt-2 flex gap-1">
+                <RowAction
+                  label="Join"
+                  disabled={busy}
+                  onClick={() => run(group.groupId, () => apiClient.groups.join(group.groupId))}
+                />
+                <RowAction
+                  label="Leave"
+                  disabled={busy}
+                  onClick={() => run(group.groupId, () => apiClient.groups.leave(group.groupId))}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -234,7 +272,8 @@ function GroupsPanel() {
 
 function BroadcastsPanel() {
   const params: BroadcastQueryParams = { limit: 20 };
-  const state = useAsyncCall(() => apiClient.broadcasts.list(params), []);
+  const { version, busyKey, error: actionError, run } = useRowActions();
+  const state = useAsyncCall(() => apiClient.broadcasts.list(params), [version]);
 
   if (state.status === 'loading') return <LoadingPane />;
   if (state.status === 'payment_required') return <PaymentRequiredPane />;
@@ -251,29 +290,51 @@ function BroadcastsPanel() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {broadcasts.map(bc => (
-        <div
-          key={bc.broadcastId}
-          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
-              {bc.name}
-            </span>
-            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
-              {bc.subscriberCount} subs
-            </span>
-          </div>
-          {bc.description ? (
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
-              {bc.description}
-            </p>
-          ) : null}
-          <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500 truncate">
-            by {bc.owner}
-          </p>
-        </div>
-      ))}
+    <div className="space-y-2">
+      {actionError ? <ActionErrorBanner message={actionError} /> : null}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {broadcasts.map(bc => {
+          const busy = busyKey === bc.broadcastId;
+          return (
+            <div
+              key={bc.broadcastId}
+              className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+                  {bc.name}
+                </span>
+                <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
+                  {bc.subscriberCount} subs
+                </span>
+              </div>
+              {bc.description ? (
+                <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+                  {bc.description}
+                </p>
+              ) : null}
+              <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500 truncate">
+                by {bc.owner}
+              </p>
+              <div className="mt-2 flex gap-1">
+                <RowAction
+                  label="Subscribe"
+                  disabled={busy}
+                  onClick={() =>
+                    run(bc.broadcastId, () => apiClient.broadcasts.subscribe(bc.broadcastId))
+                  }
+                />
+                <RowAction
+                  label="Unsubscribe"
+                  disabled={busy}
+                  onClick={() =>
+                    run(bc.broadcastId, () => apiClient.broadcasts.unsubscribe(bc.broadcastId))
+                  }
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -307,10 +368,70 @@ function formatTs(ts: string): string {
   return `${days}d ago`;
 }
 
+/** Small row action button (shared across inbox / channels / groups / broadcasts). */
+function RowAction({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded border border-stone-200 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+      {label}
+    </button>
+  );
+}
+
+/** Inline error banner for a failed row action. */
+function ActionErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+      {message}
+    </div>
+  );
+}
+
+/**
+ * Shared write-action runner for list panels: tracks a refetch `version`, the
+ * in-flight `busyKey`, and an `error`. `run(key, fn)` disables the row, awaits
+ * the action, then bumps `version` to refetch; PaymentRequiredError surfaces a
+ * clear message.
+ */
+function useRowActions() {
+  const [version, setVersion] = useState(0);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(key: string, fn: () => Promise<unknown>) {
+    setBusyKey(key);
+    setError(null);
+    try {
+      await fn();
+      setVersion(v => v + 1);
+    } catch (err) {
+      setError(
+        err instanceof PaymentRequiredError ? 'Payment required for this action.' : String(err),
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  return { version, busyKey, error, run };
+}
+
 function InboxPanel() {
   const params: InboxQueryParams = { limit: 30 };
-  const itemsState = useAsyncCall(() => apiClient.inbox.list(params), []);
-  const countsState = useAsyncCall(() => apiClient.inbox.counts(), []);
+  const { version, busyKey, error: actionError, run: runAction } = useRowActions();
+  const itemsState = useAsyncCall(() => apiClient.inbox.list(params), [version]);
+  const countsState = useAsyncCall(() => apiClient.inbox.counts(), [version]);
 
   if (itemsState.status === 'loading') return <LoadingPane />;
   if (itemsState.status === 'payment_required') return <PaymentRequiredPane />;
@@ -318,6 +439,7 @@ function InboxPanel() {
 
   const items: InboxItem[] = itemsState.status === 'ok' ? itemsState.data.items : [];
   const unread: number = countsState.status === 'ok' ? countsState.data.unread : 0;
+  const anyBusy = busyKey !== null;
 
   if (items.length === 0) {
     return (
@@ -338,29 +460,71 @@ function InboxPanel() {
             </span>
           ) : null}
         </span>
+        {unread > 0 ? (
+          <RowAction
+            label="Mark all read"
+            disabled={anyBusy}
+            onClick={() => runAction('__all__', () => apiClient.inbox.markAllRead())}
+          />
+        ) : null}
       </div>
+      {actionError ? (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-[11px] text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+          {actionError}
+        </div>
+      ) : null}
       <div className="divide-y divide-stone-200 dark:divide-neutral-800/50">
-        {items.map(item => (
-          <div key={item.itemId} className="flex items-start gap-3 px-4 py-3">
-            <div
-              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">
-                {item.subject}
-              </p>
-              {item.summary ? (
-                <p className="text-[10px] text-stone-500 dark:text-neutral-400">{item.summary}</p>
-              ) : null}
-              <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
-                {formatTs(item.timestamp)}
-              </p>
+        {items.map(item => {
+          const busy = busyKey === item.itemId;
+          const archived = item.status === 'archived';
+          return (
+            <div key={item.itemId} className="flex items-start gap-3 px-4 py-3">
+              <div
+                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+                  {item.subject}
+                </p>
+                {item.summary ? (
+                  <p className="text-[10px] text-stone-500 dark:text-neutral-400">{item.summary}</p>
+                ) : null}
+                <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+                  {formatTs(item.timestamp)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {item.status === 'unread' ? (
+                  <RowAction
+                    label="Mark read"
+                    disabled={busy || anyBusy}
+                    onClick={() => runAction(item.itemId, () => apiClient.inbox.markRead(item.itemId))}
+                  />
+                ) : null}
+                {archived ? (
+                  <RowAction
+                    label="Unarchive"
+                    disabled={busy || anyBusy}
+                    onClick={() =>
+                      runAction(item.itemId, () => apiClient.inbox.unarchive(item.itemId))
+                    }
+                  />
+                ) : (
+                  <RowAction
+                    label="Archive"
+                    disabled={busy || anyBusy}
+                    onClick={() => runAction(item.itemId, () => apiClient.inbox.archive(item.itemId))}
+                  />
+                )}
+                <RowAction
+                  label="Remove"
+                  disabled={busy || anyBusy}
+                  onClick={() => runAction(item.itemId, () => apiClient.inbox.remove(item.itemId))}
+                />
+              </div>
             </div>
-            {item.status === 'unread' ? (
-              <span className="shrink-0 h-1.5 w-1.5 mt-1.5 rounded-full bg-blue-500" />
-            ) : null}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

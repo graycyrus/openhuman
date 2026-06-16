@@ -7,6 +7,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { apiClient } from '../AgentWorldShell';
 import MessagingSection from './MessagingSection';
 
 // ── Mock apiClient ────────────────────────────────────────────────────────────
@@ -14,12 +15,29 @@ import MessagingSection from './MessagingSection';
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
-    channels: { list: vi.fn().mockResolvedValue({ channels: [] }) },
-    groups: { list: vi.fn().mockResolvedValue([]) },
-    broadcasts: { list: vi.fn().mockResolvedValue([]) },
+    channels: {
+      list: vi.fn().mockResolvedValue({ channels: [] }),
+      join: vi.fn().mockResolvedValue(undefined),
+      leave: vi.fn().mockResolvedValue(undefined),
+    },
+    groups: {
+      list: vi.fn().mockResolvedValue([]),
+      join: vi.fn().mockResolvedValue(undefined),
+      leave: vi.fn().mockResolvedValue(undefined),
+    },
+    broadcasts: {
+      list: vi.fn().mockResolvedValue([]),
+      subscribe: vi.fn().mockResolvedValue(undefined),
+      unsubscribe: vi.fn().mockResolvedValue(undefined),
+    },
     inbox: {
       list: vi.fn().mockResolvedValue({ items: [], unreadCount: 0, totalCount: 0 }),
       counts: vi.fn().mockResolvedValue({ unread: 0, read: 0, archived: 0, byType: {}, urgent: 0 }),
+      markRead: vi.fn().mockResolvedValue(undefined),
+      markAllRead: vi.fn().mockResolvedValue(undefined),
+      archive: vi.fn().mockResolvedValue(undefined),
+      unarchive: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
     },
   },
 }));
@@ -103,5 +121,130 @@ describe('empty states', () => {
     render(<MessagingSection />);
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     expect(await screen.findByText(/Your inbox is empty/i)).toBeInTheDocument();
+  });
+});
+
+// ── Inbox write actions ───────────────────────────────────────────────────────
+
+describe('inbox actions', () => {
+  const item = {
+    itemId: 'item-1',
+    type: 'message',
+    status: 'unread',
+    priority: 'normal',
+    timestamp: new Date('2026-01-01T00:00:00Z').toISOString(),
+    subject: 'Hello there',
+  };
+
+  beforeEach(() => {
+    vi.mocked(apiClient.inbox.list).mockResolvedValue({
+      items: [item],
+      unreadCount: 1,
+      totalCount: 1,
+    });
+    vi.mocked(apiClient.inbox.counts).mockResolvedValue({
+      unread: 1,
+      read: 0,
+      archived: 0,
+      byType: {},
+      urgent: 0,
+    });
+  });
+
+  async function openInbox() {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
+    await screen.findByText('Hello there');
+  }
+
+  test('Mark read calls inbox.markRead with the item id', async () => {
+    await openInbox();
+    await userEvent.click(screen.getByRole('button', { name: 'Mark read' }));
+    expect(apiClient.inbox.markRead).toHaveBeenCalledWith('item-1');
+  });
+
+  test('Archive calls inbox.archive with the item id', async () => {
+    await openInbox();
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
+    expect(apiClient.inbox.archive).toHaveBeenCalledWith('item-1');
+  });
+
+  test('Remove calls inbox.remove with the item id', async () => {
+    await openInbox();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(apiClient.inbox.remove).toHaveBeenCalledWith('item-1');
+  });
+
+  test('Mark all read calls inbox.markAllRead', async () => {
+    await openInbox();
+    await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+    expect(apiClient.inbox.markAllRead).toHaveBeenCalled();
+  });
+
+  test('refetches the inbox after an action settles', async () => {
+    await openInbox();
+    const before = vi.mocked(apiClient.inbox.list).mock.calls.length;
+    await userEvent.click(screen.getByRole('button', { name: 'Mark read' }));
+    expect(vi.mocked(apiClient.inbox.list).mock.calls.length).toBeGreaterThan(before);
+  });
+});
+
+// ── Channel / broadcast / group membership actions ────────────────────────────
+
+describe('membership actions', () => {
+  test('channel Join calls channels.join with the channel id', async () => {
+    vi.mocked(apiClient.channels.list).mockResolvedValue({
+      channels: [
+        {
+          channelId: 'ch-1',
+          name: 'General',
+          memberCount: 3,
+          creator: 'someone',
+          isPublic: true,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      ],
+    });
+    render(<MessagingSection />);
+    await screen.findByText('General');
+    await userEvent.click(screen.getByRole('button', { name: 'Join' }));
+    expect(apiClient.channels.join).toHaveBeenCalledWith('ch-1');
+  });
+
+  test('broadcast Subscribe calls broadcasts.subscribe with the broadcast id', async () => {
+    vi.mocked(apiClient.broadcasts.list).mockResolvedValue([
+      {
+        broadcastId: 'bc-1',
+        name: 'Updates',
+        subscriberCount: 9,
+        owner: 'someone',
+        visibility: 'public',
+      },
+    ]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Broadcasts' }));
+    await screen.findByText('Updates');
+    await userEvent.click(screen.getByRole('button', { name: 'Subscribe' }));
+    expect(apiClient.broadcasts.subscribe).toHaveBeenCalledWith('bc-1');
+  });
+
+  test('group Leave calls groups.leave with the group id', async () => {
+    vi.mocked(apiClient.groups.list).mockResolvedValue([
+      {
+        groupId: 'g-1',
+        name: 'Builders',
+        membershipPolicy: 'open',
+        memberCount: 5,
+        membershipEpoch: 1,
+        createdBy: 'someone',
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Builders');
+    await userEvent.click(screen.getByRole('button', { name: 'Leave' }));
+    expect(apiClient.groups.leave).toHaveBeenCalledWith('g-1');
   });
 });
