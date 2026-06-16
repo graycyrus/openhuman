@@ -1,17 +1,15 @@
 /**
  * DirectorySection — Agent World Directory section.
  *
- * Ported from tiny.place `website/src/components/explore/Directory.tsx` and
- * `website/src/hooks/use-directory.ts`. Adapted to call `apiClient` directly
- * (no HTTP SDK / no ApiProvider context needed) following the same pattern as
- * ExploreSection.tsx.
- *
- * Shows a browsable grid of agents registered in the tiny.place directory.
- * Each card displays the agent's handle, description, and skills/tags.
+ * Ported from tiny.place `website/src/components/explore/Directory.tsx`. Renders
+ * a browsable grid of agents registered in the tiny.place directory inside the
+ * standard `PanelScaffold` chrome (section title comes from the sidebar). Each
+ * card shows the agent's handle, description, and skills/tags.
  */
 import debugFactory from 'debug';
 import { useEffect, useState } from 'react';
 
+import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
   type AgentCard,
   type ListAgentsResponse,
@@ -24,16 +22,16 @@ const debug = debugFactory('agentworld:directory');
 // ── Helpers (ported from Directory.tsx) ──────────────────────────────────────
 
 const AVATAR_COLORS = [
-  'bg-blue-600',
-  'bg-purple-600',
-  'bg-pink-600',
-  'bg-emerald-600',
-  'bg-amber-600',
-  'bg-cyan-600',
-  'bg-rose-600',
-  'bg-violet-600',
-  'bg-indigo-600',
-  'bg-teal-600',
+  'bg-blue-500',
+  'bg-purple-500',
+  'bg-pink-500',
+  'bg-emerald-500',
+  'bg-amber-500',
+  'bg-cyan-500',
+  'bg-rose-500',
+  'bg-violet-500',
+  'bg-indigo-500',
+  'bg-teal-500',
 ];
 
 function getAvatarColor(agentId: string): string {
@@ -41,7 +39,7 @@ function getAvatarColor(agentId: string): string {
   for (let i = 0; i < agentId.length; i++) {
     total += agentId.charCodeAt(i);
   }
-  return AVATAR_COLORS[total % AVATAR_COLORS.length] ?? 'bg-blue-600';
+  return AVATAR_COLORS[total % AVATAR_COLORS.length] ?? 'bg-blue-500';
 }
 
 function getDisplayName(agent: AgentCard): string {
@@ -112,19 +110,22 @@ function useDirectoryAgents(): State {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+const CARD_CLASS =
+  'rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900';
+
 function LoadingSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-lg border border-gray-800 bg-gray-950 p-3">
+        <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="flex items-start gap-2.5">
-            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-gray-800" />
+            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-stone-200 dark:bg-neutral-800" />
             <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-20 rounded bg-gray-800" />
-              <div className="h-3 w-full rounded bg-gray-800" />
+              <div className="h-4 w-20 rounded bg-stone-200 dark:bg-neutral-800" />
+              <div className="h-3 w-full rounded bg-stone-200 dark:bg-neutral-800" />
               <div className="flex gap-1">
-                <div className="h-4 w-12 rounded-full bg-gray-800" />
-                <div className="h-4 w-14 rounded-full bg-gray-800" />
+                <div className="h-4 w-12 rounded-full bg-stone-200 dark:bg-neutral-800" />
+                <div className="h-4 w-14 rounded-full bg-stone-200 dark:bg-neutral-800" />
               </div>
             </div>
           </div>
@@ -144,8 +145,11 @@ function AgentCardItem({ agent }: { agent: AgentCard }) {
       role="button"
       tabIndex={0}
       className={[
-        'rounded-lg border p-3 text-left transition-colors cursor-pointer',
-        selected ? 'border-ocean bg-gray-900' : 'border-gray-800 bg-gray-950 hover:border-gray-700',
+        'cursor-pointer p-3 text-left transition-colors',
+        CARD_CLASS,
+        selected
+          ? 'border-primary-400 ring-1 ring-primary-400 dark:border-primary-500'
+          : 'hover:border-stone-300 dark:hover:border-neutral-700',
       ].join(' ')}
       onClick={() => setSelected(s => !s)}
       onKeyDown={e => {
@@ -162,14 +166,18 @@ function AgentCardItem({ agent }: { agent: AgentCard }) {
           </div>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-white truncate">{handle}</p>
-          <p className="mt-0.5 truncate text-xs text-gray-500">{agent.description ?? ''}</p>
+          <p className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
+            {handle}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-stone-500 dark:text-neutral-400">
+            {agent.description ?? ''}
+          </p>
           {skills.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {skills.map(skill => (
                 <span
                   key={skill}
-                  className="rounded-full bg-gray-800 px-1.5 py-0.5 text-xs text-gray-400">
+                  className="rounded-full bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
                   {skill}
                 </span>
               ))}
@@ -181,75 +189,67 @@ function AgentCardItem({ agent }: { agent: AgentCard }) {
   );
 }
 
+/** Centered status message used for loading / wallet / error states. */
+function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
+  return (
+    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
+      <p className={`text-base font-medium ${tone}`}>{title}</p>
+      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function DirectorySection() {
   const state = useDirectoryAgents();
 
+  let body: React.ReactNode;
+
   if (state.status === 'loading') {
-    return (
-      <div className="p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Directory</h2>
-        <LoadingSkeleton />
-      </div>
+    body = <LoadingSkeleton />;
+  } else if (state.status === 'payment_required') {
+    body = (
+      <StatusBlock
+        tone="text-amber-600 dark:text-amber-400"
+        title="Access requires payment"
+        body="Your wallet will be used to fulfill the x402 payment challenge."
+      />
     );
-  }
-
-  if (state.status === 'payment_required') {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-amber-400">
-        <p className="text-lg font-medium">Access requires payment</p>
-        <p className="text-sm text-gray-400">
-          Your wallet will be used to fulfill the x402 payment challenge.
-        </p>
-      </div>
-    );
-  }
-
-  if (state.status === 'error') {
+  } else if (state.status === 'error') {
     const isWalletLocked =
       state.message.includes('wallet is not configured') ||
       state.message.includes('wallet secret material is missing');
-
-    if (isWalletLocked) {
-      return (
-        <div className="flex flex-col items-center justify-center h-64 gap-4 text-gray-400">
-          <p className="text-lg font-medium">Unlock your wallet to browse the Directory</p>
-          <p className="text-sm">
-            Agent World uses your wallet identity. Import your recovery phrase in Settings to
-            continue.
-          </p>
+    body = isWalletLocked ? (
+      <StatusBlock
+        tone="text-stone-700 dark:text-neutral-200"
+        title="Unlock your wallet to browse the Directory"
+        body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
+      />
+    ) : (
+      <StatusBlock
+        tone="text-red-600 dark:text-red-400"
+        title="Failed to load Directory"
+        body={state.message}
+      />
+    );
+  } else {
+    const agents = state.data.agents ?? [];
+    body =
+      agents.length === 0 ? (
+        <StatusBlock
+          tone="text-stone-600 dark:text-neutral-300"
+          title="No agents found"
+          body="No agents are registered in the directory yet."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {agents.map(agent => (
+            <AgentCardItem key={agent.agentId} agent={agent} />
+          ))}
         </div>
       );
-    }
-
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-2 text-red-400">
-        <p className="font-medium">Failed to load Directory</p>
-        <p className="text-sm text-gray-500">{state.message}</p>
-      </div>
-    );
   }
 
-  // state.status === 'ok'
-  const agents = state.data.agents ?? [];
-
-  if (agents.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-2 text-gray-500">
-        <p className="text-sm">No agents found in the directory.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6">
-      <h2 className="text-xl font-semibold text-white mb-4">Directory</h2>
-      <div className="grid grid-cols-2 gap-3">
-        {agents.map(agent => (
-          <AgentCardItem key={agent.agentId} agent={agent} />
-        ))}
-      </div>
-    </div>
-  );
+  return <PanelScaffold description="Browse agents in the tiny.place directory">{body}</PanelScaffold>;
 }
