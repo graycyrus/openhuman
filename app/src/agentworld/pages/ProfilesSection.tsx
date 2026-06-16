@@ -1,17 +1,13 @@
 /**
  * ProfilesSection — Agent World Profiles section.
  *
- * Ported from website/src/components/explore/Profiles.tsx.
- * Uses the invoke API client bridge (directory.listAgents) to load agent cards
- * from the tiny.place backend via the OpenHuman core RPC layer.
- *
- * Renders the first agent's profile card with:
- *   - Avatar initials, handle, cryptoId, bio
- *   - Skills / tags chips
- *   - Join date
+ * Ported from website/src/components/explore/Profiles.tsx. Loads agents via the
+ * invoke API client (directory.listAgents → core RPC → tiny.place) and renders
+ * the agent profile card inside the standard `PanelScaffold` chrome.
  */
 import { useEffect, useState } from 'react';
 
+import PanelScaffold from '../../components/layout/PanelScaffold';
 import { type AgentCard, PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
 
@@ -100,32 +96,36 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
   const skills = rawSkills.map(toLabel);
 
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
+    <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ocean text-lg font-semibold text-white">
+        <div className="bg-ocean flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
           {initials}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-white hover:underline cursor-default">
-            {handle}
-          </h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{handle}</h3>
           {cryptoId && (
-            <p className="mt-0.5 font-mono text-xs text-neutral-500" title={cryptoId}>
+            <p
+              className="mt-0.5 font-mono text-xs text-stone-500 dark:text-neutral-400"
+              title={cryptoId}>
               {truncateCryptoId(cryptoId)}
             </p>
           )}
-          {bio && <p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{bio}</p>}
+          {bio && (
+            <p className="mt-1.5 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
+              {bio}
+            </p>
+          )}
         </div>
       </div>
 
       {skills.length > 0 && (
-        <div className="mt-4 border-t border-neutral-800 pt-4">
-          <h4 className="mb-2 text-xs font-medium text-white">Skills</h4>
+        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">Skills</h4>
           <div className="flex flex-wrap gap-1.5">
             {skills.map(skill => (
               <span
                 key={skill}
-                className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
+                className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
                 {skill}
               </span>
             ))}
@@ -134,10 +134,22 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
       )}
 
       {createdAt && (
-        <div className="mt-4 border-t border-neutral-800 pt-4">
-          <span className="text-xs text-neutral-500">Joined {formatDate(createdAt)}</span>
+        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+          <span className="text-xs text-stone-500 dark:text-neutral-400">
+            Joined {formatDate(createdAt)}
+          </span>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Centered status message used for loading / wallet / error states. */
+function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
+  return (
+    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
+      <p className={`text-base font-medium ${tone}`}>{title}</p>
+      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
     </div>
   );
 }
@@ -147,67 +159,51 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
 export default function ProfilesSection() {
   const state = useAgents();
 
+  let body: React.ReactNode;
+
   if (state.status === 'loading') {
-    return (
-      <div className="flex items-center justify-center h-64 text-neutral-400">
-        <span className="animate-pulse text-sm">Loading profile...</span>
+    body = (
+      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+        <span className="animate-pulse text-sm">Loading profile…</span>
       </div>
     );
-  }
-
-  if (state.status === 'payment_required') {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-amber-400">
-        <p className="text-lg font-medium">Access requires payment</p>
-        <p className="text-sm text-neutral-400">
-          Your wallet will be used to fulfill the x402 payment challenge.
-        </p>
-      </div>
+  } else if (state.status === 'payment_required') {
+    body = (
+      <StatusBlock
+        tone="text-amber-600 dark:text-amber-400"
+        title="Access requires payment"
+        body="Your wallet will be used to fulfill the x402 payment challenge."
+      />
     );
-  }
-
-  if (state.status === 'error') {
+  } else if (state.status === 'error') {
     const isWalletLocked =
       state.message.includes('wallet is not configured') ||
       state.message.includes('wallet secret material is missing');
-
-    if (isWalletLocked) {
-      return (
-        <div className="flex flex-col items-center justify-center h-64 gap-4 text-neutral-400">
-          <p className="text-lg font-medium">Unlock your wallet to use Agent World</p>
-          <p className="text-sm">
-            Agent World uses your wallet identity. Import your recovery phrase in Settings to
-            continue.
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-2 text-red-400">
-        <p className="font-medium">Failed to load profile: {state.message}</p>
-      </div>
+    body = isWalletLocked ? (
+      <StatusBlock
+        tone="text-stone-700 dark:text-neutral-200"
+        title="Unlock your wallet to use Agent World"
+        body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
+      />
+    ) : (
+      <StatusBlock
+        tone="text-red-600 dark:text-red-400"
+        title="Failed to load profile"
+        body={state.message}
+      />
     );
+  } else if (state.agents.length === 0) {
+    body = (
+      <StatusBlock
+        tone="text-stone-600 dark:text-neutral-300"
+        title="No agents found"
+        body="No agent profiles are available yet."
+      />
+    );
+  } else {
+    // Render profile card for the first agent (mirrors Profiles.tsx behaviour).
+    body = <AgentProfileCard agent={state.agents[0]} />;
   }
 
-  // status === 'ok'
-  const agents = state.agents;
-
-  if (agents.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64 text-neutral-500">
-        <span className="text-sm">No agents found.</span>
-      </div>
-    );
-  }
-
-  // Render profile card for the first agent (mirrors Profiles.tsx behaviour)
-  const agent = agents[0];
-
-  return (
-    <div className="p-6">
-      <h2 className="text-xl font-semibold text-white mb-4">Profiles</h2>
-      <AgentProfileCard agent={agent} />
-    </div>
-  );
+  return <PanelScaffold description="Agent profile">{body}</PanelScaffold>;
 }
