@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 
+import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
   type ArtifactListResult,
   type EscrowListResponse,
@@ -20,7 +21,6 @@ import {
   PaymentRequiredError,
   type ProductsResponse,
 } from '../../lib/agentworld/invokeApiClient';
-import { useT } from '../../lib/i18n/I18nContext';
 import { apiClient } from '../AgentWorldShell';
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -39,7 +39,6 @@ const TAB_LABELS: Record<Tab, string> = {
 // ── Shared state types ────────────────────────────────────────────────────────
 
 type AsyncState<T> =
-  | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'payment_required'; challenge: unknown }
   | { status: 'error'; message: string }
@@ -106,7 +105,7 @@ function SearchTab() {
   return (
     <div className="flex flex-col gap-4">
       <input
-        className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ocean focus:outline-none"
+        className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-ocean focus:outline-none"
         placeholder="Search products by name, description, tag, or seller…"
         type="search"
         value={query}
@@ -122,17 +121,17 @@ function SearchTab() {
           {filtered.map(product => (
             <div
               key={product.productId}
-              className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+              className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium text-white">{product.name}</span>
-                <span className="shrink-0 rounded-full bg-gray-800 px-2 py-0.5 text-xs text-gray-400">
+                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">{product.name}</span>
+                <span className="shrink-0 rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-xs text-stone-500 dark:text-neutral-400">
                   {product.category}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">{product.description}</p>
+              <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{product.description}</p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-gray-400">{product.seller}</span>
-                <span className="text-xs font-medium text-white">
+                <span className="text-xs text-stone-500 dark:text-neutral-400">{product.seller}</span>
+                <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
                   {product.price.amount} {product.price.asset}
                 </span>
               </div>
@@ -141,7 +140,7 @@ function SearchTab() {
                   {product.tags.map(tag => (
                     <span
                       key={tag}
-                      className="rounded-full bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-500">
+                      className="rounded-full bg-stone-100 dark:bg-neutral-800 px-1.5 py-0.5 text-[10px] text-stone-400 dark:text-neutral-500">
                       {tag}
                     </span>
                   ))}
@@ -197,17 +196,17 @@ function JobsTab() {
   return (
     <div className="flex flex-col gap-3">
       {jobs.map(job => (
-        <div key={job.jobId} className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+        <div key={job.jobId} className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-white">
+            <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
               {typeof job.title === 'string' ? job.title : job.jobId}
             </span>
             <StatusBadge status={job.status} />
           </div>
           {typeof job.description === 'string' && (
-            <p className="mt-1 text-xs text-gray-500">{job.description}</p>
+            <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{job.description}</p>
           )}
-          <span className="mt-2 block text-xs text-gray-400">{job.client}</span>
+          <span className="mt-2 block text-xs text-stone-500 dark:text-neutral-400">{job.client}</span>
         </div>
       ))}
     </div>
@@ -358,17 +357,17 @@ function ArtifactsTab() {
       {artifacts.map(artifact => (
         <div
           key={artifact.artifactId}
-          className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-white">
+            <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
               {artifact.name ?? artifact.artifactId}
             </span>
             {artifact.status && <StatusBadge status={artifact.status} />}
           </div>
           {artifact.description && (
-            <p className="mt-1 text-xs text-gray-500">{artifact.description}</p>
+            <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{artifact.description}</p>
           )}
-          <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+          <div className="mt-2 flex items-center gap-3 text-xs text-stone-500 dark:text-neutral-400">
             <span>{artifact.mimeType ?? 'unknown type'}</span>
             {artifact.sizeBytes !== undefined && (
               <span>{(artifact.sizeBytes / 1024).toFixed(1)} KB</span>
@@ -385,7 +384,7 @@ function ArtifactsTab() {
 function LoadingSpinner({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-12">
-      <span className="animate-pulse text-sm text-gray-400">{label}</span>
+      <span className="animate-pulse text-sm text-stone-500 dark:text-neutral-400">{label}</span>
     </div>
   );
 }
@@ -394,7 +393,7 @@ function PaymentRequired() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-12 text-amber-400">
       <p className="text-lg font-medium">Access requires payment</p>
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-stone-500 dark:text-neutral-400">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
     </div>
@@ -408,7 +407,7 @@ function ErrorState({ message }: { message: string }) {
 
   if (isWalletLocked) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12 text-gray-400">
+      <div className="flex flex-col items-center justify-center gap-4 py-12 text-stone-500 dark:text-neutral-400">
         <p className="text-lg font-medium">Unlock your wallet to use Agent World</p>
         <p className="text-sm">
           Agent World uses your wallet identity. Import your recovery phrase in Settings to
@@ -421,7 +420,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-red-400">
       <p className="font-medium">Failed to load</p>
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="text-sm text-stone-400 dark:text-neutral-500">{message}</p>
     </div>
   );
 }
@@ -429,22 +428,22 @@ function ErrorState({ message }: { message: string }) {
 function EmptyState({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-12">
-      <span className="text-sm text-gray-400">{label}</span>
+      <span className="text-sm text-stone-500 dark:text-neutral-400">{label}</span>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
-    active: 'bg-green-900 text-green-300',
-    funded: 'bg-blue-900 text-blue-300',
+    active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    funded: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     accepted: 'bg-ocean text-white',
-    delivered: 'bg-purple-900 text-purple-300',
-    settled: 'bg-gray-700 text-gray-300',
-    cancelled: 'bg-red-900 text-red-300',
-    expired: 'bg-gray-800 text-gray-500',
+    delivered: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    settled: 'bg-stone-200 text-stone-600 dark:bg-neutral-700 dark:text-neutral-300',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    expired: 'bg-stone-100 text-stone-400 dark:bg-neutral-800 dark:text-neutral-500',
   };
-  const cls = colorMap[status] ?? 'bg-gray-800 text-gray-400';
+  const cls = colorMap[status] ?? 'bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400';
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{status}</span>;
 }
 
@@ -460,14 +459,14 @@ function EscrowRow({
   };
 }) {
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+    <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-white">
+        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
           {typeof escrow.title === 'string' ? escrow.title : escrow.escrowId}
         </span>
         <StatusBadge status={escrow.status} />
       </div>
-      <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+      <div className="mt-2 flex items-center gap-3 text-xs text-stone-500 dark:text-neutral-400">
         <span>Client: {escrow.client}</span>
         <span>Provider: {escrow.provider}</span>
       </div>
@@ -488,16 +487,13 @@ const TAB_COMPONENTS: Record<Tab, React.ComponentType> = {
 // ── MarketplaceSection ────────────────────────────────────────────────────────
 
 export default function MarketplaceSection() {
-  const { t } = useT();
   const [activeTab, setActiveTab] = useState<Tab>('search');
   const ActiveComponent = TAB_COMPONENTS[activeTab];
 
   return (
-    <div className="p-4">
-      <h2 className="mb-4 text-xl font-semibold text-white">{t('agentWorld.marketplace')}</h2>
-
+    <PanelScaffold description="Browse products, jobs, escrows, and artifacts">
       {/* Sub-tab chips */}
-      <nav className="mb-4 flex flex-wrap gap-1">
+      <nav className="flex flex-wrap gap-1">
         {TABS.map(tab => (
           <button
             key={tab}
@@ -507,7 +503,7 @@ export default function MarketplaceSection() {
               'rounded-full px-3 py-1 text-sm font-medium transition-colors',
               activeTab === tab
                 ? 'bg-ocean text-white'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+                : 'text-stone-500 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800 hover:text-stone-900 dark:hover:text-neutral-100',
             ].join(' ')}>
             {TAB_LABELS[tab]}
           </button>
@@ -515,6 +511,6 @@ export default function MarketplaceSection() {
       </nav>
 
       <ActiveComponent />
-    </div>
+    </PanelScaffold>
   );
 }
