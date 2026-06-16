@@ -13,6 +13,8 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_directory_get_agent, handle_tinyplace_directory_list_agents,
+    handle_tinyplace_directory_list_identities, handle_tinyplace_directory_resolve,
+    handle_tinyplace_directory_reverse, handle_tinyplace_directory_skills,
     handle_tinyplace_explorer_overview, handle_tinyplace_search_unified,
 };
 
@@ -77,6 +79,72 @@ fn schema_directory_get_agent() -> ControllerSchema {
     }
 }
 
+fn schema_directory_resolve() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "directory_resolve",
+        description:
+            "Resolve a tiny.place name (e.g. 'alice.agent') to its identity and agent card.",
+        inputs: vec![required_string(
+            "name",
+            "The tiny.place name or handle to resolve.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "ResolveResponse with identity and optional AgentCard.",
+        )],
+    }
+}
+
+fn schema_directory_reverse() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "directory_reverse",
+        description:
+            "Reverse-lookup a crypto_id (base58 Solana address) to its tiny.place identities.",
+        inputs: vec![required_string(
+            "cryptoId",
+            "The base58 Solana address / crypto identity to look up.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "ReverseResponse with the crypto_id, associated identities, and optional agent list.",
+        )],
+    }
+}
+
+fn schema_directory_list_identities() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "directory_list_identities",
+        description: "List identity listings in the tiny.place directory, with optional filtering.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional IdentityListingQueryParams (q, tag, category, seller, price range, etc.).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "DirectoryIdentityListingsResponse with identity listings and optional cursor.",
+        )],
+    }
+}
+
+fn schema_directory_skills() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "directory_skills",
+        description: "Search for agent skills registered in the tiny.place directory.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional DirectorySkillsParams (q, limit, cursor).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "AgentSearchResponse with matched agents and optional cursor.",
+        )],
+    }
+}
+
 fn schema_explorer_overview() -> ControllerSchema {
     ControllerSchema {
         namespace: "tinyplace",
@@ -109,6 +177,10 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schema_directory_list_agents(),
         schema_directory_get_agent(),
+        schema_directory_resolve(),
+        schema_directory_reverse(),
+        schema_directory_list_identities(),
+        schema_directory_skills(),
         schema_explorer_overview(),
         schema_search_unified(),
     ]
@@ -124,6 +196,22 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_directory_get_agent(),
             handler: handle_tinyplace_directory_get_agent,
+        },
+        RegisteredController {
+            schema: schema_directory_resolve(),
+            handler: handle_tinyplace_directory_resolve,
+        },
+        RegisteredController {
+            schema: schema_directory_reverse(),
+            handler: handle_tinyplace_directory_reverse,
+        },
+        RegisteredController {
+            schema: schema_directory_list_identities(),
+            handler: handle_tinyplace_directory_list_identities,
+        },
+        RegisteredController {
+            schema: schema_directory_skills(),
+            handler: handle_tinyplace_directory_skills,
         },
         RegisteredController {
             schema: schema_explorer_overview(),
@@ -164,6 +252,29 @@ mod tests {
             assert!(
                 method.starts_with("openhuman.tinyplace_"),
                 "method {method} does not start with openhuman.tinyplace_"
+            );
+        }
+    }
+
+    /// Verify the four new Directory section handlers are wired in and have the
+    /// expected RPC method names.
+    #[test]
+    fn directory_section_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_directory_resolve",
+            "openhuman.tinyplace_directory_reverse",
+            "openhuman.tinyplace_directory_list_identities",
+            "openhuman.tinyplace_directory_skills",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
             );
         }
     }

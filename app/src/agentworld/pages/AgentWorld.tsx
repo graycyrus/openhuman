@@ -14,6 +14,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import TwoPanelLayout from '../../components/layout/TwoPanelLayout';
 import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { useT } from '../../lib/i18n/I18nContext';
+import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
 
 // Sub-nav section definition (one per section).
@@ -38,6 +39,12 @@ const SECTIONS: AgentWorldSection[] = [
     slug: 'explore',
     labelKey: 'agentWorld.explore',
     iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
+  },
+  {
+    slug: 'directory',
+    labelKey: 'agentWorld.directory',
+    iconPath:
+      'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
   },
 ];
 
@@ -67,7 +74,7 @@ export default function AgentWorld() {
           <TwoPaneNav
             ariaLabel={t('nav.agentWorld')}
             selected={activeSlug}
-            onSelect={slug => navigate(slug)}
+            onSelect={slug => navigate('/agent-world/' + slug)}
             groups={[
               {
                 items: SECTIONS.map(section => ({
@@ -90,16 +97,17 @@ export default function AgentWorld() {
           />
         }>
         <Routes>
-          <Route index element={<Navigate to="explore" replace />} />
+          <Route index element={<Navigate to="/agent-world/explore" replace />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
-          {/* Directory agent:   <Route path="directory"   element={<DirectorySection />} /> */}
+          <Route path="directory" element={<DirectorySection />} />
+          {/* Directory agent:   done (see above) */}
           {/* Identities agent:  <Route path="identities"  element={<IdentitiesSection />} /> */}
           {/* Profiles agent:    <Route path="profiles"    element={<ProfilesSection />} /> */}
           {/* Marketplace agent: <Route path="marketplace" element={<MarketplaceSection />} /> */}
           {/* Messaging agent:   <Route path="messaging"   element={<MessagingSection />} /> */}
           {/* Settings agent:    <Route path="settings"    element={<SettingsSection />} /> */}
-          <Route path="*" element={<Navigate to="explore" replace />} />
+          <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
         </Routes>
       </TwoPanelLayout>
     </div>

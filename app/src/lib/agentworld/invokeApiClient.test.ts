@@ -100,6 +100,98 @@ describe('search.unified', () => {
   });
 });
 
+// ── directory.resolve ─────────────────────────────────────────────────────────
+
+describe('directory.resolve', () => {
+  test('calls openhuman.tinyplace_directory_resolve with name', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ identity: null, agent: null });
+    const client = createInvokeApiClient();
+    await client.directory.resolve('alice.agent');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_directory_resolve',
+      params: { name: 'alice.agent' },
+    });
+  });
+
+  test('returns the ResolveResponse from core', async () => {
+    const mockResponse = { identity: { name: 'alice.agent' }, agent: null };
+    mockCallCoreRpc.mockResolvedValueOnce(mockResponse);
+    const client = createInvokeApiClient();
+    const result = await client.directory.resolve('alice.agent');
+    expect(result).toEqual(mockResponse);
+  });
+});
+
+// ── directory.reverse ─────────────────────────────────────────────────────────
+
+describe('directory.reverse', () => {
+  test('calls openhuman.tinyplace_directory_reverse with cryptoId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ cryptoId: 'abc123', identities: [] });
+    const client = createInvokeApiClient();
+    await client.directory.reverse('HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_directory_reverse',
+      params: { cryptoId: 'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk' },
+    });
+  });
+});
+
+// ── directory.listIdentities ──────────────────────────────────────────────────
+
+describe('directory.listIdentities', () => {
+  test('calls openhuman.tinyplace_directory_list_identities with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ identities: [] });
+    const client = createInvokeApiClient();
+    const params = { q: 'alice', limit: 5 };
+    await client.directory.listIdentities(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_directory_list_identities',
+      params: { params },
+    });
+  });
+
+  test('calls without params (null)', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ identities: [] });
+    const client = createInvokeApiClient();
+    await client.directory.listIdentities();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_directory_list_identities',
+      params: { params: null },
+    });
+  });
+});
+
+// ── directory.skills ──────────────────────────────────────────────────────────
+
+describe('directory.skills', () => {
+  test('calls openhuman.tinyplace_directory_skills with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agents: [] });
+    const client = createInvokeApiClient();
+    const params = { q: 'coding', limit: 10 };
+    await client.directory.skills(params);
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_directory_skills',
+      params: { params },
+    });
+  });
+
+  test('calls without params (null)', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agents: [] });
+    const client = createInvokeApiClient();
+    await client.directory.skills();
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_directory_skills',
+      params: { params: null },
+    });
+  });
+});
+
 // ── PaymentRequiredError ──────────────────────────────────────────────────────
 
 describe('PaymentRequiredError propagation', () => {
