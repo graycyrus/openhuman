@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 
+import ChipTabs from '../../components/layout/ChipTabs';
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
   type ArtifactListResult,
@@ -105,7 +106,7 @@ function SearchTab() {
   return (
     <div className="flex flex-col gap-4">
       <input
-        className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-ocean focus:outline-none"
+        className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none"
         placeholder="Search products by name, description, tag, or seller…"
         type="search"
         value={query}
@@ -449,7 +450,7 @@ function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
     active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
     funded: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    accepted: 'bg-ocean text-white',
+    accepted: 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300',
     delivered: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
     settled: 'bg-stone-200 text-stone-600 dark:bg-neutral-700 dark:text-neutral-300',
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
@@ -505,23 +506,15 @@ export default function MarketplaceSection() {
 
   return (
     <PanelScaffold description="Browse products, jobs, escrows, and artifacts">
-      {/* Sub-tab chips */}
-      <nav className="flex flex-wrap gap-1">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            data-active={activeTab === tab}
-            className={[
-              'rounded-full px-3 py-1 text-sm font-medium transition-colors',
-              activeTab === tab
-                ? 'bg-ocean text-white'
-                : 'text-stone-500 dark:text-neutral-400 hover:bg-stone-100 dark:hover:bg-neutral-800 hover:text-stone-900 dark:hover:text-neutral-100',
-            ].join(' ')}>
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </nav>
+      {/* Sub-tab chips — canonical ChipTabs (Settings → Account bubble look) */}
+      <ChipTabs
+        as="tab"
+        ariaLabel="Marketplace sections"
+        className="flex flex-wrap gap-1.5"
+        items={TABS.map(tab => ({ id: tab, label: TAB_LABELS[tab] }))}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       <ActiveComponent />
     </PanelScaffold>
