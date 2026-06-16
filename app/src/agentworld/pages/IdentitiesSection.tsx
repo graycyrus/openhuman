@@ -14,6 +14,7 @@
  */
 import { useEffect, useReducer, useRef, useState } from 'react';
 
+import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
   type AvailabilityResponse,
   type DirectoryIdentityListingsResponse,
@@ -165,7 +166,7 @@ function PaymentRequiredBanner() {
   return (
     <div className="flex flex-col items-center justify-center h-32 gap-2 text-amber-400">
       <p className="text-sm font-medium">Access requires payment</p>
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-stone-500 dark:text-neutral-400">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
     </div>
@@ -179,7 +180,7 @@ function ErrorBanner({ message }: { message: string }) {
 
   if (isWalletLocked) {
     return (
-      <div className="flex flex-col items-center justify-center h-32 gap-2 text-gray-400">
+      <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-500 dark:text-neutral-400">
         <p className="text-sm font-medium">Unlock your wallet to use Agent World</p>
         <p className="text-xs">
           Agent World uses your wallet identity. Import your recovery phrase in Settings to
@@ -192,7 +193,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-32 gap-2 text-red-400">
       <p className="text-sm font-medium">Failed to load</p>
-      <p className="text-xs text-gray-500">{message}</p>
+      <p className="text-xs text-stone-400 dark:text-neutral-500">{message}</p>
     </div>
   );
 }
@@ -220,11 +221,11 @@ function RegisterTab() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-        <h3 className="text-sm font-semibold text-white mb-2">Check handle availability</h3>
+      <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4">
+        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">Check handle availability</h3>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
-            className="flex-1 rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-ocean"
+            className="flex-1 rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 outline-none focus:border-ocean"
             placeholder="Search for a name..."
             type="text"
             value={input}
@@ -241,7 +242,7 @@ function RegisterTab() {
         </form>
 
         {availState.status === 'loading' && (
-          <p className="mt-2 text-xs text-gray-400 animate-pulse">Checking…</p>
+          <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Checking…</p>
         )}
         {availState.status === 'payment_required' && (
           <p className="mt-2 text-xs text-amber-400">Payment required to check availability.</p>
@@ -256,7 +257,7 @@ function RegisterTab() {
                 <span className="text-xs font-medium text-green-500">
                   @{availState.data.name.replace(/^@+/, '')} is available
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-stone-500 dark:text-neutral-400">
                   Register via Agent World on tiny.place
                 </span>
               </div>
@@ -266,7 +267,7 @@ function RegisterTab() {
                   @{availState.data.name.replace(/^@+/, '')} is taken
                 </span>
                 {availState.data.identity && (
-                  <span className="ml-2 text-xs text-gray-400 font-mono">
+                  <span className="ml-2 text-xs text-stone-500 dark:text-neutral-400 font-mono">
                     {availState.data.identity.cryptoId.slice(0, 12)}...
                   </span>
                 )}
@@ -276,8 +277,8 @@ function RegisterTab() {
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-        <h4 className="text-xs font-semibold text-white mb-2">Pricing tiers</h4>
+      <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4">
+        <h4 className="text-xs font-semibold text-stone-900 dark:text-neutral-100 mb-2">Pricing tiers</h4>
         <div className="space-y-1">
           {[
             { label: '3 chars', example: '@abc', fee: '$250/yr' },
@@ -286,7 +287,7 @@ function RegisterTab() {
           ].map(tier => (
             <div
               key={tier.label}
-              className="flex items-center justify-between text-xs text-gray-400">
+              className="flex items-center justify-between text-xs text-stone-500 dark:text-neutral-400">
               <span>
                 {tier.label} <span className="font-mono opacity-60">({tier.example})</span>
               </span>
@@ -296,9 +297,11 @@ function RegisterTab() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-700 bg-gray-800/30 p-4 text-center">
-        <p className="text-sm text-gray-300 font-medium">Register on tiny.place</p>
-        <p className="text-xs text-gray-500 mt-1">
+      <div className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800/30 p-4 text-center">
+        <p className="text-sm font-medium text-stone-600 dark:text-neutral-300">
+          Register on tiny.place
+        </p>
+        <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1">
           Domain registration requires x402 payment signing. Open tiny.place to complete
           registration.
         </p>
@@ -321,43 +324,43 @@ function RegistryTab() {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border border-gray-800">
-        <div className="flex items-center justify-between border-b border-gray-800 px-3 py-2">
-          <span className="text-xs font-medium text-white">Directory identities</span>
-          <span className="text-xs text-gray-500">Live from staging</span>
+      <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between border-b border-stone-200 dark:border-neutral-800 px-3 py-2">
+          <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">Directory identities</span>
+          <span className="text-xs text-stone-400 dark:text-neutral-500">Live from staging</span>
         </div>
 
         {directoryState.status === 'loading' && (
-          <p className="px-3 py-4 text-xs text-gray-400 animate-pulse">Loading identities…</p>
+          <p className="px-3 py-4 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Loading identities…</p>
         )}
         {directoryState.status === 'payment_required' && <PaymentRequiredBanner />}
         {directoryState.status === 'error' && <ErrorBanner message={directoryState.message} />}
         {directoryState.status === 'ok' && listings.length === 0 && (
-          <p className="px-3 py-4 text-xs text-gray-400">
+          <p className="px-3 py-4 text-xs text-stone-500 dark:text-neutral-400">
             No directory identities are currently listed.
           </p>
         )}
         {listings.length > 0 && (
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-gray-800">
-                <th className="px-3 py-2 font-medium text-gray-500">Handle</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Seller</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Updated</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Status</th>
-                <th className="px-3 py-2 text-right font-medium text-gray-500">Price</th>
+              <tr className="border-b border-stone-200 dark:border-neutral-800">
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Handle</th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Seller</th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Updated</th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Status</th>
+                <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">Price</th>
               </tr>
             </thead>
             <tbody>
               {listings.map((entry, index) => (
                 <tr
                   key={entry.listingId}
-                  className={`border-b border-gray-800 last:border-b-0 ${
-                    index % 2 === 1 ? 'bg-gray-900/50' : ''
+                  className={`border-b border-stone-200 dark:border-neutral-800 last:border-b-0 ${
+                    index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
                   }`}>
-                  <td className="px-3 py-2 font-medium text-white">{entry.name}</td>
-                  <td className="px-3 py-2 font-mono text-gray-500">{entry.seller ?? '—'}</td>
-                  <td className="px-3 py-2 text-gray-500">{formatDate(entry.updatedAt)}</td>
+                  <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">{entry.name}</td>
+                  <td className="px-3 py-2 font-mono text-stone-400 dark:text-neutral-500">{entry.seller ?? '—'}</td>
+                  <td className="px-3 py-2 text-stone-400 dark:text-neutral-500">{formatDate(entry.updatedAt)}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -368,7 +371,7 @@ function RegistryTab() {
                       {entry.status ?? 'unknown'}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right font-medium text-white">
+                  <td className="px-3 py-2 text-right font-medium text-stone-900 dark:text-neutral-100">
                     {entry.price ? formatPrice(entry.price.amount, entry.price.asset) : '—'}
                   </td>
                 </tr>
@@ -393,20 +396,20 @@ function FloorCard({ length }: { length: number }) {
   };
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-      <div className="text-xs text-gray-500">{labels[length] ?? `${String(length)} chars`}</div>
-      <div className="mt-1 text-sm font-semibold text-white">
+    <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
+      <div className="text-xs text-stone-400 dark:text-neutral-500">{labels[length] ?? `${String(length)} chars`}</div>
+      <div className="mt-1 text-sm font-semibold text-stone-900 dark:text-neutral-100">
         {state.status === 'loading' && (
-          <span className="animate-pulse text-gray-500">Loading…</span>
+          <span className="animate-pulse text-stone-400 dark:text-neutral-500">Loading…</span>
         )}
         {state.status === 'ok' && state.data.price
           ? formatPrice(state.data.price.amount, state.data.price.asset)
           : state.status === 'ok'
             ? 'No floor'
             : null}
-        {state.status === 'error' && <span className="text-gray-500">Unavailable</span>}
+        {state.status === 'error' && <span className="text-stone-400 dark:text-neutral-500">Unavailable</span>}
       </div>
-      <div className="mt-1 text-xs text-gray-500">
+      <div className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
         {descriptions[length] ?? 'Handle identities'}
       </div>
     </div>
@@ -426,7 +429,7 @@ function TradingTab() {
     <div className="space-y-4">
       {/* Floor prices */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
           Floor Prices
         </h3>
         <div className="grid grid-cols-3 gap-2">
@@ -438,36 +441,36 @@ function TradingTab() {
 
       {/* Listed for sale */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
           Listed for Sale
         </h3>
         {marketState.status === 'loading' && (
-          <p className="text-xs text-gray-400 animate-pulse">Loading listings…</p>
+          <p className="text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Loading listings…</p>
         )}
         {marketState.status === 'payment_required' && <PaymentRequiredBanner />}
         {marketState.status === 'error' && <ErrorBanner message={marketState.message} />}
         {marketState.status === 'ok' && listings.length === 0 && (
-          <p className="text-xs text-gray-400">No identities listed for sale</p>
+          <p className="text-xs text-stone-500 dark:text-neutral-400">No identities listed for sale</p>
         )}
         {listings.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
             {listings.map(listing => (
               <div
                 key={listing.listingId}
-                className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+                className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-white">{listing.name}</span>
+                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">{listing.name}</span>
                   {listing.listingType === 'auction' && (
                     <span className="rounded-full bg-orange-600/20 px-2 py-0.5 text-xs font-medium text-orange-500">
                       Auction
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-xs font-semibold text-white">
+                <div className="mt-1 text-xs font-semibold text-stone-900 dark:text-neutral-100">
                   {formatPrice(listing.price.amount, listing.price.asset)}
                 </div>
                 {listing.seller && (
-                  <div className="mt-0.5 text-xs text-gray-500">by {listing.seller}</div>
+                  <div className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">by {listing.seller}</div>
                 )}
               </div>
             ))}
@@ -477,44 +480,44 @@ function TradingTab() {
 
       {/* Recent sales */}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-neutral-500">
           Recent Sales
         </h3>
-        <div className="overflow-hidden rounded-lg border border-gray-800">
+        <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
           {salesState.status === 'loading' && (
-            <p className="p-3 text-xs text-gray-400 animate-pulse">Loading sales…</p>
+            <p className="p-3 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Loading sales…</p>
           )}
           {salesState.status === 'error' && (
             <p className="p-3 text-xs text-red-400">Failed to load sales</p>
           )}
           {salesState.status === 'ok' && sales.length === 0 && (
-            <p className="p-3 text-xs text-gray-400">No recent sales</p>
+            <p className="p-3 text-xs text-stone-500 dark:text-neutral-400">No recent sales</p>
           )}
           {sales.length > 0 && (
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="px-3 py-2 font-medium text-gray-500">Handle</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Price</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Buyer</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-500">Date</th>
+                <tr className="border-b border-stone-200 dark:border-neutral-800">
+                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Handle</th>
+                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Price</th>
+                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Buyer</th>
+                  <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {sales.map((sale, index) => (
                   <tr
                     key={sale.saleId}
-                    className={`border-b border-gray-800 last:border-b-0 ${
-                      index % 2 === 1 ? 'bg-gray-900/50' : ''
+                    className={`border-b border-stone-200 dark:border-neutral-800 last:border-b-0 ${
+                      index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
                     }`}>
-                    <td className="px-3 py-2 font-medium text-white">{sale.name}</td>
-                    <td className="px-3 py-2 text-white">
+                    <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">{sale.name}</td>
+                    <td className="px-3 py-2 text-stone-900 dark:text-neutral-100">
                       {formatPrice(sale.price.amount, sale.price.asset)}
                     </td>
-                    <td className="px-3 py-2 font-mono text-gray-500">
+                    <td className="px-3 py-2 font-mono text-stone-400 dark:text-neutral-500">
                       {sale.buyer.slice(0, 12)}...
                     </td>
-                    <td className="px-3 py-2 text-right text-gray-500">
+                    <td className="px-3 py-2 text-right text-stone-400 dark:text-neutral-500">
                       {sale.createdAt.slice(0, 10)}
                     </td>
                   </tr>
@@ -548,7 +551,7 @@ export default function IdentitiesSection() {
   const [{ tab, key }, dispatch] = useReducer(tabReducer, { tab: 'register', key: 0 });
 
   return (
-    <div className="p-4 space-y-3">
+    <PanelScaffold description="Claim handles, manage your registry, and trade identities">
       <div className="flex gap-1">
         {(Object.keys(TAB_KEYS) as Tab[]).map(tabKey => (
           <button
@@ -562,7 +565,7 @@ export default function IdentitiesSection() {
               'px-3 py-1 rounded-full text-xs font-medium transition-colors',
               tab === tabKey
                 ? 'bg-ocean text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                : 'text-stone-500 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800',
             ].join(' ')}>
             {TAB_KEYS[tabKey]}
           </button>
@@ -574,6 +577,6 @@ export default function IdentitiesSection() {
         {tab === 'registry' && <RegistryTab />}
         {tab === 'trading' && <TradingTab />}
       </div>
-    </div>
+    </PanelScaffold>
   );
 }
