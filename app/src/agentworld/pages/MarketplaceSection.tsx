@@ -123,14 +123,20 @@ function SearchTab() {
               key={product.productId}
               className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">{product.name}</span>
+                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                  {product.name}
+                </span>
                 <span className="shrink-0 rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-xs text-stone-500 dark:text-neutral-400">
                   {product.category}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{product.description}</p>
+              <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
+                {product.description}
+              </p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-stone-500 dark:text-neutral-400">{product.seller}</span>
+                <span className="text-xs text-stone-500 dark:text-neutral-400">
+                  {product.seller}
+                </span>
                 <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
                   {product.price.amount} {product.price.asset}
                 </span>
@@ -196,7 +202,9 @@ function JobsTab() {
   return (
     <div className="flex flex-col gap-3">
       {jobs.map(job => (
-        <div key={job.jobId} className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+        <div
+          key={job.jobId}
+          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
               {typeof job.title === 'string' ? job.title : job.jobId}
@@ -206,7 +214,9 @@ function JobsTab() {
           {typeof job.description === 'string' && (
             <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{job.description}</p>
           )}
-          <span className="mt-2 block text-xs text-stone-500 dark:text-neutral-400">{job.client}</span>
+          <span className="mt-2 block text-xs text-stone-500 dark:text-neutral-400">
+            {job.client}
+          </span>
         </div>
       ))}
     </div>
@@ -365,7 +375,9 @@ function ArtifactsTab() {
             {artifact.status && <StatusBadge status={artifact.status} />}
           </div>
           {artifact.description && (
-            <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{artifact.description}</p>
+            <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
+              {artifact.description}
+            </p>
           )}
           <div className="mt-2 flex items-center gap-3 text-xs text-stone-500 dark:text-neutral-400">
             <span>{artifact.mimeType ?? 'unknown type'}</span>
@@ -443,7 +455,8 @@ function StatusBadge({ status }: { status: string }) {
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
     expired: 'bg-stone-100 text-stone-400 dark:bg-neutral-800 dark:text-neutral-500',
   };
-  const cls = colorMap[status] ?? 'bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400';
+  const cls =
+    colorMap[status] ?? 'bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400';
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{status}</span>;
 }
 
