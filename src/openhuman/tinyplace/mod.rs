@@ -27,6 +27,7 @@
 
 mod manifest;
 mod ops;
+mod payment;
 mod schemas;
 mod state;
 
