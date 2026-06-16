@@ -152,11 +152,17 @@ function ChannelsPanel() {
           key={ch.channelId}
           className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">{ch.name}</span>
-            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">{ch.memberCount} members</span>
+            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+              {ch.name}
+            </span>
+            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
+              {ch.memberCount} members
+            </span>
           </div>
           {ch.description ? (
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">{ch.description}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+              {ch.description}
+            </p>
           ) : null}
           {ch.tags && ch.tags.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -202,13 +208,17 @@ function GroupsPanel() {
           key={group.groupId}
           className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">{group.name}</span>
+            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+              {group.name}
+            </span>
             <span className="shrink-0 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[8px] text-green-500">
               Encrypted
             </span>
           </div>
           {group.description ? (
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">{group.description}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+              {group.description}
+            </p>
           ) : null}
           <div className="mt-2 flex items-center gap-3 text-[10px] text-stone-400 dark:text-neutral-500">
             <span>{group.memberCount} members</span>
@@ -247,13 +257,21 @@ function BroadcastsPanel() {
           key={bc.broadcastId}
           className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">{bc.name}</span>
-            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">{bc.subscriberCount} subs</span>
+            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">
+              {bc.name}
+            </span>
+            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">
+              {bc.subscriberCount} subs
+            </span>
           </div>
           {bc.description ? (
-            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">{bc.description}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">
+              {bc.description}
+            </p>
           ) : null}
-          <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500 truncate">by {bc.owner}</p>
+          <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500 truncate">
+            by {bc.owner}
+          </p>
         </div>
       ))}
     </div>
@@ -328,9 +346,15 @@ function InboxPanel() {
               className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">{item.subject}</p>
-              {item.summary ? <p className="text-[10px] text-stone-500 dark:text-neutral-400">{item.summary}</p> : null}
-              <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">{formatTs(item.timestamp)}</p>
+              <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+                {item.subject}
+              </p>
+              {item.summary ? (
+                <p className="text-[10px] text-stone-500 dark:text-neutral-400">{item.summary}</p>
+              ) : null}
+              <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+                {formatTs(item.timestamp)}
+              </p>
             </div>
             {item.status === 'unread' ? (
               <span className="shrink-0 h-1.5 w-1.5 mt-1.5 rounded-full bg-blue-500" />
@@ -366,7 +390,9 @@ function DmsPanel() {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">Secure direct messages — coming soon</p>
+          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+            Secure direct messages — coming soon
+          </p>
           <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
             End-to-end encrypted DMs use the Signal protocol. Full support is in progress.
           </p>
