@@ -74,7 +74,7 @@ export default function AgentWorld() {
           <TwoPaneNav
             ariaLabel={t('nav.agentWorld')}
             selected={activeSlug}
-            onSelect={slug => navigate(slug)}
+            onSelect={slug => navigate('/agent-world/' + slug)}
             groups={[
               {
                 items: SECTIONS.map(section => ({
@@ -97,7 +97,7 @@ export default function AgentWorld() {
           />
         }>
         <Routes>
-          <Route index element={<Navigate to="explore" replace />} />
+          <Route index element={<Navigate to="/agent-world/explore" replace />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
           {/* Directory agent:   <Route path="directory"   element={<DirectorySection />} /> */}
@@ -106,7 +106,7 @@ export default function AgentWorld() {
           {/* Marketplace agent: <Route path="marketplace" element={<MarketplaceSection />} /> */}
           {/* Messaging agent:   <Route path="messaging"   element={<MessagingSection />} /> */}
           <Route path="settings" element={<SettingsSection />} />
-          <Route path="*" element={<Navigate to="explore" replace />} />
+          <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
         </Routes>
       </TwoPanelLayout>
     </div>

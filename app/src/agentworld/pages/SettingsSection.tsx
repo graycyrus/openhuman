@@ -113,7 +113,7 @@ export default function SettingsSection() {
                 className={[
                   'group rounded-md border p-2 text-left transition-colors',
                   selected
-                    ? 'border-ocean ring-1 ring-ocean'
+                    ? 'border-primary-500 ring-1 ring-primary-500'
                     : 'border-stone-200 bg-white hover:border-stone-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700',
                 ].join(' ')}>
                 {/* Colour swatch preview */}
@@ -150,7 +150,7 @@ export default function SettingsSection() {
                     className={[
                       'flex h-5 w-5 items-center justify-center rounded-full',
                       selected
-                        ? 'bg-ocean text-white'
+                        ? 'bg-primary-600 text-white'
                         : 'bg-stone-200 text-stone-500 dark:bg-neutral-700 dark:text-neutral-400',
                     ].join(' ')}>
                     {selected ? <LuCheck size={14} /> : null}
