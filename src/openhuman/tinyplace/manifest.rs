@@ -802,3 +802,183 @@ pub(crate) fn handle_tinyplace_inbox_list(params: Map<String, Value>) -> Control
         to_value(result)
     })
 }
+
+fn opt_owner(params: &Map<String, Value>) -> Option<String> {
+    params
+        .get("owner")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+pub(crate) fn handle_tinyplace_broadcasts_subscribe(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let broadcast_id = req_str(&params, "broadcastId")?.to_string();
+        log::debug!("{LOG_PREFIX} broadcasts_subscribe broadcast_id={broadcast_id}");
+        let client = global_state().client().await?;
+        let result = client
+            .broadcasts
+            .subscribe(&broadcast_id, None)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_broadcasts_unsubscribe(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let broadcast_id = req_str(&params, "broadcastId")?.to_string();
+        log::debug!("{LOG_PREFIX} broadcasts_unsubscribe broadcast_id={broadcast_id}");
+        let client = global_state().client().await?;
+        client
+            .broadcasts
+            .unsubscribe(&broadcast_id, None)
+            .await
+            .map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_channels_join(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let channel_id = req_str(&params, "channelId")?.to_string();
+        log::debug!("{LOG_PREFIX} channels_join channel_id={channel_id}");
+        let client = global_state().client().await?;
+        let result = client
+            .channels
+            .join(&channel_id, None)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_channels_leave(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let channel_id = req_str(&params, "channelId")?.to_string();
+        log::debug!("{LOG_PREFIX} channels_leave channel_id={channel_id}");
+        let client = global_state().client().await?;
+        client
+            .channels
+            .leave(&channel_id, None)
+            .await
+            .map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_join(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_join group_id={group_id}");
+        let client = global_state().client().await?;
+        let result = client.groups.join(&group_id, None).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_leave(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        use tinyplace::Signer as _;
+        let group_id = req_str(&params, "groupId")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_leave group_id={group_id}");
+        let client = global_state().client().await?;
+        // Leaving = removing ourselves; the SDK exposes no `groups.leave`.
+        let me = client
+            .http()
+            .signer()
+            .map(|s| s.agent_id())
+            .ok_or_else(|| "tinyplace signer unavailable; cannot leave group".to_string())?;
+        client
+            .groups
+            .remove_member(&group_id, &me, None)
+            .await
+            .map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_inbox_archive(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let item_id = req_str(&params, "itemId")?.to_string();
+        let owner = opt_owner(&params);
+        log::debug!("{LOG_PREFIX} inbox_archive item_id={item_id} owner={owner:?}");
+        let client = global_state().client().await?;
+        let result = client
+            .inbox
+            .archive(&item_id, owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_inbox_mark_all_read(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let clear_params: Option<tinyplace::api::inbox::InboxClearParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid inbox mark_all_read params: {e}"))
+            })
+            .transpose()?;
+        let owner = opt_owner(&params);
+        log::debug!("{LOG_PREFIX} inbox_mark_all_read owner={owner:?}");
+        let client = global_state().client().await?;
+        let result = client
+            .inbox
+            .mark_all_read(clear_params.as_ref(), owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_inbox_mark_read(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let item_id = req_str(&params, "itemId")?.to_string();
+        let owner = opt_owner(&params);
+        log::debug!("{LOG_PREFIX} inbox_mark_read item_id={item_id} owner={owner:?}");
+        let client = global_state().client().await?;
+        let result = client
+            .inbox
+            .mark_read(&item_id, owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_inbox_remove(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let item_id = req_str(&params, "itemId")?.to_string();
+        let owner = opt_owner(&params);
+        log::debug!("{LOG_PREFIX} inbox_remove item_id={item_id} owner={owner:?}");
+        let client = global_state().client().await?;
+        client
+            .inbox
+            .remove(&item_id, owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_inbox_unarchive(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let item_id = req_str(&params, "itemId")?.to_string();
+        let owner = opt_owner(&params);
+        log::debug!("{LOG_PREFIX} inbox_unarchive item_id={item_id} owner={owner:?}");
+        let client = global_state().client().await?;
+        let result = client
+            .inbox
+            .unarchive(&item_id, owner.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}

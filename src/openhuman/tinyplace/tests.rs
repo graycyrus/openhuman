@@ -150,3 +150,106 @@ mod map_err_tests {
             .expect("PAYMENT_REQUIRED payload must be valid JSON");
     }
 }
+
+// ── Inbox write-handler param validation ──────────────────────────────────────
+//
+// The item-targeting inbox writes require `itemId` and must error at param
+// validation — before constructing the client or hitting the network. Awaiting
+// the handler future with empty params exercises exactly that path.
+
+#[cfg(test)]
+mod inbox_write_handlers {
+    use serde_json::Map;
+
+    use crate::openhuman::tinyplace::manifest::{
+        handle_tinyplace_inbox_archive, handle_tinyplace_inbox_mark_read,
+        handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive,
+    };
+
+    #[tokio::test]
+    async fn mark_read_requires_item_id() {
+        let err = handle_tinyplace_inbox_mark_read(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("itemId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn archive_requires_item_id() {
+        let err = handle_tinyplace_inbox_archive(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("itemId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn unarchive_requires_item_id() {
+        let err = handle_tinyplace_inbox_unarchive(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("itemId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn remove_requires_item_id() {
+        let err = handle_tinyplace_inbox_remove(Map::new()).await.unwrap_err();
+        assert!(err.contains("itemId"), "got: {err}");
+    }
+}
+
+// ── Channel / broadcast / group membership-handler param validation ────────────
+
+#[cfg(test)]
+mod membership_handlers {
+    use serde_json::Map;
+
+    use crate::openhuman::tinyplace::manifest::{
+        handle_tinyplace_broadcasts_subscribe, handle_tinyplace_broadcasts_unsubscribe,
+        handle_tinyplace_channels_join, handle_tinyplace_channels_leave,
+        handle_tinyplace_groups_join, handle_tinyplace_groups_leave,
+    };
+
+    #[tokio::test]
+    async fn channels_join_requires_channel_id() {
+        let err = handle_tinyplace_channels_join(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("channelId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn channels_leave_requires_channel_id() {
+        let err = handle_tinyplace_channels_leave(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("channelId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn broadcasts_subscribe_requires_broadcast_id() {
+        let err = handle_tinyplace_broadcasts_subscribe(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("broadcastId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn broadcasts_unsubscribe_requires_broadcast_id() {
+        let err = handle_tinyplace_broadcasts_unsubscribe(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("broadcastId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn groups_join_requires_group_id() {
+        let err = handle_tinyplace_groups_join(Map::new()).await.unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn groups_leave_requires_group_id() {
+        let err = handle_tinyplace_groups_leave(Map::new()).await.unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+    }
+}
