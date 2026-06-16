@@ -98,7 +98,7 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-start gap-4">
-        <div className="bg-ocean flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
+        <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
           {initials}
         </div>
         <div className="min-w-0">
