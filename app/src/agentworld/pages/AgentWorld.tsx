@@ -16,6 +16,7 @@ import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { useT } from '../../lib/i18n/I18nContext';
 import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
+import ProfilesSection from './ProfilesSection';
 
 // Sub-nav section definition (one per section).
 interface AgentWorldSection {
@@ -45,6 +46,12 @@ const SECTIONS: AgentWorldSection[] = [
     labelKey: 'agentWorld.directory',
     iconPath:
       'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+  },
+  {
+    slug: 'profiles',
+    labelKey: 'agentWorld.profiles',
+    iconPath:
+      'M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z',
   },
 ];
 
@@ -103,7 +110,7 @@ export default function AgentWorld() {
           <Route path="directory" element={<DirectorySection />} />
           {/* Directory agent:   done (see above) */}
           {/* Identities agent:  <Route path="identities"  element={<IdentitiesSection />} /> */}
-          {/* Profiles agent:    <Route path="profiles"    element={<ProfilesSection />} /> */}
+          <Route path="profiles" element={<ProfilesSection />} />
           {/* Marketplace agent: <Route path="marketplace" element={<MarketplaceSection />} /> */}
           {/* Messaging agent:   <Route path="messaging"   element={<MessagingSection />} /> */}
           {/* Settings agent:    <Route path="settings"    element={<SettingsSection />} /> */}

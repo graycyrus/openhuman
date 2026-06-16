@@ -191,3 +191,127 @@ pub(crate) fn handle_tinyplace_search_unified(params: Map<String, Value>) -> Con
         to_value(result)
     })
 }
+
+// === AGENT-WORLD SECTION MANIFEST (append rows here) ===
+// Each block = one `manifest row`. Format:
+//   pub(crate) fn handle_tinyplace_<domain>_<method>(params: Map<String, Value>) -> ControllerFuture { … }
+// The handler is then referenced in `schemas.rs` via all_tinyplace_registered_controllers().
+
+// ── Profiles: get ────────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_profiles_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} profiles_get username={username}");
+        let client = global_state().client().await?;
+        let result = client.profiles.get(&username).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Profiles: activity ───────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_profiles_activity(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} profiles_activity username={username}");
+        let client = global_state().client().await?;
+        let result = client.profiles.activity(&username).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Profiles: groups ─────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_profiles_groups(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} profiles_groups username={username}");
+        let client = global_state().client().await?;
+        let result = client.profiles.groups(&username).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Profiles: broadcasts ─────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_profiles_broadcasts(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} profiles_broadcasts username={username}");
+        let client = global_state().client().await?;
+        let result = client
+            .profiles
+            .broadcasts(&username)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Profiles: attestations ───────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_profiles_attestations(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} profiles_attestations username={username}");
+        let client = global_state().client().await?;
+        let result = client
+            .profiles
+            .attestations(&username)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Profiles: agent_card ─────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_profiles_agent_card(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} profiles_agent_card username={username}");
+        let client = global_state().client().await?;
+        let result = client
+            .profiles
+            .agent_card(&username)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Users: get ───────────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_users_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        log::debug!("{LOG_PREFIX} users_get crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        let result = client.users.get(&crypto_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Users: update_profile ────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_users_update_profile(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        let update_value = params.get("update").cloned().unwrap_or(Value::Null);
+        let update: tinyplace::types::UserProfileUpdate = serde_json::from_value(update_value)
+            .map_err(|e| format!("invalid users update_profile params: {e}"))?;
+        log::debug!("{LOG_PREFIX} users_update_profile crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        let result = client
+            .users
+            .update_profile(&crypto_id, update)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
