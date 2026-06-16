@@ -227,7 +227,7 @@ function RegisterTab() {
         </h3>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
-            className="flex-1 rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 outline-none focus:border-ocean"
+            className="flex-1 rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 outline-none focus:border-primary-500"
             placeholder="Search for a name..."
             type="text"
             value={input}
@@ -238,7 +238,7 @@ function RegisterTab() {
           <button
             type="submit"
             disabled={!input.trim()}
-            className="rounded-md bg-ocean px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
             Check
           </button>
         </form>
@@ -612,10 +612,10 @@ export default function IdentitiesSection() {
             }}
             data-active={tab === tabKey}
             className={[
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors',
+              'rounded-full px-3 py-1 text-xs font-medium transition-colors',
               tab === tabKey
-                ? 'bg-ocean text-white'
-                : 'text-stone-500 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800',
+                ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
             ].join(' ')}>
             {TAB_KEYS[tabKey]}
           </button>
