@@ -70,18 +70,22 @@ export default function SettingsSection() {
   log('render theme_mode=%s', themeMode);
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
+    <div className="h-full max-w-2xl space-y-6 overflow-y-auto p-6">
       {/* Header */}
       <header>
-        <h1 className="font-heading text-2xl font-bold text-white">{t('agentWorld.settings')}</h1>
-        <p className="mt-2 text-sm leading-6 text-gray-400">
+        <h1 className="font-heading text-2xl font-bold text-stone-900 dark:text-neutral-100">
+          {t('agentWorld.settings')}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-stone-500 dark:text-neutral-400">
           {t('agentWorld.settings.description')}
         </p>
       </header>
 
       {/* Language */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white">{t('agentWorld.settings.language')}</h2>
+        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          {t('agentWorld.settings.language')}
+        </h2>
         <LanguageSelect
           ariaLabel={t('agentWorld.settings.language')}
           id="agent-world-language-select"
@@ -90,7 +94,9 @@ export default function SettingsSection() {
 
       {/* Theme */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white">{t('agentWorld.settings.theme')}</h2>
+        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          {t('agentWorld.settings.theme')}
+        </h2>
         <div className="grid gap-2 sm:grid-cols-3">
           {THEME_OPTIONS.map(option => {
             const selected = option.mode === themeMode;
@@ -108,7 +114,7 @@ export default function SettingsSection() {
                   'group rounded-md border p-2 text-left transition-colors',
                   selected
                     ? 'border-ocean ring-1 ring-ocean'
-                    : 'border-gray-700 bg-gray-900 hover:border-gray-600',
+                    : 'border-stone-200 bg-white hover:border-stone-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700',
                 ].join(' ')}>
                 {/* Colour swatch preview */}
                 <div
@@ -137,11 +143,15 @@ export default function SettingsSection() {
                 </div>
                 {/* Label + selected indicator */}
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-white">{t(option.labelKey)}</span>
+                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                    {t(option.labelKey)}
+                  </span>
                   <span
                     className={[
                       'flex h-5 w-5 items-center justify-center rounded-full',
-                      selected ? 'bg-ocean text-white' : 'bg-gray-700 text-gray-400',
+                      selected
+                        ? 'bg-ocean text-white'
+                        : 'bg-stone-200 text-stone-500 dark:bg-neutral-700 dark:text-neutral-400',
                     ].join(' ')}>
                     {selected ? <LuCheck size={14} /> : null}
                   </span>
