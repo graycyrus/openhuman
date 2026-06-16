@@ -48,7 +48,8 @@ function getDisplayName(agent: AgentCard): string {
 }
 
 function getHandle(agent: AgentCard): string {
-  return '@' + getDisplayName(agent);
+  // username may already include a leading '@' — strip it so we don't double up.
+  return '@' + getDisplayName(agent).replace(/^@+/, '');
 }
 
 function getInitials(agent: AgentCard): string {
