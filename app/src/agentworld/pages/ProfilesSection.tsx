@@ -21,7 +21,8 @@ function truncateCryptoId(cryptoId: string): string {
 function formatHandle(agent: AgentCard): string {
   const name =
     (agent['username'] as string | undefined) ?? (agent.name as string | undefined) ?? '';
-  return `@${name}`;
+  // username may already include a leading '@' — strip it so we don't double up.
+  return `@${name.replace(/^@+/, '')}`;
 }
 
 function formatDate(iso: string): string {

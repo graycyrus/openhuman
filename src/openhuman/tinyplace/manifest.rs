@@ -49,27 +49,20 @@ fn req_str<'a>(params: &'a Map<String, Value>, key: &str) -> Result<&'a str, Str
 // ── Directory: list_agents ────────────────────────────────────────────────────
 
 pub(crate) fn handle_tinyplace_directory_list_agents(
-    params: Map<String, Value>,
+    _params: Map<String, Value>,
 ) -> ControllerFuture {
     Box::pin(async move {
-        log::debug!(
-            "{LOG_PREFIX} directory_list_agents params_keys={:?}",
-            params.keys().collect::<Vec<_>>()
-        );
-        // Optional nested params object (may be absent or null).
-        let query_params: Option<tinyplace::types::AgentQueryParams> = params
-            .get("params")
-            .and_then(|v| if v.is_null() { None } else { Some(v) })
-            .map(|v| {
-                serde_json::from_value(v.clone())
-                    .map_err(|e| format!("invalid directory list_agents params: {e}"))
-            })
-            .transpose()?;
-
+        log::debug!("{LOG_PREFIX} directory_list_agents (raw passthrough)");
         let client = global_state().client().await?;
-        let result = client
-            .directory
-            .list_agents(query_params.as_ref())
+        // The SDK types AgentCardSummary.skills/tags as Vec<String>, but the backend
+        // returns them as objects ({ id, name }) — so the SDK's typed list_agents()
+        // fails to deserialize ("invalid type: map, expected a string"). Fetch the
+        // raw JSON instead and let the renderer normalise the shape (its
+        // getSkills/toLabel helpers already handle string-or-object). Query params
+        // are unused by the current sections; add query support here if needed.
+        let result: serde_json::Value = client
+            .http()
+            .get("/directory/agents", &[])
             .await
             .map_err(map_err)?;
         to_value(result)
