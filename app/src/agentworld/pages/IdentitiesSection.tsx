@@ -222,7 +222,9 @@ function RegisterTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4">
-        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">Check handle availability</h3>
+        <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100 mb-2">
+          Check handle availability
+        </h3>
         <form className="flex gap-2" onSubmit={handleSubmit}>
           <input
             className="flex-1 rounded-md border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 outline-none focus:border-ocean"
@@ -242,7 +244,9 @@ function RegisterTab() {
         </form>
 
         {availState.status === 'loading' && (
-          <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Checking…</p>
+          <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
+            Checking…
+          </p>
         )}
         {availState.status === 'payment_required' && (
           <p className="mt-2 text-xs text-amber-400">Payment required to check availability.</p>
@@ -278,7 +282,9 @@ function RegisterTab() {
       </div>
 
       <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4">
-        <h4 className="text-xs font-semibold text-stone-900 dark:text-neutral-100 mb-2">Pricing tiers</h4>
+        <h4 className="text-xs font-semibold text-stone-900 dark:text-neutral-100 mb-2">
+          Pricing tiers
+        </h4>
         <div className="space-y-1">
           {[
             { label: '3 chars', example: '@abc', fee: '$250/yr' },
@@ -326,12 +332,16 @@ function RegistryTab() {
     <div className="space-y-3">
       <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
         <div className="flex items-center justify-between border-b border-stone-200 dark:border-neutral-800 px-3 py-2">
-          <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">Directory identities</span>
+          <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+            Directory identities
+          </span>
           <span className="text-xs text-stone-400 dark:text-neutral-500">Live from staging</span>
         </div>
 
         {directoryState.status === 'loading' && (
-          <p className="px-3 py-4 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Loading identities…</p>
+          <p className="px-3 py-4 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
+            Loading identities…
+          </p>
         )}
         {directoryState.status === 'payment_required' && <PaymentRequiredBanner />}
         {directoryState.status === 'error' && <ErrorBanner message={directoryState.message} />}
@@ -344,11 +354,21 @@ function RegistryTab() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-stone-200 dark:border-neutral-800">
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Handle</th>
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Seller</th>
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Updated</th>
-                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Status</th>
-                <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">Price</th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                  Handle
+                </th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                  Seller
+                </th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                  Updated
+                </th>
+                <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                  Status
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">
+                  Price
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -358,9 +378,15 @@ function RegistryTab() {
                   className={`border-b border-stone-200 dark:border-neutral-800 last:border-b-0 ${
                     index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
                   }`}>
-                  <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">{entry.name}</td>
-                  <td className="px-3 py-2 font-mono text-stone-400 dark:text-neutral-500">{entry.seller ?? '—'}</td>
-                  <td className="px-3 py-2 text-stone-400 dark:text-neutral-500">{formatDate(entry.updatedAt)}</td>
+                  <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">
+                    {entry.name}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-stone-400 dark:text-neutral-500">
+                    {entry.seller ?? '—'}
+                  </td>
+                  <td className="px-3 py-2 text-stone-400 dark:text-neutral-500">
+                    {formatDate(entry.updatedAt)}
+                  </td>
                   <td className="px-3 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -397,7 +423,9 @@ function FloorCard({ length }: { length: number }) {
 
   return (
     <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
-      <div className="text-xs text-stone-400 dark:text-neutral-500">{labels[length] ?? `${String(length)} chars`}</div>
+      <div className="text-xs text-stone-400 dark:text-neutral-500">
+        {labels[length] ?? `${String(length)} chars`}
+      </div>
       <div className="mt-1 text-sm font-semibold text-stone-900 dark:text-neutral-100">
         {state.status === 'loading' && (
           <span className="animate-pulse text-stone-400 dark:text-neutral-500">Loading…</span>
@@ -407,7 +435,9 @@ function FloorCard({ length }: { length: number }) {
           : state.status === 'ok'
             ? 'No floor'
             : null}
-        {state.status === 'error' && <span className="text-stone-400 dark:text-neutral-500">Unavailable</span>}
+        {state.status === 'error' && (
+          <span className="text-stone-400 dark:text-neutral-500">Unavailable</span>
+        )}
       </div>
       <div className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
         {descriptions[length] ?? 'Handle identities'}
@@ -445,12 +475,16 @@ function TradingTab() {
           Listed for Sale
         </h3>
         {marketState.status === 'loading' && (
-          <p className="text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Loading listings…</p>
+          <p className="text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
+            Loading listings…
+          </p>
         )}
         {marketState.status === 'payment_required' && <PaymentRequiredBanner />}
         {marketState.status === 'error' && <ErrorBanner message={marketState.message} />}
         {marketState.status === 'ok' && listings.length === 0 && (
-          <p className="text-xs text-stone-500 dark:text-neutral-400">No identities listed for sale</p>
+          <p className="text-xs text-stone-500 dark:text-neutral-400">
+            No identities listed for sale
+          </p>
         )}
         {listings.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
@@ -459,7 +493,9 @@ function TradingTab() {
                 key={listing.listingId}
                 className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">{listing.name}</span>
+                  <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+                    {listing.name}
+                  </span>
                   {listing.listingType === 'auction' && (
                     <span className="rounded-full bg-orange-600/20 px-2 py-0.5 text-xs font-medium text-orange-500">
                       Auction
@@ -470,7 +506,9 @@ function TradingTab() {
                   {formatPrice(listing.price.amount, listing.price.asset)}
                 </div>
                 {listing.seller && (
-                  <div className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">by {listing.seller}</div>
+                  <div className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">
+                    by {listing.seller}
+                  </div>
                 )}
               </div>
             ))}
@@ -485,7 +523,9 @@ function TradingTab() {
         </h3>
         <div className="overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
           {salesState.status === 'loading' && (
-            <p className="p-3 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">Loading sales…</p>
+            <p className="p-3 text-xs text-stone-500 dark:text-neutral-400 animate-pulse">
+              Loading sales…
+            </p>
           )}
           {salesState.status === 'error' && (
             <p className="p-3 text-xs text-red-400">Failed to load sales</p>
@@ -497,10 +537,18 @@ function TradingTab() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-stone-200 dark:border-neutral-800">
-                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Handle</th>
-                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Price</th>
-                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">Buyer</th>
-                  <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">Date</th>
+                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                    Handle
+                  </th>
+                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                    Price
+                  </th>
+                  <th className="px-3 py-2 font-medium text-stone-400 dark:text-neutral-500">
+                    Buyer
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-stone-400 dark:text-neutral-500">
+                    Date
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -510,7 +558,9 @@ function TradingTab() {
                     className={`border-b border-stone-200 dark:border-neutral-800 last:border-b-0 ${
                       index % 2 === 1 ? 'bg-stone-50 dark:bg-neutral-900/50' : ''
                     }`}>
-                    <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">{sale.name}</td>
+                    <td className="px-3 py-2 font-medium text-stone-900 dark:text-neutral-100">
+                      {sale.name}
+                    </td>
                     <td className="px-3 py-2 text-stone-900 dark:text-neutral-100">
                       {formatPrice(sale.price.amount, sale.price.asset)}
                     </td>
