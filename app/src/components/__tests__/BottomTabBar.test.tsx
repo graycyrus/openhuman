@@ -164,11 +164,11 @@ describe('BottomTabBar', () => {
     agentProfilesApiMock.select.mockResolvedValue(testProfiles);
   });
 
-  it('renders exactly 6 regular tab buttons (Chat is a regular tab)', async () => {
+  it('renders exactly 7 regular tab buttons (Chat is a regular tab; Agent World added)', async () => {
     await renderBottomTabBar('/home');
     const nav = document.querySelector('nav');
     const navButtons = nav?.querySelectorAll('button:not([aria-haspopup])');
-    expect(navButtons).toHaveLength(6);
+    expect(navButtons).toHaveLength(7);
   });
 
   it('gives every labelled tab a fixed width when labels are always visible', async () => {
