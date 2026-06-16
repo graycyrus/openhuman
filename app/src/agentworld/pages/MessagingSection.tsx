@@ -86,7 +86,7 @@ function useAsyncCall<T>(fetcher: () => Promise<T>, deps: unknown[]): AsyncState
 
 function LoadingPane() {
   return (
-    <div className="flex items-center justify-center py-12 text-gray-400">
+    <div className="flex items-center justify-center py-12 text-stone-500 dark:text-neutral-400">
       <span className="animate-pulse text-sm">Loading…</span>
     </div>
   );
@@ -99,7 +99,7 @@ function ErrorPane({ message }: { message: string }) {
 
   if (isWalletLocked) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2 text-gray-400">
+      <div className="flex flex-col items-center justify-center py-12 gap-2 text-stone-500 dark:text-neutral-400">
         <p className="font-medium">Unlock your wallet to use Agent World</p>
         <p className="text-sm">Import your recovery phrase in Settings to continue.</p>
       </div>
@@ -109,7 +109,7 @@ function ErrorPane({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-2 text-red-400">
       <p className="font-medium text-sm">Failed to load</p>
-      <p className="text-xs text-gray-500">{message}</p>
+      <p className="text-xs text-stone-400 dark:text-neutral-500">{message}</p>
     </div>
   );
 }
@@ -118,7 +118,7 @@ function PaymentRequiredPane() {
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-2 text-amber-400">
       <p className="font-medium">Access requires payment</p>
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-stone-500 dark:text-neutral-400">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
     </div>
@@ -139,7 +139,7 @@ function ChannelsPanel() {
 
   if (channels.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
+      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
         No channels found
       </div>
     );
@@ -150,20 +150,20 @@ function ChannelsPanel() {
       {channels.map(ch => (
         <div
           key={ch.channelId}
-          className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 text-sm">
+          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-white truncate">{ch.name}</span>
-            <span className="shrink-0 text-xs text-gray-500">{ch.memberCount} members</span>
+            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">{ch.name}</span>
+            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">{ch.memberCount} members</span>
           </div>
           {ch.description ? (
-            <p className="mt-1 text-xs text-gray-400 truncate">{ch.description}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">{ch.description}</p>
           ) : null}
           {ch.tags && ch.tags.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1">
               {ch.tags.map(tag => (
                 <span
                   key={tag}
-                  className="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] text-gray-400">
+                  className="rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-[10px] text-stone-500 dark:text-neutral-400">
                   {tag}
                 </span>
               ))}
@@ -189,7 +189,7 @@ function GroupsPanel() {
 
   if (groups.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
+      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
         No groups found
       </div>
     );
@@ -200,17 +200,17 @@ function GroupsPanel() {
       {groups.map(group => (
         <div
           key={group.groupId}
-          className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 text-sm">
+          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-white truncate">{group.name}</span>
+            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">{group.name}</span>
             <span className="shrink-0 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[8px] text-green-500">
               Encrypted
             </span>
           </div>
           {group.description ? (
-            <p className="mt-1 text-xs text-gray-400 truncate">{group.description}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">{group.description}</p>
           ) : null}
-          <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-500">
+          <div className="mt-2 flex items-center gap-3 text-[10px] text-stone-400 dark:text-neutral-500">
             <span>{group.memberCount} members</span>
             <span>{group.membershipPolicy}</span>
           </div>
@@ -234,7 +234,7 @@ function BroadcastsPanel() {
 
   if (broadcasts.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
+      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
         No broadcasts found
       </div>
     );
@@ -245,15 +245,15 @@ function BroadcastsPanel() {
       {broadcasts.map(bc => (
         <div
           key={bc.broadcastId}
-          className="rounded-lg border border-gray-800 bg-gray-900/50 p-3 text-sm">
+          className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-white truncate">{bc.name}</span>
-            <span className="shrink-0 text-xs text-gray-500">{bc.subscriberCount} subs</span>
+            <span className="font-medium text-stone-900 dark:text-neutral-100 truncate">{bc.name}</span>
+            <span className="shrink-0 text-xs text-stone-400 dark:text-neutral-500">{bc.subscriberCount} subs</span>
           </div>
           {bc.description ? (
-            <p className="mt-1 text-xs text-gray-400 truncate">{bc.description}</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400 truncate">{bc.description}</p>
           ) : null}
-          <p className="mt-1 text-[10px] text-gray-500 truncate">by {bc.owner}</p>
+          <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500 truncate">by {bc.owner}</p>
         </div>
       ))}
     </div>
@@ -303,16 +303,16 @@ function InboxPanel() {
 
   if (items.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
+      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
         Your inbox is empty
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-gray-800">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <span className="text-sm font-medium text-white">
+    <div className="flex flex-col overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
+      <div className="flex items-center justify-between border-b border-stone-200 dark:border-neutral-800 px-4 py-2">
+        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
           Inbox
           {unread > 0 ? (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -321,16 +321,16 @@ function InboxPanel() {
           ) : null}
         </span>
       </div>
-      <div className="divide-y divide-gray-800/50">
+      <div className="divide-y divide-stone-200 dark:divide-neutral-800/50">
         {items.map(item => (
           <div key={item.itemId} className="flex items-start gap-3 px-4 py-3">
             <div
-              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-gray-500'}`}
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-white">{item.subject}</p>
-              {item.summary ? <p className="text-[10px] text-gray-400">{item.summary}</p> : null}
-              <p className="mt-1 text-[10px] text-gray-600">{formatTs(item.timestamp)}</p>
+              <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">{item.subject}</p>
+              {item.summary ? <p className="text-[10px] text-stone-500 dark:text-neutral-400">{item.summary}</p> : null}
+              <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">{formatTs(item.timestamp)}</p>
             </div>
             {item.status === 'unread' ? (
               <span className="shrink-0 h-1.5 w-1.5 mt-1.5 rounded-full bg-blue-500" />
@@ -349,11 +349,11 @@ function DmsPanel() {
     return (
       <div
         data-testid="dms-coming-soon"
-        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-gray-800 bg-gray-900/30 p-12 text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800">
+        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/30 p-12 text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 dark:bg-neutral-800">
           <svg
             aria-hidden="true"
-            className="h-5 w-5 text-gray-400"
+            className="h-5 w-5 text-stone-500 dark:text-neutral-400"
             fill="none"
             stroke="currentColor"
             strokeWidth={1.5}
@@ -366,8 +366,8 @@ function DmsPanel() {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium text-white">Secure direct messages — coming soon</p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">Secure direct messages — coming soon</p>
+          <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
             End-to-end encrypted DMs use the Signal protocol. Full support is in progress.
           </p>
         </div>
@@ -387,7 +387,7 @@ export default function MessagingSection() {
   return (
     <div className="flex flex-col h-full">
       {/* Tab chips */}
-      <div className="flex gap-1 px-4 py-3 border-b border-gray-800 overflow-x-auto shrink-0">
+      <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
         {TABS.map(tab => (
           <button
             key={tab}
@@ -398,7 +398,7 @@ export default function MessagingSection() {
               'px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
               activeTab === tab
                 ? 'bg-ocean text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                : 'text-stone-500 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-neutral-100 hover:bg-stone-100 dark:hover:bg-neutral-800',
             ].join(' ')}>
             {TAB_LABELS[tab]}
           </button>
