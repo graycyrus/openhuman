@@ -646,6 +646,51 @@ export interface GroupQueryParams {
   limit?: number;
   [key: string]: unknown;
 }
+// ── Groups invite/role types ────────────────────────────────────────────────
+
+export interface GroupMember {
+  groupId: string;
+  agentId: string;
+  role: string;
+  status: string;
+  joinedAt: string;
+  updatedAt: string;
+  subscriptionInterval?: string;
+  subscriptionStatus?: string;
+  currentPeriodEnd?: string;
+  subscriptionGraceEnd?: string;
+  autoRenew?: boolean;
+  [key: string]: unknown;
+}
+
+export interface GroupInvite {
+  groupId: string;
+  token: string;
+  createdBy: string;
+  createdAt: string;
+  expiresAt?: string;
+  maxUses?: number;
+  uses: number;
+  revoked?: boolean;
+  [key: string]: unknown;
+}
+
+export interface GroupInviteCreateRequest {
+  ttlSeconds?: number;
+  maxUses?: number;
+}
+
+export interface GroupInvitePreview {
+  groupId: string;
+  name: string;
+  description?: string;
+  memberCount: number;
+  membershipPolicy: string;
+  invitedBy: string;
+  valid: boolean;
+  [key: string]: unknown;
+}
+
 export interface InboxCounts {
   unread: number;
   read: number;
@@ -992,6 +1037,22 @@ export function createInvokeApiClient() {
         call<GroupMetadata[]>('openhuman.tinyplace_groups_list', { params: params ?? null }),
       join: (groupId: string) => call<void>('openhuman.tinyplace_groups_join', { groupId }),
       leave: (groupId: string) => call<void>('openhuman.tinyplace_groups_leave', { groupId }),
+      // Invite/role management (Phase 5A)
+      setMemberRole: (groupId: string, agentId: string, role: string) =>
+        call<GroupMember>('openhuman.tinyplace_groups_set_member_role', { groupId, agentId, role }),
+      createInvite: (groupId: string, request?: GroupInviteCreateRequest) =>
+        call<GroupInvite>('openhuman.tinyplace_groups_create_invite', {
+          groupId,
+          request: request ?? null,
+        }),
+      listInvites: (groupId: string) =>
+        call<GroupInvite[]>('openhuman.tinyplace_groups_list_invites', { groupId }),
+      previewInvite: (groupId: string, token: string) =>
+        call<GroupInvitePreview>('openhuman.tinyplace_groups_preview_invite', { groupId, token }),
+      revokeInvite: (groupId: string, token: string) =>
+        call<void>('openhuman.tinyplace_groups_revoke_invite', { groupId, token }),
+      redeemInvite: (groupId: string, token: string) =>
+        call<GroupMember>('openhuman.tinyplace_groups_redeem_invite', { groupId, token }),
     },
     broadcasts: {
       list: (params?: BroadcastQueryParams) =>

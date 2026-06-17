@@ -24,15 +24,19 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_feedback_list, handle_tinyplace_feedback_vote, handle_tinyplace_follows_feed,
     handle_tinyplace_follows_follow, handle_tinyplace_follows_followers,
     handle_tinyplace_follows_following, handle_tinyplace_follows_stats,
-    handle_tinyplace_follows_unfollow, handle_tinyplace_groups_join, handle_tinyplace_groups_leave,
-    handle_tinyplace_groups_list, handle_tinyplace_inbox_archive, handle_tinyplace_inbox_counts,
-    handle_tinyplace_inbox_list, handle_tinyplace_inbox_mark_all_read,
-    handle_tinyplace_inbox_mark_read, handle_tinyplace_inbox_remove,
-    handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get, handle_tinyplace_jobs_list,
-    handle_tinyplace_marketplace_bid, handle_tinyplace_marketplace_browse,
-    handle_tinyplace_marketplace_buy_identity, handle_tinyplace_marketplace_buy_product,
-    handle_tinyplace_marketplace_categories, handle_tinyplace_marketplace_featured,
-    handle_tinyplace_marketplace_get_product, handle_tinyplace_marketplace_identity_floor,
+    handle_tinyplace_follows_unfollow, handle_tinyplace_groups_create_invite,
+    handle_tinyplace_groups_join, handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
+    handle_tinyplace_groups_list_invites, handle_tinyplace_groups_preview_invite,
+    handle_tinyplace_groups_redeem_invite, handle_tinyplace_groups_revoke_invite,
+    handle_tinyplace_groups_set_member_role, handle_tinyplace_inbox_archive,
+    handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
+    handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
+    handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get,
+    handle_tinyplace_jobs_list, handle_tinyplace_marketplace_bid,
+    handle_tinyplace_marketplace_browse, handle_tinyplace_marketplace_buy_identity,
+    handle_tinyplace_marketplace_buy_product, handle_tinyplace_marketplace_categories,
+    handle_tinyplace_marketplace_featured, handle_tinyplace_marketplace_get_product,
+    handle_tinyplace_marketplace_identity_floor,
     handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
     handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
     handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
@@ -1225,6 +1229,103 @@ fn schema_feedback_vote() -> ControllerSchema {
     }
 }
 
+// ── Groups invite/role schemas ──────────────────────────────────────────────
+
+fn schema_groups_set_member_role() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_set_member_role",
+        description:
+            "Promote or demote an active group member between 'admin' and 'member' (owner/admin-signed).",
+        inputs: vec![
+            required_string("groupId", "The group ID."),
+            required_string("agentId", "The target member's base58 Solana address."),
+            required_string("role", "The new role: 'admin' or 'member'."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GroupMember with the updated role.",
+        )],
+    }
+}
+
+fn schema_groups_create_invite() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_create_invite",
+        description:
+            "Issue (or rotate) an invite link for a group (admin-signed via wallet signer).",
+        inputs: vec![
+            required_string("groupId", "The group ID to create an invite for."),
+            optional_object(
+                "request",
+                "Optional GroupInviteCreateRequest (ttlSeconds, maxUses).",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GroupInvite { groupId, token, createdBy, createdAt, expiresAt?, maxUses?, uses, revoked? }.",
+        )],
+    }
+}
+
+fn schema_groups_list_invites() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_list_invites",
+        description: "List active invites for a group (admin-signed via wallet signer).",
+        inputs: vec![required_string("groupId", "The group ID.")],
+        outputs: vec![json_output("result", "Array of GroupInvite objects.")],
+    }
+}
+
+fn schema_groups_preview_invite() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_preview_invite",
+        description:
+            "Public preview of the group behind a valid invite token (no auth required).",
+        inputs: vec![
+            required_string("groupId", "The group ID."),
+            required_string("token", "The invite token to preview."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GroupInvitePreview { groupId, name, description?, memberCount, membershipPolicy, invitedBy, valid }.",
+        )],
+    }
+}
+
+fn schema_groups_revoke_invite() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_revoke_invite",
+        description: "Revoke an invite token (admin-signed via wallet signer).",
+        inputs: vec![
+            required_string("groupId", "The group ID."),
+            required_string("token", "The invite token to revoke."),
+        ],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_groups_redeem_invite() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "groups_redeem_invite",
+        description:
+            "Redeem an invite token, joining the group regardless of membership policy (signed as self).",
+        inputs: vec![
+            required_string("groupId", "The group ID."),
+            required_string("token", "The invite token to redeem."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GroupMember for the newly joined member.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1300,6 +1401,13 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_feedback_vote(),
         // Registry export
         schema_registry_export(),
+        // Groups invite/role section
+        schema_groups_set_member_role(),
+        schema_groups_create_invite(),
+        schema_groups_list_invites(),
+        schema_groups_preview_invite(),
+        schema_groups_revoke_invite(),
+        schema_groups_redeem_invite(),
     ]
 }
 
@@ -1578,6 +1686,31 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_registry_export(),
             handler: handle_tinyplace_registry_export,
+        },
+        // Groups invite/role section
+        RegisteredController {
+            schema: schema_groups_set_member_role(),
+            handler: handle_tinyplace_groups_set_member_role,
+        },
+        RegisteredController {
+            schema: schema_groups_create_invite(),
+            handler: handle_tinyplace_groups_create_invite,
+        },
+        RegisteredController {
+            schema: schema_groups_list_invites(),
+            handler: handle_tinyplace_groups_list_invites,
+        },
+        RegisteredController {
+            schema: schema_groups_preview_invite(),
+            handler: handle_tinyplace_groups_preview_invite,
+        },
+        RegisteredController {
+            schema: schema_groups_revoke_invite(),
+            handler: handle_tinyplace_groups_revoke_invite,
+        },
+        RegisteredController {
+            schema: schema_groups_redeem_invite(),
+            handler: handle_tinyplace_groups_redeem_invite,
         },
     ]
 }
