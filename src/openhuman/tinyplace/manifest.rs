@@ -886,6 +886,133 @@ pub(crate) fn handle_tinyplace_marketplace_buy_identity(
     })
 }
 
+// ── Marketplace bid / offer (x402 commitments) ─────────────────────────────────
+
+/// Build a [`tinyplace::types::MarketplacePrice`] from params. `network` is
+/// required (the renderer passes the listing's price network so the x402
+/// authorization targets the right chain); `asset` defaults to USDC.
+fn price_from_params(
+    params: &Map<String, Value>,
+) -> Result<tinyplace::types::MarketplacePrice, String> {
+    let amount = req_str(params, "amount")?.trim().to_string();
+    if amount.is_empty() {
+        return Err("missing required param 'amount'".to_string());
+    }
+    let asset = get_opt_str(params, "asset")
+        .filter(|s| !s.is_empty())
+        .unwrap_or("USDC")
+        .to_string();
+    let network = req_str(params, "network")?.trim().to_string();
+    if network.is_empty() {
+        return Err("missing required param 'network'".to_string());
+    }
+    Ok(tinyplace::types::MarketplacePrice {
+        amount,
+        asset,
+        network,
+    })
+}
+
+/// Place a bid on an identity auction listing. The SDK builds and signs the
+/// x402 authorization (an "up-to" commitment) internally — **no on-chain
+/// transfer happens here**; the bid settles on acceptance. May 402 if the
+/// backend requires a deposit (surfaced as PAYMENT_REQUIRED to the renderer).
+///
+/// Params `{ listingId, amount, asset?, network }`.
+pub(crate) fn handle_tinyplace_marketplace_bid(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let listing_id = req_str(&params, "listingId")?.trim().to_string();
+        if listing_id.is_empty() {
+            return Err("missing required param 'listingId'".to_string());
+        }
+        let price = price_from_params(&params)?;
+        log::debug!(
+            "{LOG_PREFIX} marketplace_bid listing_id={listing_id} amount={} asset={} network={}",
+            price.amount,
+            price.asset,
+            price.network,
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        let bid = tinyplace::types::IdentityBid {
+            bidder: Some(signer.agent_id()),
+            bidder_crypto_id: Some(signer.agent_id()),
+            bidder_public_key: Some(signer.public_key_base64()),
+            price: Some(price),
+            ..Default::default()
+        };
+        let result = client
+            .marketplace
+            .place_bid_with_payment(
+                &listing_id,
+                bid,
+                tinyplace::api::marketplace::IdentityBidPaymentOptions::default(),
+            )
+            .await
+            .map_err(map_err)?;
+
+        // Return the updated listing only — never the raw signed authorization map.
+        to_value(serde_json::json!({
+            "result": result.updated_listing,
+            "committed": true,
+        }))
+    })
+}
+
+/// Make an offer to buy an identity (`@handle`) at a chosen price. Like bids,
+/// the SDK builds and signs the x402 authorization internally — **no on-chain
+/// transfer here**; the offer settles on acceptance.
+///
+/// Params `{ name, amount, asset?, network }`.
+pub(crate) fn handle_tinyplace_marketplace_offer(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let name = req_str(&params, "name")?.trim().to_string();
+        if name.is_empty() {
+            return Err("missing required param 'name'".to_string());
+        }
+        let price = price_from_params(&params)?;
+        log::debug!(
+            "{LOG_PREFIX} marketplace_offer name={name} amount={} asset={} network={}",
+            price.amount,
+            price.asset,
+            price.network,
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        let offer = tinyplace::types::IdentityOffer {
+            name: Some(name),
+            buyer: Some(signer.agent_id()),
+            buyer_crypto_id: Some(signer.agent_id()),
+            buyer_public_key: Some(signer.public_key_base64()),
+            price: Some(price),
+            ..Default::default()
+        };
+        let result = client
+            .marketplace
+            .create_offer_with_payment(
+                offer,
+                tinyplace::api::marketplace::IdentityOfferPaymentOptions::default(),
+            )
+            .await
+            .map_err(map_err)?;
+
+        to_value(serde_json::json!({
+            "result": result.offer,
+            "committed": true,
+        }))
+    })
+}
+
 pub(crate) fn handle_tinyplace_artifacts_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let artifact_id = req_str(&params, "artifactId")?.to_string();
@@ -1467,6 +1594,39 @@ mod tests {
             let err = block_on(handler(params)).unwrap_err();
             assert!(err.contains("'id'"), "got: {err}");
         }
+    }
+
+    /// Bid/offer handlers validate their required params before any network work.
+    #[test]
+    fn bid_offer_validate_params() {
+        // bid: missing listingId.
+        let err = block_on(handle_tinyplace_marketplace_bid(Map::new())).unwrap_err();
+        assert!(err.contains("listingId"), "got: {err}");
+        // bid: listingId present but amount missing.
+        let mut p = Map::new();
+        p.insert("listingId".to_string(), Value::String("l1".into()));
+        let err = block_on(handle_tinyplace_marketplace_bid(p)).unwrap_err();
+        assert!(err.contains("amount"), "got: {err}");
+        // offer: missing name.
+        let err = block_on(handle_tinyplace_marketplace_offer(Map::new())).unwrap_err();
+        assert!(err.contains("name"), "got: {err}");
+    }
+
+    #[test]
+    fn price_from_params_defaults_asset_and_requires_network() {
+        let mut p = Map::new();
+        p.insert("amount".to_string(), Value::String("100".into()));
+        // network missing → Err.
+        assert!(price_from_params(&p).unwrap_err().contains("network"));
+        // network present → defaults asset to USDC.
+        p.insert("network".to_string(), Value::String("solana-devnet".into()));
+        let price = price_from_params(&p).unwrap();
+        assert_eq!(price.amount, "100");
+        assert_eq!(price.asset, "USDC");
+        assert_eq!(price.network, "solana-devnet");
+        // explicit asset is honoured.
+        p.insert("asset".to_string(), Value::String("SOL".into()));
+        assert_eq!(price_from_params(&p).unwrap().asset, "SOL");
     }
 
     #[test]

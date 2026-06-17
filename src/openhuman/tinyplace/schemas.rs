@@ -24,17 +24,18 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_inbox_archive, handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
     handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
     handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get,
-    handle_tinyplace_jobs_list, handle_tinyplace_marketplace_browse,
-    handle_tinyplace_marketplace_buy_identity, handle_tinyplace_marketplace_buy_product,
-    handle_tinyplace_marketplace_categories, handle_tinyplace_marketplace_featured,
-    handle_tinyplace_marketplace_get_product, handle_tinyplace_marketplace_identity_floor,
+    handle_tinyplace_jobs_list, handle_tinyplace_marketplace_bid,
+    handle_tinyplace_marketplace_browse, handle_tinyplace_marketplace_buy_identity,
+    handle_tinyplace_marketplace_buy_product, handle_tinyplace_marketplace_categories,
+    handle_tinyplace_marketplace_featured, handle_tinyplace_marketplace_get_product,
+    handle_tinyplace_marketplace_identity_floor,
     handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
     handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
     handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
-    handle_tinyplace_marketplace_recent, handle_tinyplace_profiles_activity,
-    handle_tinyplace_profiles_agent_card, handle_tinyplace_profiles_attestations,
-    handle_tinyplace_profiles_broadcasts, handle_tinyplace_profiles_get,
-    handle_tinyplace_profiles_groups, handle_tinyplace_registry_get,
+    handle_tinyplace_marketplace_offer, handle_tinyplace_marketplace_recent,
+    handle_tinyplace_profiles_activity, handle_tinyplace_profiles_agent_card,
+    handle_tinyplace_profiles_attestations, handle_tinyplace_profiles_broadcasts,
+    handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
     handle_tinyplace_users_get, handle_tinyplace_users_update_profile,
 };
@@ -508,6 +509,62 @@ fn schema_marketplace_buy_identity() -> ControllerSchema {
             "result",
             "Either { result: IdentitySale }, { challenge, walletBalance, walletAddress } \
              (unconfirmed), or { result: IdentitySale, payment: { onChainTx } } (paid).",
+        )],
+    }
+}
+
+fn price_inputs() -> Vec<FieldSchema> {
+    vec![
+        required_string("amount", "Bid/offer amount in the asset's base units."),
+        FieldSchema {
+            name: "asset",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Asset symbol (defaults to USDC).",
+            required: false,
+        },
+        required_string(
+            "network",
+            "Solana network for the x402 authorization (e.g. the listing's price network).",
+        ),
+    ]
+}
+
+fn schema_marketplace_bid() -> ControllerSchema {
+    let mut inputs = vec![required_string(
+        "listingId",
+        "The auction listing ID to bid on.",
+    )];
+    inputs.extend(price_inputs());
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_bid",
+        description:
+            "Place a bid on an identity auction listing. The SDK builds and signs the x402 \
+             authorization (an up-to commitment); no on-chain transfer happens until acceptance.",
+        inputs,
+        outputs: vec![json_output(
+            "result",
+            "{ result: IdentityListing (updated), committed: true }.",
+        )],
+    }
+}
+
+fn schema_marketplace_offer() -> ControllerSchema {
+    let mut inputs = vec![required_string(
+        "name",
+        "The @handle to make an offer on (with or without a leading @).",
+    )];
+    inputs.extend(price_inputs());
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_offer",
+        description:
+            "Make an offer to buy an identity (@handle). The SDK builds and signs the x402 \
+             authorization; no on-chain transfer happens until the offer is accepted.",
+        inputs,
+        outputs: vec![json_output(
+            "result",
+            "{ result: IdentityOffer, committed: true }.",
         )],
     }
 }
@@ -1013,6 +1070,8 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_registry_register(),
         schema_marketplace_buy_product(),
         schema_marketplace_buy_identity(),
+        schema_marketplace_bid(),
+        schema_marketplace_offer(),
         schema_artifacts_get(),
         schema_artifacts_list(),
         schema_escrow_get(),
@@ -1152,6 +1211,14 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_marketplace_buy_identity(),
             handler: handle_tinyplace_marketplace_buy_identity,
+        },
+        RegisteredController {
+            schema: schema_marketplace_bid(),
+            handler: handle_tinyplace_marketplace_bid,
+        },
+        RegisteredController {
+            schema: schema_marketplace_offer(),
+            handler: handle_tinyplace_marketplace_offer,
         },
         RegisteredController {
             schema: schema_artifacts_get(),

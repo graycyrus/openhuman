@@ -6,13 +6,12 @@
  * OpenHuman core RPC bridge (invokeApiClient) — no direct tiny.place HTTP calls
  * or @tanstack/react-query usage in this file.
  *
- * The Register tab is a live x402 confirm-before-spend flow: check availability →
- * "Register @handle" → review the payment challenge + your wallet balance → pay
- * on-chain via the wallet → registration. Money only moves after the user
- * confirms (the `confirmed:true` RPC). The remaining write flows (buy, bid,
- * offer, transfer) still surface read-only views; their x402 wiring lands in
- * later PRs. The read-only data views (Registry listing, floor prices, recent
- * sales) are fully functional.
+ * Write flows are live x402:
+ * - Register tab: confirm-before-spend registration (pay on-chain → register).
+ * - Trading tab: Buy a fixed-price listing (confirm-before-spend), plus Bid /
+ *   Offer commitments (signed authorizations — funds move only on acceptance).
+ * Money only moves after the user confirms. The read-only data views (Registry
+ * listing, floor prices, recent sales) are fully functional.
  */
 import { useEffect, useReducer, useRef, useState } from 'react';
 
@@ -30,6 +29,7 @@ import {
   type RegistryWalletBalance,
 } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
+import AmountCommitDialog from '../components/AmountCommitDialog';
 import X402ConfirmDialog from '../components/X402ConfirmDialog';
 import { explorerTxUrl as buyExplorerTxUrl, useX402Buy } from '../hooks/useX402Buy';
 
@@ -632,6 +632,39 @@ function TradingTab() {
     setBuying(null);
   }
 
+  // x402 commitment flow (bid / offer) — no immediate spend.
+  const [commit, setCommit] = useState<{ kind: 'bid' | 'offer'; listing: IdentityListing } | null>(
+    null
+  );
+  const [commitState, setCommitState] = useState<{
+    phase: 'idle' | 'busy' | 'success' | 'error';
+    message?: string;
+  }>({ phase: 'idle' });
+
+  function closeCommit() {
+    setCommit(null);
+    setCommitState({ phase: 'idle' });
+  }
+
+  function submitCommit(amount: string) {
+    if (!commit) return;
+    const { kind, listing } = commit;
+    const price = { amount, asset: listing.price.asset, network: listing.price.network ?? '' };
+    setCommitState({ phase: 'busy' });
+    const call =
+      kind === 'bid'
+        ? apiClient.marketplace.bid(listing.listingId, price)
+        : apiClient.marketplace.offer(listing.name, price);
+    void call
+      .then(() => {
+        setCommit(null);
+        setCommitState({ phase: 'success' });
+      })
+      .catch((err: unknown) => {
+        setCommitState({ phase: 'error', message: String(err) });
+      });
+  }
+
   return (
     <div className="space-y-4">
       {/* Floor prices */}
@@ -687,18 +720,72 @@ function TradingTab() {
                     by {listing.seller}
                   </div>
                 )}
-                {listing.listingType !== 'auction' && (
+                <div className="mt-2 flex gap-1">
+                  {listing.listingType !== 'auction' && (
+                    <button
+                      type="button"
+                      disabled={buying !== null}
+                      onClick={() => startBuy(listing)}
+                      className="flex-1 rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      Buy
+                    </button>
+                  )}
+                  {listing.listingType === 'auction' && (
+                    <button
+                      type="button"
+                      disabled={commit !== null}
+                      onClick={() => setCommit({ kind: 'bid', listing })}
+                      className="flex-1 rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      Bid
+                    </button>
+                  )}
                   <button
                     type="button"
-                    disabled={buying !== null}
-                    onClick={() => startBuy(listing)}
-                    className="mt-2 w-full rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
-                    Buy
+                    disabled={commit !== null}
+                    onClick={() => setCommit({ kind: 'offer', listing })}
+                    className="flex-1 rounded-md border border-stone-300 px-2 py-1 text-xs font-medium text-stone-700 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200">
+                    Offer
                   </button>
-                )}
+                </div>
               </div>
             ))}
           </div>
+        )}
+
+        {/* Commitment (bid/offer) outcome banner. */}
+        {commitState.phase === 'success' && (
+          <div
+            className="mt-3 rounded-md border border-green-500/30 bg-green-500/10 p-3"
+            data-testid="commit-success">
+            <p className="text-xs font-medium text-green-500">Commitment submitted.</p>
+          </div>
+        )}
+        {commitState.phase === 'error' && (
+          <div
+            className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3"
+            data-testid="commit-error">
+            <p className="text-xs font-medium text-red-500">Commitment failed.</p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+              {commitState.message}
+            </p>
+          </div>
+        )}
+
+        {/* Bid / offer amount dialog. */}
+        {commit && (
+          <AmountCommitDialog
+            title={
+              commit.kind === 'bid'
+                ? `Bid on ${commit.listing.name}`
+                : `Offer for ${commit.listing.name}`
+            }
+            subtitle="A signed commitment — funds move only if it is accepted."
+            asset={commit.listing.price.asset}
+            submitLabel={commit.kind === 'bid' ? 'Place bid' : 'Submit offer'}
+            busy={commitState.phase === 'busy'}
+            onCancel={closeCommit}
+            onSubmit={submitCommit}
+          />
         )}
 
         {/* Buy outcome banner. */}

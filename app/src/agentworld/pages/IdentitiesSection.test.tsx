@@ -32,6 +32,8 @@ vi.mock('../AgentWorldShell', () => ({
       identityFloor: vi.fn(),
       recent: vi.fn(),
       buyIdentity: vi.fn(),
+      bid: vi.fn(),
+      offer: vi.fn(),
     },
   },
 }));
@@ -49,6 +51,8 @@ beforeEach(() => {
     identity: { username: '@placeholder' },
   });
   vi.mocked(apiClient.marketplace.buyIdentity).mockResolvedValue({ result: { saleId: 's1' } });
+  vi.mocked(apiClient.marketplace.bid).mockResolvedValue({ result: {}, committed: true });
+  vi.mocked(apiClient.marketplace.offer).mockResolvedValue({ result: {}, committed: true });
 });
 
 afterEach(() => {
@@ -772,5 +776,83 @@ describe('Trading tab — buy identity (x402)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(screen.queryByTestId('x402-confirm')).not.toBeInTheDocument();
     expect(apiClient.marketplace.buyIdentity).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Trading tab — bid / offer commitments (x402) ──────────────────────────────
+
+const auctionListing = {
+  listingId: 'auc-1',
+  name: '@auction',
+  seller: 'seller-y',
+  price: { amount: '30000000', asset: 'USDC', network: 'solana-devnet' },
+  listingType: 'auction' as const,
+  status: 'active',
+  updatedAt: '2026-03-02T00:00:00Z',
+};
+
+describe('Trading tab — bid / offer commitments', () => {
+  test('Bid opens the amount dialog and submits a commitment', async () => {
+    vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({
+      identities: [auctionListing],
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Bid' }));
+
+    await userEvent.type(screen.getByTestId('commit-amount-input'), '35000000');
+    await userEvent.click(screen.getByTestId('commit-submit'));
+
+    await screen.findByTestId('commit-success');
+    expect(apiClient.marketplace.bid).toHaveBeenCalledWith('auc-1', {
+      amount: '35000000',
+      asset: 'USDC',
+      network: 'solana-devnet',
+    });
+  });
+
+  test('Offer submits a commitment for the handle', async () => {
+    vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({
+      identities: [auctionListing],
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Offer' }));
+
+    await userEvent.type(screen.getByTestId('commit-amount-input'), '25000000');
+    await userEvent.click(screen.getByTestId('commit-submit'));
+
+    await screen.findByTestId('commit-success');
+    expect(apiClient.marketplace.offer).toHaveBeenCalledWith('@auction', {
+      amount: '25000000',
+      asset: 'USDC',
+      network: 'solana-devnet',
+    });
+  });
+
+  test('a failed commitment surfaces an error banner', async () => {
+    vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({
+      identities: [auctionListing],
+    });
+    vi.mocked(apiClient.marketplace.bid).mockRejectedValueOnce(new Error('bid-rejected'));
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Bid' }));
+    await userEvent.type(screen.getByTestId('commit-amount-input'), '1');
+    await userEvent.click(screen.getByTestId('commit-submit'));
+
+    expect(await screen.findByTestId('commit-error')).toHaveTextContent('bid-rejected');
+  });
+
+  test('Cancel closes the commitment dialog without calling the API', async () => {
+    vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({
+      identities: [auctionListing],
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Offer' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('commit-submit')).not.toBeInTheDocument();
+    expect(apiClient.marketplace.offer).not.toHaveBeenCalled();
   });
 });

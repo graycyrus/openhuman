@@ -294,6 +294,24 @@ export interface X402BuyResult {
   payment?: { onChainTx?: string };
   [key: string]: unknown;
 }
+
+/**
+ * Result of an x402 commitment (`marketplace.bid` / `offer`). Bids/offers are
+ * signed authorizations — no on-chain transfer until acceptance — so the result
+ * is `{ result, committed: true }` (no `payment.onChainTx`).
+ */
+export interface X402CommitResult {
+  result?: Record<string, unknown>;
+  committed?: boolean;
+  [key: string]: unknown;
+}
+
+/** Amount + (optional) asset + network for a bid/offer commitment. */
+export interface CommitPriceParams {
+  amount: string;
+  asset?: string;
+  network: string;
+}
 export interface BidsResponse {
   bids: IdentityBid[];
   [key: string]: unknown;
@@ -724,6 +742,25 @@ export function createInvokeApiClient() {
         call<X402BuyResult>('openhuman.tinyplace_marketplace_buy_identity', {
           id: listingId,
           confirmed: opts?.confirmed ?? false,
+        }),
+      /**
+       * Place a bid on an identity auction listing. The SDK builds + signs the
+       * x402 authorization (a commitment) — no on-chain transfer until accepted.
+       */
+      bid: (listingId: string, price: CommitPriceParams) =>
+        call<X402CommitResult>('openhuman.tinyplace_marketplace_bid', {
+          listingId,
+          amount: price.amount,
+          asset: price.asset ?? null,
+          network: price.network,
+        }),
+      /** Make an offer to buy an identity (a @handle). Same commitment semantics. */
+      offer: (name: string, price: CommitPriceParams) =>
+        call<X402CommitResult>('openhuman.tinyplace_marketplace_offer', {
+          name,
+          amount: price.amount,
+          asset: price.asset ?? null,
+          network: price.network,
         }),
       categories: () => call<CategoriesResponse>('openhuman.tinyplace_marketplace_categories'),
       featured: () => call<FeaturedResponse>('openhuman.tinyplace_marketplace_featured'),
