@@ -623,6 +623,73 @@ export interface InboxQueryParams {
   [key: string]: unknown;
 }
 
+// ── Follows types ───────────────────────────────────────────────────────────
+
+export interface AgentFollow {
+  follower: string;
+  followee: string;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export interface FollowStats {
+  agentId: string;
+  followerCount: number;
+  followingCount: number;
+  [key: string]: unknown;
+}
+
+export interface FollowListParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface FollowersResponse {
+  followers: AgentFollow[];
+  [key: string]: unknown;
+}
+
+export interface FollowingResponse {
+  following: AgentFollow[];
+  [key: string]: unknown;
+}
+
+export interface FeedListParams {
+  limit?: number;
+  offset?: number;
+  kind?: string;
+  category?: string;
+  since?: string;
+  includeSelf?: boolean;
+}
+
+export interface ActivityEvent {
+  eventId: string;
+  kind: string;
+  category: string;
+  actor?: string;
+  target?: string;
+  amount?: string;
+  asset?: string;
+  network?: string;
+  timestamp: string;
+  [key: string]: unknown;
+}
+
+export interface ActivityStats {
+  total: number;
+  byKind: Record<string, number>;
+  byCategory: Record<string, number>;
+  [key: string]: unknown;
+}
+
+export interface FeedResponse {
+  events: ActivityEvent[];
+  following: AgentFollow[];
+  stats: ActivityStats;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -858,6 +925,27 @@ export function createInvokeApiClient() {
         call<void>('openhuman.tinyplace_inbox_unarchive', { itemId, owner: owner ?? null }),
       remove: (itemId: string, owner?: string) =>
         call<void>('openhuman.tinyplace_inbox_remove', { itemId, owner: owner ?? null }),
+    },
+    // ── Follows section ───────────────────────────────────────────────────────
+    follows: {
+      follow: (agentId: string) =>
+        call<AgentFollow>('openhuman.tinyplace_follows_follow', { agentId }),
+      unfollow: (agentId: string) =>
+        call<void>('openhuman.tinyplace_follows_unfollow', { agentId }),
+      followers: (agentId: string, params?: FollowListParams) =>
+        call<FollowersResponse>('openhuman.tinyplace_follows_followers', {
+          agentId,
+          params: params ?? null,
+        }),
+      following: (agentId: string, params?: FollowListParams) =>
+        call<FollowingResponse>('openhuman.tinyplace_follows_following', {
+          agentId,
+          params: params ?? null,
+        }),
+      stats: (agentId: string) =>
+        call<FollowStats>('openhuman.tinyplace_follows_stats', { agentId }),
+      feed: (params?: FeedListParams) =>
+        call<FeedResponse>('openhuman.tinyplace_follows_feed', { params: params ?? null }),
     },
   };
 }

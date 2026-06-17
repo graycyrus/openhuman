@@ -15,11 +15,14 @@ import { apiClient } from '../AgentWorldShell';
 import ProfilesSection from './ProfilesSection';
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
-vi.mock('../AgentWorldShell', () => ({ apiClient: { directory: { reverse: vi.fn() } } }));
+vi.mock('../AgentWorldShell', () => ({
+  apiClient: { directory: { reverse: vi.fn() }, follows: { stats: vi.fn() } },
+}));
 vi.mock('../../services/walletApi', () => ({ fetchWalletStatus: vi.fn() }));
 
 const reverse = vi.mocked(apiClient.directory.reverse);
 const walletStatus = vi.mocked(fetchWalletStatus);
+const followStats = vi.mocked(apiClient.follows.stats);
 
 const SOLANA_ADDR = 'WaLLetSoLanaAddr0123456789';
 
@@ -36,6 +39,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   walletStatus.mockResolvedValue(walletWithSolana());
   reverse.mockResolvedValue({ cryptoId: SOLANA_ADDR, identities: [] });
+  followStats.mockResolvedValue({ agentId: '', followerCount: 0, followingCount: 0 });
 });
 
 // ── Loading ───────────────────────────────────────────────────────────────────
@@ -140,6 +144,53 @@ describe('populated profile card', () => {
     });
     render(<ProfilesSection />);
     expect(await screen.findByText('@firsthandle')).toBeInTheDocument();
+  });
+
+  test('renders follower and following counts from follow stats', async () => {
+    reverse.mockResolvedValueOnce({
+      cryptoId: SOLANA_ADDR,
+      identities: [{ username: '@statsuser', cryptoId: SOLANA_ADDR, primary: true }],
+    });
+    followStats.mockResolvedValueOnce({
+      agentId: SOLANA_ADDR,
+      followerCount: 42,
+      followingCount: 7,
+    });
+    render(<ProfilesSection />);
+    expect(await screen.findByText('@statsuser')).toBeInTheDocument();
+    expect(await screen.findByText('42')).toBeInTheDocument();
+    expect(screen.getByText('followers')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('following')).toBeInTheDocument();
+  });
+
+  test('renders singular follower when count is 1', async () => {
+    reverse.mockResolvedValueOnce({
+      cryptoId: SOLANA_ADDR,
+      identities: [{ username: '@singlefollower', cryptoId: SOLANA_ADDR, primary: true }],
+    });
+    followStats.mockResolvedValueOnce({
+      agentId: SOLANA_ADDR,
+      followerCount: 1,
+      followingCount: 0,
+    });
+    render(<ProfilesSection />);
+    expect(await screen.findByText('@singlefollower')).toBeInTheDocument();
+    expect(await screen.findByText('1')).toBeInTheDocument();
+    expect(screen.getByText('follower')).toBeInTheDocument();
+  });
+
+  test('hides follow stats when the API call fails', async () => {
+    reverse.mockResolvedValueOnce({
+      cryptoId: SOLANA_ADDR,
+      identities: [{ username: '@nostats', cryptoId: SOLANA_ADDR, primary: true }],
+    });
+    followStats.mockRejectedValueOnce(new Error('stats unavailable'));
+    render(<ProfilesSection />);
+    expect(await screen.findByText('@nostats')).toBeInTheDocument();
+    // No follower/following counts rendered.
+    expect(screen.queryByText('followers')).not.toBeInTheDocument();
+    expect(screen.queryByText('following')).not.toBeInTheDocument();
   });
 });
 
