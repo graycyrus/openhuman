@@ -5518,7 +5518,6 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'प्रोफ़ाइल नहीं मिली',
   'settings.profiles.editor.saving': 'सहेजा जा रहा है…',
   'settings.profiles.editor.idRequired': 'प्रोफ़ाइल आईडी खाली नहीं हो सकती',
-
 };
 
 export default messages;

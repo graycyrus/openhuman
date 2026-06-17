@@ -5622,7 +5622,6 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Profilo non trovato',
   'settings.profiles.editor.saving': 'Salvataggio…',
   'settings.profiles.editor.idRequired': "L'identificativo del profilo non può essere vuoto",
-
 };
 
 export default messages;

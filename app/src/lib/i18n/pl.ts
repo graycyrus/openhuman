@@ -5605,7 +5605,6 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Nie znaleziono profilu',
   'settings.profiles.editor.saving': 'Zapisywanie…',
   'settings.profiles.editor.idRequired': 'Identyfikator profilu nie może być pusty',
-
 };
 
 export default messages;

@@ -5781,7 +5781,6 @@ const en: TranslationMap = {
   'notch.speaking': 'Speaking…',
   'notch.transcribing': 'Transcribing…',
   'notch.executing': 'Executing…',
-
 };
 
 export default en;

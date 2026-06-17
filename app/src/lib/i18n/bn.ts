@@ -5516,7 +5516,6 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'প্রোফাইল পাওয়া যায়নি',
   'settings.profiles.editor.saving': 'সংরক্ষণ হচ্ছে…',
   'settings.profiles.editor.idRequired': 'প্রোফাইল আইডি খালি রাখা যাবে না',
-
 };
 
 export default messages;
