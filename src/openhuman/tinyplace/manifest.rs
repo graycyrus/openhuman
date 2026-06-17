@@ -2015,6 +2015,75 @@ pub(crate) fn handle_tinyplace_solana_call(params: Map<String, Value>) -> Contro
     })
 }
 
+// ── Streams section ────────────────────────────────────────────────────────────
+
+/// Start a tinyplace WebSocket stream.
+pub(crate) fn handle_tinyplace_streams_start(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let kind_str = req_str(&params, "streamType")?.to_string();
+        let kind_str_trimmed = kind_str.trim();
+        if kind_str_trimmed.is_empty() {
+            return Err("missing required param 'streamType'".to_string());
+        }
+        let kind = match kind_str_trimmed {
+            "inbox" => super::streams::StreamKind::Inbox,
+            "conversation" => super::streams::StreamKind::Conversation,
+            _ => return Err(format!("unsupported streamType: {kind_str_trimmed}")),
+        };
+
+        // conversation streams require a target id.
+        let target_id = params
+            .get("streamId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        if kind == super::streams::StreamKind::Conversation && target_id.is_none() {
+            return Err("streamId is required for conversation streams".to_string());
+        }
+
+        log::debug!(
+            "{LOG_PREFIX} streams_start kind={kind_str_trimmed} target_id={:?}",
+            target_id
+        );
+
+        let client = global_state().client().await?;
+        let stream_id = super::streams::global_stream_manager()
+            .start_stream(kind, target_id, client)
+            .await?;
+
+        to_value(serde_json::json!({ "streamId": stream_id }))
+    })
+}
+
+/// Stop a tinyplace WebSocket stream.
+pub(crate) fn handle_tinyplace_streams_stop(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let stream_id = req_str(&params, "streamId")?.to_string();
+        let stream_id_trimmed = stream_id.trim();
+        if stream_id_trimmed.is_empty() {
+            return Err("missing required param 'streamId'".to_string());
+        }
+
+        log::debug!("{LOG_PREFIX} streams_stop stream_id={stream_id_trimmed}");
+
+        super::streams::global_stream_manager()
+            .stop_stream(stream_id_trimmed)
+            .await?;
+
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+/// List active tinyplace WebSocket streams.
+pub(crate) fn handle_tinyplace_streams_list(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} streams_list");
+        let entries = super::streams::global_stream_manager().list_streams().await;
+        to_value(serde_json::json!({ "streams": entries }))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2286,5 +2355,53 @@ mod tests {
         params.insert("method".to_string(), Value::String("   ".to_string()));
         let err = block_on(handle_tinyplace_solana_call(params)).unwrap_err();
         assert!(err.contains("method"), "got: {err}");
+    }
+
+    /// streams_start rejects a missing/blank streamType.
+    #[test]
+    fn streams_start_requires_stream_type() {
+        let err = block_on(handle_tinyplace_streams_start(Map::new())).unwrap_err();
+        assert!(err.contains("streamType"), "got: {err}");
+
+        let mut params = Map::new();
+        params.insert("streamType".to_string(), Value::String("   ".to_string()));
+        let err = block_on(handle_tinyplace_streams_start(params)).unwrap_err();
+        assert!(err.contains("streamType"), "got: {err}");
+    }
+
+    /// streams_start rejects an unsupported streamType.
+    #[test]
+    fn streams_start_rejects_unknown_type() {
+        let mut params = Map::new();
+        params.insert(
+            "streamType".to_string(),
+            Value::String("unknown".to_string()),
+        );
+        let err = block_on(handle_tinyplace_streams_start(params)).unwrap_err();
+        assert!(err.contains("unsupported streamType"), "got: {err}");
+    }
+
+    /// streams_start rejects a conversation stream without a streamId.
+    #[test]
+    fn streams_start_conversation_requires_stream_id() {
+        let mut params = Map::new();
+        params.insert(
+            "streamType".to_string(),
+            Value::String("conversation".to_string()),
+        );
+        let err = block_on(handle_tinyplace_streams_start(params)).unwrap_err();
+        assert!(err.contains("streamId"), "got: {err}");
+    }
+
+    /// streams_stop rejects a missing/blank streamId.
+    #[test]
+    fn streams_stop_requires_stream_id() {
+        let err = block_on(handle_tinyplace_streams_stop(Map::new())).unwrap_err();
+        assert!(err.contains("streamId"), "got: {err}");
+
+        let mut params = Map::new();
+        params.insert("streamId".to_string(), Value::String("   ".to_string()));
+        let err = block_on(handle_tinyplace_streams_stop(params)).unwrap_err();
+        assert!(err.contains("streamId"), "got: {err}");
     }
 }

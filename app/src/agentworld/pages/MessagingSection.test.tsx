@@ -71,7 +71,28 @@ vi.mock('../AgentWorldShell', () => ({
       unarchive: vi.fn().mockResolvedValue(undefined),
       remove: vi.fn().mockResolvedValue(undefined),
     },
+    streams: {
+      start: vi.fn().mockResolvedValue({ streamId: 'inbox' }),
+      stop: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn().mockResolvedValue({ streams: [] }),
+    },
   },
+}));
+
+// ── Mock useTinyplaceStream hook ──────────────────────────────────────────────
+// Use vi.hoisted so the mock variable is available inside the vi.mock factory,
+// which is hoisted to the top of the file by Vitest's transform.
+
+const { mockUseTinyplaceStream } = vi.hoisted(() => ({
+  mockUseTinyplaceStream: vi.fn((_streamId?: string) => ({
+    messages: [] as unknown[],
+    status: 'idle' as string,
+    clearMessages: vi.fn(),
+  })),
+}));
+
+vi.mock('../hooks/useTinyplaceStream', () => ({
+  useTinyplaceStream: (streamId?: string) => mockUseTinyplaceStream(streamId),
 }));
 
 beforeEach(() => {
@@ -430,5 +451,57 @@ describe('redeem invite', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Redeem' }));
     expect(apiClient.groups.redeemInvite).toHaveBeenCalledWith('g-redeem', 'tok-redeem');
     expect(await screen.findByText(/Joined as member in group g-redeem/)).toBeInTheDocument();
+  });
+});
+
+// ── Inbox stream integration ───────────────────────────────────────────────────
+
+describe('inbox stream lifecycle', () => {
+  beforeEach(() => {
+    // Restore inbox list + counts mocks so the Inbox panel can settle.
+    vi.mocked(apiClient.inbox.list).mockResolvedValue({ items: [], unreadCount: 0, totalCount: 0 });
+    vi.mocked(apiClient.inbox.counts).mockResolvedValue({
+      unread: 0,
+      read: 0,
+      archived: 0,
+      byType: {},
+      urgent: 0,
+    });
+    // Restore streams.start mock.
+    vi.mocked(apiClient.streams.start).mockResolvedValue({ streamId: 'inbox' });
+    // Default hook mock: idle.
+    mockUseTinyplaceStream.mockReturnValue({
+      messages: [],
+      status: 'idle',
+      clearMessages: vi.fn(),
+    });
+  });
+
+  test('calls streams.start with "inbox" when Inbox tab is opened', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
+    // Wait for async effects to settle.
+    await screen.findByText(/Your inbox is empty/i);
+    expect(apiClient.streams.start).toHaveBeenCalledWith('inbox');
+  });
+
+  test('renders the Live indicator when streamStatus is connected', async () => {
+    mockUseTinyplaceStream.mockImplementation(() => ({
+      messages: [],
+      status: 'connected',
+      clearMessages: vi.fn(),
+    }));
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
+    // Wait for the async inbox fetch to settle and the live indicator to appear.
+    await screen.findByTestId('inbox-live-indicator');
+    expect(screen.getByTestId('inbox-live-indicator')).toBeInTheDocument();
+  });
+
+  test('does NOT render the Live indicator when streamStatus is idle', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
+    await screen.findByText(/Your inbox is empty/i);
+    expect(screen.queryByTestId('inbox-live-indicator')).not.toBeInTheDocument();
   });
 });
