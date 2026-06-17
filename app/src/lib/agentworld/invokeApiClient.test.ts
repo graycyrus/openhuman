@@ -986,6 +986,76 @@ describe('messaging write methods', () => {
     });
   });
 
+  test('groups.setMemberRole calls tinyplace_groups_set_member_role', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue({ groupId: 'g-1', agentId: 'a-1', role: 'admin' });
+    await client.groups.setMemberRole('g-1', 'a-1', 'admin');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_set_member_role',
+      params: { groupId: 'g-1', agentId: 'a-1', role: 'admin' },
+    });
+  });
+
+  test('groups.createInvite calls tinyplace_groups_create_invite with optional request', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue({ token: 'tok-1' });
+    await client.groups.createInvite('g-1', { ttlSeconds: 3600, maxUses: 5 });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_create_invite',
+      params: { groupId: 'g-1', request: { ttlSeconds: 3600, maxUses: 5 } },
+    });
+  });
+
+  test('groups.createInvite sends request: null when no options', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue({ token: 'tok-2' });
+    await client.groups.createInvite('g-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_create_invite',
+      params: { groupId: 'g-1', request: null },
+    });
+  });
+
+  test('groups.listInvites calls tinyplace_groups_list_invites', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue([]);
+    await client.groups.listInvites('g-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_list_invites',
+      params: { groupId: 'g-1' },
+    });
+  });
+
+  test('groups.previewInvite calls tinyplace_groups_preview_invite', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue({ groupId: 'g-1', name: 'Group', valid: true });
+    await client.groups.previewInvite('g-1', 'tok-abc');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_preview_invite',
+      params: { groupId: 'g-1', token: 'tok-abc' },
+    });
+  });
+
+  test('groups.revokeInvite calls tinyplace_groups_revoke_invite', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.groups.revokeInvite('g-1', 'tok-abc');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_revoke_invite',
+      params: { groupId: 'g-1', token: 'tok-abc' },
+    });
+  });
+
+  test('groups.redeemInvite calls tinyplace_groups_redeem_invite', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue({ groupId: 'g-1', agentId: 'me', role: 'member' });
+    await client.groups.redeemInvite('g-1', 'tok-join');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_redeem_invite',
+      params: { groupId: 'g-1', token: 'tok-join' },
+    });
+  });
+
   test('broadcasts.subscribe / unsubscribe call the right RPC with broadcastId', async () => {
     const client = createInvokeApiClient();
     mockCallCoreRpc.mockResolvedValue(undefined);

@@ -7,13 +7,16 @@
  *
  * Signal protocol / keys.* methods are intentionally NOT wired here.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   type BroadcastChannel,
   type BroadcastQueryParams,
   type Channel,
   type ChannelQueryParams,
+  type GroupInvite,
+  type GroupInvitePreview,
+  type GroupMember,
   type GroupMetadata,
   type GroupQueryParams,
   type InboxItem,
@@ -206,6 +209,9 @@ function GroupsPanel() {
   const params: GroupQueryParams = { limit: 20 };
   const { version, busyKey, error: actionError, run } = useRowActions();
   const state = useAsyncCall(() => apiClient.groups.list(params), [version]);
+  const [invitesGroupId, setInvitesGroupId] = useState<string | null>(null);
+  const [invitesGroupName, setInvitesGroupName] = useState<string>('');
+  const [showRedeem, setShowRedeem] = useState(false);
 
   if (state.status === 'loading') return <LoadingPane />;
   if (state.status === 'payment_required') return <PaymentRequiredPane />;
@@ -213,16 +219,50 @@ function GroupsPanel() {
 
   const groups: GroupMetadata[] = state.status === 'ok' ? state.data : [];
 
+  // Show the invites sub-panel for a specific group.
+  if (invitesGroupId) {
+    return (
+      <GroupInvitesPanel
+        groupId={invitesGroupId}
+        groupName={invitesGroupName}
+        onClose={() => setInvitesGroupId(null)}
+      />
+    );
+  }
+
+  // Show the redeem invite panel.
+  if (showRedeem) {
+    return <RedeemInvitePanel onClose={() => setShowRedeem(false)} />;
+  }
+
   if (groups.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
-        No groups found
+      <div className="space-y-2">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="rounded bg-stone-200 dark:bg-neutral-700 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-300 dark:hover:bg-neutral-600"
+            onClick={() => setShowRedeem(true)}>
+            Redeem Invite
+          </button>
+        </div>
+        <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
+          No groups found
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          className="rounded bg-stone-200 dark:bg-neutral-700 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-300 dark:hover:bg-neutral-600"
+          onClick={() => setShowRedeem(true)}>
+          Redeem Invite
+        </button>
+      </div>
       {actionError ? <ActionErrorBanner message={actionError} /> : null}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {groups.map(group => {
@@ -259,11 +299,257 @@ function GroupsPanel() {
                   disabled={busy}
                   onClick={() => run(group.groupId, () => apiClient.groups.leave(group.groupId))}
                 />
+                <RowAction
+                  label="Invites"
+                  disabled={busy}
+                  onClick={() => {
+                    setInvitesGroupId(group.groupId);
+                    setInvitesGroupName(group.name);
+                  }}
+                />
               </div>
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── Group invites sub-panel ──────────────────────────────────────────────────
+
+function GroupInvitesPanel({
+  groupId,
+  groupName,
+  onClose,
+}: {
+  groupId: string;
+  groupName: string;
+  onClose: () => void;
+}) {
+  const [invites, setInvites] = useState<GroupInvite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const fetchInvites = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    void apiClient.groups
+      .listInvites(groupId)
+      .then(list => {
+        setInvites(list);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setError(String(err));
+        setLoading(false);
+      });
+  }, [groupId]);
+
+  useEffect(() => {
+    fetchInvites();
+  }, [fetchInvites]);
+
+  const handleCreate = useCallback(async () => {
+    setCreating(true);
+    try {
+      await apiClient.groups.createInvite(groupId);
+      fetchInvites();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setCreating(false);
+    }
+  }, [groupId, fetchInvites]);
+
+  const handleRevoke = useCallback(
+    async (token: string) => {
+      setRevoking(token);
+      try {
+        await apiClient.groups.revokeInvite(groupId, token);
+        fetchInvites();
+      } catch (err) {
+        setError(String(err));
+      } finally {
+        setRevoking(null);
+      }
+    },
+    [groupId, fetchInvites]
+  );
+
+  return (
+    <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+          Invites for {groupName}
+        </span>
+        <button
+          type="button"
+          className="text-xs text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+          onClick={onClose}>
+          Close
+        </button>
+      </div>
+      {error ? <p className="mb-2 text-xs text-red-500">{error}</p> : null}
+      {loading ? (
+        <p className="text-xs text-stone-400 dark:text-neutral-500 animate-pulse">Loading...</p>
+      ) : (
+        <>
+          {invites.length === 0 ? (
+            <p className="text-xs text-stone-400 dark:text-neutral-500">No active invites</p>
+          ) : (
+            <div className="space-y-1 mb-2">
+              {invites.map(inv => (
+                <div
+                  key={inv.token}
+                  className="flex items-center justify-between rounded bg-stone-100 dark:bg-neutral-800 px-2 py-1 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <span className="font-mono text-stone-600 dark:text-neutral-300 truncate block">
+                      {inv.token}
+                    </span>
+                    <span className="text-stone-400 dark:text-neutral-500">
+                      {inv.uses} uses
+                      {inv.maxUses != null ? ` / ${inv.maxUses} max` : ''}
+                      {inv.revoked ? ' (revoked)' : ''}
+                    </span>
+                  </div>
+                  {!inv.revoked ? (
+                    <button
+                      type="button"
+                      className="ml-2 shrink-0 rounded px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                      disabled={revoking === inv.token}
+                      onClick={() => void handleRevoke(inv.token)}>
+                      {revoking === inv.token ? '...' : 'Revoke'}
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            className="rounded bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
+            disabled={creating}
+            onClick={() => void handleCreate()}>
+            {creating ? 'Creating...' : 'Create Invite'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Redeem invite sub-panel ─────────────────────────────────────────────────
+
+function RedeemInvitePanel({ onClose }: { onClose: () => void }) {
+  const [groupId, setGroupId] = useState('');
+  const [token, setToken] = useState('');
+  const [preview, setPreview] = useState<GroupInvitePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
+  const [result, setResult] = useState<GroupMember | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePreview = useCallback(async () => {
+    if (!groupId.trim() || !token.trim()) return;
+    setPreviewLoading(true);
+    setError(null);
+    setPreview(null);
+    try {
+      const p = await apiClient.groups.previewInvite(groupId.trim(), token.trim());
+      setPreview(p);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [groupId, token]);
+
+  const handleRedeem = useCallback(async () => {
+    if (!groupId.trim() || !token.trim()) return;
+    setRedeeming(true);
+    setError(null);
+    try {
+      const member = await apiClient.groups.redeemInvite(groupId.trim(), token.trim());
+      setResult(member);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setRedeeming(false);
+    }
+  }, [groupId, token]);
+
+  return (
+    <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+          Redeem Invite
+        </span>
+        <button
+          type="button"
+          className="text-xs text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+          onClick={onClose}>
+          Close
+        </button>
+      </div>
+      {error ? <p className="mb-2 text-xs text-red-500">{error}</p> : null}
+      {result ? (
+        <p className="text-xs text-green-600 dark:text-green-400">
+          Joined as {result.role} in group {result.groupId}
+        </p>
+      ) : (
+        <>
+          <div className="space-y-1.5 mb-2">
+            <input
+              type="text"
+              placeholder="Group ID"
+              value={groupId}
+              onChange={e => setGroupId(e.target.value)}
+              className="w-full rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+            />
+            <input
+              type="text"
+              placeholder="Invite token"
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              className="w-full rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-1 text-xs text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+            />
+          </div>
+          <div className="flex gap-1 mb-2">
+            <button
+              type="button"
+              className="rounded bg-stone-200 dark:bg-neutral-700 px-2 py-1 text-xs text-stone-700 dark:text-neutral-200 hover:bg-stone-300 dark:hover:bg-neutral-600 disabled:opacity-50"
+              disabled={previewLoading || !groupId.trim() || !token.trim()}
+              onClick={() => void handlePreview()}>
+              {previewLoading ? '...' : 'Preview'}
+            </button>
+            <button
+              type="button"
+              className="rounded bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700 disabled:opacity-50"
+              disabled={redeeming || !groupId.trim() || !token.trim()}
+              onClick={() => void handleRedeem()}>
+              {redeeming ? '...' : 'Redeem'}
+            </button>
+          </div>
+          {preview ? (
+            <div className="rounded bg-stone-100 dark:bg-neutral-800 p-2 text-xs text-stone-600 dark:text-neutral-300">
+              <p className="font-medium">{preview.name}</p>
+              {preview.description ? (
+                <p className="mt-0.5 text-stone-400 dark:text-neutral-500">{preview.description}</p>
+              ) : null}
+              <p className="mt-0.5">
+                {preview.memberCount} members / {preview.membershipPolicy} / invited by{' '}
+                {preview.invitedBy}
+              </p>
+              {!preview.valid ? (
+                <p className="mt-0.5 text-red-500">This invite is no longer valid</p>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

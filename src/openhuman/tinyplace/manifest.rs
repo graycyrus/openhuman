@@ -1764,6 +1764,147 @@ pub(crate) fn handle_tinyplace_feedback_vote(params: Map<String, Value>) -> Cont
     })
 }
 
+// ── Groups invite/role management ────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_groups_set_member_role(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        let role = req_str(&params, "role")?.to_string();
+        log::debug!(
+            "{LOG_PREFIX} groups_set_member_role group_id={group_id} agent_id={agent_id} role={role}"
+        );
+        let client = global_state().client().await?;
+        let result = client
+            .groups
+            .set_member_role(&group_id, &agent_id, &role, None)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_create_invite(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_create_invite group_id={group_id}");
+
+        let client = global_state().client().await?;
+        let actor = client
+            .http()
+            .signer()
+            .map(|s| s.agent_id())
+            .ok_or_else(|| "tinyplace signer unavailable; cannot create invite".to_string())?;
+
+        let request: Option<tinyplace::types::GroupInviteCreateRequest> = params
+            .get("request")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid groups create_invite request: {e}"))
+            })
+            .transpose()?;
+
+        let result = client
+            .groups
+            .create_invite(&group_id, &actor, request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_list_invites(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_list_invites group_id={group_id}");
+
+        let client = global_state().client().await?;
+        let actor = client
+            .http()
+            .signer()
+            .map(|s| s.agent_id())
+            .ok_or_else(|| "tinyplace signer unavailable; cannot list invites".to_string())?;
+
+        let result = client
+            .groups
+            .list_invites(&group_id, &actor)
+            .await
+            .map_err(map_err)?;
+        // GroupInvitesResponse doesn't derive Serialize; serialize the inner vec.
+        to_value(result.invites)
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_preview_invite(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        let token = req_str(&params, "token")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_preview_invite group_id={group_id} token=<redacted>");
+        let client = global_state().client().await?;
+        let result = client
+            .groups
+            .preview_invite(&group_id, &token)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_revoke_invite(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        let token = req_str(&params, "token")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_revoke_invite group_id={group_id} token=<redacted>");
+
+        let client = global_state().client().await?;
+        let actor = client
+            .http()
+            .signer()
+            .map(|s| s.agent_id())
+            .ok_or_else(|| "tinyplace signer unavailable; cannot revoke invite".to_string())?;
+
+        client
+            .groups
+            .revoke_invite(&group_id, &token, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_groups_redeem_invite(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let group_id = req_str(&params, "groupId")?.to_string();
+        let token = req_str(&params, "token")?.to_string();
+        log::debug!("{LOG_PREFIX} groups_redeem_invite group_id={group_id} token=<redacted>");
+
+        let client = global_state().client().await?;
+        let me = client
+            .http()
+            .signer()
+            .map(|s| s.agent_id())
+            .ok_or_else(|| "tinyplace signer unavailable; cannot redeem invite".to_string())?;
+
+        let result = client
+            .groups
+            .redeem_invite(&group_id, &token, &me)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 // ── Registry export handler ───────────────────────────────────────────────────
 
 pub(crate) fn handle_tinyplace_registry_export(params: Map<String, Value>) -> ControllerFuture {
@@ -1927,5 +2068,59 @@ mod tests {
         p.insert("title".to_string(), Value::String("   ".into()));
         let err = block_on(handle_tinyplace_feedback_create(p)).unwrap_err();
         assert!(err.contains("title"), "got: {err}");
+    }
+
+    /// Groups invite/role handlers reject missing required params before any client work.
+    #[test]
+    fn groups_invite_handlers_require_params() {
+        // set_member_role requires groupId, agentId, role.
+        let err = block_on(handle_tinyplace_groups_set_member_role(Map::new())).unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("groupId".to_string(), Value::String("g-1".into()));
+        let err = block_on(handle_tinyplace_groups_set_member_role(p)).unwrap_err();
+        assert!(err.contains("agentId"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("groupId".to_string(), Value::String("g-1".into()));
+        p.insert("agentId".to_string(), Value::String("agent-1".into()));
+        let err = block_on(handle_tinyplace_groups_set_member_role(p)).unwrap_err();
+        assert!(err.contains("role"), "got: {err}");
+
+        // create_invite requires groupId.
+        let err = block_on(handle_tinyplace_groups_create_invite(Map::new())).unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+
+        // list_invites requires groupId.
+        let err = block_on(handle_tinyplace_groups_list_invites(Map::new())).unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+
+        // preview_invite requires groupId and token.
+        let err = block_on(handle_tinyplace_groups_preview_invite(Map::new())).unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("groupId".to_string(), Value::String("g-1".into()));
+        let err = block_on(handle_tinyplace_groups_preview_invite(p)).unwrap_err();
+        assert!(err.contains("token"), "got: {err}");
+
+        // revoke_invite requires groupId and token.
+        let err = block_on(handle_tinyplace_groups_revoke_invite(Map::new())).unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("groupId".to_string(), Value::String("g-1".into()));
+        let err = block_on(handle_tinyplace_groups_revoke_invite(p)).unwrap_err();
+        assert!(err.contains("token"), "got: {err}");
+
+        // redeem_invite requires groupId and token.
+        let err = block_on(handle_tinyplace_groups_redeem_invite(Map::new())).unwrap_err();
+        assert!(err.contains("groupId"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("groupId".to_string(), Value::String("g-1".into()));
+        let err = block_on(handle_tinyplace_groups_redeem_invite(p)).unwrap_err();
+        assert!(err.contains("token"), "got: {err}");
     }
 }

@@ -24,6 +24,38 @@ vi.mock('../AgentWorldShell', () => ({
       list: vi.fn().mockResolvedValue([]),
       join: vi.fn().mockResolvedValue(undefined),
       leave: vi.fn().mockResolvedValue(undefined),
+      setMemberRole: vi.fn().mockResolvedValue(undefined),
+      createInvite: vi
+        .fn()
+        .mockResolvedValue({
+          token: 'tok-new',
+          groupId: 'g-1',
+          createdBy: 'me',
+          createdAt: '',
+          uses: 0,
+        }),
+      listInvites: vi.fn().mockResolvedValue([]),
+      previewInvite: vi
+        .fn()
+        .mockResolvedValue({
+          groupId: 'g-1',
+          name: 'Preview Group',
+          memberCount: 5,
+          membershipPolicy: 'open',
+          invitedBy: 'admin-1',
+          valid: true,
+        }),
+      revokeInvite: vi.fn().mockResolvedValue(undefined),
+      redeemInvite: vi
+        .fn()
+        .mockResolvedValue({
+          groupId: 'g-1',
+          agentId: 'me',
+          role: 'member',
+          status: 'active',
+          joinedAt: '',
+          updatedAt: '',
+        }),
     },
     broadcasts: {
       list: vi.fn().mockResolvedValue([]),
@@ -246,5 +278,157 @@ describe('membership actions', () => {
     await screen.findByText('Builders');
     await userEvent.click(screen.getByRole('button', { name: 'Leave' }));
     expect(apiClient.groups.leave).toHaveBeenCalledWith('g-1');
+  });
+});
+
+// ── Group invite management ─────────────────────────────────────────────────
+
+describe('group invite management', () => {
+  const group = {
+    groupId: 'g-inv',
+    name: 'Invite Test Group',
+    membershipPolicy: 'invite-only',
+    memberCount: 3,
+    membershipEpoch: 1,
+    createdBy: 'owner-1',
+    createdAt: '2026-01-01T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    vi.mocked(apiClient.groups.list).mockResolvedValue([group]);
+  });
+
+  test('renders "Invites" button on group cards', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Invite Test Group');
+    expect(screen.getByRole('button', { name: 'Invites' })).toBeInTheDocument();
+  });
+
+  test('clicking "Invites" opens GroupInvitesPanel and calls listInvites', async () => {
+    vi.mocked(apiClient.groups.listInvites).mockResolvedValue([]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Invite Test Group');
+    await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    expect(apiClient.groups.listInvites).toHaveBeenCalledWith('g-inv');
+    expect(await screen.findByText(/Invites for Invite Test Group/)).toBeInTheDocument();
+  });
+
+  test('GroupInvitesPanel shows existing invites with token and usage', async () => {
+    vi.mocked(apiClient.groups.listInvites).mockResolvedValue([
+      {
+        groupId: 'g-inv',
+        token: 'tok-abc',
+        createdBy: 'owner-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        uses: 2,
+        maxUses: 10,
+      },
+    ]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Invite Test Group');
+    await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    expect(await screen.findByText('tok-abc')).toBeInTheDocument();
+    expect(screen.getByText(/2 uses/)).toBeInTheDocument();
+    expect(screen.getByText(/\/ 10 max/)).toBeInTheDocument();
+  });
+
+  test('Create Invite button calls groups.createInvite', async () => {
+    vi.mocked(apiClient.groups.listInvites).mockResolvedValue([]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Invite Test Group');
+    await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    await screen.findByText(/No active invites/);
+    await userEvent.click(screen.getByRole('button', { name: 'Create Invite' }));
+    expect(apiClient.groups.createInvite).toHaveBeenCalledWith('g-inv');
+  });
+
+  test('Revoke button calls groups.revokeInvite with token', async () => {
+    vi.mocked(apiClient.groups.listInvites).mockResolvedValue([
+      {
+        groupId: 'g-inv',
+        token: 'tok-revoke',
+        createdBy: 'owner-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        uses: 0,
+      },
+    ]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Invite Test Group');
+    await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    await screen.findByText('tok-revoke');
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    expect(apiClient.groups.revokeInvite).toHaveBeenCalledWith('g-inv', 'tok-revoke');
+  });
+
+  test('Close button returns to the group list', async () => {
+    vi.mocked(apiClient.groups.listInvites).mockResolvedValue([]);
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByText('Invite Test Group');
+    await userEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    await screen.findByText(/Invites for Invite Test Group/);
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    // Should be back to the group list.
+    expect(await screen.findByText('Invite Test Group')).toBeInTheDocument();
+  });
+});
+
+describe('redeem invite', () => {
+  test('renders "Redeem Invite" button in the groups tab', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    expect(await screen.findByRole('button', { name: 'Redeem Invite' })).toBeInTheDocument();
+  });
+
+  test('clicking "Redeem Invite" opens the redeem panel with inputs', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await screen.findByRole('button', { name: 'Redeem Invite' });
+    await userEvent.click(screen.getByRole('button', { name: 'Redeem Invite' }));
+    expect(screen.getByPlaceholderText('Group ID')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Invite token')).toBeInTheDocument();
+  });
+
+  test('Preview button calls groups.previewInvite and shows result', async () => {
+    vi.mocked(apiClient.groups.previewInvite).mockResolvedValue({
+      groupId: 'g-prev',
+      name: 'Previewed Group',
+      memberCount: 7,
+      membershipPolicy: 'invite-only',
+      invitedBy: 'admin-1',
+      valid: true,
+    });
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Redeem Invite' }));
+    await userEvent.type(screen.getByPlaceholderText('Group ID'), 'g-prev');
+    await userEvent.type(screen.getByPlaceholderText('Invite token'), 'tok-preview');
+    await userEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(apiClient.groups.previewInvite).toHaveBeenCalledWith('g-prev', 'tok-preview');
+    expect(await screen.findByText('Previewed Group')).toBeInTheDocument();
+  });
+
+  test('Redeem button calls groups.redeemInvite and shows success', async () => {
+    vi.mocked(apiClient.groups.redeemInvite).mockResolvedValue({
+      groupId: 'g-redeem',
+      agentId: 'MyAddr123',
+      role: 'member',
+      status: 'active',
+      joinedAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    });
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Redeem Invite' }));
+    await userEvent.type(screen.getByPlaceholderText('Group ID'), 'g-redeem');
+    await userEvent.type(screen.getByPlaceholderText('Invite token'), 'tok-redeem');
+    await userEvent.click(screen.getByRole('button', { name: 'Redeem' }));
+    expect(apiClient.groups.redeemInvite).toHaveBeenCalledWith('g-redeem', 'tok-redeem');
+    expect(await screen.findByText(/Joined as member in group g-redeem/)).toBeInTheDocument();
   });
 });
