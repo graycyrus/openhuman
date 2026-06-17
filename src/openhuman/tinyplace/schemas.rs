@@ -20,18 +20,19 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_directory_list_identities, handle_tinyplace_directory_resolve,
     handle_tinyplace_directory_reverse, handle_tinyplace_directory_skills,
     handle_tinyplace_escrow_get, handle_tinyplace_escrow_list, handle_tinyplace_explorer_overview,
-    handle_tinyplace_follows_feed, handle_tinyplace_follows_follow,
-    handle_tinyplace_follows_followers, handle_tinyplace_follows_following,
-    handle_tinyplace_follows_stats, handle_tinyplace_follows_unfollow,
-    handle_tinyplace_groups_join, handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
-    handle_tinyplace_inbox_archive, handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
-    handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
-    handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get,
-    handle_tinyplace_jobs_list, handle_tinyplace_marketplace_bid,
-    handle_tinyplace_marketplace_browse, handle_tinyplace_marketplace_buy_identity,
-    handle_tinyplace_marketplace_buy_product, handle_tinyplace_marketplace_categories,
-    handle_tinyplace_marketplace_featured, handle_tinyplace_marketplace_get_product,
-    handle_tinyplace_marketplace_identity_floor,
+    handle_tinyplace_feedback_create, handle_tinyplace_feedback_get,
+    handle_tinyplace_feedback_list, handle_tinyplace_feedback_vote, handle_tinyplace_follows_feed,
+    handle_tinyplace_follows_follow, handle_tinyplace_follows_followers,
+    handle_tinyplace_follows_following, handle_tinyplace_follows_stats,
+    handle_tinyplace_follows_unfollow, handle_tinyplace_groups_join, handle_tinyplace_groups_leave,
+    handle_tinyplace_groups_list, handle_tinyplace_inbox_archive, handle_tinyplace_inbox_counts,
+    handle_tinyplace_inbox_list, handle_tinyplace_inbox_mark_all_read,
+    handle_tinyplace_inbox_mark_read, handle_tinyplace_inbox_remove,
+    handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get, handle_tinyplace_jobs_list,
+    handle_tinyplace_marketplace_bid, handle_tinyplace_marketplace_browse,
+    handle_tinyplace_marketplace_buy_identity, handle_tinyplace_marketplace_buy_product,
+    handle_tinyplace_marketplace_categories, handle_tinyplace_marketplace_featured,
+    handle_tinyplace_marketplace_get_product, handle_tinyplace_marketplace_identity_floor,
     handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
     handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
     handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
@@ -1138,6 +1139,73 @@ fn schema_follows_feed() -> ControllerSchema {
     }
 }
 
+// ── Feedback schemas ────────────────────────────────────────────────────────
+
+fn schema_feedback_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feedback_list",
+        description: "List public feedback items with optional filters.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional FeedbackListParams (status, limit, offset).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "FeedbackListResponse { feedback: FeedbackItem[] }.",
+        )],
+    }
+}
+
+fn schema_feedback_get() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feedback_get",
+        description: "Fetch a single feedback item by ID.",
+        inputs: vec![required_string(
+            "feedbackId",
+            "The feedback item ID to retrieve.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "FeedbackItem with votes, status, and timestamps.",
+        )],
+    }
+}
+
+fn schema_feedback_create() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feedback_create",
+        description: "Submit a new feedback item (author set from wallet signer).",
+        inputs: vec![
+            required_string("title", "Feedback title."),
+            required_string("description", "Feedback description body."),
+            optional_string("category", "Optional category tag for the feedback item."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "FeedbackItem for the newly created item.",
+        )],
+    }
+}
+
+fn schema_feedback_vote() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feedback_vote",
+        description: "Vote on a feedback item (voter set from wallet signer).",
+        inputs: vec![
+            required_string("feedbackId", "The feedback item ID to vote on."),
+            required_string("vote", "Vote direction: 'up' or 'down'."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "FeedbackItem with updated vote counts.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1206,6 +1274,11 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_follows_following(),
         schema_follows_stats(),
         schema_follows_feed(),
+        // Feedback section
+        schema_feedback_list(),
+        schema_feedback_get(),
+        schema_feedback_create(),
+        schema_feedback_vote(),
     ]
 }
 
@@ -1462,6 +1535,23 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_follows_feed(),
             handler: handle_tinyplace_follows_feed,
+        },
+        // Feedback section
+        RegisteredController {
+            schema: schema_feedback_list(),
+            handler: handle_tinyplace_feedback_list,
+        },
+        RegisteredController {
+            schema: schema_feedback_get(),
+            handler: handle_tinyplace_feedback_get,
+        },
+        RegisteredController {
+            schema: schema_feedback_create(),
+            handler: handle_tinyplace_feedback_create,
+        },
+        RegisteredController {
+            schema: schema_feedback_vote(),
+            handler: handle_tinyplace_feedback_vote,
         },
     ]
 }

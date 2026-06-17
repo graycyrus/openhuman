@@ -1026,4 +1026,76 @@ describe('messaging write methods', () => {
       params: { params: null, owner: null },
     });
   });
+
+  // ── Feedback namespace ────────────────────────────────────────────────────
+
+  test('feedback.list calls tinyplace_feedback_list with params wrapped in params key', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedback: [] });
+    await client.feedback.list({ status: 'open', limit: 10 });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_list',
+      params: { params: { status: 'open', limit: 10 } },
+    });
+  });
+
+  test('feedback.list without params sends params: null', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedback: [] });
+    await client.feedback.list();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_list',
+      params: { params: null },
+    });
+  });
+
+  test('feedback.get calls tinyplace_feedback_get with feedbackId', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedbackId: 'fb-1' });
+    await client.feedback.get('fb-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_get',
+      params: { feedbackId: 'fb-1' },
+    });
+  });
+
+  test('feedback.create calls tinyplace_feedback_create with title and description', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedbackId: 'fb-new' });
+    await client.feedback.create('My idea', 'Great description');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_create',
+      params: { title: 'My idea', description: 'Great description' },
+    });
+  });
+
+  test('feedback.create includes category when provided', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedbackId: 'fb-cat' });
+    await client.feedback.create('Idea', 'Desc', 'feature');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_create',
+      params: { title: 'Idea', description: 'Desc', category: 'feature' },
+    });
+  });
+
+  test('feedback.vote calls tinyplace_feedback_vote with feedbackId and vote', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedbackId: 'fb-1', score: 1 });
+    await client.feedback.vote('fb-1', 'up');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_vote',
+      params: { feedbackId: 'fb-1', vote: 'up' },
+    });
+  });
+
+  test('feedback.vote accepts "down" direction', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ feedbackId: 'fb-1', score: -1 });
+    await client.feedback.vote('fb-1', 'down');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_feedback_vote',
+      params: { feedbackId: 'fb-1', vote: 'down' },
+    });
+  });
 });
