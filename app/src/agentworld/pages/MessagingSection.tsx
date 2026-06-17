@@ -5,8 +5,11 @@
  * Encrypted DM compose/read is gated behind E2E_MESSAGING_ENABLED (currently
  * false) and shows a "Secure direct messages — coming soon" state instead.
  *
- * Signal protocol / keys.* methods are intentionally NOT wired here.
+ * Signal key provisioning is always accessible when a wallet is connected —
+ * the `SignalKeyStatusCard` appears above the tab content regardless of the
+ * E2E_MESSAGING_ENABLED gate so users can set up keys before 0C ships.
  */
+import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
@@ -22,9 +25,12 @@ import {
   type InboxItem,
   type InboxQueryParams,
   PaymentRequiredError,
+  type SignalKeyStatus,
 } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
 import { useTinyplaceStream } from '../hooks/useTinyplaceStream';
+
+const log = debug('openhuman:messaging');
 
 // ── Feature gate ──────────────────────────────────────────────────────────────
 
@@ -125,6 +131,81 @@ function PaymentRequiredPane() {
       <p className="text-sm text-stone-500 dark:text-neutral-400">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
+    </div>
+  );
+}
+
+// ── Signal key status ─────────────────────────────────────────────────────────
+
+function useSignalKeyStatus() {
+  const [status, setStatus] = useState<SignalKeyStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiClient.signal.keyStatus();
+      setStatus(result);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { status, loading, error, refresh };
+}
+
+function SignalKeyStatusCard() {
+  const { status, loading, error, refresh } = useSignalKeyStatus();
+  const [provisioning, setProvisioning] = useState(false);
+
+  const handleProvision = useCallback(async () => {
+    setProvisioning(true);
+    try {
+      await apiClient.signal.provision();
+      await refresh();
+    } catch (err) {
+      log('provision error: %s', String(err));
+    } finally {
+      setProvisioning(false);
+    }
+  }, [refresh]);
+
+  if (loading && !status) return null; // silent initial load
+  if (error && !status) return null; // degrade: hide if status unavailable
+
+  const keysReady = status?.hasActiveSignedPreKey && (status?.localPreKeyCount ?? 0) > 0;
+
+  return (
+    <div className="mx-4 mb-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-stone-800 dark:text-neutral-200">
+            Encrypted messaging
+          </p>
+          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            {keysReady
+              ? `Keys ready (${status!.localPreKeyCount} pre-keys)`
+              : 'Set up encryption keys to enable direct messages'}
+          </p>
+        </div>
+        {!keysReady && (
+          <button
+            type="button"
+            className="ml-3 flex-shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            disabled={provisioning}
+            onClick={() => void handleProvision()}>
+            {provisioning ? 'Setting up...' : 'Set up keys'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -924,6 +1005,9 @@ export default function MessagingSection() {
           </button>
         ))}
       </div>
+
+      {/* Signal key status — always visible when wallet is connected */}
+      <SignalKeyStatusCard />
 
       {/* Active panel */}
       <div className="flex-1 overflow-auto p-4">

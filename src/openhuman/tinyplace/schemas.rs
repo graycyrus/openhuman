@@ -46,10 +46,13 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
     handle_tinyplace_registry_export, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
-    handle_tinyplace_solana_call, handle_tinyplace_solana_info, handle_tinyplace_streams_list,
-    handle_tinyplace_streams_start, handle_tinyplace_streams_stop,
-    handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
-    handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
+    handle_tinyplace_signal_get_bundle, handle_tinyplace_signal_key_status,
+    handle_tinyplace_signal_provision, handle_tinyplace_signal_rotate_signed_pre_key,
+    handle_tinyplace_signal_upload_pre_keys, handle_tinyplace_solana_call,
+    handle_tinyplace_solana_info, handle_tinyplace_streams_list, handle_tinyplace_streams_start,
+    handle_tinyplace_streams_stop, handle_tinyplace_users_confirm_email_verification,
+    handle_tinyplace_users_get, handle_tinyplace_users_start_email_verification,
+    handle_tinyplace_users_update_profile,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -1447,6 +1450,85 @@ fn schema_streams_list() -> ControllerSchema {
     }
 }
 
+// ── Signal key management schemas ────────────────────────────────────────────
+
+fn schema_signal_provision() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_provision",
+        description: "Bootstrap Signal keys: generate signed pre-key + one-time pre-keys, \
+             store locally, and publish to the backend. Returns key health.",
+        inputs: vec![optional_integer(
+            "preKeyCount",
+            "Number of one-time pre-keys to generate (default 100).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "KeyHealth { agentId, oneTimePreKeyCount, lowOneTimePreKeys, \
+             recommendedPreKeyRefill?, signedPreKeyKeyId?, updatedAt }.",
+        )],
+    }
+}
+
+fn schema_signal_upload_pre_keys() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_upload_pre_keys",
+        description: "Generate and upload additional one-time pre-keys (replenishment). \
+             Does not rotate the signed pre-key.",
+        inputs: vec![optional_integer(
+            "count",
+            "Number of one-time pre-keys to generate and upload (default 100).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "KeyHealth { agentId, oneTimePreKeyCount, lowOneTimePreKeys, \
+             recommendedPreKeyRefill?, updatedAt }.",
+        )],
+    }
+}
+
+fn schema_signal_rotate_signed_pre_key() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_rotate_signed_pre_key",
+        description: "Generate a new signed pre-key, store locally, and upload. \
+             Existing one-time pre-keys are unaffected.",
+        inputs: vec![],
+        outputs: vec![json_output("result", "{ ok: true, keyId: string }.")],
+    }
+}
+
+fn schema_signal_get_bundle() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_get_bundle",
+        description: "Fetch a peer's published Signal pre-key bundle (public endpoint).",
+        inputs: vec![required_string(
+            "agentId",
+            "The peer's base58 Solana address.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "KeyBundle { agentId, identityKey, signedPreKey, oneTimePreKey?, updatedAt }.",
+        )],
+    }
+}
+
+fn schema_signal_key_status() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_key_status",
+        description: "Local + remote key status for the current user. \
+             Remote health degrades gracefully if the backend is unreachable.",
+        inputs: vec![],
+        outputs: vec![json_output(
+            "result",
+            "{ agentId, localPreKeyCount, hasActiveSignedPreKey, remote: KeyHealth? }.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1539,6 +1621,12 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_streams_start(),
         schema_streams_stop(),
         schema_streams_list(),
+        // Signal key management
+        schema_signal_provision(),
+        schema_signal_upload_pre_keys(),
+        schema_signal_rotate_signed_pre_key(),
+        schema_signal_get_bundle(),
+        schema_signal_key_status(),
     ]
 }
 
@@ -1873,6 +1961,27 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_streams_list(),
             handler: handle_tinyplace_streams_list,
+        },
+        // Signal key management
+        RegisteredController {
+            schema: schema_signal_provision(),
+            handler: handle_tinyplace_signal_provision,
+        },
+        RegisteredController {
+            schema: schema_signal_upload_pre_keys(),
+            handler: handle_tinyplace_signal_upload_pre_keys,
+        },
+        RegisteredController {
+            schema: schema_signal_rotate_signed_pre_key(),
+            handler: handle_tinyplace_signal_rotate_signed_pre_key,
+        },
+        RegisteredController {
+            schema: schema_signal_get_bundle(),
+            handler: handle_tinyplace_signal_get_bundle,
+        },
+        RegisteredController {
+            schema: schema_signal_key_status(),
+            handler: handle_tinyplace_signal_key_status,
         },
     ]
 }

@@ -899,6 +899,43 @@ export interface StreamListResult {
   [key: string]: unknown;
 }
 
+// ── Signal key management types ─────────────────────────────────────────────
+
+export interface SignedKey {
+  keyId: string;
+  publicKey: string;
+  signature?: string;
+  [key: string]: unknown;
+}
+
+export interface KeyBundle {
+  agentId: string;
+  identityKey: string;
+  signedPreKey: SignedKey;
+  oneTimePreKey?: SignedKey;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface KeyHealth {
+  agentId: string;
+  oneTimePreKeyCount: number;
+  lowOneTimePreKeys: boolean;
+  recommendedPreKeyRefill?: number;
+  signedPreKeyKeyId?: string;
+  signedPreKeyUpdatedAt?: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface SignalKeyStatus {
+  agentId: string;
+  localPreKeyCount: number;
+  hasActiveSignedPreKey: boolean;
+  remote: KeyHealth | null;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -1224,6 +1261,28 @@ export function createInvokeApiClient() {
       stop: (streamId: string) => call<void>('openhuman.tinyplace_streams_stop', { streamId }),
       /** List all active tinyplace WebSocket streams. */
       list: () => call<StreamListResult>('openhuman.tinyplace_streams_list', {}),
+    },
+    // ── Signal key management ─────────────────────────────────────────────
+    signal: {
+      /** Bootstrap Signal keys: generate + store + publish. Returns KeyHealth. */
+      provision: (preKeyCount?: number) =>
+        call<KeyHealth>('openhuman.tinyplace_signal_provision', {
+          preKeyCount: preKeyCount ?? null,
+        }),
+      /** Upload additional one-time pre-keys (replenishment). */
+      uploadPreKeys: (count?: number) =>
+        call<KeyHealth>('openhuman.tinyplace_signal_upload_pre_keys', { count: count ?? null }),
+      /** Rotate the signed pre-key. */
+      rotateSignedPreKey: () =>
+        call<{ ok: boolean; keyId: string }>(
+          'openhuman.tinyplace_signal_rotate_signed_pre_key',
+          {}
+        ),
+      /** Fetch a peer's published pre-key bundle (public endpoint). */
+      getBundle: (agentId: string) =>
+        call<KeyBundle>('openhuman.tinyplace_signal_get_bundle', { agentId }),
+      /** Local + remote key status for the current user. */
+      keyStatus: () => call<SignalKeyStatus>('openhuman.tinyplace_signal_key_status', {}),
     },
   };
 }

@@ -1236,3 +1236,100 @@ describe('messaging write methods', () => {
     });
   });
 });
+
+// ── signal namespace ──────────────────────────────────────────────────────────
+
+test('signal namespace has expected methods', () => {
+  const client = createInvokeApiClient();
+  expect(client.signal).toBeDefined();
+  expect(typeof client.signal.provision).toBe('function');
+  expect(typeof client.signal.uploadPreKeys).toBe('function');
+  expect(typeof client.signal.rotateSignedPreKey).toBe('function');
+  expect(typeof client.signal.getBundle).toBe('function');
+  expect(typeof client.signal.keyStatus).toBe('function');
+});
+
+describe('signal.provision', () => {
+  test('calls openhuman.tinyplace_signal_provision with preKeyCount', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agentId: 'abc', oneTimePreKeyCount: 100 });
+    const client = createInvokeApiClient();
+    await client.signal.provision(50);
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_provision',
+      params: { preKeyCount: 50 },
+    });
+  });
+
+  test('sends preKeyCount: null when omitted', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agentId: 'abc', oneTimePreKeyCount: 100 });
+    const client = createInvokeApiClient();
+    await client.signal.provision();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_provision',
+      params: { preKeyCount: null },
+    });
+  });
+});
+
+describe('signal.uploadPreKeys', () => {
+  test('calls openhuman.tinyplace_signal_upload_pre_keys with count', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agentId: 'abc', oneTimePreKeyCount: 200 });
+    const client = createInvokeApiClient();
+    await client.signal.uploadPreKeys(50);
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_upload_pre_keys',
+      params: { count: 50 },
+    });
+  });
+
+  test('sends count: null when omitted', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agentId: 'abc', oneTimePreKeyCount: 200 });
+    const client = createInvokeApiClient();
+    await client.signal.uploadPreKeys();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_upload_pre_keys',
+      params: { count: null },
+    });
+  });
+});
+
+describe('signal.rotateSignedPreKey', () => {
+  test('calls openhuman.tinyplace_signal_rotate_signed_pre_key with empty params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ ok: true, keyId: 'spk_123' });
+    const client = createInvokeApiClient();
+    await client.signal.rotateSignedPreKey();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_rotate_signed_pre_key',
+      params: {},
+    });
+  });
+});
+
+describe('signal.getBundle', () => {
+  test('calls openhuman.tinyplace_signal_get_bundle with agentId', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ agentId: 'peer123', identityKey: 'abc' });
+    const client = createInvokeApiClient();
+    await client.signal.getBundle('peer123');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_get_bundle',
+      params: { agentId: 'peer123' },
+    });
+  });
+});
+
+describe('signal.keyStatus', () => {
+  test('calls openhuman.tinyplace_signal_key_status with empty params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({
+      agentId: 'abc',
+      localPreKeyCount: 42,
+      hasActiveSignedPreKey: true,
+      remote: null,
+    });
+    const client = createInvokeApiClient();
+    await client.signal.keyStatus();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_key_status',
+      params: {},
+    });
+  });
+});
