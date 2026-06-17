@@ -2390,11 +2390,47 @@ pub(crate) fn handle_tinyplace_signal_key_status(_params: Map<String, Value>) ->
 
         let remote_json = remote.and_then(|h| serde_json::to_value(h).ok());
 
+        // Best-effort directory check — is encryptionPublicKey published
+        // AND does it match the current identity key? A stale key (from a
+        // previous wallet) should show as NOT published so the user
+        // re-registers.
+        let encryption_key_published = match client.directory.get_agent(&agent_id).await {
+            Ok(card) => {
+                let published_key = card
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("encryptionPublicKey"));
+                let current_key_b64 = base64::engine::general_purpose::STANDARD.encode(
+                    store
+                        .identity_x25519_key_pair()
+                        .await
+                        .map(|kp| kp.public_key)
+                        .unwrap_or([0u8; 32]),
+                );
+                let matches = published_key
+                    .map(|pk| pk == &current_key_b64)
+                    .unwrap_or(false);
+                if published_key.is_some() && !matches {
+                    log::warn!(
+                        "{LOG_PREFIX} signal_key_status published encryption key does NOT \
+                         match current identity — re-register to update"
+                    );
+                }
+                log::debug!("{LOG_PREFIX} signal_key_status encryption_key_published={matches}");
+                matches
+            }
+            Err(e) => {
+                log::warn!("{LOG_PREFIX} signal_key_status directory card fetch failed: {e}");
+                false
+            }
+        };
+
         to_value(serde_json::json!({
             "agentId": agent_id,
             "localPreKeyCount": local_pre_key_count,
             "hasActiveSignedPreKey": has_active_spk,
             "remote": remote_json,
+            "encryptionKeyPublished": encryption_key_published,
         }))
     })
 }
@@ -2759,6 +2795,89 @@ pub(crate) fn handle_tinyplace_messages_acknowledge(
             .await
             .map_err(map_err)?;
         to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+// ── Signal: encryption key registration (0D) ────────────────────────────────
+
+/// Publish the user's X25519 identity public key on their directory card as
+/// `metadata.encryptionPublicKey`. This makes the user discoverable for
+/// encrypted DMs via `find_agent_by_encryption_key`.
+///
+/// SECURITY: only the PUBLIC key is published. The private key never leaves
+/// the `FileSessionStore`.
+pub(crate) fn handle_tinyplace_signal_register_encryption_key(
+    _params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} signal_register_encryption_key");
+
+        // 1. Read identity public key from the signal store.
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let identity_kp = store
+            .identity_x25519_key_pair()
+            .await
+            .map_err(|e| format!("identity key: {e}"))?;
+        let encryption_key_b64 =
+            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+        log::debug!("{LOG_PREFIX} signal_register_encryption_key derived key (not logging value)");
+
+        // 2. Acquire client and signer.
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let agent_id = signer.agent_id();
+
+        // 3. Fetch current AgentCard to preserve existing fields.
+        let mut card = client
+            .directory
+            .get_agent(&agent_id)
+            .await
+            .map_err(map_err)?;
+        log::debug!("{LOG_PREFIX} signal_register_encryption_key fetched card for {agent_id}");
+
+        // 4. Merge encryptionPublicKey into metadata.
+        let metadata = card
+            .metadata
+            .get_or_insert_with(std::collections::HashMap::new);
+        metadata.insert(
+            "encryptionPublicKey".to_string(),
+            encryption_key_b64.clone(),
+        );
+
+        // 5. Upsert the card with the updated metadata.
+        let updated = client
+            .directory
+            .upsert_agent(&agent_id, &card)
+            .await
+            .map_err(map_err)?;
+        log::info!("{LOG_PREFIX} signal_register_encryption_key published for {agent_id}");
+
+        to_value(serde_json::json!({
+            "ok": true,
+            "encryptionKey": encryption_key_b64,
+            "agentId": agent_id,
+            "updatedAt": updated.updated_at,
+        }))
+    })
+}
+
+// ── Directory: find by encryption key (0D) ──────────────────────────────────
+
+/// Reverse-lookup: find the agent advertising a given encryption public key.
+/// Returns the full `AgentCard` or `null` if no agent advertises it.
+pub(crate) fn handle_tinyplace_directory_find_by_encryption_key(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let encryption_key = req_str(&params, "encryptionKey")?.to_string();
+        log::debug!("{LOG_PREFIX} directory_find_by_encryption_key (key not logged for brevity)");
+        let client = global_state().client().await?;
+        let result = client
+            .directory
+            .find_agent_by_encryption_key(&encryption_key)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
     })
 }
 
@@ -3197,6 +3316,70 @@ mod tests {
         assert!(
             !err.contains("secret message"),
             "plaintext leaked in error message: {err}"
+        );
+    }
+
+    // ── Encryption key registration + discovery (0D) ─────────────────────────
+
+    #[test]
+    fn directory_find_by_encryption_key_requires_param() {
+        let err =
+            block_on(handle_tinyplace_directory_find_by_encryption_key(Map::new())).unwrap_err();
+        assert!(err.contains("encryptionKey"), "got: {err}");
+    }
+
+    /// Verify the register handler has no required params -- it will fail at
+    /// global_signal_store (no running runtime) but NOT on missing params.
+    #[test]
+    fn signal_register_encryption_key_fails_at_store_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_signal_register_encryption_key(Map::new()))
+            .unwrap_err();
+        assert!(
+            !err.contains("missing required param"),
+            "should not fail on params: {err}"
+        );
+    }
+
+    #[test]
+    fn directory_find_by_encryption_key_with_valid_param_fails_at_client() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let mut params = Map::new();
+        params.insert(
+            "encryptionKey".into(),
+            Value::String("dGVzdA==".into()), // valid base64
+        );
+        let err = rt
+            .block_on(handle_tinyplace_directory_find_by_encryption_key(params))
+            .unwrap_err();
+        // Must get past param validation; fails at client initialization.
+        assert!(!err.contains("encryptionKey"), "got: {err}");
+    }
+
+    /// Verify that the error path from register_encryption_key does not contain
+    /// any base64 key material in the error message.
+    #[test]
+    fn signal_register_encryption_key_does_not_leak_key_material() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_signal_register_encryption_key(Map::new()))
+            .unwrap_err();
+        // The error should not contain base64-encoded key fragments.
+        // Since we fail before getting a key, this is a structural test:
+        // the handler's error messages don't embed raw key values.
+        assert!(
+            !err.contains("=="),
+            "error should not contain base64 fragments: {err}"
         );
     }
 }

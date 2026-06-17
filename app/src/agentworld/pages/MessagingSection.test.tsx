@@ -14,6 +14,7 @@ import MessagingSection from './MessagingSection';
 // These are resolved after the vi.mock factory runs.
 const getKeyStatus = () => vi.mocked(apiClient.signal.keyStatus);
 const getProvision = () => vi.mocked(apiClient.signal.provision);
+const getRegisterEncryptionKey = () => vi.mocked(apiClient.signal.registerEncryptionKey);
 
 // ── Mock apiClient ────────────────────────────────────────────────────────────
 // The module exports apiClient as a named export; we replace its methods.
@@ -37,16 +38,24 @@ vi.mock('../AgentWorldShell', () => ({
           lowOneTimePreKeys: true,
           updatedAt: '2026-06-17T00:00:00Z',
         }),
-      sendMessage: vi.fn().mockResolvedValue({
-        messageId: 'msg-123',
-        timestamp: '2026-06-17T00:00:00Z',
-        encrypted: true,
-      }),
-      decryptMessage: vi.fn().mockResolvedValue({
-        plaintext: 'Hello!',
-        from: 'peer-agent',
-        messageId: 'msg-123',
-      }),
+      sendMessage: vi
+        .fn()
+        .mockResolvedValue({
+          messageId: 'msg-123',
+          timestamp: '2026-06-17T00:00:00Z',
+          encrypted: true,
+        }),
+      decryptMessage: vi
+        .fn()
+        .mockResolvedValue({ plaintext: 'Hello!', from: 'peer-agent', messageId: 'msg-123' }),
+      registerEncryptionKey: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          encryptionKey: 'dGVzdA==',
+          agentId: 'test-agent',
+          updatedAt: '2026-06-17T00:00:00Z',
+        }),
     },
     messages: {
       list: vi.fn().mockResolvedValue({ messages: [] }),
@@ -181,9 +190,7 @@ describe('DMs panel (E2E enabled)', () => {
   test('sendMessage is called with plaintext param, never direct backend body', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
-    vi.mocked(apiClient.signal.sendMessage).mockRejectedValueOnce(
-      new Error('encryption failed'),
-    );
+    vi.mocked(apiClient.signal.sendMessage).mockRejectedValueOnce(new Error('encryption failed'));
 
     render(<MessagingSection />);
     await user.click(screen.getByRole('button', { name: 'DMs' }));
@@ -643,16 +650,74 @@ describe('SignalKeyStatusCard', () => {
     expect(screen.getByText(/Set up encryption keys/)).toBeInTheDocument();
   });
 
-  test('renders "Keys ready" when keys are provisioned', async () => {
+  test('renders "Keys ready" when keys are provisioned but not yet discoverable', async () => {
     getKeyStatus().mockResolvedValueOnce({
       agentId: 'test-agent',
       localPreKeyCount: 100,
       hasActiveSignedPreKey: true,
       remote: null,
+      encryptionKeyPublished: false,
     });
     render(<MessagingSection />);
     expect(await screen.findByText(/Keys ready/)).toBeInTheDocument();
     expect(screen.queryByText('Set up keys')).not.toBeInTheDocument();
+  });
+
+  test('renders "Make discoverable" when keys ready but encryption key not published', async () => {
+    getKeyStatus().mockResolvedValueOnce({
+      agentId: 'test-agent',
+      localPreKeyCount: 100,
+      hasActiveSignedPreKey: true,
+      remote: null,
+      encryptionKeyPublished: false,
+    });
+    render(<MessagingSection />);
+    expect(await screen.findByText('Make discoverable')).toBeInTheDocument();
+    expect(screen.getByText(/not yet discoverable/)).toBeInTheDocument();
+  });
+
+  test('renders "Discoverable" when encryption key is published', async () => {
+    getKeyStatus().mockResolvedValueOnce({
+      agentId: 'test-agent',
+      localPreKeyCount: 100,
+      hasActiveSignedPreKey: true,
+      remote: null,
+      encryptionKeyPublished: true,
+    });
+    render(<MessagingSection />);
+    expect(await screen.findByText(/Discoverable/)).toBeInTheDocument();
+    expect(screen.queryByText('Make discoverable')).not.toBeInTheDocument();
+    expect(screen.queryByText('Set up keys')).not.toBeInTheDocument();
+  });
+
+  test('clicking "Make discoverable" calls registerEncryptionKey and refreshes', async () => {
+    const user = userEvent.setup();
+    getKeyStatus()
+      .mockResolvedValueOnce({
+        agentId: 'test-agent',
+        localPreKeyCount: 100,
+        hasActiveSignedPreKey: true,
+        remote: null,
+        encryptionKeyPublished: false,
+      })
+      .mockResolvedValueOnce({
+        agentId: 'test-agent',
+        localPreKeyCount: 100,
+        hasActiveSignedPreKey: true,
+        remote: null,
+        encryptionKeyPublished: true,
+      });
+    getRegisterEncryptionKey().mockResolvedValueOnce({
+      ok: true,
+      encryptionKey: 'dGVzdA==',
+      agentId: 'test-agent',
+      updatedAt: '2026-06-17T00:00:00Z',
+    });
+    render(<MessagingSection />);
+    const btn = await screen.findByText('Make discoverable');
+    await user.click(btn);
+    expect(getRegisterEncryptionKey()).toHaveBeenCalled();
+    expect(await screen.findByText(/Discoverable/)).toBeInTheDocument();
   });
 
   test('clicking "Set up keys" calls signal.provision and refreshes', async () => {

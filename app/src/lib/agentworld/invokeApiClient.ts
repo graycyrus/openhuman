@@ -933,6 +933,7 @@ export interface SignalKeyStatus {
   localPreKeyCount: number;
   hasActiveSignedPreKey: boolean;
   remote: KeyHealth | null;
+  encryptionKeyPublished?: boolean; // (0D) true only if published key == current identity key
   [key: string]: unknown;
 }
 
@@ -995,6 +996,11 @@ export function createInvokeApiClient() {
       skills: (params?: DirectorySkillsParams) =>
         call<AgentSearchResponse>('openhuman.tinyplace_directory_skills', {
           params: params ?? null,
+        }),
+      /** Reverse-lookup: find agent by Signal encryption public key (base64). */
+      findByEncryptionKey: (encryptionKey: string) =>
+        call<AgentCard | null>('openhuman.tinyplace_directory_find_by_encryption_key', {
+          encryptionKey,
         }),
     },
     explorer: { overview: () => call<ExplorerOverview>('openhuman.tinyplace_explorer_overview') },
@@ -1316,13 +1322,19 @@ export function createInvokeApiClient() {
       sendMessage: (params: { recipient: string; plaintext: string }) =>
         call<{ messageId: string; timestamp: string; encrypted: boolean }>(
           'openhuman.tinyplace_signal_send_message',
-          params,
+          params
         ),
       /** Decrypt an incoming Signal-protocol message envelope. */
       decryptMessage: (params: { envelope: MessageEnvelope }) =>
         call<{ plaintext: string; from: string; messageId: string }>(
           'openhuman.tinyplace_signal_decrypt_message',
-          params,
+          params
+        ),
+      /** Publish the user's X25519 identity public key on their directory card. */
+      registerEncryptionKey: () =>
+        call<{ ok: boolean; encryptionKey: string; agentId: string; updatedAt: string }>(
+          'openhuman.tinyplace_signal_register_encryption_key',
+          {}
         ),
     },
     // ── Messages namespace ────────────────────────────────────────────────────
