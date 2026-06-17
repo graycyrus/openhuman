@@ -4,10 +4,11 @@
  * Ported from tiny.place `website/src/components/explore/Directory.tsx`. Renders
  * a browsable grid of agents registered in the tiny.place directory inside the
  * standard `PanelScaffold` chrome (section title comes from the sidebar). Each
- * card shows the agent's handle, description, and skills/tags.
+ * card shows the agent's handle, description, follower count, and skills/tags.
+ * Authenticated users can follow/unfollow agents directly from the card.
  */
 import debugFactory from 'debug';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
@@ -15,6 +16,7 @@ import {
   type ListAgentsResponse,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 
 const debug = debugFactory('agentworld:directory');
@@ -109,6 +111,19 @@ function useDirectoryAgents(): State {
   return state;
 }
 
+function useMyAgentId(): string | null {
+  const [agentId, setAgentId] = useState<string | null>(null);
+  useEffect(() => {
+    void fetchWalletStatus()
+      .then(status => {
+        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
+        if (solana?.address) setAgentId(solana.address);
+      })
+      .catch(() => {});
+  }, []);
+  return agentId;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 const CARD_CLASS =
@@ -136,10 +151,78 @@ function LoadingSkeleton() {
   );
 }
 
-function AgentCardItem({ agent }: { agent: AgentCard }) {
+function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: string | null }) {
   const [selected, setSelected] = useState(false);
+  const [followState, setFollowState] = useState<'unknown' | 'following' | 'not_following'>(
+    'unknown'
+  );
+  const [followerCount, setFollowerCount] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const handle = getHandle(agent);
   const skills = getSkills(agent);
+  const isSelf = myAgentId != null && agent.agentId === myAgentId;
+
+  // Fetch follow stats on mount.
+  useEffect(() => {
+    let cancelled = false;
+    void apiClient.follows
+      .stats(agent.agentId)
+      .then(stats => {
+        if (cancelled) return;
+        setFollowerCount(stats.followerCount);
+      })
+      .catch(() => {
+        // Stats unavailable -- leave null (hidden).
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agentId]);
+
+  // Check if we are following this agent.
+  useEffect(() => {
+    if (!myAgentId || isSelf) return;
+    let cancelled = false;
+    void apiClient.follows
+      .followers(agent.agentId, { limit: 100 })
+      .then(res => {
+        if (cancelled) return;
+        const isFollowing = res.followers.some(f => f.follower === myAgentId);
+        setFollowState(isFollowing ? 'following' : 'not_following');
+      })
+      .catch(() => {
+        if (!cancelled) setFollowState('not_following');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agentId, myAgentId, isSelf]);
+
+  const handleFollow = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (actionLoading || !myAgentId) return;
+      setActionLoading(true);
+      try {
+        if (followState === 'following') {
+          await apiClient.follows.unfollow(agent.agentId);
+          setFollowState('not_following');
+          setFollowerCount(c => (c != null ? c - 1 : c));
+          debug('unfollowed %s', agent.agentId);
+        } else {
+          await apiClient.follows.follow(agent.agentId);
+          setFollowState('following');
+          setFollowerCount(c => (c != null ? c + 1 : c));
+          debug('followed %s', agent.agentId);
+        }
+      } catch (err) {
+        debug('follow/unfollow error: %s', String(err));
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [actionLoading, myAgentId, followState, agent.agentId]
+  );
 
   return (
     <div
@@ -167,12 +250,33 @@ function AgentCardItem({ agent }: { agent: AgentCard }) {
           </div>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
-            {handle}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
+              {handle}
+            </p>
+            {!isSelf && myAgentId && followState !== 'unknown' && (
+              <button
+                type="button"
+                className={[
+                  'ml-2 flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors',
+                  followState === 'following'
+                    ? 'bg-stone-200 text-stone-700 hover:bg-red-100 hover:text-red-700 dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-red-900/30 dark:hover:text-red-400'
+                    : 'bg-primary-600 text-white hover:bg-primary-700',
+                ].join(' ')}
+                disabled={actionLoading}
+                onClick={handleFollow}>
+                {actionLoading ? '...' : followState === 'following' ? 'Following' : 'Follow'}
+              </button>
+            )}
+          </div>
           <p className="mt-0.5 truncate text-xs text-stone-500 dark:text-neutral-400">
             {agent.description ?? ''}
           </p>
+          {followerCount != null && (
+            <p className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">
+              {followerCount} {followerCount === 1 ? 'follower' : 'followers'}
+            </p>
+          )}
           {skills.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {skills.map(skill => (
@@ -204,6 +308,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
 
 export default function DirectorySection() {
   const state = useDirectoryAgents();
+  const myAgentId = useMyAgentId();
 
   let body: React.ReactNode;
 
@@ -246,7 +351,7 @@ export default function DirectorySection() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {agents.map(agent => (
-            <AgentCardItem key={agent.agentId} agent={agent} />
+            <AgentCardItem key={agent.agentId} agent={agent} myAgentId={myAgentId} />
           ))}
         </div>
       );

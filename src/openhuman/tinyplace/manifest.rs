@@ -1561,6 +1561,106 @@ pub(crate) fn handle_tinyplace_inbox_unarchive(params: Map<String, Value>) -> Co
     })
 }
 
+// ── Follows handlers ─────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_follows_follow(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} follows_follow agent_id={agent_id}");
+        let client = global_state().client().await?;
+        let result = client.follows.follow(&agent_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_follows_unfollow(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} follows_unfollow agent_id={agent_id}");
+        let client = global_state().client().await?;
+        client.follows.unfollow(&agent_id).await.map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_follows_followers(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} follows_followers agent_id={agent_id}");
+        let list_params: Option<tinyplace::types::FollowListParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid follows followers params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        let result = client
+            .follows
+            .followers(&agent_id, list_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_follows_following(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} follows_following agent_id={agent_id}");
+        let list_params: Option<tinyplace::types::FollowListParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid follows following params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        let result = client
+            .follows
+            .following(&agent_id, list_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_follows_stats(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} follows_stats agent_id={agent_id}");
+        let client = global_state().client().await?;
+        let result = client.follows.stats(&agent_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_follows_feed(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} follows_feed params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let feed_params: Option<tinyplace::types::FeedListParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid follows feed params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        let result = client
+            .follows
+            .feed(feed_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1649,5 +1749,20 @@ mod tests {
             "handle already taken"
         ));
         assert!(!settlement_error_is_retryable(None, "transport error"));
+    }
+
+    /// Follow/unfollow handlers reject a missing `agentId` before any client work.
+    #[test]
+    fn follows_handlers_require_agent_id() {
+        for handler in [
+            handle_tinyplace_follows_follow as fn(Map<String, Value>) -> ControllerFuture,
+            handle_tinyplace_follows_unfollow,
+            handle_tinyplace_follows_followers,
+            handle_tinyplace_follows_following,
+            handle_tinyplace_follows_stats,
+        ] {
+            let err = block_on(handler(Map::new())).unwrap_err();
+            assert!(err.contains("agentId"), "got: {err}");
+        }
     }
 }

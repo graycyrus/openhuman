@@ -13,18 +13,37 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import DirectorySection from './DirectorySection';
 
 // ── Mock apiClient ────────────────────────────────────────────────────────────
-// DirectorySection only touches directory.listAgents — mock just that.
 
-vi.mock('../AgentWorldShell', () => ({ apiClient: { directory: { listAgents: vi.fn() } } }));
+vi.mock('../AgentWorldShell', () => ({
+  apiClient: {
+    directory: { listAgents: vi.fn() },
+    follows: { stats: vi.fn(), followers: vi.fn(), follow: vi.fn(), unfollow: vi.fn() },
+  },
+}));
+
+vi.mock('../../services/walletApi', () => ({ fetchWalletStatus: vi.fn() }));
 
 const listAgents = vi.mocked(apiClient.directory.listAgents);
+const walletStatus = vi.mocked(fetchWalletStatus);
+const followStats = vi.mocked(apiClient.follows.stats);
+const followFollowers = vi.mocked(apiClient.follows.followers);
+const followFollow = vi.mocked(apiClient.follows.follow);
+const followUnfollow = vi.mocked(apiClient.follows.unfollow);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: wallet returns a Solana address.
+  walletStatus.mockResolvedValue({
+    accounts: [{ chain: 'solana', address: 'MyWaLLetAddr123' }],
+  } as unknown as Awaited<ReturnType<typeof fetchWalletStatus>>);
+  // Default: stats and followers return empty/zero.
+  followStats.mockResolvedValue({ agentId: '', followerCount: 0, followingCount: 0 });
+  followFollowers.mockResolvedValue({ followers: [] });
 });
 
 // ── Loading state ──────────────────────────────────────────────────────────────
@@ -189,7 +208,9 @@ describe('populated directory grid', () => {
     render(<DirectorySection />);
     expect(await screen.findByText('@first')).toBeInTheDocument();
     expect(screen.getByText('@second')).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(2);
+    // Each agent has a card (role=button) plus a Follow button once the wallet and
+    // follow-state resolve. Use getAllByText to verify two cards rendered.
+    expect(screen.getAllByText(/^@(first|second)$/)).toHaveLength(2);
   });
 });
 
@@ -204,7 +225,9 @@ describe('card selection', () => {
     render(<DirectorySection />);
     await screen.findByText('@clicky');
 
-    const card = screen.getByRole('button');
+    // The card is a div[role=button]; the Follow button is a <button type=button>.
+    // Select the outer card div by its data-testid class (cursor-pointer).
+    const card = screen.getAllByRole('button').find(el => el.tagName === 'DIV') as HTMLElement;
     // Not selected initially.
     expect(card.className).not.toContain('ring-1');
 
@@ -224,7 +247,7 @@ describe('card selection', () => {
     render(<DirectorySection />);
     await screen.findByText('@enterkey');
 
-    const card = screen.getByRole('button');
+    const card = screen.getAllByRole('button').find(el => el.tagName === 'DIV') as HTMLElement;
     card.focus();
     await user.keyboard('{Enter}');
     expect(card.className).toContain('ring-1');
@@ -238,7 +261,7 @@ describe('card selection', () => {
     render(<DirectorySection />);
     await screen.findByText('@spacer');
 
-    const card = screen.getByRole('button');
+    const card = screen.getAllByRole('button').find(el => el.tagName === 'DIV') as HTMLElement;
     card.focus();
     await user.keyboard('[Space]');
     expect(card.className).toContain('ring-1');
@@ -252,7 +275,7 @@ describe('card selection', () => {
     render(<DirectorySection />);
     await screen.findByText('@idle');
 
-    const card = screen.getByRole('button');
+    const card = screen.getAllByRole('button').find(el => el.tagName === 'DIV') as HTMLElement;
     card.focus();
     await user.keyboard('{Escape}');
     expect(card.className).not.toContain('ring-1');
@@ -269,7 +292,9 @@ describe('card selection', () => {
     render(<DirectorySection />);
     await screen.findByText('@alpha');
 
-    const cards = screen.getAllByRole('button');
+    // Card divs have role=button; Follow <button>s also have role=button.
+    // Filter for the outer card divs only.
+    const cards = screen.getAllByRole('button').filter(el => el.tagName === 'DIV');
     const alphaCard = cards.find(c => within(c).queryByText('@alpha')) as HTMLElement;
     const betaCard = cards.find(c => within(c).queryByText('@beta')) as HTMLElement;
 
@@ -294,5 +319,98 @@ describe('cancellation', () => {
     // Resolve after unmount — the cancelled flag should swallow the update.
     resolve({ agents: [] });
     await waitFor(() => expect(listAgents).toHaveBeenCalled());
+  });
+});
+
+// ── Follow button ─────────────────────────────────────────────────────────────
+
+describe('follow button', () => {
+  test('renders Follow button on agent cards when wallet is available', async () => {
+    listAgents.mockResolvedValueOnce({
+      agents: [{ agentId: 'other-agent-001', username: 'alice', name: 'Alice' }],
+    });
+    followFollowers.mockResolvedValueOnce({ followers: [] });
+    followStats.mockResolvedValueOnce({
+      agentId: 'other-agent-001',
+      followerCount: 5,
+      followingCount: 3,
+    });
+    render(<DirectorySection />);
+    expect(await screen.findByText('@alice')).toBeInTheDocument();
+    // Should render a Follow button since we are NOT following.
+    expect(await screen.findByText('Follow')).toBeInTheDocument();
+    // Should render follower count.
+    expect(await screen.findByText(/5 followers/)).toBeInTheDocument();
+  });
+
+  test('renders Following button when already following', async () => {
+    listAgents.mockResolvedValueOnce({
+      agents: [{ agentId: 'other-agent-002', username: 'bob', name: 'Bob' }],
+    });
+    followFollowers.mockResolvedValueOnce({
+      followers: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-002', createdAt: '' }],
+    });
+    followStats.mockResolvedValueOnce({
+      agentId: 'other-agent-002',
+      followerCount: 10,
+      followingCount: 2,
+    });
+    render(<DirectorySection />);
+    expect(await screen.findByText('Following')).toBeInTheDocument();
+  });
+
+  test('does not render Follow button on own agent card', async () => {
+    listAgents.mockResolvedValueOnce({
+      agents: [{ agentId: 'MyWaLLetAddr123', username: 'myself', name: 'Myself' }],
+    });
+    render(<DirectorySection />);
+    expect(await screen.findByText('@myself')).toBeInTheDocument();
+    // No Follow button for self.
+    expect(screen.queryByText('Follow')).not.toBeInTheDocument();
+    expect(screen.queryByText('Following')).not.toBeInTheDocument();
+  });
+
+  test('clicking Follow calls follows.follow and updates to Following', async () => {
+    const user = userEvent.setup();
+    listAgents.mockResolvedValueOnce({
+      agents: [{ agentId: 'other-agent-003', username: 'carol', name: 'Carol' }],
+    });
+    followFollowers.mockResolvedValueOnce({ followers: [] });
+    followStats.mockResolvedValueOnce({
+      agentId: 'other-agent-003',
+      followerCount: 0,
+      followingCount: 0,
+    });
+    followFollow.mockResolvedValueOnce({
+      follower: 'MyWaLLetAddr123',
+      followee: 'other-agent-003',
+      createdAt: '',
+    });
+    render(<DirectorySection />);
+    const followBtn = await screen.findByText('Follow');
+    await user.click(followBtn);
+    expect(followFollow).toHaveBeenCalledWith('other-agent-003');
+    expect(await screen.findByText('Following')).toBeInTheDocument();
+  });
+
+  test('clicking Following calls follows.unfollow and reverts to Follow', async () => {
+    const user = userEvent.setup();
+    listAgents.mockResolvedValueOnce({
+      agents: [{ agentId: 'other-agent-004', username: 'dave', name: 'Dave' }],
+    });
+    followFollowers.mockResolvedValueOnce({
+      followers: [{ follower: 'MyWaLLetAddr123', followee: 'other-agent-004', createdAt: '' }],
+    });
+    followStats.mockResolvedValueOnce({
+      agentId: 'other-agent-004',
+      followerCount: 1,
+      followingCount: 0,
+    });
+    followUnfollow.mockResolvedValueOnce(undefined);
+    render(<DirectorySection />);
+    const followingBtn = await screen.findByText('Following');
+    await user.click(followingBtn);
+    expect(followUnfollow).toHaveBeenCalledWith('other-agent-004');
+    expect(await screen.findByText('Follow')).toBeInTheDocument();
   });
 });

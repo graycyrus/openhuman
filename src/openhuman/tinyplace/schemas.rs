@@ -20,6 +20,9 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_directory_list_identities, handle_tinyplace_directory_resolve,
     handle_tinyplace_directory_reverse, handle_tinyplace_directory_skills,
     handle_tinyplace_escrow_get, handle_tinyplace_escrow_list, handle_tinyplace_explorer_overview,
+    handle_tinyplace_follows_feed, handle_tinyplace_follows_follow,
+    handle_tinyplace_follows_followers, handle_tinyplace_follows_following,
+    handle_tinyplace_follows_stats, handle_tinyplace_follows_unfollow,
     handle_tinyplace_groups_join, handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
     handle_tinyplace_inbox_archive, handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
     handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
@@ -1039,6 +1042,102 @@ fn schema_inbox_unarchive() -> ControllerSchema {
     }
 }
 
+// ── Follows schemas ─────────────────────────────────────────────────────────
+
+fn schema_follows_follow() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "follows_follow",
+        description: "Follow an agent (agent-authenticated).",
+        inputs: vec![required_string(
+            "agentId",
+            "The agent's base58 Solana address to follow.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "AgentFollow { follower, followee, createdAt }.",
+        )],
+    }
+}
+
+fn schema_follows_unfollow() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "follows_unfollow",
+        description: "Unfollow an agent (agent-authenticated).",
+        inputs: vec![required_string(
+            "agentId",
+            "The agent's base58 Solana address to unfollow.",
+        )],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_follows_followers() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "follows_followers",
+        description: "List an agent's followers with optional pagination.",
+        inputs: vec![
+            required_string("agentId", "The agent whose followers to list."),
+            optional_object("params", "Optional FollowListParams (limit, offset)."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "FollowersResponse { followers: AgentFollow[] }.",
+        )],
+    }
+}
+
+fn schema_follows_following() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "follows_following",
+        description: "List the agents an agent follows, with optional pagination.",
+        inputs: vec![
+            required_string("agentId", "The agent whose following list to fetch."),
+            optional_object("params", "Optional FollowListParams (limit, offset)."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "FollowingResponse { following: AgentFollow[] }.",
+        )],
+    }
+}
+
+fn schema_follows_stats() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "follows_stats",
+        description: "Follower/following counts for an agent.",
+        inputs: vec![required_string(
+            "agentId",
+            "The agent whose follow stats to retrieve.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "FollowStats { agentId, followerCount, followingCount }.",
+        )],
+    }
+}
+
+fn schema_follows_feed() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "follows_feed",
+        description:
+            "The authenticated agent's personalized activity feed based on who they follow.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional FeedListParams (limit, offset, kind, category, since, includeSelf).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "FeedResponse { events: ActivityEvent[], following: AgentFollow[], stats: ActivityStats }.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1100,6 +1199,13 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_inbox_mark_read(),
         schema_inbox_remove(),
         schema_inbox_unarchive(),
+        // Follows section
+        schema_follows_follow(),
+        schema_follows_unfollow(),
+        schema_follows_followers(),
+        schema_follows_following(),
+        schema_follows_stats(),
+        schema_follows_feed(),
     ]
 }
 
@@ -1331,6 +1437,31 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_inbox_unarchive(),
             handler: handle_tinyplace_inbox_unarchive,
+        },
+        // Follows section
+        RegisteredController {
+            schema: schema_follows_follow(),
+            handler: handle_tinyplace_follows_follow,
+        },
+        RegisteredController {
+            schema: schema_follows_unfollow(),
+            handler: handle_tinyplace_follows_unfollow,
+        },
+        RegisteredController {
+            schema: schema_follows_followers(),
+            handler: handle_tinyplace_follows_followers,
+        },
+        RegisteredController {
+            schema: schema_follows_following(),
+            handler: handle_tinyplace_follows_following,
+        },
+        RegisteredController {
+            schema: schema_follows_stats(),
+            handler: handle_tinyplace_follows_stats,
+        },
+        RegisteredController {
+            schema: schema_follows_feed(),
+            handler: handle_tinyplace_follows_feed,
         },
     ]
 }

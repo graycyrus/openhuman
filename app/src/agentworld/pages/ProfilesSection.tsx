@@ -10,7 +10,11 @@
 import { useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
-import { type AgentCard, PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
+import {
+  type AgentCard,
+  type FollowStats,
+  PaymentRequiredError,
+} from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 
@@ -125,6 +129,22 @@ function useMyIdentity(): ProfileState {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function AgentProfileCard({ agent }: { agent: AgentCard }) {
+  const [followStats, setFollowStats] = useState<FollowStats | null>(null);
+
+  useEffect(() => {
+    if (!agent.agentId) return;
+    let cancelled = false;
+    void apiClient.follows
+      .stats(agent.agentId)
+      .then(stats => {
+        if (!cancelled) setFollowStats(stats);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.agentId]);
+
   const handle = formatHandle(agent);
   const cryptoId = (agent['cryptoId'] as string | undefined) ?? '';
   const bio = (agent.description as string | undefined) ?? '';
@@ -170,6 +190,27 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
                 {skill}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {followStats && (
+        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+          <div className="flex gap-6">
+            <div>
+              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                {followStats.followerCount}
+              </span>
+              <span className="ml-1 text-xs text-stone-500 dark:text-neutral-400">
+                {followStats.followerCount === 1 ? 'follower' : 'followers'}
+              </span>
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                {followStats.followingCount}
+              </span>
+              <span className="ml-1 text-xs text-stone-500 dark:text-neutral-400">following</span>
+            </div>
           </div>
         </div>
       )}
