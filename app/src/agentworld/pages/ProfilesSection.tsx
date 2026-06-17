@@ -1,15 +1,27 @@
 /**
  * ProfilesSection — Agent World Profiles section.
  *
- * Ported from website/src/components/explore/Profiles.tsx. Loads agents via the
- * invoke API client (directory.listAgents → core RPC → tiny.place) and renders
- * the agent profile card inside the standard `PanelScaffold` chrome.
+ * Shows **your own** agent profile: it resolves the wallet's Solana address
+ * (`wallet_status`), reverse-looks-up the identities registered to it
+ * (`directory.reverse`), and renders the primary handle. Falls back to a
+ * "register a handle" prompt when the wallet owns none, and a wallet-locked
+ * notice when the wallet isn't set up.
  */
 import { useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import { type AgentCard, PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
+
+/** A handle registered to the wallet (subset of the directory.reverse identity). */
+interface OwnedIdentity {
+  username?: string;
+  cryptoId?: string;
+  registeredAt?: string;
+  primary?: boolean;
+  [key: string]: unknown;
+}
 
 // ── Utility helpers ────────────────────────────────────────────────────────────
 
@@ -46,33 +58,61 @@ function toLabel(value: unknown): string {
 
 // ── State type ─────────────────────────────────────────────────────────────────
 
-type AgentsState =
+type ProfileState =
   | { status: 'loading' }
+  | { status: 'wallet_locked' }
+  | { status: 'no_handle'; cryptoId: string }
   | { status: 'payment_required'; challenge: unknown }
   | { status: 'error'; message: string }
-  | { status: 'ok'; agents: AgentCard[] };
+  | { status: 'ok'; identity: OwnedIdentity };
 
 // ── Data hook ─────────────────────────────────────────────────────────────────
 
-function useAgents(): AgentsState {
-  const [state, setState] = useState<AgentsState>({ status: 'loading' });
+/** Pick the primary handle, else the first, from a reverse-lookup result. */
+function pickPrimary(identities: OwnedIdentity[]): OwnedIdentity | undefined {
+  return identities.find(i => i.primary) ?? identities[0];
+}
+
+/** Load the wallet's own identity: wallet_status → reverse-lookup → primary handle. */
+function useMyIdentity(): ProfileState {
+  const [state, setState] = useState<ProfileState>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
 
-    void apiClient.directory
-      .listAgents()
-      .then(data => {
-        if (!cancelled) setState({ status: 'ok', agents: data.agents ?? [] });
-      })
-      .catch((err: unknown) => {
+    void (async () => {
+      // 1. Resolve the wallet's Solana address (= tiny.place cryptoId).
+      let cryptoId: string;
+      try {
+        const status = await fetchWalletStatus();
+        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
+        if (!solana?.address) {
+          if (!cancelled) setState({ status: 'wallet_locked' });
+          return;
+        }
+        cryptoId = solana.address;
+      } catch {
+        // wallet not configured / locked → core rejects wallet_status.
+        if (!cancelled) setState({ status: 'wallet_locked' });
+        return;
+      }
+
+      // 2. Reverse-lookup the handles registered to that wallet.
+      try {
+        const res = await apiClient.directory.reverse(cryptoId);
+        const identities = (res.identities ?? []) as OwnedIdentity[];
+        const mine = pickPrimary(identities);
+        if (cancelled) return;
+        setState(mine ? { status: 'ok', identity: mine } : { status: 'no_handle', cryptoId });
+      } catch (err: unknown) {
         if (cancelled) return;
         if (err instanceof PaymentRequiredError) {
           setState({ status: 'payment_required', challenge: err.challenge });
         } else {
           setState({ status: 'error', message: String(err) });
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -158,15 +198,31 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function ProfilesSection() {
-  const state = useAgents();
+  const state = useMyIdentity();
 
   let body: React.ReactNode;
 
   if (state.status === 'loading') {
     body = (
       <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
-        <span className="animate-pulse text-sm">Loading profile…</span>
+        <span className="animate-pulse text-sm">Loading your profile…</span>
       </div>
+    );
+  } else if (state.status === 'wallet_locked') {
+    body = (
+      <StatusBlock
+        tone="text-stone-700 dark:text-neutral-200"
+        title="Unlock your wallet to use Agent World"
+        body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
+      />
+    );
+  } else if (state.status === 'no_handle') {
+    body = (
+      <StatusBlock
+        tone="text-stone-600 dark:text-neutral-300"
+        title="No handle registered yet"
+        body={`Your wallet (${truncateCryptoId(state.cryptoId)}) doesn't own a @handle yet. Register one in the Identities tab to claim your profile.`}
+      />
     );
   } else if (state.status === 'payment_required') {
     body = (
@@ -177,34 +233,24 @@ export default function ProfilesSection() {
       />
     );
   } else if (state.status === 'error') {
-    const isWalletLocked =
-      state.message.includes('wallet is not configured') ||
-      state.message.includes('wallet secret material is missing');
-    body = isWalletLocked ? (
-      <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
-        title="Unlock your wallet to use Agent World"
-        body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
-      />
-    ) : (
+    body = (
       <StatusBlock
         tone="text-red-600 dark:text-red-400"
         title="Failed to load profile"
         body={state.message}
       />
     );
-  } else if (state.agents.length === 0) {
-    body = (
-      <StatusBlock
-        tone="text-stone-600 dark:text-neutral-300"
-        title="No agents found"
-        body="No agent profiles are available yet."
-      />
-    );
   } else {
-    // Render profile card for the first agent (mirrors Profiles.tsx behaviour).
-    body = <AgentProfileCard agent={state.agents[0]} />;
+    // Render the wallet's own identity. A bare handle (no published agent card)
+    // carries no bio/skills — only username + cryptoId + registration date.
+    const agent: AgentCard = {
+      agentId: state.identity.cryptoId ?? '',
+      username: state.identity.username,
+      cryptoId: state.identity.cryptoId,
+      createdAt: state.identity.registeredAt,
+    };
+    body = <AgentProfileCard agent={agent} />;
   }
 
-  return <PanelScaffold description="Agent profile">{body}</PanelScaffold>;
+  return <PanelScaffold description="Your agent profile">{body}</PanelScaffold>;
 }
