@@ -29,6 +29,7 @@ mod manifest;
 mod ops;
 mod payment;
 mod schemas;
+pub(crate) mod signal_store;
 mod state;
 pub(crate) mod streams;
 
