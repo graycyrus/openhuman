@@ -933,3 +933,97 @@ describe('inbox.counts', () => {
     expect(result).toEqual(mockCounts);
   });
 });
+
+// ── messaging write actions (membership + inbox management) ───────────────────
+
+describe('messaging write methods', () => {
+  test('channels.join / leave call the right RPC with channelId', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.channels.join('ch-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_channels_join',
+      params: { channelId: 'ch-1' },
+    });
+    await client.channels.leave('ch-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_channels_leave',
+      params: { channelId: 'ch-1' },
+    });
+  });
+
+  test('groups.join / leave call the right RPC with groupId', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.groups.join('g-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_join',
+      params: { groupId: 'g-1' },
+    });
+    await client.groups.leave('g-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_groups_leave',
+      params: { groupId: 'g-1' },
+    });
+  });
+
+  test('broadcasts.subscribe / unsubscribe call the right RPC with broadcastId', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.broadcasts.subscribe('bc-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_broadcasts_subscribe',
+      params: { broadcastId: 'bc-1' },
+    });
+    await client.broadcasts.unsubscribe('bc-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_broadcasts_unsubscribe',
+      params: { broadcastId: 'bc-1' },
+    });
+  });
+
+  test('inbox.markRead / archive / unarchive / remove pass itemId + null owner by default', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.inbox.markRead('item-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_mark_read',
+      params: { itemId: 'item-1', owner: null },
+    });
+    await client.inbox.archive('item-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_archive',
+      params: { itemId: 'item-1', owner: null },
+    });
+    await client.inbox.unarchive('item-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_unarchive',
+      params: { itemId: 'item-1', owner: null },
+    });
+    await client.inbox.remove('item-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_remove',
+      params: { itemId: 'item-1', owner: null },
+    });
+  });
+
+  test('inbox.markRead forwards an explicit owner', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.inbox.markRead('item-2', 'agent-owner');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_mark_read',
+      params: { itemId: 'item-2', owner: 'agent-owner' },
+    });
+  });
+
+  test('inbox.markAllRead passes params=null + owner default', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValue(undefined);
+    await client.inbox.markAllRead();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_inbox_mark_all_read',
+      params: { params: null, owner: null },
+    });
+  });
+});
