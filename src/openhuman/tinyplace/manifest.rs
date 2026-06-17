@@ -18,12 +18,25 @@
 //! 4. Maps the error via `ops::map_err`.
 //! 5. Serialises the result with `serde_json::to_value`.
 
+use std::collections::HashMap;
+use std::time::Duration;
+
 use serde_json::{Map, Value};
 
 use crate::core::all::ControllerFuture;
 use crate::openhuman::tinyplace::ops::{global_state, map_err};
+use crate::openhuman::tinyplace::payment::{
+    ensure_cluster_matches, fulfill_payment, PaymentContext,
+};
+use crate::openhuman::wallet::{balances, WalletChain};
 
 const LOG_PREFIX: &str = "[tinyplace]";
+
+/// Identity registration settlement retry budget — the on-chain transfer is
+/// broadcast immediately, but the backend may not see enough confirmations on
+/// the first re-submit. Mirrors the TS SDK's poll loop (~60s total).
+const REGISTER_SETTLE_MAX_ATTEMPTS: usize = 30;
+const REGISTER_SETTLE_DELAY: Duration = Duration::from_secs(2);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -432,6 +445,221 @@ pub(crate) fn handle_tinyplace_registry_get(params: Map<String, Value>) -> Contr
         let result = client.registry.get(&name).await.map_err(map_err)?;
         to_value(result)
     })
+}
+
+/// Register a `@handle` via the x402 confirm-before-spend flow.
+///
+/// Two-call contract (the renderer drives it):
+/// - `confirmed` omitted/false → returns the 402 `challenge` plus the wallet's
+///   USDC balance + address so the UI can render a confirm card. **No funds move.**
+/// - `confirmed: true` → fulfils the payment on-chain (devnet-guarded) and
+///   re-submits the registration with the signed payment map, retrying while the
+///   settlement confirms. **This is the only branch that spends.**
+///
+/// The free tier (backend returns the identity without a 402) short-circuits to
+/// `{ identity }` on the first call regardless of `confirmed`.
+pub(crate) fn handle_tinyplace_registry_register(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.trim().to_string();
+        if username.is_empty() {
+            return Err("missing required param 'username'".to_string());
+        }
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let actor_type = get_opt_str(&params, "actorType")
+            .filter(|s| !s.is_empty())
+            .unwrap_or("human")
+            .to_string();
+        let primary = params.get("primary").and_then(Value::as_bool);
+        log::debug!(
+            "{LOG_PREFIX} registry_register username={username} confirmed={confirmed} \
+             actor_type={actor_type} primary={primary:?}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        // payment = None on the probe call so the backend issues the 402.
+        let base_req = tinyplace::api::registry::RegisterRequest {
+            username: username.clone(),
+            crypto_id: signer.agent_id(),
+            public_key: signer.public_key_base64(),
+            actor_type: Some(actor_type),
+            primary,
+            ..Default::default()
+        };
+
+        // ── Phase A: probe for the 402 challenge (or a free-tier identity). ──
+        let challenge = match client.registry.register(base_req.clone()).await {
+            Ok(identity) => {
+                log::debug!("{LOG_PREFIX} registry_register free-tier ok username={username}");
+                return to_value(serde_json::json!({ "identity": identity }));
+            }
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+        log::debug!(
+            "{LOG_PREFIX} registry_register 402 challenge network={:?} asset={:?} amount={:?}",
+            challenge.network,
+            challenge.asset,
+            challenge.amount,
+        );
+
+        // ── Unconfirmed: surface the challenge + balance, spend nothing. ──
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        // ── Confirmed: devnet guard, pay on-chain, re-submit with the map. ──
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("identity".to_string(), format!("@{username}"));
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "identity.register".to_string(),
+                nonce_prefix: "register".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        let mut paid_req = base_req;
+        paid_req.payment = Some(fulfilled.payment_map);
+
+        // Re-submit, retrying while the settlement confirms on-chain.
+        let mut last_err = String::new();
+        for attempt in 1..=REGISTER_SETTLE_MAX_ATTEMPTS {
+            match client.registry.register(paid_req.clone()).await {
+                Ok(identity) => {
+                    log::debug!(
+                        "{LOG_PREFIX} registry_register settled username={username} attempt={attempt}"
+                    );
+                    return to_value(serde_json::json!({
+                        "identity": identity,
+                        "payment": { "onChainTx": on_chain_tx },
+                    }));
+                }
+                Err(e) if is_retryable_settlement_error(&e) => {
+                    last_err = e.to_string();
+                    log::debug!(
+                        "{LOG_PREFIX} registry_register settlement pending \
+                         attempt={attempt}/{REGISTER_SETTLE_MAX_ATTEMPTS}: {last_err}"
+                    );
+                    tokio::time::sleep(REGISTER_SETTLE_DELAY).await;
+                }
+                Err(e) => {
+                    // Non-retryable failure after we already paid — surface the
+                    // tx so the user/support can reconcile.
+                    return Err(format!(
+                        "registration failed after payment (onChainTx={on_chain_tx}): {}",
+                        map_err(e)
+                    ));
+                }
+            }
+        }
+
+        // ── Exhausted retries: recover via a fresh availability lookup. ──
+        log::warn!(
+            "{LOG_PREFIX} registry_register settlement retries exhausted username={username} \
+             onChainTx={on_chain_tx}; attempting recovery via registry.get"
+        );
+        if let Ok(avail) = client.registry.get(&username).await {
+            if let Some(identity) = avail.identity {
+                if identity.crypto_id == signer.agent_id() {
+                    log::debug!(
+                        "{LOG_PREFIX} registry_register recovered owned identity username={username}"
+                    );
+                    return to_value(serde_json::json!({
+                        "identity": identity,
+                        "payment": { "onChainTx": on_chain_tx },
+                    }));
+                }
+            }
+        }
+        Err(format!(
+            "registration paid but not confirmed in time (onChainTx={on_chain_tx}); \
+             last error: {last_err}"
+        ))
+    })
+}
+
+/// Fetch the wallet's Solana USDC balance for the confirm card. Best-effort:
+/// returns `(None, address)` if the balance lookup fails so the UI can still
+/// render (it falls back to letting the backend reject an underfunded payment).
+async fn wallet_usdc_balance(address: &str) -> (Option<Value>, String) {
+    match balances().await {
+        Ok(outcome) => {
+            let row = outcome
+                .value
+                .into_iter()
+                .find(|b| b.chain == WalletChain::Solana && b.asset_symbol == "USDC");
+            match row {
+                Some(b) => (
+                    Some(serde_json::json!({
+                        "raw": b.raw,
+                        "formatted": b.formatted,
+                        "decimals": b.decimals,
+                        "assetSymbol": b.asset_symbol,
+                    })),
+                    b.address,
+                ),
+                None => (None, address.to_string()),
+            }
+        }
+        Err(e) => {
+            log::warn!("{LOG_PREFIX} registry_register balance lookup failed: {e}");
+            (None, address.to_string())
+        }
+    }
+}
+
+/// A re-submitted registration returns a 402 again while the on-chain transfer
+/// is still confirming. Retry only those settlement-timing errors — never a hard
+/// rejection (which would loop pointlessly and delay the failure).
+fn is_retryable_settlement_error(e: &tinyplace::Error) -> bool {
+    let mut hay = e.to_string();
+    if let Some(pr) = e.payment_required() {
+        if let Some(msg) = &pr.error {
+            hay.push_str(msg);
+        }
+    }
+    if let Some(body) = e.body() {
+        hay.push_str(&body.to_string());
+    }
+    settlement_error_is_retryable(e.status(), &hay)
+}
+
+/// Pure settlement-retry decision (no SDK error type — unit-tested directly).
+/// Only a `402` whose message indicates the on-chain transfer is still
+/// confirming is retryable.
+fn settlement_error_is_retryable(status: Option<u16>, message: &str) -> bool {
+    if status != Some(402) {
+        return false;
+    }
+    let hay = message.to_lowercase();
+    hay.contains("transaction not found")
+        || hay.contains("not found")
+        || hay.contains("insufficient confirmation")
+        || hay.contains("not yet")
+        || hay.contains("pending")
 }
 
 pub(crate) fn handle_tinyplace_artifacts_get(params: Map<String, Value>) -> ControllerFuture {
@@ -981,4 +1209,45 @@ pub(crate) fn handle_tinyplace_inbox_unarchive(params: Map<String, Value>) -> Co
             .map_err(map_err)?;
         to_value(result)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::executor::block_on;
+
+    /// A missing/blank `username` is rejected before any client/network work.
+    #[test]
+    fn register_requires_username() {
+        let err = block_on(handle_tinyplace_registry_register(Map::new())).unwrap_err();
+        assert!(err.contains("username"), "got: {err}");
+
+        let mut params = Map::new();
+        params.insert("username".to_string(), Value::String("   ".to_string()));
+        let err = block_on(handle_tinyplace_registry_register(params)).unwrap_err();
+        assert!(err.contains("username"), "got: {err}");
+    }
+
+    #[test]
+    fn settlement_retry_only_on_confirming_402s() {
+        // Retryable: 402 with a settlement-timing message.
+        assert!(settlement_error_is_retryable(
+            Some(402),
+            "Transaction not found on chain yet"
+        ));
+        assert!(settlement_error_is_retryable(
+            Some(402),
+            "payment pending: insufficient confirmations"
+        ));
+        // Not retryable: non-402, or a 402 with an unrelated/hard message.
+        assert!(!settlement_error_is_retryable(
+            Some(400),
+            "transaction not found"
+        ));
+        assert!(!settlement_error_is_retryable(
+            Some(402),
+            "handle already taken"
+        ));
+        assert!(!settlement_error_is_retryable(None, "transport error"));
+    }
 }

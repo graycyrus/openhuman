@@ -11,13 +11,18 @@
 //!
 //! - It does **not** build the canonical message, sign it, or flatten the map —
 //!   that lives in the SDK ([`tinyplace::x402::build_x402_payment_map`]).
-//! - It does **not** pick a Solana cluster. `challenge.network` is passed through
-//!   verbatim and the asset is routed by symbol; cluster/mint selection is a
-//!   wallet concern handled in the live-test follow-up.
+//! - It does **not** *pick* a Solana cluster — `challenge.network` is passed
+//!   through verbatim and the asset is routed by symbol. It does, however,
+//!   expose a [`ensure_cluster_matches`] guard so callers can fail closed when a
+//!   challenge's network clearly targets a different cluster than the wallet is
+//!   configured for (Risk R6 — never broadcast to the wrong chain).
 //! - It does **not** expose an RPC controller. The section write-handlers
 //!   (register / marketplace, in later PRs) call [`fulfill_payment`] and attach
 //!   the returned payment map to their domain request.
-#![allow(dead_code)] // consumed by the register/marketplace write handlers (follow-up PRs)
+//!
+//! Marketplace write handlers (buy / bid / offer) are still pending, so a few
+//! helpers here are not yet referenced; keep the targeted allows until those
+//! PRs land rather than deleting otherwise-correct code.
 
 use std::collections::HashMap;
 
@@ -29,7 +34,8 @@ use tinyplace::x402::{
 use tinyplace::PaymentChallenge;
 
 use crate::openhuman::wallet::{
-    execute_prepared, prepare_transfer, ExecutePreparedParams, PrepareTransferParams, WalletChain,
+    execute_prepared, prepare_transfer, solana_cluster, ExecutePreparedParams,
+    PrepareTransferParams, SolanaCluster, WalletChain,
 };
 
 const LOG_PREFIX: &str = "[tinyplace-pay]";
@@ -62,7 +68,10 @@ pub(crate) struct FulfilledPayment {
     pub(crate) payment_map: X402PaymentMap,
     /// The on-chain Solana transaction signature that moved the funds.
     pub(crate) on_chain_tx: String,
-    /// The wallet quote id the transfer was executed under.
+    /// The wallet quote id the transfer was executed under. Surfaced for
+    /// diagnostics/audit; not all callers read it (the register handler only
+    /// needs `on_chain_tx`).
+    #[allow(dead_code)]
     pub(crate) quote_id: String,
 }
 
@@ -168,6 +177,72 @@ async fn build_payment_map(
     build_x402_payment_map(signer, options)
         .await
         .map_err(|e| format!("x402 authorization signing failed: {e}"))
+}
+
+// ── Devnet guard (Risk R6) ────────────────────────────────────────────────────
+
+/// CAIP-2 genesis-hash references for the public Solana clusters.
+const MAINNET_GENESIS_PREFIX: &str = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
+const DEVNET_GENESIS_PREFIX: &str = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1";
+
+/// Loosely classify a challenge's `network` string into a Solana cluster.
+///
+/// Recognises both the human form (`"solana-devnet"`, `"…mainnet…"`) and the
+/// CAIP-2 genesis-hash form (`"solana:5eykt4…"`). Returns `None` when the
+/// format is unrecognised — the backend remains the source of truth, so an
+/// unknown network is allowed through rather than blocked.
+fn classify_network(network: &str) -> Option<SolanaCluster> {
+    let lower = network.to_lowercase();
+    if lower.contains("devnet") {
+        return Some(SolanaCluster::Devnet);
+    }
+    if lower.contains("mainnet") {
+        return Some(SolanaCluster::Mainnet);
+    }
+    // Testnet is unsupported; treat as unknown (None) so we never silently map
+    // it onto mainnet/devnet.
+    if network.contains(DEVNET_GENESIS_PREFIX) {
+        return Some(SolanaCluster::Devnet);
+    }
+    if network.contains(MAINNET_GENESIS_PREFIX) {
+        return Some(SolanaCluster::Mainnet);
+    }
+    None
+}
+
+/// Fail closed when a challenge's network clearly targets a different Solana
+/// cluster than OpenHuman is configured for. Prevents broadcasting a transfer to
+/// the wrong chain (e.g. paying a devnet challenge from a mainnet-configured
+/// wallet). Unknown/unparseable networks are allowed through.
+///
+/// Call this **before** [`fulfill_payment`] in the confirmed-spend path. Reads
+/// the configured cluster from the environment via [`solana_cluster`]; the pure
+/// comparison lives in [`cluster_guard`] (unit-tested without env mutation).
+pub(crate) fn ensure_cluster_matches(network: &str) -> Result<(), String> {
+    cluster_guard(solana_cluster(), network)
+}
+
+/// Pure cluster-mismatch check (no env access — testable in isolation).
+fn cluster_guard(configured: SolanaCluster, network: &str) -> Result<(), String> {
+    match classify_network(network) {
+        Some(challenge_cluster) if challenge_cluster != configured => {
+            log::warn!(
+                "{LOG_PREFIX} cluster mismatch: challenge network='{network}' \
+                 ({challenge_cluster:?}) but wallet configured for {configured:?}"
+            );
+            Err(format!(
+                "x402 challenge targets {challenge_cluster:?} but the wallet is configured for \
+                 {configured:?}; set OPENHUMAN_SOLANA_CLUSTER to match before paying"
+            ))
+        }
+        other => {
+            log::debug!(
+                "{LOG_PREFIX} cluster guard ok: network='{network}' classified={other:?} \
+                 configured={configured:?}"
+            );
+            Ok(())
+        }
+    }
 }
 
 // ── High-level orchestrator (thin; logic delegated to the tested helpers) ─────
@@ -367,6 +442,53 @@ mod tests {
         // Unparseable expiry is lenient (non-expired), not a hard failure.
         c.expires_at = Some("not-a-timestamp".into());
         assert!(validate_challenge(&c).is_ok());
+    }
+
+    // ── cluster guard (devnet R6; pure, env-independent) ──────────────────────
+
+    #[test]
+    fn classify_network_recognises_human_and_genesis_forms() {
+        assert_eq!(
+            classify_network("solana-devnet"),
+            Some(SolanaCluster::Devnet)
+        );
+        assert_eq!(
+            classify_network("solana-mainnet-beta"),
+            Some(SolanaCluster::Mainnet)
+        );
+        // CAIP-2 genesis-hash references.
+        assert_eq!(
+            classify_network("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1xyz"),
+            Some(SolanaCluster::Devnet)
+        );
+        assert_eq!(
+            classify_network("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"),
+            Some(SolanaCluster::Mainnet)
+        );
+        // Unrecognised → None (allowed through; backend is source of truth).
+        assert_eq!(classify_network("solana:someunknownhash"), None);
+        assert_eq!(classify_network("solana-testnet"), None);
+    }
+
+    #[test]
+    fn cluster_guard_blocks_mismatch_allows_match_and_unknown() {
+        // Match → Ok.
+        assert!(cluster_guard(SolanaCluster::Devnet, "solana-devnet").is_ok());
+        assert!(cluster_guard(SolanaCluster::Mainnet, "solana-mainnet").is_ok());
+        // Mismatch → Err naming both clusters.
+        let err = cluster_guard(SolanaCluster::Mainnet, "solana-devnet").unwrap_err();
+        assert!(err.contains("Devnet"), "got: {err}");
+        assert!(err.contains("Mainnet"), "got: {err}");
+        assert!(err.contains("OPENHUMAN_SOLANA_CLUSTER"), "got: {err}");
+        // Unknown network → Ok regardless of configured cluster.
+        assert!(cluster_guard(SolanaCluster::Devnet, "solana:unknownhash").is_ok());
+        assert!(cluster_guard(SolanaCluster::Mainnet, "solana:unknownhash").is_ok());
+    }
+
+    #[test]
+    fn ensure_cluster_matches_allows_unknown_network() {
+        // Env-independent: the None branch is Ok for any configured cluster.
+        assert!(ensure_cluster_matches("solana:unparseable-network-id").is_ok());
     }
 
     // ── truncate (log helper) ─────────────────────────────────────────────────

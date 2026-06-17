@@ -6,10 +6,12 @@
  * OpenHuman core RPC bridge (invokeApiClient) — no direct tiny.place HTTP calls
  * or @tanstack/react-query usage in this file.
  *
- * Write flows (register, buy, bid, offer, transfer) surface a "connect your
- * wallet" placeholder that links to Settings, since the full x402 payment
- * signing lives in the tiny.place SDK and is not available in the desktop
- * renderer. The read-only data views (Registry listing, floor prices, recent
+ * The Register tab is a live x402 confirm-before-spend flow: check availability →
+ * "Register @handle" → review the payment challenge + your wallet balance → pay
+ * on-chain via the wallet → registration. Money only moves after the user
+ * confirms (the `confirmed:true` RPC). The remaining write flows (buy, bid,
+ * offer, transfer) still surface read-only views; their x402 wiring lands in
+ * later PRs. The read-only data views (Registry listing, floor prices, recent
  * sales) are fully functional.
  */
 import { useEffect, useReducer, useRef, useState } from 'react';
@@ -22,8 +24,12 @@ import {
   type IdentityFloor,
   PaymentRequiredError,
   type RecentSalesResponse,
+  type RegisteredIdentity,
+  type RegistrationChallenge,
+  type RegistryWalletBalance,
 } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
+import X402ConfirmDialog from '../components/X402ConfirmDialog';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -205,6 +211,90 @@ function formatPrice(amount: string, asset: string): string {
 
 // ── Register tab ──────────────────────────────────────────────────────────────
 
+// Devnet/mainnet Solana explorer link for a settled payment tx.
+function explorerTxUrl(tx: string, network?: string): string {
+  const cluster = (network ?? '').toLowerCase().includes('devnet') ? '?cluster=devnet' : '';
+  return `https://explorer.solana.com/tx/${tx}${cluster}`;
+}
+
+// The Rust handler embeds "onChainTx=<sig>" in post-payment error strings so the
+// UI can still surface the broadcast tx on a failed registration.
+function extractOnChainTx(message: string): string | undefined {
+  const match = /onChainTx=([^)\s;]+)/.exec(message);
+  return match?.[1];
+}
+
+type RegState =
+  | { phase: 'idle' }
+  | { phase: 'challenge_loading' }
+  | {
+      phase: 'confirm';
+      challenge: RegistrationChallenge;
+      balance: RegistryWalletBalance | null;
+      walletAddress: string;
+    }
+  | { phase: 'paying'; challenge: RegistrationChallenge }
+  | { phase: 'success'; identity: RegisteredIdentity; onChainTx?: string; network?: string }
+  | { phase: 'error'; message: string; onChainTx?: string };
+
+function useRegistration() {
+  const [state, setState] = useState<RegState>({ phase: 'idle' });
+
+  function reset() {
+    setState({ phase: 'idle' });
+  }
+
+  // Phase A — fetch the challenge + balance (no spend).
+  function begin(username: string) {
+    setState({ phase: 'challenge_loading' });
+    void apiClient.registry
+      .register({ username, confirmed: false })
+      .then(result => {
+        if (result.identity) {
+          setState({ phase: 'success', identity: result.identity });
+        } else if (result.challenge) {
+          setState({
+            phase: 'confirm',
+            challenge: result.challenge,
+            balance: result.walletBalance ?? null,
+            walletAddress: result.walletAddress ?? '',
+          });
+        } else {
+          setState({ phase: 'error', message: 'Unexpected response from registration.' });
+        }
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof PaymentRequiredError ? 'Payment required.' : String(err);
+        setState({ phase: 'error', message });
+      });
+  }
+
+  // Phase B — pay on-chain + register (spends).
+  function confirmPay(username: string, challenge: RegistrationChallenge) {
+    setState({ phase: 'paying', challenge });
+    void apiClient.registry
+      .register({ username, confirmed: true, actorType: 'human', primary: true })
+      .then(result => {
+        if (result.identity) {
+          setState({
+            phase: 'success',
+            identity: result.identity,
+            onChainTx: result.payment?.onChainTx,
+            network: challenge.network,
+          });
+        } else {
+          setState({ phase: 'error', message: 'Registration did not complete.' });
+        }
+      })
+      .catch((err: unknown) => {
+        const message = String(err);
+        setState({ phase: 'error', message, onChainTx: extractOnChainTx(message) });
+      });
+  }
+
+  return { state, reset, begin, confirmPay };
+}
+
 function RegisterTab() {
   const [input, setInput] = useState('');
   // sanitize: lowercase a-z, digits, _ only (mirrors tiny.place sanitizeHandle)
@@ -213,11 +303,25 @@ function RegisterTab() {
   }
 
   const { check, ...availState } = useHandleAvailability(input);
+  const reg = useRegistration();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    reg.reset();
     check();
   }
+
+  // The available handle (normalized, no @) currently confirmed by availState.
+  const availableHandle =
+    availState.status === 'ok' && availState.data.available
+      ? availState.data.name.replace(/^@+/, '')
+      : null;
+
+  const busy = reg.state.phase === 'challenge_loading' || reg.state.phase === 'paying';
+  // Narrowed view for the confirm dialog (preserves the discriminated union
+  // through the JSX `&&` chain below).
+  const dialogState =
+    reg.state.phase === 'confirm' || reg.state.phase === 'paying' ? reg.state : null;
 
   return (
     <div className="space-y-4">
@@ -256,14 +360,22 @@ function RegisterTab() {
         )}
         {availState.status === 'ok' && (
           <div className="mt-3">
-            {availState.data.available ? (
-              <div className="flex items-center justify-between">
+            {availableHandle ? (
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-green-500">
-                  @{availState.data.name.replace(/^@+/, '')} is available
+                  @{availableHandle} is available
                 </span>
-                <span className="text-xs text-stone-500 dark:text-neutral-400">
-                  Register via Agent World on tiny.place
-                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    reg.begin(availableHandle);
+                  }}
+                  className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                  {reg.state.phase === 'challenge_loading'
+                    ? 'Loading…'
+                    : `Register @${availableHandle}`}
+                </button>
               </div>
             ) : (
               <div>
@@ -276,6 +388,47 @@ function RegisterTab() {
                   </span>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Registration outcome surfaces inline below the availability row. */}
+        {reg.state.phase === 'success' && (
+          <div
+            className="mt-3 rounded-md border border-green-500/30 bg-green-500/10 p-3"
+            data-testid="register-success">
+            <p className="text-xs font-medium text-green-500">
+              Registered @{reg.state.identity.username?.replace(/^@+/, '') ?? availableHandle}
+            </p>
+            {reg.state.onChainTx && (
+              <a
+                href={explorerTxUrl(reg.state.onChainTx, reg.state.network)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs text-primary-500 underline">
+                View payment on Solana Explorer
+              </a>
+            )}
+          </div>
+        )}
+        {reg.state.phase === 'error' && (
+          <div
+            className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3"
+            data-testid="register-error">
+            <p className="text-xs font-medium text-red-500">
+              {reg.state.onChainTx
+                ? 'Payment sent but registration did not complete.'
+                : 'Registration failed.'}
+            </p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{reg.state.message}</p>
+            {reg.state.onChainTx && (
+              <a
+                href={explorerTxUrl(reg.state.onChainTx)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs text-primary-500 underline">
+                View payment on Solana Explorer
+              </a>
             )}
           </div>
         )}
@@ -303,15 +456,24 @@ function RegisterTab() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800/30 p-4 text-center">
-        <p className="text-sm font-medium text-stone-600 dark:text-neutral-300">
-          Register on tiny.place
-        </p>
-        <p className="text-xs text-stone-400 dark:text-neutral-500 mt-1">
-          Domain registration requires x402 payment signing. Open tiny.place to complete
-          registration.
-        </p>
-      </div>
+      {/* Confirm-before-spend dialog (only while a challenge is pending). */}
+      {dialogState && availableHandle && (
+        <X402ConfirmDialog
+          title={`Register @${availableHandle}`}
+          subtitle="Confirm the x402 payment to claim this handle."
+          amount={dialogState.challenge.amount ?? '0'}
+          asset={dialogState.challenge.asset ?? 'USDC'}
+          network={dialogState.challenge.network}
+          balance={dialogState.phase === 'confirm' ? dialogState.balance : null}
+          walletAddress={dialogState.phase === 'confirm' ? dialogState.walletAddress : ''}
+          busy={dialogState.phase === 'paying'}
+          busyLabel="Paying…"
+          onCancel={reg.reset}
+          onConfirm={() => {
+            reg.confirmPay(availableHandle, dialogState.challenge);
+          }}
+        />
+      )}
     </div>
   );
 }

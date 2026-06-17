@@ -229,6 +229,55 @@ export interface AvailabilityResponse {
   identity?: { cryptoId: string; username?: string; [key: string]: unknown };
   [key: string]: unknown;
 }
+
+// ── Registry (x402 register) types ─────────────────────────────────────────────
+
+export interface RegisterParams {
+  username: string;
+  /** false/omitted → challenge only (no spend); true → pay + register. */
+  confirmed?: boolean;
+  /** "human" (default) or "agent". */
+  actorType?: string;
+  primary?: boolean;
+}
+
+export interface RegistryWalletBalance {
+  raw: string;
+  formatted: string;
+  decimals: number;
+  assetSymbol: string;
+}
+
+/** The x402 payment terms surfaced on an unconfirmed register call. */
+export interface RegistrationChallenge {
+  amount?: string;
+  asset?: string;
+  network?: string;
+  to?: string;
+  expiresAt?: string;
+  [key: string]: unknown;
+}
+
+export interface RegisteredIdentity {
+  username?: string;
+  cryptoId?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Result of `registry.register`. Exactly one of these shapes is populated:
+ * - `{ identity }` — registered (free tier or after payment).
+ * - `{ challenge, walletBalance, walletAddress }` — unconfirmed; render confirm.
+ * - `{ identity, payment }` — paid + registered.
+ */
+export interface RegistrationResult {
+  identity?: RegisteredIdentity;
+  challenge?: RegistrationChallenge;
+  walletBalance?: RegistryWalletBalance | null;
+  walletAddress?: string;
+  payment?: { onChainTx?: string };
+  [key: string]: unknown;
+}
 export interface BidsResponse {
   bids: IdentityBid[];
   [key: string]: unknown;
@@ -656,6 +705,18 @@ export function createInvokeApiClient() {
       /** Check availability of a @handle (with or without leading @). */
       get: (name: string) =>
         call<AvailabilityResponse>('openhuman.tinyplace_registry_get', { name }),
+      /**
+       * Register a @handle via x402 confirm-before-spend.
+       * Call with `confirmed:false` to get the challenge + wallet balance (no
+       * spend); `confirmed:true` pays on-chain and registers.
+       */
+      register: (params: RegisterParams) =>
+        call<RegistrationResult>('openhuman.tinyplace_registry_register', {
+          username: params.username,
+          confirmed: params.confirmed ?? false,
+          actorType: params.actorType ?? null,
+          primary: params.primary ?? null,
+        }),
     },
     directoryIdentities: {
       /** List identity listings from the directory. */

@@ -34,8 +34,8 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_profiles_agent_card, handle_tinyplace_profiles_attestations,
     handle_tinyplace_profiles_broadcasts, handle_tinyplace_profiles_get,
     handle_tinyplace_profiles_groups, handle_tinyplace_registry_get,
-    handle_tinyplace_search_unified, handle_tinyplace_users_get,
-    handle_tinyplace_users_update_profile,
+    handle_tinyplace_registry_register, handle_tinyplace_search_unified,
+    handle_tinyplace_users_get, handle_tinyplace_users_update_profile,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -459,6 +459,44 @@ fn schema_registry_get() -> ControllerSchema {
         outputs: vec![json_output(
             "result",
             "AvailabilityResponse { available, name, identity? }.",
+        )],
+    }
+}
+
+fn schema_registry_register() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "registry_register",
+        description:
+            "Register a @handle via x402 confirm-before-spend. Call with confirmed=false to get the \
+             402 challenge + wallet balance (no spend); confirmed=true pays on-chain and registers.",
+        inputs: vec![
+            required_string("username", "The handle to register (with or without a leading @)."),
+            FieldSchema {
+                name: "confirmed",
+                ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+                comment: "When true, fulfils the x402 payment on-chain and registers. \
+                          Defaults to false (challenge-only, no spend).",
+                required: false,
+            },
+            FieldSchema {
+                name: "actorType",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Self-declared actor type recorded on the wallet's profile \
+                          (\"human\"/\"agent\"). Defaults to \"human\".",
+                required: false,
+            },
+            FieldSchema {
+                name: "primary",
+                ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+                comment: "Request this name be assigned as the wallet's primary handle.",
+                required: false,
+            },
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Either { identity } (registered), { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { identity, payment: { onChainTx } } (paid).",
         )],
     }
 }
@@ -923,6 +961,7 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_marketplace_list_offers(),
         schema_marketplace_recent(),
         schema_registry_get(),
+        schema_registry_register(),
         schema_artifacts_get(),
         schema_artifacts_list(),
         schema_escrow_get(),
@@ -1050,6 +1089,10 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_registry_get(),
             handler: handle_tinyplace_registry_get,
+        },
+        RegisteredController {
+            schema: schema_registry_register(),
+            handler: handle_tinyplace_registry_register,
         },
         RegisteredController {
             schema: schema_artifacts_get(),

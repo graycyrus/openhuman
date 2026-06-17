@@ -25,7 +25,7 @@ import IdentitiesSection from './IdentitiesSection';
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
-    registry: { get: vi.fn() },
+    registry: { get: vi.fn(), register: vi.fn() },
     directoryIdentities: { list: vi.fn() },
     marketplace: { listIdentities: vi.fn(), identityFloor: vi.fn(), recent: vi.fn() },
   },
@@ -40,6 +40,9 @@ beforeEach(() => {
   vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({ identities: [] });
   vi.mocked(apiClient.marketplace.identityFloor).mockResolvedValue({ price: undefined });
   vi.mocked(apiClient.marketplace.recent).mockResolvedValue({ sales: [] });
+  vi.mocked(apiClient.registry.register).mockResolvedValue({
+    identity: { username: '@placeholder' },
+  });
 });
 
 afterEach(() => {
@@ -175,13 +178,187 @@ describe('Register tab — handle availability', () => {
     expect(await screen.findByText('@viaenter is available')).toBeInTheDocument();
   });
 
-  test('renders the pricing tiers and the tiny.place register placeholder', () => {
+  test('renders the pricing tiers', () => {
     render(<IdentitiesSection />);
     expect(screen.getByText('Pricing tiers')).toBeInTheDocument();
     expect(screen.getByText('$250/yr')).toBeInTheDocument();
     expect(screen.getByText('$50/yr')).toBeInTheDocument();
     expect(screen.getByText('$10/yr')).toBeInTheDocument();
-    expect(screen.getByText('Register on tiny.place')).toBeInTheDocument();
+  });
+
+  test('shows a Register button only when the handle is available', async () => {
+    vi.mocked(apiClient.registry.get).mockResolvedValue({ available: true, name: '@freehandle' });
+    render(<IdentitiesSection />);
+    await userEvent.type(screen.getByPlaceholderText('Search for a name...'), 'freehandle');
+    await userEvent.click(screen.getByRole('button', { name: 'Check' }));
+    expect(await screen.findByRole('button', { name: 'Register @freehandle' })).toBeInTheDocument();
+  });
+});
+
+// ── Register tab — x402 registration flow ──────────────────────────────────────
+
+const FREE_AMOUNT = '10000000'; // 10 USDC in base units (6 decimals)
+
+async function checkAndRegister(handle: string) {
+  await userEvent.type(screen.getByPlaceholderText('Search for a name...'), handle);
+  await userEvent.click(screen.getByRole('button', { name: 'Check' }));
+  await userEvent.click(await screen.findByRole('button', { name: `Register @${handle}` }));
+}
+
+describe('Register tab — x402 registration', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.registry.get).mockResolvedValue({ available: true, name: '@buyer' });
+  });
+
+  test('confirmed:false renders the confirm dialog with amount and balance', async () => {
+    vi.mocked(apiClient.registry.register).mockResolvedValueOnce({
+      challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WaLLetdeadbeef0123456789',
+    });
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+
+    expect(await screen.findByTestId('x402-amount')).toHaveTextContent('10 USDC');
+    expect(screen.getByTestId('x402-balance')).toHaveTextContent('50 USDC');
+    // confirmed:false probe was sent
+    expect(apiClient.registry.register).toHaveBeenCalledWith({
+      username: 'buyer',
+      confirmed: false,
+    });
+    expect(screen.getByTestId('x402-confirm')).toBeEnabled();
+  });
+
+  test('insufficient balance disables the confirm button', async () => {
+    vi.mocked(apiClient.registry.register).mockResolvedValueOnce({
+      challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '1000000', formatted: '1', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WaLLetdeadbeef0123456789',
+    });
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+
+    expect(await screen.findByTestId('x402-insufficient')).toBeInTheDocument();
+    expect(screen.getByTestId('x402-confirm')).toBeDisabled();
+  });
+
+  test('confirmed:true success renders the registered identity + explorer link', async () => {
+    vi.mocked(apiClient.registry.register)
+      .mockResolvedValueOnce({
+        challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
+        walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+        walletAddress: 'WaLLetdeadbeef0123456789',
+      })
+      .mockResolvedValueOnce({
+        identity: { username: '@buyer' },
+        payment: { onChainTx: 'TxSig123456789' },
+      });
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+    await userEvent.click(await screen.findByTestId('x402-confirm'));
+
+    const success = await screen.findByTestId('register-success');
+    expect(success).toHaveTextContent('Registered @buyer');
+    const link = within(success).getByRole('link', { name: /Solana Explorer/ });
+    expect(link).toHaveAttribute(
+      'href',
+      'https://explorer.solana.com/tx/TxSig123456789?cluster=devnet'
+    );
+    // The spend call carried confirmed:true.
+    expect(apiClient.registry.register).toHaveBeenLastCalledWith({
+      username: 'buyer',
+      confirmed: true,
+      actorType: 'human',
+      primary: true,
+    });
+  });
+
+  test('free-tier register (identity without challenge) short-circuits to success', async () => {
+    vi.mocked(apiClient.registry.register).mockResolvedValueOnce({
+      identity: { username: '@buyer' },
+    });
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+
+    expect(await screen.findByTestId('register-success')).toHaveTextContent('Registered @buyer');
+    // No confirm dialog appears for the free tier.
+    expect(screen.queryByTestId('x402-confirm')).not.toBeInTheDocument();
+  });
+
+  test('post-payment failure surfaces the broadcast tx', async () => {
+    vi.mocked(apiClient.registry.register)
+      .mockResolvedValueOnce({
+        challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
+        walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+        walletAddress: 'WaLLetdeadbeef0123456789',
+      })
+      .mockRejectedValueOnce(
+        new Error('registration paid but not confirmed (onChainTx=BrokeTx99)')
+      );
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+    await userEvent.click(await screen.findByTestId('x402-confirm'));
+
+    const err = await screen.findByTestId('register-error');
+    expect(err).toHaveTextContent('Payment sent but registration did not complete.');
+    expect(within(err).getByRole('link', { name: /Solana Explorer/ })).toHaveAttribute(
+      'href',
+      'https://explorer.solana.com/tx/BrokeTx99'
+    );
+  });
+
+  test('cancel closes the confirm dialog without spending', async () => {
+    vi.mocked(apiClient.registry.register).mockResolvedValueOnce({
+      challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WaLLetdeadbeef0123456789',
+    });
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('x402-confirm')).not.toBeInTheDocument();
+    // Only the confirmed:false probe ran — no spend.
+    expect(apiClient.registry.register).toHaveBeenCalledTimes(1);
+  });
+
+  test('begin: an unexpected response (no identity, no challenge) errors out', async () => {
+    vi.mocked(apiClient.registry.register).mockResolvedValueOnce({});
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+    expect(await screen.findByTestId('register-error')).toHaveTextContent('Unexpected response');
+  });
+
+  test('begin: a PaymentRequiredError surfaces a payment notice', async () => {
+    vi.mocked(apiClient.registry.register).mockRejectedValueOnce(
+      new PaymentRequiredError({ terms: 'x402' })
+    );
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+    expect(await screen.findByTestId('register-error')).toHaveTextContent('Payment required.');
+  });
+
+  test('begin: a plain error surfaces its message', async () => {
+    vi.mocked(apiClient.registry.register).mockRejectedValueOnce(new Error('probe-boom'));
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+    expect(await screen.findByTestId('register-error')).toHaveTextContent('probe-boom');
+  });
+
+  test('confirmPay: a response without an identity errors out', async () => {
+    vi.mocked(apiClient.registry.register)
+      .mockResolvedValueOnce({
+        challenge: { amount: FREE_AMOUNT, asset: 'USDC', network: 'solana-devnet' },
+        walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+        walletAddress: 'WaLLetdeadbeef0123456789',
+      })
+      .mockResolvedValueOnce({});
+    render(<IdentitiesSection />);
+    await checkAndRegister('buyer');
+    await userEvent.click(await screen.findByTestId('x402-confirm'));
+    expect(await screen.findByTestId('register-error')).toHaveTextContent(
+      'Registration did not complete.'
+    );
   });
 });
 
