@@ -7913,15 +7913,21 @@ dependencies = [
 
 [[package]]
 name = "tinyplace"
-version = "0.1.0"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a2b01b1c83c05cd2e2fb6cd1d4086d95c23407d72f88c60b9f9f6096a8ebcf6"
+checksum = "af8654a3a0c163d276c62a886560da032c35ee1009b809062cb47534037918c3"
 dependencies = [
+ "aes",
  "async-trait",
  "base64 0.22.1",
  "bs58",
+ "cbc",
  "chrono",
+ "curve25519-dalek",
  "ed25519-dalek",
+ "futures-util",
+ "hkdf",
+ "hmac 0.12.1",
  "rand 0.8.6",
  "reqwest 0.12.28",
  "serde",
@@ -7929,6 +7935,9 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-tungstenite 0.24.0",
+ "url",
+ "x25519-dalek",
 ]
 
 [[package]]

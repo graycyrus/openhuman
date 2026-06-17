@@ -1461,7 +1461,6 @@ pub(crate) fn handle_tinyplace_groups_join(params: Map<String, Value>) -> Contro
 
 pub(crate) fn handle_tinyplace_groups_leave(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        use tinyplace::Signer as _;
         let group_id = req_str(&params, "groupId")?.to_string();
         log::debug!("{LOG_PREFIX} groups_leave group_id={group_id}");
         let client = global_state().client().await?;
