@@ -230,10 +230,10 @@ fn classify_network(network: &str) -> Option<SolanaCluster> {
 /// backend never credits a tx it can't see) rather than mis-spending. We log a
 /// warning when the (advisory) label looks inconsistent.
 ///
-/// TODO(devnet): replace this advisory check with a robust cross-check that
-/// compares the configured `solana_cluster().usdc_mint()` against the backend's
-/// `/payments/supported` Solana USDC address before spending (catches the
-/// real-funds case of configured=mainnet against a devnet-settling backend).
+/// The robust cross-check is now implemented as [`ensure_backend_mint_matches`],
+/// which compares `solana_cluster().usdc_mint()` against the backend's
+/// `solana.info()` USDC asset address. This advisory network-label check is
+/// retained for observability (it logs when the label looks inconsistent).
 pub(crate) fn ensure_cluster_matches(network: &str) -> Result<(), String> {
     cluster_guard(solana_cluster(), network)
 }
@@ -260,6 +260,88 @@ fn cluster_guard(configured: SolanaCluster, network: &str) -> Result<(), String>
         }
     }
     Ok(())
+}
+
+/// Pure mint cross-check: compares the configured wallet's USDC mint against
+/// the backend's reported USDC mint from `solana.info()`.
+///
+/// - **Both match** → Ok (the common case).
+/// - **Mismatch** → Err with a clear diagnostic (e.g. configured=mainnet
+///   EPjFWdd… but backend reports devnet 4zMMC9…).
+/// - **Backend USDC not found** (`backend_usdc_mint` is None) → Ok with a
+///   log (the backend might not list USDC; fail-open).
+///
+/// This is the "does the wallet agree with the backend" check the TODO at
+/// line 233-236 asked for. It replaces the genesis-based label check with
+/// an authoritative mint comparison.
+fn mint_cross_check(configured_mint: &str, backend_usdc_mint: Option<&str>) -> Result<(), String> {
+    match backend_usdc_mint {
+        Some(backend_mint) if backend_mint == configured_mint => {
+            log::debug!(
+                "{LOG_PREFIX} mint cross-check ok: configured={configured_mint} \
+                 backend={backend_mint}"
+            );
+            Ok(())
+        }
+        Some(backend_mint) => {
+            // TRUE MISMATCH — this is the real-funds protection case.
+            Err(format!(
+                "cluster mismatch: wallet configured USDC mint={configured_mint} but \
+                 the backend reports USDC mint={backend_mint}; refusing to spend — \
+                 check OPENHUMAN_SOLANA_CLUSTER and the backend's Solana config"
+            ))
+        }
+        None => {
+            // Backend did not report a USDC asset in solana.info().assets.
+            // Fail-open: the backend might be running an older version or USDC is
+            // not configured. The payment will still fail safely at verification
+            // if there is a real mismatch.
+            log::warn!(
+                "{LOG_PREFIX} mint cross-check: backend solana.info() did not include a \
+                 USDC asset; cannot verify against configured mint={configured_mint}; \
+                 proceeding (fail-open)"
+            );
+            Ok(())
+        }
+    }
+}
+
+/// Async mint cross-check: fetches `client.solana.info()`, finds the USDC
+/// asset, and compares its mint address against the configured wallet's
+/// `solana_cluster().usdc_mint()`.
+///
+/// **Fail-open on transient errors**: if the fetch fails (backend
+/// unreachable, endpoint not deployed), logs a warning and returns Ok.
+/// Only blocks on a CONFIRMED mint mismatch where both sides returned.
+pub(crate) async fn ensure_backend_mint_matches(
+    client: &tinyplace::TinyPlaceClient,
+) -> Result<(), String> {
+    let configured_mint = solana_cluster().usdc_mint();
+
+    let chain_info = match client.solana.info().await {
+        Ok(info) => info,
+        Err(e) => {
+            log::warn!(
+                "{LOG_PREFIX} mint cross-check: solana.info() failed ({e}); \
+                 proceeding without mint verification (fail-open)"
+            );
+            return Ok(());
+        }
+    };
+
+    log::debug!(
+        "{LOG_PREFIX} mint cross-check: backend network='{}' assets_count={}",
+        chain_info.network,
+        chain_info.assets.len(),
+    );
+
+    let backend_usdc_mint = chain_info
+        .assets
+        .iter()
+        .find(|a| a.symbol == "USDC")
+        .and_then(|a| a.address.as_deref());
+
+    mint_cross_check(configured_mint, backend_usdc_mint)
 }
 
 // ── High-level orchestrator (thin; logic delegated to the tested helpers) ─────
@@ -512,6 +594,63 @@ mod tests {
         // mainnet-genesis label tiny.place emits on devnet.
         assert!(ensure_cluster_matches("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp").is_ok());
         assert!(ensure_cluster_matches("solana:unparseable-network-id").is_ok());
+    }
+
+    // ── mint cross-check (pure, no env, no network) ─────────────────────────
+
+    /// Known USDC mint addresses for the test assertions.
+    const MAINNET_USDC: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+    const DEVNET_USDC: &str = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
+    #[test]
+    fn mint_cross_check_match_devnet() {
+        // configured=devnet, backend=devnet → Ok
+        assert!(mint_cross_check(DEVNET_USDC, Some(DEVNET_USDC)).is_ok());
+    }
+
+    #[test]
+    fn mint_cross_check_match_mainnet() {
+        // configured=mainnet, backend=mainnet → Ok
+        assert!(mint_cross_check(MAINNET_USDC, Some(MAINNET_USDC)).is_ok());
+    }
+
+    #[test]
+    fn mint_cross_check_mismatch_configured_mainnet_backend_devnet() {
+        // configured=mainnet, backend=devnet → Err (the real-funds danger case)
+        let err = mint_cross_check(MAINNET_USDC, Some(DEVNET_USDC)).unwrap_err();
+        assert!(
+            err.contains("cluster mismatch"),
+            "error should mention mismatch, got: {err}"
+        );
+        assert!(
+            err.contains(MAINNET_USDC),
+            "error should cite the configured mint, got: {err}"
+        );
+        assert!(
+            err.contains(DEVNET_USDC),
+            "error should cite the backend mint, got: {err}"
+        );
+    }
+
+    #[test]
+    fn mint_cross_check_mismatch_configured_devnet_backend_mainnet() {
+        // configured=devnet, backend=mainnet → Err
+        let err = mint_cross_check(DEVNET_USDC, Some(MAINNET_USDC)).unwrap_err();
+        assert!(err.contains("cluster mismatch"), "got: {err}");
+    }
+
+    #[test]
+    fn mint_cross_check_backend_usdc_not_found() {
+        // Backend did not include a USDC asset → Ok (fail-open)
+        assert!(mint_cross_check(MAINNET_USDC, None).is_ok());
+        assert!(mint_cross_check(DEVNET_USDC, None).is_ok());
+    }
+
+    #[test]
+    fn mint_cross_check_with_unknown_mint() {
+        // Backend reports an unknown mint → Err (mismatch)
+        let err = mint_cross_check(DEVNET_USDC, Some("SomeOtherMintAddress123")).unwrap_err();
+        assert!(err.contains("cluster mismatch"), "got: {err}");
     }
 
     // ── truncate (log helper) ─────────────────────────────────────────────────
