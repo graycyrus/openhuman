@@ -253,3 +253,61 @@ mod membership_handlers {
         assert!(err.contains("groupId"), "got: {err}");
     }
 }
+
+// ── Messages graceful-degrade helpers (staging endpoint gaps) ──────────────────
+
+#[cfg(test)]
+mod messages_degrade {
+    use std::collections::HashMap;
+
+    use crate::openhuman::tinyplace::manifest::{channels_list_degrade, inbox_list_degrade};
+
+    /// Synthetic `Error::Http` with an arbitrary status and no payment challenge.
+    fn http_error(status: u16) -> tinyplace::Error {
+        tinyplace::Error::Http(Box::new(tinyplace::error::HttpError {
+            status,
+            message: format!("HTTP {status}: /test"),
+            body: serde_json::Value::Null,
+            headers: HashMap::new(),
+            payment_required: None,
+        }))
+    }
+
+    /// A real serde_json error (the SDK's `Error::Serialization` source).
+    fn serialization_error() -> tinyplace::Error {
+        let err = serde_json::from_str::<i64>("\"not a number\"").unwrap_err();
+        tinyplace::Error::Serialization(err)
+    }
+
+    #[test]
+    fn channels_404_degrades_to_empty_list() {
+        let degraded = channels_list_degrade(&http_error(404)).expect("404 should degrade");
+        assert_eq!(degraded, serde_json::json!({ "channels": [] }));
+    }
+
+    #[test]
+    fn channels_non_404_propagates() {
+        assert!(channels_list_degrade(&http_error(500)).is_none());
+        assert!(channels_list_degrade(&serialization_error()).is_none());
+    }
+
+    #[test]
+    fn inbox_serialization_error_degrades_to_empty() {
+        let degraded =
+            inbox_list_degrade(&serialization_error()).expect("serialization error should degrade");
+        assert_eq!(
+            degraded,
+            serde_json::json!({
+                "items": [],
+                "cursor": null,
+                "unreadCount": 0,
+                "totalCount": 0,
+            })
+        );
+    }
+
+    #[test]
+    fn inbox_non_serialization_propagates() {
+        assert!(inbox_list_degrade(&http_error(500)).is_none());
+    }
+}

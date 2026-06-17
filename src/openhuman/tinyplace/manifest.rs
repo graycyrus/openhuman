@@ -1342,13 +1342,31 @@ pub(crate) fn handle_tinyplace_channels_list(params: Map<String, Value>) -> Cont
             .transpose()?;
 
         let client = global_state().client().await?;
-        let result = client
-            .channels
-            .list(query_params.as_ref())
-            .await
-            .map_err(map_err)?;
-        to_value(result)
+        match client.channels.list(query_params.as_ref()).await {
+            Ok(result) => to_value(result),
+            Err(e) => match channels_list_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} channels_list endpoint unavailable -> empty list (status={:?})",
+                        e.status()
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
     })
+}
+
+/// The staging backend exposes no `/channels` route (only `/search/channels`),
+/// so the endpoint 404s. Degrade a 404 to an empty channel list rather than
+/// surfacing a hard error to the Messages UI; propagate every other error.
+pub(crate) fn channels_list_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if e.status() == Some(404) {
+        Some(serde_json::json!({ "channels": [] }))
+    } else {
+        None
+    }
 }
 
 pub(crate) fn handle_tinyplace_groups_list(params: Map<String, Value>) -> ControllerFuture {
@@ -1415,13 +1433,39 @@ pub(crate) fn handle_tinyplace_inbox_list(params: Map<String, Value>) -> Control
             .map(|s| s.to_string());
 
         let client = global_state().client().await?;
-        let result = client
+        match client
             .inbox
             .list(query_params.as_ref(), owner.as_deref())
             .await
-            .map_err(map_err)?;
-        to_value(result)
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match inbox_list_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} inbox_list deserialization failed (likely empty inbox) -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
     })
+}
+
+/// An empty inbox comes back as `{"items": null}`, which fails the SDK's
+/// non-optional `items: Vec<InboxItem>` deserialization. Treat that
+/// serialization failure as an empty inbox; propagate every other error.
+pub(crate) fn inbox_list_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({
+            "items": [],
+            "cursor": null,
+            "unreadCount": 0,
+            "totalCount": 0,
+        }))
+    } else {
+        None
+    }
 }
 
 fn opt_owner(params: &Map<String, Value>) -> Option<String> {
