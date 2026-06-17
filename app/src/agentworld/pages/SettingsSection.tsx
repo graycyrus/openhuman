@@ -15,15 +15,25 @@
  */
 import debug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
-import { LuCheck, LuChevronDown, LuChevronUp, LuLoader, LuSend } from 'react-icons/lu';
+import {
+  LuCheck,
+  LuChevronDown,
+  LuChevronUp,
+  LuLoader,
+  LuMail,
+  LuSend,
+  LuShieldCheck,
+} from 'react-icons/lu';
 
 import LanguageSelect from '../../components/LanguageSelect';
 import {
   type FeedbackItem,
   type FeedbackListParams,
   type FeedbackListResponse,
+  type User,
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setThemeMode, type ThemeMode } from '../../store/themeSlice';
 import { apiClient } from '../AgentWorldShell';
@@ -97,6 +107,241 @@ function useFeedbackList(): [FeedbackState, () => void] {
   }, [refresh]);
 
   return [state, refresh];
+}
+
+// ── Email verification state ──────────────────────────────────────────────
+
+type EmailStatus =
+  | { status: 'loading' }
+  | { status: 'no_wallet' }
+  | { status: 'error'; message: string }
+  | { status: 'ok'; user: User; cryptoId: string };
+
+function useMyEmailStatus(): [EmailStatus, () => void] {
+  const [state, setState] = useState<EmailStatus>({ status: 'loading' });
+
+  const refresh = useCallback(() => {
+    setState({ status: 'loading' });
+    void (async () => {
+      let cryptoId: string;
+      try {
+        const walletStatus = await fetchWalletStatus();
+        const solana = (walletStatus.accounts ?? []).find(
+          (a: { chain: string }) => a.chain === 'solana'
+        );
+        if (!solana?.address) {
+          setState({ status: 'no_wallet' });
+          return;
+        }
+        cryptoId = solana.address;
+      } catch {
+        setState({ status: 'no_wallet' });
+        return;
+      }
+      try {
+        const user = await apiClient.users.get(cryptoId);
+        setState({ status: 'ok', user, cryptoId });
+      } catch (err: unknown) {
+        log('email status fetch error: %s', String(err));
+        setState({ status: 'error', message: String(err) });
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return [state, refresh];
+}
+
+// ── EmailVerificationPanel ──────────────────────────────────────────────────
+
+function EmailVerificationPanel() {
+  const [emailStatus, refreshStatus] = useMyEmailStatus();
+  const [emailInput, setEmailInput] = useState('');
+  const [codeInput, setCodeInput] = useState('');
+  const [phase, setPhase] = useState<'idle' | 'sending' | 'code_sent' | 'confirming'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSendCode = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (emailStatus.status !== 'ok' || !emailInput.trim()) return;
+      setPhase('sending');
+      setError(null);
+      try {
+        await apiClient.users.startEmailVerification(emailStatus.cryptoId, emailInput.trim());
+        log('email verification started for crypto_id=%s', emailStatus.cryptoId);
+        setPhase('code_sent');
+        refreshStatus();
+      } catch (err: unknown) {
+        log('start email verification error: %s', String(err));
+        setError(String(err));
+        setPhase('idle');
+      }
+    },
+    [emailStatus, emailInput, refreshStatus]
+  );
+
+  const handleConfirmCode = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (emailStatus.status !== 'ok' || !codeInput.trim()) return;
+      const email = emailStatus.user.email ?? emailInput.trim();
+      setPhase('confirming');
+      setError(null);
+      try {
+        await apiClient.users.confirmEmailVerification(
+          emailStatus.cryptoId,
+          email,
+          codeInput.trim()
+        );
+        log('email verification confirmed for crypto_id=%s', emailStatus.cryptoId);
+        setPhase('idle');
+        setCodeInput('');
+        refreshStatus();
+      } catch (err: unknown) {
+        log('confirm email verification error: %s', String(err));
+        setError(String(err));
+        setPhase('code_sent');
+      }
+    },
+    [emailStatus, emailInput, codeInput, refreshStatus]
+  );
+
+  // Loading / no wallet states.
+  if (emailStatus.status === 'loading') {
+    return (
+      <div className="flex items-center gap-2 py-4 text-xs text-stone-400 dark:text-neutral-500">
+        <LuLoader size={14} className="animate-spin" />
+        Loading email status...
+      </div>
+    );
+  }
+  if (emailStatus.status === 'no_wallet') {
+    return (
+      <p className="py-2 text-xs text-stone-500 dark:text-neutral-400">
+        Wallet not available. Unlock your wallet to manage email verification.
+      </p>
+    );
+  }
+  if (emailStatus.status === 'error') {
+    return (
+      <p className="py-2 text-xs text-stone-500 dark:text-neutral-400">
+        Could not load email status: {emailStatus.message}
+      </p>
+    );
+  }
+
+  const { user } = emailStatus;
+  const hasEmail = !!user.email;
+  const isVerified = user.emailVerified;
+  const showCodeForm = phase === 'code_sent' || (hasEmail && !isVerified);
+
+  return (
+    <div className="space-y-3">
+      {/* Current status */}
+      {hasEmail && (
+        <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+          <LuMail size={16} className="shrink-0 text-stone-400 dark:text-neutral-500" />
+          <span className="text-sm text-stone-700 dark:text-neutral-300">{user.email}</span>
+          {isVerified ? (
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <LuShieldCheck size={12} />
+              Verified
+            </span>
+          ) : (
+            <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              Pending
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Send code form (shown when no verified email, or user wants to change) */}
+      {!isVerified && !showCodeForm && (
+        <form onSubmit={e => void handleSendCode(e)} className="space-y-2">
+          <label
+            htmlFor="email-verify-input"
+            className="block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Email address
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="email-verify-input"
+              type="email"
+              value={emailInput}
+              onChange={e => setEmailInput(e.target.value)}
+              placeholder="you@example.com"
+              className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+              disabled={phase === 'sending'}
+            />
+            <button
+              type="submit"
+              disabled={!emailInput.trim() || phase === 'sending'}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+              {phase === 'sending' ? (
+                <LuLoader size={14} className="animate-spin" />
+              ) : (
+                <LuMail size={14} />
+              )}
+              Send code
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Confirm code form */}
+      {showCodeForm && (
+        <form onSubmit={e => void handleConfirmCode(e)} className="space-y-2">
+          <p className="text-xs text-stone-500 dark:text-neutral-400">
+            A verification code was sent to {user.email ?? emailInput}. Enter it below.
+          </p>
+          <label
+            htmlFor="email-code-input"
+            className="block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Verification code
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="email-code-input"
+              type="text"
+              value={codeInput}
+              onChange={e => setCodeInput(e.target.value)}
+              placeholder="Enter code"
+              className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+              disabled={phase === 'confirming'}
+            />
+            <button
+              type="submit"
+              disabled={!codeInput.trim() || phase === 'confirming'}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50">
+              {phase === 'confirming' ? (
+                <LuLoader size={14} className="animate-spin" />
+              ) : (
+                <LuShieldCheck size={14} />
+              )}
+              Verify
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setPhase('idle');
+              setCodeInput('');
+              setError(null);
+            }}
+            className="text-xs text-stone-500 underline hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-300">
+            Use a different email
+          </button>
+        </form>
+      )}
+
+      {/* Error display */}
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  );
 }
 
 // ── FeedbackItemCard ──────────────────────────────────────────────────────────
@@ -432,6 +677,17 @@ export default function SettingsSection() {
           Share ideas, report bugs, or vote on community suggestions.
         </p>
         <FeedbackPanel />
+      </section>
+
+      {/* Email verification */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          Email verification
+        </h2>
+        <p className="text-xs text-stone-500 dark:text-neutral-400">
+          Verify your email to earn a verification badge on your Agent World profile.
+        </p>
+        <EmailVerificationPanel />
       </section>
     </div>
   );

@@ -203,24 +203,46 @@ export interface ProfileAttestationsResponse {
 // ── Users types ───────────────────────────────────────────────────────────────
 
 export interface User {
-  cryptoId?: string;
-  displayName?: string;
-  bio?: string;
-  avatar?: string;
-  links?: string[];
+  cryptoId: string;
+  actorType: string;
+  displayName: string;
+  bio: string;
+  avatarEmail?: string;
+  email?: string;
+  emailVerified: boolean;
+  emailVerifiedAt?: string;
+  emailVerificationRequestedAt?: string;
+  harnessKey?: string;
+  link?: string;
   tags?: string[];
+  createdAt: string;
+  updatedAt: string;
   [key: string]: unknown;
 }
 
 export interface UserProfileUpdate {
   displayName?: string;
   bio?: string;
-  avatar?: string;
-  links?: string[];
+  avatarEmail?: string;
+  harnessKey?: string;
+  link?: string;
   tags?: string[];
   actorType?: string;
   signature?: unknown;
   [key: string]: unknown;
+}
+
+// ── Users email verification types ──────────────────────────────────────────
+
+export interface UserEmailVerificationStartParams {
+  cryptoId: string;
+  email: string;
+}
+
+export interface UserEmailVerificationConfirmParams {
+  cryptoId: string;
+  email: string;
+  code: string;
 }
 
 export interface AvailabilityResponse {
@@ -896,6 +918,16 @@ export function createInvokeApiClient() {
       get: (cryptoId: string) => call<User>('openhuman.tinyplace_users_get', { cryptoId }),
       updateProfile: (cryptoId: string, update: UserProfileUpdate) =>
         call<User>('openhuman.tinyplace_users_update_profile', { cryptoId, update }),
+      /** Start email verification — stores the email and sends a code. */
+      startEmailVerification: (cryptoId: string, email: string) =>
+        call<User>('openhuman.tinyplace_users_start_email_verification', { cryptoId, email }),
+      /** Confirm the email verification code. */
+      confirmEmailVerification: (cryptoId: string, email: string, code: string) =>
+        call<User>('openhuman.tinyplace_users_confirm_email_verification', {
+          cryptoId,
+          email,
+          code,
+        }),
     },
     marketplace: {
       /** List identity listings, optionally filtered by status and limit. */
