@@ -235,7 +235,12 @@ type RegState =
       balance: RegistryWalletBalance | null;
       walletAddress: string;
     }
-  | { phase: 'paying'; challenge: RegistrationChallenge }
+  | {
+      phase: 'paying';
+      challenge: RegistrationChallenge;
+      balance: RegistryWalletBalance | null;
+      walletAddress: string;
+    }
   | { phase: 'success'; identity: RegisteredIdentity; onChainTx?: string; network?: string }
   | { phase: 'error'; message: string; onChainTx?: string };
 
@@ -271,9 +276,15 @@ function useRegistration() {
       });
   }
 
-  // Phase B — pay on-chain + register (spends).
-  function confirmPay(username: string, challenge: RegistrationChallenge) {
-    setState({ phase: 'paying', challenge });
+  // Phase B — pay on-chain + register (spends). Carries the confirm-phase
+  // balance + wallet through so the dialog keeps showing them while paying.
+  function confirmPay(
+    username: string,
+    challenge: RegistrationChallenge,
+    balance: RegistryWalletBalance | null,
+    walletAddress: string
+  ) {
+    setState({ phase: 'paying', challenge, balance, walletAddress });
     void apiClient.registry
       .register({ username, confirmed: true, actorType: 'human', primary: true })
       .then(result => {
@@ -466,13 +477,18 @@ function RegisterTab() {
           amount={dialogState.challenge.amount ?? '0'}
           asset={dialogState.challenge.asset ?? 'USDC'}
           network={dialogState.challenge.network}
-          balance={dialogState.phase === 'confirm' ? dialogState.balance : null}
-          walletAddress={dialogState.phase === 'confirm' ? dialogState.walletAddress : ''}
+          balance={dialogState.balance}
+          walletAddress={dialogState.walletAddress}
           busy={dialogState.phase === 'paying'}
           busyLabel="Paying…"
           onCancel={reg.reset}
           onConfirm={() => {
-            reg.confirmPay(availableHandle, dialogState.challenge);
+            reg.confirmPay(
+              availableHandle,
+              dialogState.challenge,
+              dialogState.balance,
+              dialogState.walletAddress
+            );
           }}
         />
       )}
@@ -824,12 +840,14 @@ function TradingTab() {
             amount={bs.challenge.amount ?? '0'}
             asset={bs.challenge.asset ?? 'USDC'}
             network={bs.challenge.network}
-            balance={bs.phase === 'confirm' ? bs.balance : null}
-            walletAddress={bs.phase === 'confirm' ? bs.walletAddress : ''}
+            balance={bs.balance}
+            walletAddress={bs.walletAddress}
             busy={bs.phase === 'paying'}
             busyLabel="Paying…"
             onCancel={closeBuy}
-            onConfirm={() => buy.confirmPay(buying.listingId, bs.challenge)}
+            onConfirm={() =>
+              buy.confirmPay(buying.listingId, bs.challenge, bs.balance, bs.walletAddress)
+            }
           />
         )}
       </div>

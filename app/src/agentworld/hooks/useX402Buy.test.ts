@@ -81,7 +81,7 @@ describe('useX402Buy', () => {
     const { result } = renderHook(() => useX402Buy(buyFn));
     act(() => result.current.begin('id-1'));
     await waitFor(() => expect(result.current.state.phase).toBe('confirm'));
-    act(() => result.current.confirmPay('id-1', CHALLENGE));
+    act(() => result.current.confirmPay('id-1', CHALLENGE, BALANCE, 'W'));
     await waitFor(() => expect(result.current.state.phase).toBe('success'));
     expect(buyFn).toHaveBeenLastCalledWith('id-1', { confirmed: true });
     if (result.current.state.phase === 'success') {
@@ -93,7 +93,7 @@ describe('useX402Buy', () => {
   test('confirmPay with no result errors', async () => {
     const buyFn = vi.fn().mockResolvedValue({});
     const { result } = renderHook(() => useX402Buy(buyFn));
-    act(() => result.current.confirmPay('id-1', CHALLENGE));
+    act(() => result.current.confirmPay('id-1', CHALLENGE, BALANCE, 'W'));
     await waitFor(() => expect(result.current.state.phase).toBe('error'));
     if (result.current.state.phase === 'error') {
       expect(result.current.state.message).toMatch(/did not complete/);
@@ -103,7 +103,7 @@ describe('useX402Buy', () => {
   test('confirmPay failure extracts the broadcast tx from the error', async () => {
     const buyFn = vi.fn().mockRejectedValue(new Error('paid (onChainTx=BrokeTx)'));
     const { result } = renderHook(() => useX402Buy(buyFn));
-    act(() => result.current.confirmPay('id-1', CHALLENGE));
+    act(() => result.current.confirmPay('id-1', CHALLENGE, BALANCE, 'W'));
     await waitFor(() => expect(result.current.state.phase).toBe('error'));
     if (result.current.state.phase === 'error') {
       expect(result.current.state.onChainTx).toBe('BrokeTx');

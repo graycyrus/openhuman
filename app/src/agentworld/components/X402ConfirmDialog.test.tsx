@@ -65,8 +65,18 @@ describe('X402ConfirmDialog', () => {
     render(<X402ConfirmDialog {...baseProps()} />);
     expect(screen.getByTestId('x402-amount')).toHaveTextContent('10 USDC');
     expect(screen.getByTestId('x402-balance')).toHaveTextContent('50 USDC');
-    expect(screen.getByText('solana-devnet')).toBeInTheDocument();
+    expect(screen.getByText('Solana (devnet)')).toBeInTheDocument();
     expect(screen.getByText('WaLLet…6789')).toBeInTheDocument();
+  });
+
+  test('renders a friendly network label (never the raw CAIP-2 genesis hash)', () => {
+    // tiny.place reports the mainnet genesis on every cluster — must collapse to
+    // "Solana", not show the raw "solana:5eykt4…" hash.
+    render(
+      <X402ConfirmDialog {...baseProps()} network="solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" />
+    );
+    expect(screen.getByText('Solana')).toBeInTheDocument();
+    expect(screen.queryByText(/5eykt4/)).not.toBeInTheDocument();
   });
 
   test('calls onConfirm / onCancel', async () => {

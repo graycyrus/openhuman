@@ -68,8 +68,23 @@ export function isInsufficient(balance: X402WalletBalance | null, amount: string
 }
 
 function truncateAddress(addr: string): string {
+  if (!addr) return '—';
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+/**
+ * A human-readable network label. tiny.place reports the CAIP-2 Solana network
+ * as the raw mainnet genesis hash (`solana:5eykt4…`) on every cluster, which is
+ * meaningless to users and overflows the row — so collapse any Solana network to
+ * a friendly "Solana" (or "Solana (devnet)" when the label explicitly says so).
+ */
+export function friendlyNetwork(network?: string): string {
+  if (!network) return 'Solana';
+  const n = network.toLowerCase();
+  if (n.includes('devnet')) return 'Solana (devnet)';
+  if (n.startsWith('solana') || n.includes('5eykt4')) return 'Solana';
+  return network;
 }
 
 export default function X402ConfirmDialog({
@@ -106,13 +121,11 @@ export default function X402ConfirmDialog({
               {amountDisplay} {asset}
             </span>
           </Row>
-          {network ? (
-            <Row label="Network">
-              <span className="font-mono text-xs text-stone-500 dark:text-neutral-400">
-                {network}
-              </span>
-            </Row>
-          ) : null}
+          <Row label="Network">
+            <span className="text-xs text-stone-500 dark:text-neutral-400">
+              {friendlyNetwork(network)}
+            </span>
+          </Row>
           <Row label="Your balance">
             <span
               className={`font-medium ${
@@ -135,7 +148,7 @@ export default function X402ConfirmDialog({
           </p>
         ) : (
           <p className="text-xs text-stone-400 dark:text-neutral-500">
-            Your wallet will sign and broadcast this payment on {network ?? 'Solana'}.
+            Your wallet will sign and broadcast this payment on {friendlyNetwork(network)}.
           </p>
         )}
 
