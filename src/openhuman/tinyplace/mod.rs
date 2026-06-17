@@ -34,6 +34,8 @@ mod state;
 pub(crate) mod streams;
 
 #[cfg(test)]
+mod signal_e2e_tests;
+#[cfg(test)]
 mod tests;
 
 pub use schemas::{all_tinyplace_controller_schemas, all_tinyplace_registered_controllers};

@@ -37,6 +37,20 @@ vi.mock('../AgentWorldShell', () => ({
           lowOneTimePreKeys: true,
           updatedAt: '2026-06-17T00:00:00Z',
         }),
+      sendMessage: vi.fn().mockResolvedValue({
+        messageId: 'msg-123',
+        timestamp: '2026-06-17T00:00:00Z',
+        encrypted: true,
+      }),
+      decryptMessage: vi.fn().mockResolvedValue({
+        plaintext: 'Hello!',
+        from: 'peer-agent',
+        messageId: 'msg-123',
+      }),
+    },
+    messages: {
+      list: vi.fn().mockResolvedValue({ messages: [] }),
+      acknowledge: vi.fn().mockResolvedValue(undefined),
     },
     channels: {
       list: vi.fn().mockResolvedValue({ channels: [] }),
@@ -122,29 +136,114 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// ── DMs gated state ───────────────────────────────────────────────────────────
+// ── DMs panel (E2E enabled) ───────────────────────────────────────────────────
 
-describe('DMs gated state', () => {
-  test('renders "Secure direct messages — coming soon" when DMs tab is active', async () => {
+describe('DMs panel (E2E enabled)', () => {
+  test('renders DM compose UI with peer input when DMs tab is active', async () => {
     render(<MessagingSection />);
 
-    // Click the DMs tab
     const dmsButton = screen.getByRole('button', { name: 'DMs' });
     await userEvent.click(dmsButton);
 
-    expect(screen.getByTestId('dms-coming-soon')).toBeInTheDocument();
-    expect(screen.getByText(/Secure direct messages — coming soon/i)).toBeInTheDocument();
+    // Should see the peer input, not the "coming soon" placeholder
+    expect(screen.getByPlaceholderText(/Recipient agent ID/)).toBeInTheDocument();
+    expect(screen.queryByTestId('dms-coming-soon')).not.toBeInTheDocument();
   });
 
-  test('does NOT render the DMs compose form when gate is off', async () => {
+  test('sending a message calls signal.sendMessage with encrypted params', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+    vi.mocked(apiClient.signal.sendMessage).mockResolvedValue({
+      messageId: 'msg1',
+      timestamp: '2026-06-17T00:00:00Z',
+      encrypted: true,
+    });
+
     render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
 
-    const dmsButton = screen.getByRole('button', { name: 'DMs' });
-    await userEvent.click(dmsButton);
+    // Enter peer ID and open DM
+    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    await user.type(peerInput, 'peer123');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
-    // No message input should exist
-    expect(screen.queryByPlaceholderText(/type a message/i)).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/@handle or key/i)).not.toBeInTheDocument();
+    // Type and send a message
+    const composeInput = await screen.findByPlaceholderText(/Type a message/);
+    await user.type(composeInput, 'Hello encrypted world');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(vi.mocked(apiClient.signal.sendMessage)).toHaveBeenCalledWith({
+      recipient: 'peer123',
+      plaintext: 'Hello encrypted world',
+    });
+  });
+
+  test('sendMessage is called with plaintext param, never direct backend body', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+    vi.mocked(apiClient.signal.sendMessage).mockRejectedValueOnce(
+      new Error('encryption failed'),
+    );
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    await user.type(peerInput, 'peer456');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const composeInput = await screen.findByPlaceholderText(/Type a message/);
+    await user.type(composeInput, 'secret');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(vi.mocked(apiClient.signal.sendMessage)).toHaveBeenCalled();
+    // The messages namespace has no 'send' method — only signal.sendMessage is callable
+  });
+
+  test('received messages are decrypted before display', async () => {
+    vi.mocked(apiClient.messages.list).mockResolvedValue({
+      messages: [
+        {
+          id: 'msg1',
+          from: 'peer789',
+          to: 'a',
+          timestamp: '2026-06-17T00:00:00Z',
+          deviceId: 1,
+          type: 'CIPHERTEXT',
+          body: 'base64ciphertext',
+          signal: { ratchetKey: 'abc', messageNumber: 0, previousChainLength: 0 },
+        },
+      ],
+    });
+    vi.mocked(apiClient.signal.decryptMessage).mockResolvedValue({
+      plaintext: 'Decrypted secret',
+      from: 'peer789',
+      messageId: 'msg1',
+    });
+
+    const user = userEvent.setup();
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    await user.type(peerInput, 'peer789');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    expect(await screen.findByText('Decrypted secret')).toBeInTheDocument();
+    expect(vi.mocked(apiClient.signal.decryptMessage)).toHaveBeenCalledWith({
+      envelope: expect.objectContaining({ id: 'msg1', body: 'base64ciphertext' }),
+    });
+  });
+
+  test('encrypted indicator is shown in active DM view', async () => {
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+    const user = userEvent.setup();
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    await user.type(peerInput, 'peer999');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    expect(await screen.findByText('Encrypted')).toBeInTheDocument();
   });
 });
 

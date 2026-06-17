@@ -5577,6 +5577,7 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Профиль не найден',
   'settings.profiles.editor.saving': 'Сохранение…',
   'settings.profiles.editor.idRequired': 'Идентификатор профиля не может быть пустым',
+
 };
 
 export default messages;

@@ -3,7 +3,7 @@
  *
  * Renders public metadata for Channels, Groups, Broadcasts, and Inbox.
  * Encrypted DM compose/read is gated behind E2E_MESSAGING_ENABLED (currently
- * false) and shows a "Secure direct messages — coming soon" state instead.
+ * true) using the Signal protocol for end-to-end encryption.
  *
  * Signal key provisioning is always accessible when a wallet is connected —
  * the `SignalKeyStatusCard` appears above the tab content regardless of the
@@ -39,7 +39,7 @@ const log = debug('openhuman:messaging');
  * tab will render the real compose UI; until then it renders the "coming soon"
  * placeholder. Do NOT wire this to Rust Config — it's a UI-only fence.
  */
-const E2E_MESSAGING_ENABLED = false;
+const E2E_MESSAGING_ENABLED = true;
 
 // ── Tab definition ────────────────────────────────────────────────────────────
 
@@ -943,7 +943,168 @@ function InboxPanel() {
 
 // ── DMs panel (gated) ─────────────────────────────────────────────────────────
 
+interface DecryptedMessage {
+  messageId: string;
+  from: string;
+  plaintext: string;
+  timestamp: string;
+  encrypted: true;
+}
+
+function useDirectMessages(peerId: string) {
+  const [messages, setMessages] = useState<DecryptedMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.messages.list({ limit: 50 });
+      const fromPeer = response.messages.filter(m => m.from === peerId);
+      const decrypted: DecryptedMessage[] = [];
+      for (const env of fromPeer) {
+        try {
+          const result = await apiClient.signal.decryptMessage({ envelope: env });
+          decrypted.push({
+            messageId: result.messageId,
+            from: result.from,
+            plaintext: result.plaintext,
+            timestamp: env.timestamp,
+            encrypted: true,
+          });
+        } catch (decryptErr) {
+          log('failed to decrypt message %s: %s', env.id, String(decryptErr));
+        }
+      }
+      setMessages(decrypted);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [peerId]);
+
+  const send = useCallback(
+    async (plaintext: string) => {
+      setSending(true);
+      setError(null);
+      try {
+        await apiClient.signal.sendMessage({ recipient: peerId, plaintext });
+        await refresh();
+      } catch (err) {
+        setError(String(err));
+      } finally {
+        setSending(false);
+      }
+    },
+    [peerId, refresh],
+  );
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { messages, loading, error, sending, send, refresh };
+}
+
+function ActiveDmView({
+  peerId,
+  onBack,
+  composeText,
+  setComposeText,
+}: {
+  peerId: string;
+  onBack: () => void;
+  composeText: string;
+  setComposeText: (v: string) => void;
+}) {
+  const { messages, loading, error, sending, send } = useDirectMessages(peerId);
+
+  const handleSend = useCallback(async () => {
+    if (!composeText.trim()) return;
+    await send(composeText.trim());
+    setComposeText('');
+  }, [composeText, send, setComposeText]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-stone-200 dark:border-neutral-800 px-3 py-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-xs text-stone-400 hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+          Back
+        </button>
+        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100 truncate">
+          {peerId}
+        </span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
+          <svg
+            className="h-3 w-3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+            />
+          </svg>
+          Encrypted
+        </span>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-auto p-3 space-y-2">
+        {loading && messages.length === 0 ? (
+          <p className="text-xs text-stone-400 animate-pulse">Loading encrypted messages...</p>
+        ) : null}
+        {error ? <p className="text-xs text-red-500">{error}</p> : null}
+        {messages.map(msg => (
+          <div
+            key={msg.messageId}
+            className="rounded-lg bg-stone-100 dark:bg-neutral-800 px-3 py-2 text-sm">
+            <p className="text-stone-900 dark:text-neutral-100">{msg.plaintext}</p>
+            <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+              {msg.from} &middot; {msg.timestamp}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Compose */}
+      <div className="border-t border-stone-200 dark:border-neutral-800 p-3 flex gap-2">
+        <input
+          type="text"
+          value={composeText}
+          onChange={e => setComposeText(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) void handleSend();
+          }}
+          placeholder="Type a message..."
+          className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+        />
+        <button
+          type="button"
+          disabled={sending || !composeText.trim()}
+          onClick={() => void handleSend()}
+          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+          {sending ? 'Sending...' : 'Send'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DmsPanel() {
+  const [peerId, setPeerId] = useState('');
+  const [activePeer, setActivePeer] = useState<string | null>(null);
+  const [composeText, setComposeText] = useState('');
+
   if (!E2E_MESSAGING_ENABLED) {
     return (
       <div
@@ -976,8 +1137,37 @@ function DmsPanel() {
     );
   }
 
-  // Future: wire useDirectMessages() hook when E2E_MESSAGING_ENABLED = true.
-  return null;
+  if (activePeer) {
+    return (
+      <ActiveDmView
+        peerId={activePeer}
+        onBack={() => setActivePeer(null)}
+        composeText={composeText}
+        setComposeText={setComposeText}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={peerId}
+          onChange={e => setPeerId(e.target.value)}
+          placeholder="Recipient agent ID (base58)"
+          className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
+        />
+        <button
+          type="button"
+          disabled={!peerId.trim()}
+          onClick={() => setActivePeer(peerId.trim())}
+          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+          Open DM
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Messaging section root ────────────────────────────────────────────────────

@@ -1333,3 +1333,82 @@ describe('signal.keyStatus', () => {
     });
   });
 });
+
+
+describe('signal.sendMessage and messages namespace', () => {
+  test('signal namespace has send/decrypt methods and messages namespace exists', () => {
+    const client = createInvokeApiClient();
+    expect(typeof client.signal.sendMessage).toBe('function');
+    expect(typeof client.signal.decryptMessage).toBe('function');
+    expect(client.messages).toBeDefined();
+    expect(typeof client.messages.list).toBe('function');
+    expect(typeof client.messages.acknowledge).toBe('function');
+  });
+
+  test('signal.sendMessage calls openhuman.tinyplace_signal_send_message with params object', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({
+      messageId: 'msg-1',
+      timestamp: '2026-06-17T00:00:00Z',
+      encrypted: true,
+    });
+    const client = createInvokeApiClient();
+    await client.signal.sendMessage({ recipient: 'peer-123', plaintext: 'Hello!' });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_send_message',
+      params: { recipient: 'peer-123', plaintext: 'Hello!' },
+    });
+  });
+
+  test('signal.decryptMessage calls openhuman.tinyplace_signal_decrypt_message with envelope', async () => {
+    const envelope = {
+      id: 'env-1',
+      from: 'alice',
+      to: 'bob',
+      timestamp: '2026-06-17T00:00:00Z',
+      deviceId: 1,
+      type: 'CIPHERTEXT',
+      body: 'base64ciphertext==',
+    };
+    mockCallCoreRpc.mockResolvedValueOnce({
+      plaintext: 'Hello!',
+      from: 'alice',
+      messageId: 'env-1',
+    });
+    const client = createInvokeApiClient();
+    await client.signal.decryptMessage({ envelope });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_signal_decrypt_message',
+      params: { envelope },
+    });
+  });
+
+  test('messages.list calls openhuman.tinyplace_messages_list with params', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ messages: [] });
+    const client = createInvokeApiClient();
+    await client.messages.list({ limit: 25 });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_messages_list',
+      params: { limit: 25 },
+    });
+  });
+
+  test('messages.list sends empty params when called without args', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ messages: [] });
+    const client = createInvokeApiClient();
+    await client.messages.list();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_messages_list',
+      params: {},
+    });
+  });
+
+  test('messages.acknowledge calls openhuman.tinyplace_messages_acknowledge', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce(undefined);
+    const client = createInvokeApiClient();
+    await client.messages.acknowledge('msg-99');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_messages_acknowledge',
+      params: { messageId: 'msg-99' },
+    });
+  });
+});
