@@ -720,6 +720,24 @@ describe('SignalKeyStatusCard', () => {
     expect(await screen.findByText(/Discoverable/)).toBeInTheDocument();
   });
 
+  test('surfaces an error when "Make discoverable" fails instead of silently doing nothing', async () => {
+    const user = userEvent.setup();
+    getKeyStatus().mockResolvedValue({
+      agentId: 'test-agent',
+      localPreKeyCount: 100,
+      hasActiveSignedPreKey: true,
+      remote: null,
+      encryptionKeyPublished: false,
+    });
+    getRegisterEncryptionKey().mockRejectedValueOnce(new Error('HTTP 404: /directory/agents/x'));
+    render(<MessagingSection />);
+    const btn = await screen.findByText('Make discoverable');
+    await user.click(btn);
+    expect(getRegisterEncryptionKey()).toHaveBeenCalled();
+    const err = await screen.findByTestId('signal-action-error');
+    expect(err).toHaveTextContent('404');
+  });
+
   test('clicking "Set up keys" calls signal.provision and refreshes', async () => {
     const user = userEvent.setup();
     getKeyStatus()

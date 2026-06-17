@@ -260,7 +260,9 @@ mod membership_handlers {
 mod messages_degrade {
     use std::collections::HashMap;
 
-    use crate::openhuman::tinyplace::manifest::{channels_list_degrade, inbox_list_degrade};
+    use crate::openhuman::tinyplace::manifest::{
+        channels_list_degrade, inbox_list_degrade, messages_list_degrade,
+    };
 
     /// Synthetic `Error::Http` with an arbitrary status and no payment challenge.
     fn http_error(status: u16) -> tinyplace::Error {
@@ -309,5 +311,64 @@ mod messages_degrade {
     #[test]
     fn inbox_non_serialization_propagates() {
         assert!(inbox_list_degrade(&http_error(500)).is_none());
+    }
+
+    #[test]
+    fn messages_serialization_error_degrades_to_empty() {
+        let degraded = messages_list_degrade(&serialization_error())
+            .expect("serialization error should degrade");
+        assert_eq!(degraded, serde_json::json!({ "messages": [] }));
+    }
+
+    #[test]
+    fn messages_non_serialization_propagates() {
+        assert!(messages_list_degrade(&http_error(500)).is_none());
+    }
+}
+
+// ── Make-discoverable card builder ─────────────────────────────────────────────
+
+#[cfg(test)]
+mod default_agent_card {
+    use crate::openhuman::tinyplace::manifest::build_default_agent_card;
+
+    fn identity(username: &str, primary: bool) -> tinyplace::types::Identity {
+        tinyplace::types::Identity {
+            username: username.to_string(),
+            crypto_id: "AgentIdBase58".to_string(),
+            public_key: "pk".to_string(),
+            registered_at: "2026-01-01T00:00:00Z".to_string(),
+            expires_at: "2027-01-01T00:00:00Z".to_string(),
+            status: "active".to_string(),
+            registration_tx: None,
+            payment_methods: None,
+            primary: Some(primary),
+            subnames: None,
+            signature: None,
+            payment: None,
+            last_renewal_tx: None,
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn uses_registered_handle_when_present() {
+        let card =
+            build_default_agent_card("AgentIdBase58", "pubkeyb64", Some(&identity("alice", true)));
+        assert_eq!(card.agent_id, "AgentIdBase58");
+        assert_eq!(card.crypto_id, "AgentIdBase58");
+        assert_eq!(card.name, "alice");
+        assert_eq!(card.username.as_deref(), Some("alice"));
+        assert_eq!(card.public_key.as_deref(), Some("pubkeyb64"));
+        // Timestamps are non-empty placeholders (backend reassigns on upsert).
+        assert!(!card.created_at.is_empty());
+        assert!(!card.updated_at.is_empty());
+    }
+
+    #[test]
+    fn falls_back_to_agent_id_without_identity() {
+        let card = build_default_agent_card("AgentIdBase58", "pubkeyb64", None);
+        assert_eq!(card.name, "AgentIdBase58");
+        assert_eq!(card.username, None);
     }
 }

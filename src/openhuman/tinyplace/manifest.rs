@@ -2854,13 +2854,30 @@ pub(crate) fn handle_tinyplace_messages_list(params: Map<String, Value>) -> Cont
         log::debug!("{LOG_PREFIX} messages_list limit={limit:?}");
         let client = global_state().client().await?;
         let signer = require_signer(client)?;
-        let result = client
-            .messages
-            .list(&signer.agent_id(), limit)
-            .await
-            .map_err(map_err)?;
-        to_value(result)
+        match client.messages.list(&signer.agent_id(), limit).await {
+            Ok(result) => to_value(result),
+            Err(e) => match messages_list_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} messages_list deserialization failed (likely empty thread) -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
     })
+}
+
+/// An empty message thread comes back as `{"messages": null}`, which fails the
+/// SDK's non-optional `messages: Vec<MessageEnvelope>` deserialization. Treat
+/// that serialization failure as an empty thread; propagate every other error.
+pub(crate) fn messages_list_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "messages": [] }))
+    } else {
+        None
+    }
 }
 
 pub(crate) fn handle_tinyplace_messages_acknowledge(
@@ -2909,13 +2926,39 @@ pub(crate) fn handle_tinyplace_signal_register_encryption_key(
         let signer = require_signer(client)?;
         let agent_id = signer.agent_id();
 
-        // 3. Fetch current AgentCard to preserve existing fields.
-        let mut card = client
-            .directory
-            .get_agent(&agent_id)
-            .await
-            .map_err(map_err)?;
-        log::debug!("{LOG_PREFIX} signal_register_encryption_key fetched card for {agent_id}");
+        // 3. Fetch current AgentCard to preserve existing fields. A wallet that
+        //    has Signal keys but no directory presence yet (e.g. it registered a
+        //    @handle but was never upserted as an agent) 404s here — in that
+        //    case create a fresh minimal card so "Make discoverable" still works,
+        //    best-effort enriching name/username from the registered identity.
+        let mut card = match client.directory.get_agent(&agent_id).await {
+            Ok(card) => {
+                log::debug!(
+                    "{LOG_PREFIX} signal_register_encryption_key fetched existing card for {agent_id}"
+                );
+                card
+            }
+            Err(e) if e.status() == Some(404) => {
+                log::debug!(
+                    "{LOG_PREFIX} signal_register_encryption_key no card for {agent_id} -> creating one"
+                );
+                let identity = client
+                    .directory
+                    .reverse(&agent_id)
+                    .await
+                    .ok()
+                    .and_then(|r| {
+                        // Prefer the wallet's primary handle; otherwise any handle.
+                        let mut ids = r.identities;
+                        ids.iter()
+                            .position(|i| i.primary == Some(true))
+                            .map(|idx| ids.swap_remove(idx))
+                            .or_else(|| ids.into_iter().next())
+                    });
+                build_default_agent_card(&agent_id, &signer.public_key_base64(), identity.as_ref())
+            }
+            Err(e) => return Err(map_err(e)),
+        };
 
         // 4. Merge encryptionPublicKey into metadata.
         let metadata = card
@@ -2941,6 +2984,44 @@ pub(crate) fn handle_tinyplace_signal_register_encryption_key(
             "updatedAt": updated.updated_at,
         }))
     })
+}
+
+/// Build a minimal `AgentCard` for a wallet that has no directory presence yet,
+/// so it can publish its encryption key and become discoverable. When the wallet
+/// owns a registered identity, its handle seeds `name`/`username`; otherwise the
+/// agent id is used. The backend assigns authoritative timestamps on upsert, so
+/// the `created_at`/`updated_at` we send are placeholders.
+pub(crate) fn build_default_agent_card(
+    agent_id: &str,
+    public_key_b64: &str,
+    identity: Option<&tinyplace::types::Identity>,
+) -> tinyplace::types::AgentCard {
+    let now = chrono::Utc::now().to_rfc3339();
+    let username = identity.map(|i| i.username.clone());
+    let name = username.clone().unwrap_or_else(|| agent_id.to_string());
+    tinyplace::types::AgentCard {
+        agent_id: agent_id.to_string(),
+        name,
+        description: None,
+        username,
+        crypto_id: agent_id.to_string(),
+        public_key: Some(public_key_b64.to_string()),
+        url: None,
+        endpoint: None,
+        supported_interfaces: None,
+        skills: None,
+        capabilities: None,
+        tags: None,
+        payment_methods: None,
+        payment_requirements: None,
+        groups: None,
+        docs: None,
+        webhooks: None,
+        metadata: None,
+        signature: None,
+        created_at: now.clone(),
+        updated_at: now,
+    }
 }
 
 // ── Directory: find by encryption key (0D) ──────────────────────────────────

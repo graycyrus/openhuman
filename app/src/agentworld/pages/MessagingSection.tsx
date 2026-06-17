@@ -166,14 +166,17 @@ function SignalKeyStatusCard() {
   const { status, loading, error, refresh } = useSignalKeyStatus();
   const [provisioning, setProvisioning] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleProvision = useCallback(async () => {
     setProvisioning(true);
+    setActionError(null);
     try {
       await apiClient.signal.provision();
       await refresh();
     } catch (err) {
       log('provision error: %s', String(err));
+      setActionError(String(err));
     } finally {
       setProvisioning(false);
     }
@@ -181,11 +184,13 @@ function SignalKeyStatusCard() {
 
   const handlePublish = useCallback(async () => {
     setPublishing(true);
+    setActionError(null);
     try {
       await apiClient.signal.registerEncryptionKey();
       await refresh();
     } catch (err) {
       log('register encryption key error: %s', String(err));
+      setActionError(String(err));
     } finally {
       setPublishing(false);
     }
@@ -231,6 +236,11 @@ function SignalKeyStatusCard() {
           </button>
         )}
       </div>
+      {actionError && (
+        <p className="mt-2 text-xs text-coral-500" data-testid="signal-action-error">
+          {actionError}
+        </p>
+      )}
     </div>
   );
 }
