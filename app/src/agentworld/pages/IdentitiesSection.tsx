@@ -22,6 +22,7 @@ import {
   type DirectoryIdentityListingsResponse,
   type IdentitiesResponse,
   type IdentityFloor,
+  type IdentityListing,
   PaymentRequiredError,
   type RecentSalesResponse,
   type RegisteredIdentity,
@@ -30,6 +31,7 @@ import {
 } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
 import X402ConfirmDialog from '../components/X402ConfirmDialog';
+import { explorerTxUrl as buyExplorerTxUrl, useX402Buy } from '../hooks/useX402Buy';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -617,6 +619,19 @@ function TradingTab() {
   const listings = marketState.status === 'ok' ? (marketState.data.identities ?? []) : [];
   const sales = salesState.status === 'ok' ? (salesState.data.sales ?? []) : [];
 
+  // x402 buy flow for fixed-price identity listings.
+  const [buying, setBuying] = useState<IdentityListing | null>(null);
+  const buy = useX402Buy((id, opts) => apiClient.marketplace.buyIdentity(id, opts));
+  const bs = buy.state;
+  function startBuy(listing: IdentityListing) {
+    setBuying(listing);
+    buy.begin(listing.listingId);
+  }
+  function closeBuy() {
+    buy.reset();
+    setBuying(null);
+  }
+
   return (
     <div className="space-y-4">
       {/* Floor prices */}
@@ -672,9 +687,63 @@ function TradingTab() {
                     by {listing.seller}
                   </div>
                 )}
+                {listing.listingType !== 'auction' && (
+                  <button
+                    type="button"
+                    disabled={buying !== null}
+                    onClick={() => startBuy(listing)}
+                    className="mt-2 w-full rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                    Buy
+                  </button>
+                )}
               </div>
             ))}
           </div>
+        )}
+
+        {/* Buy outcome banner. */}
+        {buying && bs.phase === 'success' && (
+          <div
+            className="mt-3 rounded-md border border-green-500/30 bg-green-500/10 p-3"
+            data-testid="buy-identity-success">
+            <p className="text-xs font-medium text-green-500">Purchased {buying.name}</p>
+            {bs.onChainTx && (
+              <a
+                href={buyExplorerTxUrl(bs.onChainTx, bs.network)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs text-primary-500 underline">
+                View payment on Solana Explorer
+              </a>
+            )}
+          </div>
+        )}
+        {buying && bs.phase === 'error' && (
+          <div
+            className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3"
+            data-testid="buy-identity-error">
+            <p className="text-xs font-medium text-red-500">
+              {bs.onChainTx ? 'Payment sent but purchase did not complete.' : 'Purchase failed.'}
+            </p>
+            <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{bs.message}</p>
+          </div>
+        )}
+
+        {/* Confirm-before-spend dialog. */}
+        {buying && (bs.phase === 'confirm' || bs.phase === 'paying') && (
+          <X402ConfirmDialog
+            title={`Buy ${buying.name}`}
+            subtitle="Confirm the x402 payment to buy this handle."
+            amount={bs.challenge.amount ?? '0'}
+            asset={bs.challenge.asset ?? 'USDC'}
+            network={bs.challenge.network}
+            balance={bs.phase === 'confirm' ? bs.balance : null}
+            walletAddress={bs.phase === 'confirm' ? bs.walletAddress : ''}
+            busy={bs.phase === 'paying'}
+            busyLabel="Paying…"
+            onCancel={closeBuy}
+            onConfirm={() => buy.confirmPay(buying.listingId, bs.challenge)}
+          />
         )}
       </div>
 

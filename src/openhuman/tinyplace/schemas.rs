@@ -25,6 +25,7 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
     handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get,
     handle_tinyplace_jobs_list, handle_tinyplace_marketplace_browse,
+    handle_tinyplace_marketplace_buy_identity, handle_tinyplace_marketplace_buy_product,
     handle_tinyplace_marketplace_categories, handle_tinyplace_marketplace_featured,
     handle_tinyplace_marketplace_get_product, handle_tinyplace_marketplace_identity_floor,
     handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
@@ -459,6 +460,54 @@ fn schema_registry_get() -> ControllerSchema {
         outputs: vec![json_output(
             "result",
             "AvailabilityResponse { available, name, identity? }.",
+        )],
+    }
+}
+
+fn buy_confirmed_input() -> FieldSchema {
+    FieldSchema {
+        name: "confirmed",
+        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+        comment: "When true, fulfils the x402 payment on-chain and completes the purchase. \
+                  Defaults to false (challenge-only, no spend).",
+        required: false,
+    }
+}
+
+fn schema_marketplace_buy_product() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_buy_product",
+        description:
+            "Buy a marketplace product via x402 confirm-before-spend. confirmed=false returns the \
+             402 challenge + wallet balance (no spend); confirmed=true pays and completes the buy.",
+        inputs: vec![
+            required_string("id", "The product ID to buy."),
+            buy_confirmed_input(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Either { result: ProductPurchase }, { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { result: ProductPurchase, payment: { onChainTx } } (paid).",
+        )],
+    }
+}
+
+fn schema_marketplace_buy_identity() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "marketplace_buy_identity",
+        description:
+            "Buy an identity listing (a @handle at its fixed price) via x402 confirm-before-spend. \
+             confirmed=false returns the challenge + balance; confirmed=true pays and completes.",
+        inputs: vec![
+            required_string("id", "The identity listing ID to buy."),
+            buy_confirmed_input(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Either { result: IdentitySale }, { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { result: IdentitySale, payment: { onChainTx } } (paid).",
         )],
     }
 }
@@ -962,6 +1011,8 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_marketplace_recent(),
         schema_registry_get(),
         schema_registry_register(),
+        schema_marketplace_buy_product(),
+        schema_marketplace_buy_identity(),
         schema_artifacts_get(),
         schema_artifacts_list(),
         schema_escrow_get(),
@@ -1093,6 +1144,14 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_registry_register(),
             handler: handle_tinyplace_registry_register,
+        },
+        RegisteredController {
+            schema: schema_marketplace_buy_product(),
+            handler: handle_tinyplace_marketplace_buy_product,
+        },
+        RegisteredController {
+            schema: schema_marketplace_buy_identity(),
+            handler: handle_tinyplace_marketplace_buy_identity,
         },
         RegisteredController {
             schema: schema_artifacts_get(),

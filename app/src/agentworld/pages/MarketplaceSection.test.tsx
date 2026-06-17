@@ -23,7 +23,7 @@ import MarketplaceSection from './MarketplaceSection';
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
-    marketplace: { listProducts: vi.fn() },
+    marketplace: { listProducts: vi.fn(), buyProduct: vi.fn() },
     jobs: { list: vi.fn() },
     escrow: { list: vi.fn() },
     artifacts: { list: vi.fn() },
@@ -103,6 +103,7 @@ beforeEach(() => {
   vi.mocked(apiClient.jobs.list).mockResolvedValue({ jobs: [] });
   vi.mocked(apiClient.escrow.list).mockResolvedValue({ escrows: [] });
   vi.mocked(apiClient.artifacts.list).mockResolvedValue({ artifacts: [] });
+  vi.mocked(apiClient.marketplace.buyProduct).mockResolvedValue({ result: { purchaseId: 'p1' } });
 });
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
@@ -480,5 +481,83 @@ describe('status badges', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Active' }));
     const badge = await screen.findByText('accepted');
     expect(badge.className).toContain('primary');
+  });
+});
+
+// ── Search tab — x402 buy flow ─────────────────────────────────────────────────
+
+describe('Search tab — buy product (x402)', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.marketplace.listProducts).mockResolvedValue({ products: [sampleProduct] });
+  });
+
+  test('Buy → confirm dialog shows the challenge amount + balance', async () => {
+    vi.mocked(apiClient.marketplace.buyProduct).mockResolvedValueOnce({
+      challenge: { amount: '10000000', asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WalletAbc123456789',
+    });
+    render(<MarketplaceSection />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+
+    expect(await screen.findByTestId('x402-amount')).toHaveTextContent('10 USDC');
+    expect(screen.getByTestId('x402-balance')).toHaveTextContent('50 USDC');
+    expect(apiClient.marketplace.buyProduct).toHaveBeenCalledWith('prod-1', { confirmed: false });
+  });
+
+  test('Confirm & Pay → success banner with the explorer link', async () => {
+    vi.mocked(apiClient.marketplace.buyProduct)
+      .mockResolvedValueOnce({
+        challenge: { amount: '10000000', asset: 'USDC', network: 'solana-devnet' },
+        walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+        walletAddress: 'WalletAbc123456789',
+      })
+      .mockResolvedValueOnce({ result: { purchaseId: 'p1' }, payment: { onChainTx: 'TxBuy1' } });
+    render(<MarketplaceSection />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+    await userEvent.click(await screen.findByTestId('x402-confirm'));
+
+    const success = await screen.findByTestId('buy-success');
+    expect(success).toHaveTextContent('Purchased Widget Builder');
+    expect(success.querySelector('a')).toHaveAttribute(
+      'href',
+      'https://explorer.solana.com/tx/TxBuy1?cluster=devnet'
+    );
+    expect(apiClient.marketplace.buyProduct).toHaveBeenLastCalledWith('prod-1', {
+      confirmed: true,
+    });
+  });
+
+  test('post-payment failure shows the broadcast tx', async () => {
+    vi.mocked(apiClient.marketplace.buyProduct)
+      .mockResolvedValueOnce({
+        challenge: { amount: '10000000', asset: 'USDC', network: 'solana-devnet' },
+        walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+        walletAddress: 'WalletAbc123456789',
+      })
+      .mockRejectedValueOnce(new Error('purchase paid but not confirmed (onChainTx=BrokeTx7)'));
+    render(<MarketplaceSection />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+    await userEvent.click(await screen.findByTestId('x402-confirm'));
+
+    const err = await screen.findByTestId('buy-error');
+    expect(err).toHaveTextContent('Payment sent but purchase did not complete.');
+    expect(err.querySelector('a')).toHaveAttribute(
+      'href',
+      'https://explorer.solana.com/tx/BrokeTx7'
+    );
+  });
+
+  test('Cancel closes the dialog without a confirmed buy', async () => {
+    vi.mocked(apiClient.marketplace.buyProduct).mockResolvedValueOnce({
+      challenge: { amount: '10000000', asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WalletAbc123456789',
+    });
+    render(<MarketplaceSection />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('x402-confirm')).not.toBeInTheDocument();
+    expect(apiClient.marketplace.buyProduct).toHaveBeenCalledTimes(1);
   });
 });

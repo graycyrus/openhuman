@@ -27,7 +27,12 @@ vi.mock('../AgentWorldShell', () => ({
   apiClient: {
     registry: { get: vi.fn(), register: vi.fn() },
     directoryIdentities: { list: vi.fn() },
-    marketplace: { listIdentities: vi.fn(), identityFloor: vi.fn(), recent: vi.fn() },
+    marketplace: {
+      listIdentities: vi.fn(),
+      identityFloor: vi.fn(),
+      recent: vi.fn(),
+      buyIdentity: vi.fn(),
+    },
   },
 }));
 
@@ -43,6 +48,7 @@ beforeEach(() => {
   vi.mocked(apiClient.registry.register).mockResolvedValue({
     identity: { username: '@placeholder' },
   });
+  vi.mocked(apiClient.marketplace.buyIdentity).mockResolvedValue({ result: { saleId: 's1' } });
 });
 
 afterEach(() => {
@@ -688,5 +694,83 @@ describe('Trading tab — recent sales', () => {
     expect(within(floorSection).getByText('250 USDC')).toBeInTheDocument();
     expect(await screen.findByText('@listed')).toBeInTheDocument();
     expect(screen.getByText('@sold')).toBeInTheDocument();
+  });
+});
+
+// ── Trading tab — buy identity (x402) ──────────────────────────────────────────
+
+const fixedListing = {
+  listingId: 'list-1',
+  name: '@forsale',
+  seller: 'seller-x',
+  price: { amount: '20000000', asset: 'USDC' },
+  listingType: 'fixed' as const,
+  status: 'active',
+  updatedAt: '2026-03-01T00:00:00Z',
+};
+
+describe('Trading tab — buy identity (x402)', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({
+      identities: [fixedListing],
+    });
+  });
+
+  test('Buy on a fixed-price listing opens the confirm dialog', async () => {
+    vi.mocked(apiClient.marketplace.buyIdentity).mockResolvedValueOnce({
+      challenge: { amount: '20000000', asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WalletXyz12345678',
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+
+    expect(await screen.findByTestId('x402-amount')).toHaveTextContent('20 USDC');
+    expect(apiClient.marketplace.buyIdentity).toHaveBeenCalledWith('list-1', { confirmed: false });
+  });
+
+  test('Confirm & Pay renders the purchased banner', async () => {
+    vi.mocked(apiClient.marketplace.buyIdentity)
+      .mockResolvedValueOnce({
+        challenge: { amount: '20000000', asset: 'USDC', network: 'solana-devnet' },
+        walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+        walletAddress: 'WalletXyz12345678',
+      })
+      .mockResolvedValueOnce({ result: { saleId: 's1' }, payment: { onChainTx: 'TxId1' } });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+    await userEvent.click(await screen.findByTestId('x402-confirm'));
+
+    const success = await screen.findByTestId('buy-identity-success');
+    expect(success).toHaveTextContent('Purchased @forsale');
+    expect(apiClient.marketplace.buyIdentity).toHaveBeenLastCalledWith('list-1', {
+      confirmed: true,
+    });
+  });
+
+  test('auction listings do not show a Buy button', async () => {
+    vi.mocked(apiClient.marketplace.listIdentities).mockResolvedValue({
+      identities: [{ ...fixedListing, listingType: 'auction' as const }],
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await screen.findByText('@forsale');
+    expect(screen.queryByRole('button', { name: 'Buy' })).not.toBeInTheDocument();
+  });
+
+  test('Cancel closes the dialog without a confirmed buy', async () => {
+    vi.mocked(apiClient.marketplace.buyIdentity).mockResolvedValueOnce({
+      challenge: { amount: '20000000', asset: 'USDC', network: 'solana-devnet' },
+      walletBalance: { raw: '50000000', formatted: '50', decimals: 6, assetSymbol: 'USDC' },
+      walletAddress: 'WalletXyz12345678',
+    });
+    render(<IdentitiesSection />);
+    await gotoTab('Trading');
+    await userEvent.click(await screen.findByRole('button', { name: 'Buy' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('x402-confirm')).not.toBeInTheDocument();
+    expect(apiClient.marketplace.buyIdentity).toHaveBeenCalledTimes(1);
   });
 });

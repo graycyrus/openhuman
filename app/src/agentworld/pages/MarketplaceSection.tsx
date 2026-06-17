@@ -20,9 +20,12 @@ import {
   type EscrowListResponse,
   type JobListResponse,
   PaymentRequiredError,
+  type Product,
   type ProductsResponse,
 } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
+import X402ConfirmDialog from '../components/X402ConfirmDialog';
+import { explorerTxUrl, useX402Buy } from '../hooks/useX402Buy';
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
@@ -82,6 +85,19 @@ function SearchTab() {
     };
   }, []);
 
+  // x402 buy flow — the selected product drives the confirm dialog.
+  const [buying, setBuying] = useState<Product | null>(null);
+  const buy = useX402Buy((id, opts) => apiClient.marketplace.buyProduct(id, opts));
+
+  function startBuy(product: Product) {
+    setBuying(product);
+    buy.begin(product.productId);
+  }
+  function closeBuy() {
+    buy.reset();
+    setBuying(null);
+  }
+
   if (state.status === 'loading') {
     return <LoadingSpinner label="Loading products…" />;
   }
@@ -92,6 +108,7 @@ function SearchTab() {
     return <ErrorState message={state.message} />;
   }
 
+  const bs = buy.state;
   const products = state.data.products ?? [];
   const normalizedQuery = query.trim().toLowerCase();
   const filtered = normalizedQuery
@@ -153,9 +170,70 @@ function SearchTab() {
                   ))}
                 </div>
               )}
+              <button
+                type="button"
+                disabled={buying !== null}
+                onClick={() => startBuy(product)}
+                className="mt-3 w-full rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                Buy
+              </button>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Buy outcome banner (success / error survives the dialog closing). */}
+      {buying && bs.phase === 'success' && (
+        <div
+          className="rounded-md border border-green-500/30 bg-green-500/10 p-3"
+          data-testid="buy-success">
+          <p className="text-xs font-medium text-green-500">Purchased {buying.name}</p>
+          {bs.onChainTx && (
+            <a
+              href={explorerTxUrl(bs.onChainTx, bs.network)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-xs text-primary-500 underline">
+              View payment on Solana Explorer
+            </a>
+          )}
+        </div>
+      )}
+      {buying && bs.phase === 'error' && (
+        <div
+          className="rounded-md border border-red-500/30 bg-red-500/10 p-3"
+          data-testid="buy-error">
+          <p className="text-xs font-medium text-red-500">
+            {bs.onChainTx ? 'Payment sent but purchase did not complete.' : 'Purchase failed.'}
+          </p>
+          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{bs.message}</p>
+          {bs.onChainTx && (
+            <a
+              href={explorerTxUrl(bs.onChainTx)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-xs text-primary-500 underline">
+              View payment on Solana Explorer
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Confirm-before-spend dialog. */}
+      {buying && (bs.phase === 'confirm' || bs.phase === 'paying') && (
+        <X402ConfirmDialog
+          title={`Buy ${buying.name}`}
+          subtitle="Confirm the x402 payment to complete this purchase."
+          amount={bs.challenge.amount ?? '0'}
+          asset={bs.challenge.asset ?? 'USDC'}
+          network={bs.challenge.network}
+          balance={bs.phase === 'confirm' ? bs.balance : null}
+          walletAddress={bs.phase === 'confirm' ? bs.walletAddress : ''}
+          busy={bs.phase === 'paying'}
+          busyLabel="Paying…"
+          onCancel={closeBuy}
+          onConfirm={() => buy.confirmPay(buying.productId, bs.challenge)}
+        />
       )}
     </div>
   );

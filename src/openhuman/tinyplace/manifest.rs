@@ -662,6 +662,230 @@ fn settlement_error_is_retryable(status: Option<u16>, message: &str) -> bool {
         || hay.contains("pending")
 }
 
+// ── Marketplace buy (x402) ─────────────────────────────────────────────────────
+
+/// Outcome of a post-payment re-submit loop that could not return a result.
+enum SettleFailure {
+    /// A hard, non-retryable backend rejection (already mapped to a string).
+    Hard(String),
+    /// The settlement never confirmed within the retry budget.
+    Exhausted(String),
+}
+
+/// Re-submit a paid domain request, retrying only while the on-chain settlement
+/// confirms (a `402` with a settlement-timing message). Shared by buy/bid/offer.
+async fn settle_retry<F, Fut, T>(label: &str, mut submit: F) -> Result<T, SettleFailure>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, tinyplace::Error>>,
+{
+    let mut last_err = String::new();
+    for attempt in 1..=REGISTER_SETTLE_MAX_ATTEMPTS {
+        match submit().await {
+            Ok(value) => return Ok(value),
+            Err(e) if is_retryable_settlement_error(&e) => {
+                last_err = e.to_string();
+                log::debug!(
+                    "{LOG_PREFIX} {label} settlement pending \
+                     attempt={attempt}/{REGISTER_SETTLE_MAX_ATTEMPTS}: {last_err}"
+                );
+                tokio::time::sleep(REGISTER_SETTLE_DELAY).await;
+            }
+            Err(e) => return Err(SettleFailure::Hard(map_err(e))),
+        }
+    }
+    Err(SettleFailure::Exhausted(last_err))
+}
+
+/// Buy a marketplace product via the x402 confirm-before-spend flow.
+///
+/// Params `{ id, confirmed? }`. `confirmed:false` → `{ challenge, walletBalance,
+/// walletAddress }` (no spend). `confirmed:true` → pays on-chain and completes
+/// the purchase, returning `{ result, payment: { onChainTx } }`.
+pub(crate) fn handle_tinyplace_marketplace_buy_product(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let product_id = req_str(&params, "id")?.trim().to_string();
+        if product_id.is_empty() {
+            return Err("missing required param 'id'".to_string());
+        }
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        log::debug!("{LOG_PREFIX} marketplace_buy_product id={product_id} confirmed={confirmed}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        let base_req = tinyplace::types::ProductBuyRequest {
+            buyer_crypto_id: Some(signer.agent_id()),
+            ..Default::default()
+        };
+
+        let challenge = match client
+            .marketplace
+            .buy_product(&product_id, base_req.clone())
+            .await
+        {
+            Ok(purchase) => return to_value(serde_json::json!({ "result": purchase })),
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("productId".to_string(), product_id.clone());
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "marketplace.buy_product".to_string(),
+                nonce_prefix: "buy".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        let mut paid_req = base_req;
+        paid_req.payment = Some(fulfilled.payment_map);
+        match settle_retry("buy_product", || {
+            client
+                .marketplace
+                .buy_product(&product_id, paid_req.clone())
+        })
+        .await
+        {
+            Ok(purchase) => to_value(serde_json::json!({
+                "result": purchase,
+                "payment": { "onChainTx": on_chain_tx },
+            })),
+            Err(SettleFailure::Hard(m)) => Err(format!(
+                "purchase failed after payment (onChainTx={on_chain_tx}): {m}"
+            )),
+            Err(SettleFailure::Exhausted(last)) => Err(format!(
+                "purchase paid but not confirmed in time (onChainTx={on_chain_tx}); \
+                 last error: {last}"
+            )),
+        }
+    })
+}
+
+/// Buy an identity listing (a `@handle` at its fixed price) via the same x402
+/// confirm-before-spend flow. Params `{ id, confirmed? }` where `id` is the
+/// listing id.
+pub(crate) fn handle_tinyplace_marketplace_buy_identity(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let listing_id = req_str(&params, "id")?.trim().to_string();
+        if listing_id.is_empty() {
+            return Err("missing required param 'id'".to_string());
+        }
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        log::debug!("{LOG_PREFIX} marketplace_buy_identity id={listing_id} confirmed={confirmed}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        // buyer left empty → the connected signing key is the actor; the SDK
+        // auto-signs the canonical identity.buy payload.
+        let base_req = tinyplace::types::IdentityBuyRequest {
+            buyer: String::new(),
+            buyer_crypto_id: signer.agent_id(),
+            buyer_public_key: Some(signer.public_key_base64()),
+            ..Default::default()
+        };
+
+        let challenge = match client
+            .marketplace
+            .buy_identity_listing(&listing_id, base_req.clone())
+            .await
+        {
+            Ok(sale) => return to_value(serde_json::json!({ "result": sale })),
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("listingId".to_string(), listing_id.clone());
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "marketplace.buy_identity".to_string(),
+                nonce_prefix: "buy".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        // The signed payload depends on request fields; clearing the stale
+        // signature lets the SDK re-sign with the payment attached.
+        let mut paid_req = base_req;
+        paid_req.payment = Some(fulfilled.payment_map);
+        paid_req.signature = None;
+        match settle_retry("buy_identity", || {
+            client
+                .marketplace
+                .buy_identity_listing(&listing_id, paid_req.clone())
+        })
+        .await
+        {
+            Ok(sale) => to_value(serde_json::json!({
+                "result": sale,
+                "payment": { "onChainTx": on_chain_tx },
+            })),
+            Err(SettleFailure::Hard(m)) => Err(format!(
+                "purchase failed after payment (onChainTx={on_chain_tx}): {m}"
+            )),
+            Err(SettleFailure::Exhausted(last)) => Err(format!(
+                "purchase paid but not confirmed in time (onChainTx={on_chain_tx}); \
+                 last error: {last}"
+            )),
+        }
+    })
+}
+
 pub(crate) fn handle_tinyplace_artifacts_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let artifact_id = req_str(&params, "artifactId")?.to_string();
@@ -1226,6 +1450,23 @@ mod tests {
         params.insert("username".to_string(), Value::String("   ".to_string()));
         let err = block_on(handle_tinyplace_registry_register(params)).unwrap_err();
         assert!(err.contains("username"), "got: {err}");
+    }
+
+    /// Buy handlers reject a missing/blank `id` before any client/network work.
+    #[test]
+    fn buy_handlers_require_id() {
+        for handler in [
+            handle_tinyplace_marketplace_buy_product as fn(Map<String, Value>) -> ControllerFuture,
+            handle_tinyplace_marketplace_buy_identity,
+        ] {
+            let err = block_on(handler(Map::new())).unwrap_err();
+            assert!(err.contains("'id'"), "got: {err}");
+
+            let mut params = Map::new();
+            params.insert("id".to_string(), Value::String("  ".to_string()));
+            let err = block_on(handler(params)).unwrap_err();
+            assert!(err.contains("'id'"), "got: {err}");
+        }
     }
 
     #[test]

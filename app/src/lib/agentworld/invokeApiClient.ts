@@ -278,6 +278,22 @@ export interface RegistrationResult {
   payment?: { onChainTx?: string };
   [key: string]: unknown;
 }
+
+/**
+ * Result of an x402 buy (`marketplace.buyProduct` / `buyIdentity`). Exactly one
+ * shape is populated:
+ * - `{ result }` — purchased (free tier, no payment needed).
+ * - `{ challenge, walletBalance, walletAddress }` — unconfirmed; render confirm.
+ * - `{ result, payment: { onChainTx } }` — paid + purchased.
+ */
+export interface X402BuyResult {
+  result?: Record<string, unknown>;
+  challenge?: RegistrationChallenge;
+  walletBalance?: RegistryWalletBalance | null;
+  walletAddress?: string;
+  payment?: { onChainTx?: string };
+  [key: string]: unknown;
+}
 export interface BidsResponse {
   bids: IdentityBid[];
   [key: string]: unknown;
@@ -694,6 +710,21 @@ export function createInvokeApiClient() {
         }),
       getProduct: (productId: string) =>
         call<Product>('openhuman.tinyplace_marketplace_get_product', { productId }),
+      /**
+       * Buy a product via x402 confirm-before-spend. `confirmed:false` returns
+       * the challenge + wallet balance (no spend); `confirmed:true` pays + buys.
+       */
+      buyProduct: (productId: string, opts?: { confirmed?: boolean }) =>
+        call<X402BuyResult>('openhuman.tinyplace_marketplace_buy_product', {
+          id: productId,
+          confirmed: opts?.confirmed ?? false,
+        }),
+      /** Buy an identity listing (a @handle) via x402 confirm-before-spend. */
+      buyIdentity: (listingId: string, opts?: { confirmed?: boolean }) =>
+        call<X402BuyResult>('openhuman.tinyplace_marketplace_buy_identity', {
+          id: listingId,
+          confirmed: opts?.confirmed ?? false,
+        }),
       categories: () => call<CategoriesResponse>('openhuman.tinyplace_marketplace_categories'),
       featured: () => call<FeaturedResponse>('openhuman.tinyplace_marketplace_featured'),
       listProductReviews: (productId: string) =>
