@@ -16,16 +16,17 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_broadcasts_list, handle_tinyplace_broadcasts_subscribe,
     handle_tinyplace_broadcasts_unsubscribe, handle_tinyplace_channels_join,
     handle_tinyplace_channels_leave, handle_tinyplace_channels_list,
-    handle_tinyplace_directory_get_agent, handle_tinyplace_directory_list_agents,
-    handle_tinyplace_directory_list_identities, handle_tinyplace_directory_resolve,
-    handle_tinyplace_directory_reverse, handle_tinyplace_directory_skills,
-    handle_tinyplace_escrow_get, handle_tinyplace_escrow_list, handle_tinyplace_explorer_overview,
-    handle_tinyplace_feedback_create, handle_tinyplace_feedback_get,
-    handle_tinyplace_feedback_list, handle_tinyplace_feedback_vote, handle_tinyplace_follows_feed,
-    handle_tinyplace_follows_follow, handle_tinyplace_follows_followers,
-    handle_tinyplace_follows_following, handle_tinyplace_follows_stats,
-    handle_tinyplace_follows_unfollow, handle_tinyplace_groups_create_invite,
-    handle_tinyplace_groups_join, handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
+    handle_tinyplace_directory_find_by_encryption_key, handle_tinyplace_directory_get_agent,
+    handle_tinyplace_directory_list_agents, handle_tinyplace_directory_list_identities,
+    handle_tinyplace_directory_resolve, handle_tinyplace_directory_reverse,
+    handle_tinyplace_directory_skills, handle_tinyplace_escrow_get, handle_tinyplace_escrow_list,
+    handle_tinyplace_explorer_overview, handle_tinyplace_feedback_create,
+    handle_tinyplace_feedback_get, handle_tinyplace_feedback_list, handle_tinyplace_feedback_vote,
+    handle_tinyplace_follows_feed, handle_tinyplace_follows_follow,
+    handle_tinyplace_follows_followers, handle_tinyplace_follows_following,
+    handle_tinyplace_follows_stats, handle_tinyplace_follows_unfollow,
+    handle_tinyplace_groups_create_invite, handle_tinyplace_groups_join,
+    handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
     handle_tinyplace_groups_list_invites, handle_tinyplace_groups_preview_invite,
     handle_tinyplace_groups_redeem_invite, handle_tinyplace_groups_revoke_invite,
     handle_tinyplace_groups_set_member_role, handle_tinyplace_inbox_archive,
@@ -49,12 +50,12 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
     handle_tinyplace_signal_decrypt_message, handle_tinyplace_signal_get_bundle,
     handle_tinyplace_signal_key_status, handle_tinyplace_signal_provision,
-    handle_tinyplace_signal_rotate_signed_pre_key, handle_tinyplace_signal_send_message,
-    handle_tinyplace_signal_upload_pre_keys, handle_tinyplace_solana_call,
-    handle_tinyplace_solana_info, handle_tinyplace_streams_list, handle_tinyplace_streams_start,
-    handle_tinyplace_streams_stop, handle_tinyplace_users_confirm_email_verification,
-    handle_tinyplace_users_get, handle_tinyplace_users_start_email_verification,
-    handle_tinyplace_users_update_profile,
+    handle_tinyplace_signal_register_encryption_key, handle_tinyplace_signal_rotate_signed_pre_key,
+    handle_tinyplace_signal_send_message, handle_tinyplace_signal_upload_pre_keys,
+    handle_tinyplace_solana_call, handle_tinyplace_solana_info, handle_tinyplace_streams_list,
+    handle_tinyplace_streams_start, handle_tinyplace_streams_stop,
+    handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
+    handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -1605,6 +1606,37 @@ fn schema_messages_acknowledge() -> ControllerSchema {
     }
 }
 
+// ── Encryption key registration + discovery (0D) ────────────────────────────
+
+fn schema_signal_register_encryption_key() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_register_encryption_key",
+        description: "Publish the user's Signal X25519 identity public key on their directory \
+             card (metadata.encryptionPublicKey). Makes the user discoverable for \
+             encrypted DMs. Reads the key from the local Signal store — no params needed.",
+        inputs: vec![],
+        outputs: vec![json_output(
+            "result",
+            "{ ok: true, encryptionKey: string, agentId: string, updatedAt: string }.",
+        )],
+    }
+}
+
+fn schema_directory_find_by_encryption_key() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "directory_find_by_encryption_key",
+        description: "Reverse-lookup: find the agent advertising a given Signal encryption \
+             public key (base64). Returns AgentCard or null.",
+        inputs: vec![required_string(
+            "encryptionKey",
+            "Base64-encoded X25519 public key to search for.",
+        )],
+        outputs: vec![json_output("result", "AgentCard | null.")],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1708,6 +1740,9 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_signal_decrypt_message(),
         schema_messages_list(),
         schema_messages_acknowledge(),
+        // Encryption key registration + discovery (0D)
+        schema_signal_register_encryption_key(),
+        schema_directory_find_by_encryption_key(),
     ]
 }
 
@@ -2080,6 +2115,15 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_messages_acknowledge(),
             handler: handle_tinyplace_messages_acknowledge,
+        },
+        // Encryption key registration + discovery (0D)
+        RegisteredController {
+            schema: schema_signal_register_encryption_key(),
+            handler: handle_tinyplace_signal_register_encryption_key,
+        },
+        RegisteredController {
+            schema: schema_directory_find_by_encryption_key(),
+            handler: handle_tinyplace_directory_find_by_encryption_key,
         },
     ]
 }

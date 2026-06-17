@@ -165,6 +165,7 @@ function useSignalKeyStatus() {
 function SignalKeyStatusCard() {
   const { status, loading, error, refresh } = useSignalKeyStatus();
   const [provisioning, setProvisioning] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const handleProvision = useCallback(async () => {
     setProvisioning(true);
@@ -178,10 +179,23 @@ function SignalKeyStatusCard() {
     }
   }, [refresh]);
 
+  const handlePublish = useCallback(async () => {
+    setPublishing(true);
+    try {
+      await apiClient.signal.registerEncryptionKey();
+      await refresh();
+    } catch (err) {
+      log('register encryption key error: %s', String(err));
+    } finally {
+      setPublishing(false);
+    }
+  }, [refresh]);
+
   if (loading && !status) return null; // silent initial load
   if (error && !status) return null; // degrade: hide if status unavailable
 
   const keysReady = status?.hasActiveSignedPreKey && (status?.localPreKeyCount ?? 0) > 0;
+  const discoverable = status?.encryptionKeyPublished === true;
 
   return (
     <div className="mx-4 mb-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
@@ -191,9 +205,11 @@ function SignalKeyStatusCard() {
             Encrypted messaging
           </p>
           <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
-            {keysReady
-              ? `Keys ready (${status!.localPreKeyCount} pre-keys)`
-              : 'Set up encryption keys to enable direct messages'}
+            {!keysReady
+              ? 'Set up encryption keys to enable direct messages'
+              : discoverable
+                ? `Discoverable (${status!.localPreKeyCount} pre-keys)`
+                : `Keys ready (${status!.localPreKeyCount} pre-keys) -- not yet discoverable`}
           </p>
         </div>
         {!keysReady && (
@@ -203,6 +219,15 @@ function SignalKeyStatusCard() {
             disabled={provisioning}
             onClick={() => void handleProvision()}>
             {provisioning ? 'Setting up...' : 'Set up keys'}
+          </button>
+        )}
+        {keysReady && !discoverable && (
+          <button
+            type="button"
+            className="ml-3 flex-shrink-0 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            disabled={publishing}
+            onClick={() => void handlePublish()}>
+            {publishing ? 'Publishing...' : 'Make discoverable'}
           </button>
         )}
       </div>
@@ -999,7 +1024,7 @@ function useDirectMessages(peerId: string) {
         setSending(false);
       }
     },
-    [peerId, refresh],
+    [peerId, refresh]
   );
 
   useEffect(() => {

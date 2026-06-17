@@ -1334,6 +1334,15 @@ describe('signal.keyStatus', () => {
   });
 });
 
+test('signal namespace has registerEncryptionKey method', () => {
+  const client = createInvokeApiClient();
+  expect(typeof client.signal.registerEncryptionKey).toBe('function');
+});
+
+test('directory namespace has findByEncryptionKey method', () => {
+  const client = createInvokeApiClient();
+  expect(typeof client.directory.findByEncryptionKey).toBe('function');
+});
 
 describe('signal.sendMessage and messages namespace', () => {
   test('signal namespace has send/decrypt methods and messages namespace exists', () => {
