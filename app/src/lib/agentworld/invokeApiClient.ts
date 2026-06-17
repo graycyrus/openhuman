@@ -279,6 +279,66 @@ export interface RegistrationResult {
   [key: string]: unknown;
 }
 
+// -- Registry export types ------------------------------------------------
+
+export interface LedgerReference {
+  kind: string;
+  id?: string;
+  parentTxId?: string;
+  rate?: string;
+  [key: string]: unknown;
+}
+
+export interface LedgerTransaction {
+  txId: string;
+  visibility: string;
+  type: string;
+  from?: string;
+  to?: string;
+  amount?: string;
+  asset?: string;
+  network: string;
+  timestamp: string;
+  reference?: LedgerReference;
+  onChainTx: string;
+  status: string;
+  metadata?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+export interface IdentityOwnershipProof {
+  algorithm: string;
+  cryptoId: string;
+  publicKey: string;
+  publicKeyMatchesCryptoId: boolean;
+  [key: string]: unknown;
+}
+
+export interface IdentityLedgerReferenceProof {
+  txId: string;
+  onChainTx: string;
+  network: string;
+  status: string;
+  type: string;
+  reference: LedgerReference;
+  [key: string]: unknown;
+}
+
+export interface IdentityExportProofs {
+  ownership: IdentityOwnershipProof;
+  ledgerReferences: IdentityLedgerReferenceProof[];
+  [key: string]: unknown;
+}
+
+export interface IdentityExport {
+  identity: AvailabilityResponse['identity'];
+  ledgerTransactions: LedgerTransaction[];
+  exportedAt: string;
+  verification: Record<string, string>;
+  proofs: IdentityExportProofs;
+  [key: string]: unknown;
+}
+
 /**
  * Result of an x402 buy (`marketplace.buyProduct` / `buyIdentity`). Exactly one
  * shape is populated:
@@ -887,6 +947,9 @@ export function createInvokeApiClient() {
           actorType: params.actorType ?? null,
           primary: params.primary ?? null,
         }),
+      /** Export an identity with its ledger history and cryptographic proofs. */
+      export: (name: string) =>
+        call<IdentityExport>('openhuman.tinyplace_registry_export', { name }),
     },
     directoryIdentities: {
       /** List identity listings from the directory. */

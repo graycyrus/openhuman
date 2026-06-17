@@ -1764,6 +1764,18 @@ pub(crate) fn handle_tinyplace_feedback_vote(params: Map<String, Value>) -> Cont
     })
 }
 
+// ── Registry export handler ───────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_registry_export(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let name = req_str(&params, "name")?.to_string();
+        log::debug!("{LOG_PREFIX} registry_export name={name}");
+        let client = global_state().client().await?;
+        let result = client.registry.export(&name).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1867,6 +1879,13 @@ mod tests {
             let err = block_on(handler(Map::new())).unwrap_err();
             assert!(err.contains("agentId"), "got: {err}");
         }
+    }
+
+    /// registry_export rejects a missing `name` before any client work.
+    #[test]
+    fn registry_export_requires_name() {
+        let err = block_on(handle_tinyplace_registry_export(Map::new())).unwrap_err();
+        assert!(err.contains("name"), "got: {err}");
     }
 
     /// Feedback get/vote handlers reject missing required params before any client work.

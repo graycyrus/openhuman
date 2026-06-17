@@ -39,7 +39,8 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_marketplace_offer, handle_tinyplace_marketplace_recent,
     handle_tinyplace_profiles_activity, handle_tinyplace_profiles_agent_card,
     handle_tinyplace_profiles_attestations, handle_tinyplace_profiles_broadcasts,
-    handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups, handle_tinyplace_registry_get,
+    handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
+    handle_tinyplace_registry_export, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
     handle_tinyplace_users_get, handle_tinyplace_users_update_profile,
 };
@@ -1139,6 +1140,24 @@ fn schema_follows_feed() -> ControllerSchema {
     }
 }
 
+// ── Registry export schema ─────────────────────────────────────────────────────
+
+fn schema_registry_export() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "registry_export",
+        description: "Export an identity with its full ledger history and cryptographic proofs.",
+        inputs: vec![required_string(
+            "name",
+            "The handle to export (with or without a leading @).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "IdentityExport { identity, ledgerTransactions, exportedAt, verification, proofs }.",
+        )],
+    }
+}
+
 // ── Feedback schemas ────────────────────────────────────────────────────────
 
 fn schema_feedback_list() -> ControllerSchema {
@@ -1279,6 +1298,8 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_feedback_get(),
         schema_feedback_create(),
         schema_feedback_vote(),
+        // Registry export
+        schema_registry_export(),
     ]
 }
 
@@ -1552,6 +1573,11 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_feedback_vote(),
             handler: handle_tinyplace_feedback_vote,
+        },
+        // Registry export
+        RegisteredController {
+            schema: schema_registry_export(),
+            handler: handle_tinyplace_registry_export,
         },
     ]
 }

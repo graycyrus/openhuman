@@ -16,13 +16,18 @@ import ProfilesSection from './ProfilesSection';
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
 vi.mock('../AgentWorldShell', () => ({
-  apiClient: { directory: { reverse: vi.fn() }, follows: { stats: vi.fn() } },
+  apiClient: {
+    directory: { reverse: vi.fn() },
+    follows: { stats: vi.fn() },
+    registry: { export: vi.fn() },
+  },
 }));
 vi.mock('../../services/walletApi', () => ({ fetchWalletStatus: vi.fn() }));
 
 const reverse = vi.mocked(apiClient.directory.reverse);
 const walletStatus = vi.mocked(fetchWalletStatus);
 const followStats = vi.mocked(apiClient.follows.stats);
+const registryExport = vi.mocked(apiClient.registry.export);
 
 const SOLANA_ADDR = 'WaLLetSoLanaAddr0123456789';
 
@@ -191,6 +196,92 @@ describe('populated profile card', () => {
     // No follower/following counts rendered.
     expect(screen.queryByText('followers')).not.toBeInTheDocument();
     expect(screen.queryByText('following')).not.toBeInTheDocument();
+  });
+});
+
+// ── Export identity button ────────────────────────────────────────────────────
+describe('export identity button', () => {
+  const IDENTITY_EXPORT = {
+    identity: {
+      username: '@exportuser',
+      cryptoId: SOLANA_ADDR,
+      publicKey: 'pk-abc',
+      registeredAt: '2025-01-01T00:00:00Z',
+      expiresAt: '2026-01-01T00:00:00Z',
+      status: 'ACTIVE',
+      updatedAt: '2025-06-01T00:00:00Z',
+    },
+    ledgerTransactions: [],
+    exportedAt: '2025-06-15T12:00:00Z',
+    verification: { hash: 'abc123' },
+    proofs: {
+      ownership: {
+        algorithm: 'ed25519',
+        cryptoId: SOLANA_ADDR,
+        publicKey: 'pk-abc',
+        publicKeyMatchesCryptoId: true,
+      },
+      ledgerReferences: [],
+    },
+  };
+
+  function renderWithHandle() {
+    reverse.mockResolvedValueOnce({
+      cryptoId: SOLANA_ADDR,
+      identities: [{ username: '@exportuser', cryptoId: SOLANA_ADDR, primary: true }],
+    });
+    followStats.mockResolvedValueOnce({
+      agentId: SOLANA_ADDR,
+      followerCount: 0,
+      followingCount: 0,
+    });
+  }
+
+  test('renders Export Identity button on the profile card', async () => {
+    renderWithHandle();
+    render(<ProfilesSection />);
+    expect(await screen.findByText('@exportuser')).toBeInTheDocument();
+    expect(screen.getByText('Export Identity')).toBeInTheDocument();
+  });
+
+  test('clicking Export Identity fetches and displays the export JSON', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup();
+    renderWithHandle();
+    registryExport.mockResolvedValueOnce(IDENTITY_EXPORT);
+    render(<ProfilesSection />);
+    const btn = await screen.findByText('Export Identity');
+    await user.click(btn);
+    expect(registryExport).toHaveBeenCalledWith('@exportuser');
+    // JSON is displayed in a <pre> block.
+    expect(await screen.findByText(/exportedAt/)).toBeInTheDocument();
+    // Button label changes to "Hide Export".
+    expect(screen.getByText('Hide Export')).toBeInTheDocument();
+  });
+
+  test('clicking Hide Export clears the export panel', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup();
+    renderWithHandle();
+    registryExport.mockResolvedValueOnce(IDENTITY_EXPORT);
+    render(<ProfilesSection />);
+    const btn = await screen.findByText('Export Identity');
+    await user.click(btn);
+    expect(await screen.findByText('Hide Export')).toBeInTheDocument();
+    await user.click(screen.getByText('Hide Export'));
+    // Panel is hidden, button reverts.
+    expect(screen.getByText('Export Identity')).toBeInTheDocument();
+    expect(screen.queryByText(/exportedAt/)).not.toBeInTheDocument();
+  });
+
+  test('shows error message when export fails', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup();
+    renderWithHandle();
+    registryExport.mockRejectedValueOnce(new Error('Network error'));
+    render(<ProfilesSection />);
+    const btn = await screen.findByText('Export Identity');
+    await user.click(btn);
+    expect(await screen.findByText(/Network error/)).toBeInTheDocument();
+    // Button still says "Export Identity" (not "Hide Export") since data is null.
+    expect(screen.getByText('Export Identity')).toBeInTheDocument();
   });
 });
 
