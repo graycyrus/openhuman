@@ -227,12 +227,14 @@ function SearchTab() {
           amount={bs.challenge.amount ?? '0'}
           asset={bs.challenge.asset ?? 'USDC'}
           network={bs.challenge.network}
-          balance={bs.phase === 'confirm' ? bs.balance : null}
-          walletAddress={bs.phase === 'confirm' ? bs.walletAddress : ''}
+          balance={bs.balance}
+          walletAddress={bs.walletAddress}
           busy={bs.phase === 'paying'}
           busyLabel="Paying…"
           onCancel={closeBuy}
-          onConfirm={() => buy.confirmPay(buying.productId, bs.challenge)}
+          onConfirm={() =>
+            buy.confirmPay(buying.productId, bs.challenge, bs.balance, bs.walletAddress)
+          }
         />
       )}
     </div>

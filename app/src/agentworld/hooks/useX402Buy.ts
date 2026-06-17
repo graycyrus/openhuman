@@ -26,7 +26,12 @@ export type X402BuyState =
       balance: RegistryWalletBalance | null;
       walletAddress: string;
     }
-  | { phase: 'paying'; challenge: RegistrationChallenge }
+  | {
+      phase: 'paying';
+      challenge: RegistrationChallenge;
+      balance: RegistryWalletBalance | null;
+      walletAddress: string;
+    }
   | { phase: 'success'; result: Record<string, unknown>; onChainTx?: string; network?: string }
   | { phase: 'error'; message: string; onChainTx?: string };
 
@@ -48,7 +53,12 @@ export interface UseX402Buy {
   state: X402BuyState;
   reset: () => void;
   begin: (id: string) => void;
-  confirmPay: (id: string, challenge: RegistrationChallenge) => void;
+  confirmPay: (
+    id: string,
+    challenge: RegistrationChallenge,
+    balance: RegistryWalletBalance | null,
+    walletAddress: string
+  ) => void;
 }
 
 export function useX402Buy(buyFn: X402BuyFn): UseX402Buy {
@@ -82,9 +92,15 @@ export function useX402Buy(buyFn: X402BuyFn): UseX402Buy {
       });
   }
 
-  // Phase B — pay on-chain + complete the purchase (spends).
-  function confirmPay(id: string, challenge: RegistrationChallenge) {
-    setState({ phase: 'paying', challenge });
+  // Phase B — pay on-chain + complete the purchase (spends). Carries the
+  // confirm-phase balance + wallet through so the dialog keeps showing them.
+  function confirmPay(
+    id: string,
+    challenge: RegistrationChallenge,
+    balance: RegistryWalletBalance | null,
+    walletAddress: string
+  ) {
+    setState({ phase: 'paying', challenge, balance, walletAddress });
     void buyFn(id, { confirmed: true })
       .then(res => {
         if (res.result) {

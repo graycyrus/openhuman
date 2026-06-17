@@ -29,7 +29,6 @@ use crate::openhuman::tinyplace::ops::{global_state, map_err};
 use crate::openhuman::tinyplace::payment::{
     ensure_backend_mint_matches, ensure_cluster_matches, fulfill_payment, PaymentContext,
 };
-use crate::openhuman::wallet::{balances, WalletChain};
 
 const LOG_PREFIX: &str = "[tinyplace]";
 
@@ -607,30 +606,69 @@ pub(crate) fn handle_tinyplace_registry_register(params: Map<String, Value>) -> 
 /// returns `(None, address)` if the balance lookup fails so the UI can still
 /// render (it falls back to letting the backend reject an underfunded payment).
 async fn wallet_usdc_balance(address: &str) -> (Option<Value>, String) {
-    match balances().await {
-        Ok(outcome) => {
-            let row = outcome
-                .value
-                .into_iter()
-                .find(|b| b.chain == WalletChain::Solana && b.asset_symbol == "USDC");
-            match row {
-                Some(b) => (
-                    Some(serde_json::json!({
-                        "raw": b.raw,
-                        "formatted": b.formatted,
-                        "decimals": b.decimals,
-                        "assetSymbol": b.asset_symbol,
-                    })),
-                    b.address,
-                ),
-                None => (None, address.to_string()),
+    // The wallet's `balances()` only reports NATIVE assets (SOL/ETH/…), never SPL
+    // tokens — so query the SPL USDC balance directly from the configured Solana
+    // cluster's RPC (getTokenAccountsByOwner for the cluster's USDC mint). RPC
+    // failure → None (UI shows "Unknown"); RPC ok but no token account → 0.
+    let cluster = crate::openhuman::wallet::solana_cluster();
+    let mint = cluster.usdc_mint();
+    let rpc_url = cluster.rpc_url();
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getTokenAccountsByOwner",
+        "params": [address, { "mint": mint }, { "encoding": "jsonParsed" }],
+    });
+    let json: Value = match reqwest::Client::new()
+        .post(rpc_url)
+        .json(&body)
+        .send()
+        .await
+    {
+        Ok(resp) => match resp.json().await {
+            Ok(j) => j,
+            Err(e) => {
+                log::warn!("{LOG_PREFIX} usdc balance: rpc parse failed: {e}");
+                return (None, address.to_string());
             }
-        }
+        },
         Err(e) => {
-            log::warn!("{LOG_PREFIX} registry_register balance lookup failed: {e}");
-            (None, address.to_string())
+            log::warn!("{LOG_PREFIX} usdc balance: rpc send failed: {e}");
+            return (None, address.to_string());
         }
-    }
+    };
+    let Some(accounts) = json.pointer("/result/value").and_then(Value::as_array) else {
+        log::warn!("{LOG_PREFIX} usdc balance: unexpected rpc shape");
+        return (None, address.to_string());
+    };
+    // No token account = the ATA was never created = a real zero balance.
+    let token_amount = accounts
+        .first()
+        .and_then(|acct| acct.pointer("/account/data/parsed/info/tokenAmount"));
+    let (raw, formatted, decimals) = match token_amount {
+        Some(ta) => (
+            ta.get("amount")
+                .and_then(Value::as_str)
+                .unwrap_or("0")
+                .to_string(),
+            ta.get("uiAmountString")
+                .and_then(Value::as_str)
+                .unwrap_or("0")
+                .to_string(),
+            ta.get("decimals").and_then(Value::as_u64).unwrap_or(6),
+        ),
+        None => ("0".to_string(), "0".to_string(), 6),
+    };
+    log::debug!("{LOG_PREFIX} usdc balance for {address}: {formatted} (cluster={cluster:?})");
+    (
+        Some(serde_json::json!({
+            "raw": raw,
+            "formatted": formatted,
+            "decimals": decimals,
+            "assetSymbol": "USDC",
+        })),
+        address.to_string(),
+    )
 }
 
 /// A re-submitted registration returns a 402 again while the on-chain transfer
