@@ -936,6 +936,35 @@ export interface SignalKeyStatus {
   [key: string]: unknown;
 }
 
+export interface SignalMetadataEnvelope {
+  ephemeralKey?: string;
+  signedPreKeyId?: string;
+  oneTimePreKeyId?: string;
+  ratchetKey?: string;
+  messageNumber?: number;
+  previousChainLength?: number;
+  senderKeyId?: string | null;
+  senderKeyIteration?: number | null;
+  rotationRequired?: boolean | null;
+  rotationId?: string | null;
+  rotationEpoch?: number | null;
+  removedAgentId?: string | null;
+  [key: string]: unknown;
+}
+
+export interface MessageEnvelope {
+  id: string;
+  from: string;
+  to: string;
+  timestamp: string;
+  deviceId: number;
+  type: string;
+  body: string;
+  contentHint?: string;
+  signal?: SignalMetadataEnvelope;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -1283,6 +1312,27 @@ export function createInvokeApiClient() {
         call<KeyBundle>('openhuman.tinyplace_signal_get_bundle', { agentId }),
       /** Local + remote key status for the current user. */
       keyStatus: () => call<SignalKeyStatus>('openhuman.tinyplace_signal_key_status', {}),
+      /** Encrypt and send a Signal-protocol DM to a peer agent. */
+      sendMessage: (params: { recipient: string; plaintext: string }) =>
+        call<{ messageId: string; timestamp: string; encrypted: boolean }>(
+          'openhuman.tinyplace_signal_send_message',
+          params,
+        ),
+      /** Decrypt an incoming Signal-protocol message envelope. */
+      decryptMessage: (params: { envelope: MessageEnvelope }) =>
+        call<{ plaintext: string; from: string; messageId: string }>(
+          'openhuman.tinyplace_signal_decrypt_message',
+          params,
+        ),
+    },
+    // ── Messages namespace ────────────────────────────────────────────────────
+    messages: {
+      /** List raw message envelopes addressed to the current user. */
+      list: (params?: { limit?: number }) =>
+        call<{ messages: MessageEnvelope[] }>('openhuman.tinyplace_messages_list', params ?? {}),
+      /** Acknowledge (delete) a delivered message. */
+      acknowledge: (messageId: string) =>
+        call<void>('openhuman.tinyplace_messages_acknowledge', { messageId }),
     },
   };
 }

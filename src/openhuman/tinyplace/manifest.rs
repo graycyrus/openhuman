@@ -2399,6 +2399,369 @@ pub(crate) fn handle_tinyplace_signal_key_status(_params: Map<String, Value>) ->
     })
 }
 
+// ── Signal messaging helpers ──────────────────────────────────────────────────
+
+/// Decode a base64-encoded 32-byte value.
+fn decode_32_byte_b64(b64: &str, label: &str) -> std::result::Result<[u8; 32], String> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|e| format!("invalid base64 for {label}: {e}"))?;
+    if bytes.len() != 32 {
+        return Err(format!("{label}: expected 32 bytes, got {}", bytes.len()));
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&bytes);
+    Ok(arr)
+}
+
+fn decode_identity_key(b64: &str) -> std::result::Result<[u8; 32], String> {
+    decode_32_byte_b64(b64, "identity_key")
+}
+
+fn key_bundle_to_x3dh(
+    bundle: &tinyplace::types::KeyBundle,
+) -> std::result::Result<tinyplace::signal::x3dh::X3DHBundle, String> {
+    let identity_key = decode_identity_key(&bundle.identity_key)?;
+    let signed_pre_key = decode_32_byte_b64(
+        &bundle.signed_pre_key.public_key,
+        "signed_pre_key.public_key",
+    )?;
+    let (one_time_pre_key_id, one_time_pre_key) = match &bundle.one_time_pre_key {
+        Some(otpk) => {
+            let key = decode_32_byte_b64(&otpk.public_key, "one_time_pre_key.public_key")?;
+            (Some(otpk.key_id.clone()), Some(key))
+        }
+        None => (None, None),
+    };
+    Ok(tinyplace::signal::x3dh::X3DHBundle {
+        identity_key,
+        signed_pre_key_id: bundle.signed_pre_key.key_id.clone(),
+        signed_pre_key,
+        one_time_pre_key_id,
+        one_time_pre_key,
+    })
+}
+
+fn decode_ed25519_pub(
+    agent: &tinyplace::types::AgentCard,
+) -> std::result::Result<[u8; 32], String> {
+    let b64 = agent
+        .public_key
+        .as_ref()
+        .ok_or("peer directory entry has no publicKey — cannot verify bundle")?;
+    decode_32_byte_b64(b64, "peer Ed25519 publicKey")
+}
+
+pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let recipient = req_str(&params, "recipient")?.to_string();
+        let plaintext = req_str(&params, "plaintext")?.to_string();
+        log::debug!(
+            "{LOG_PREFIX} signal_send_message to={recipient} len={}",
+            plaintext.len()
+        );
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let our_agent_id = signer.agent_id();
+        let our_identity = store
+            .identity_x25519_key_pair()
+            .await
+            .map_err(|e| format!("identity key: {e}"))?;
+        let mut is_prekey_bundle = false;
+        let mut ephemeral_key: Option<[u8; 32]> = None;
+        let mut signed_pre_key_id: Option<String> = None;
+        let mut one_time_pre_key_id: Option<String> = None;
+        let their_identity_key: [u8; 32];
+        let existing_session = store
+            .session(&recipient)
+            .await
+            .map_err(|e| format!("load session: {e}"))?;
+        let mut session = if let Some(s) = existing_session {
+            log::debug!("{LOG_PREFIX} signal_send_message using existing session for {recipient}");
+            let bundle = client.keys.get_bundle(&recipient).await.map_err(map_err)?;
+            their_identity_key = decode_identity_key(&bundle.identity_key)?;
+            s
+        } else {
+            log::debug!(
+                "{LOG_PREFIX} signal_send_message establishing new session for {recipient}"
+            );
+            is_prekey_bundle = true;
+            let bundle = client.keys.get_bundle(&recipient).await.map_err(map_err)?;
+            their_identity_key = decode_identity_key(&bundle.identity_key)?;
+            let peer_entry = client
+                .directory
+                .get_agent(&recipient)
+                .await
+                .map_err(map_err)?;
+            let peer_ed25519_pub = decode_ed25519_pub(&peer_entry)?;
+            tinyplace::signal::x3dh::verify_pre_key_signature(
+                &peer_ed25519_pub,
+                &bundle.signed_pre_key.public_key,
+                bundle.signed_pre_key.signature.as_deref(),
+                "signed pre-key",
+            )
+            .map_err(|e| format!("bundle verification failed: {e}"))?;
+            if let Some(ref otpk) = bundle.one_time_pre_key {
+                tinyplace::signal::x3dh::verify_pre_key_signature(
+                    &peer_ed25519_pub,
+                    &otpk.public_key,
+                    otpk.signature.as_deref(),
+                    "one-time pre-key",
+                )
+                .map_err(|e| format!("bundle verification failed: {e}"))?;
+            }
+            let x3dh_bundle = key_bundle_to_x3dh(&bundle)?;
+            let x3dh_result = tinyplace::signal::x3dh::x3dh_initiate(&our_identity, &x3dh_bundle);
+            ephemeral_key = Some(x3dh_result.ephemeral_public_key);
+            signed_pre_key_id = Some(x3dh_result.signed_pre_key_id.clone());
+            one_time_pre_key_id = x3dh_result.one_time_pre_key_id.clone();
+            log::debug!("{LOG_PREFIX} signal_send_message x3dh_initiate complete for {recipient}");
+            x3dh_result.session
+        };
+        let ad = tinyplace::signal::x3dh::build_associated_data(
+            &our_identity.public_key,
+            &their_identity_key,
+        );
+        let ratchet_msg =
+            tinyplace::signal::ratchet::ratchet_encrypt(&mut session, plaintext.as_bytes(), &ad)
+                .map_err(|e| {
+                    log::error!(
+                        "{LOG_PREFIX} signal_send_message ENCRYPTION FAILED for {recipient}: {e} \
+                 — aborting send (plaintext will NOT be sent)"
+                    );
+                    format!("encryption failed — message NOT sent: {e}")
+                })?;
+        store
+            .store_session(&recipient, session)
+            .await
+            .map_err(|e| format!("store session: {e}"))?;
+        let body_b64 = base64::engine::general_purpose::STANDARD.encode(&ratchet_msg.ciphertext);
+        let ratchet_key_b64 =
+            base64::engine::general_purpose::STANDARD.encode(ratchet_msg.header.public_key);
+        let signal_meta = tinyplace::types::SignalMetadata {
+            ephemeral_key: ephemeral_key
+                .map(|k| base64::engine::general_purpose::STANDARD.encode(k)),
+            signed_pre_key_id,
+            one_time_pre_key_id,
+            ratchet_key: Some(ratchet_key_b64),
+            message_number: Some(ratchet_msg.header.message_number as i64),
+            previous_chain_length: Some(ratchet_msg.header.previous_chain_length as i64),
+            sender_key_id: None,
+            sender_key_iteration: None,
+            rotation_required: None,
+            rotation_id: None,
+            rotation_epoch: None,
+            removed_agent_id: None,
+        };
+        let envelope = tinyplace::types::MessageEnvelope {
+            id: String::new(),
+            from: our_agent_id.clone(),
+            to: recipient.clone(),
+            timestamp: String::new(),
+            device_id: 1,
+            envelope_type: if is_prekey_bundle {
+                "PREKEY_BUNDLE".to_string()
+            } else {
+                "CIPHERTEXT".to_string()
+            },
+            body: body_b64,
+            content_hint: Some("DEFAULT".to_string()),
+            signal: Some(signal_meta),
+        };
+        let sent = client.messages.send(envelope).await.map_err(map_err)?;
+        log::info!(
+            "{LOG_PREFIX} signal_send_message sent encrypted message to={recipient} \
+             id={} type={} len={}",
+            sent.id,
+            sent.envelope_type,
+            sent.body.len()
+        );
+        to_value(serde_json::json!({
+            "messageId": sent.id,
+            "timestamp": sent.timestamp,
+            "encrypted": true,
+        }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_signal_decrypt_message(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let envelope_val = params
+            .get("envelope")
+            .ok_or("missing required param 'envelope'")?;
+        let envelope: tinyplace::types::MessageEnvelope =
+            serde_json::from_value(envelope_val.clone())
+                .map_err(|e| format!("invalid envelope: {e}"))?;
+        log::debug!(
+            "{LOG_PREFIX} signal_decrypt_message from={} type={} id={}",
+            envelope.from,
+            envelope.envelope_type,
+            envelope.id
+        );
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let client = global_state().client().await?;
+        let our_identity = store
+            .identity_x25519_key_pair()
+            .await
+            .map_err(|e| format!("identity key: {e}"))?;
+        let ciphertext = base64::engine::general_purpose::STANDARD
+            .decode(&envelope.body)
+            .map_err(|e| format!("invalid body base64: {e}"))?;
+        let signal = envelope
+            .signal
+            .as_ref()
+            .ok_or("missing signal metadata in envelope")?;
+        let ratchet_key_bytes = signal
+            .ratchet_key
+            .as_ref()
+            .ok_or("missing ratchet_key in signal metadata")?;
+        let ratchet_key = decode_32_byte_b64(ratchet_key_bytes, "ratchet_key")?;
+        let message_number = signal
+            .message_number
+            .ok_or("missing message_number in signal metadata")?
+            as u32;
+        let previous_chain_length = signal
+            .previous_chain_length
+            .ok_or("missing previous_chain_length in signal metadata")?
+            as u32;
+        let ratchet_msg = tinyplace::signal::ratchet::RatchetMessage {
+            header: tinyplace::signal::ratchet::RatchetHeader {
+                public_key: ratchet_key,
+                previous_chain_length,
+                message_number,
+            },
+            ciphertext,
+        };
+        let sender = envelope.from.clone();
+        let mut session = if envelope.envelope_type == "PREKEY_BUNDLE" {
+            log::debug!(
+                "{LOG_PREFIX} signal_decrypt_message PREKEY_BUNDLE from {sender} — x3dh_respond"
+            );
+            let spk_id = signal
+                .signed_pre_key_id
+                .as_ref()
+                .ok_or("PREKEY_BUNDLE missing signed_pre_key_id")?;
+            let spk_opt = store
+                .signed_pre_key(spk_id)
+                .await
+                .map_err(|e| format!("load signed pre-key: {e}"))?;
+            let spk = spk_opt.ok_or_else(|| {
+                format!("signed pre-key '{spk_id}' not found — cannot complete handshake")
+            })?;
+            let otpk = if let Some(otpk_id) = &signal.one_time_pre_key_id {
+                let pk = store
+                    .pre_key(otpk_id)
+                    .await
+                    .map_err(|e| format!("load one-time pre-key: {e}"))?;
+                if pk.is_none() {
+                    log::warn!(
+                        "{LOG_PREFIX} signal_decrypt_message one-time pre-key '{otpk_id}' \
+                         not found — proceeding without it (reduced forward secrecy)"
+                    );
+                }
+                pk
+            } else {
+                None
+            };
+            let sender_bundle = client.keys.get_bundle(&sender).await.map_err(map_err)?;
+            let their_identity_key = decode_identity_key(&sender_bundle.identity_key)?;
+            let ephemeral_b64 = signal
+                .ephemeral_key
+                .as_ref()
+                .ok_or("PREKEY_BUNDLE missing ephemeral_key")?;
+            let their_ephemeral = decode_32_byte_b64(ephemeral_b64, "ephemeral_key")?;
+            let sess = tinyplace::signal::x3dh::x3dh_respond(
+                &our_identity,
+                &spk.key_pair,
+                &their_identity_key,
+                &their_ephemeral,
+                otpk.as_ref().map(|pk| &pk.key_pair),
+            );
+            if let Some(otpk_id) = &signal.one_time_pre_key_id {
+                store
+                    .remove_pre_key(otpk_id)
+                    .await
+                    .map_err(|e| format!("remove consumed pre-key: {e}"))?;
+                log::debug!(
+                    "{LOG_PREFIX} signal_decrypt_message consumed one-time pre-key {otpk_id}"
+                );
+            }
+            sess
+        } else {
+            store
+                .session(&sender)
+                .await
+                .map_err(|e| format!("load session: {e}"))?
+                .ok_or_else(|| {
+                    format!(
+                        "no session with {sender} — cannot decrypt CIPHERTEXT envelope. \
+                         A PREKEY_BUNDLE message must be received first."
+                    )
+                })?
+        };
+        let sender_bundle = client.keys.get_bundle(&sender).await.map_err(map_err)?;
+        let their_identity_key = decode_identity_key(&sender_bundle.identity_key)?;
+        let ad = tinyplace::signal::x3dh::build_associated_data(
+            &their_identity_key,
+            &our_identity.public_key,
+        );
+        let plaintext_bytes =
+            tinyplace::signal::ratchet::ratchet_decrypt(&mut session, &ratchet_msg, &ad)
+                .map_err(|e| format!("decryption failed: {e}"))?;
+        store
+            .store_session(&sender, session)
+            .await
+            .map_err(|e| format!("store session: {e}"))?;
+        let plaintext = String::from_utf8(plaintext_bytes)
+            .map_err(|e| format!("plaintext is not valid UTF-8: {e}"))?;
+        log::info!(
+            "{LOG_PREFIX} signal_decrypt_message decrypted from={sender} id={} len={}",
+            envelope.id,
+            plaintext.len()
+        );
+        to_value(serde_json::json!({
+            "plaintext": plaintext,
+            "from": envelope.from,
+            "messageId": envelope.id,
+        }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_messages_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let limit = params.get("limit").and_then(Value::as_i64);
+        log::debug!("{LOG_PREFIX} messages_list limit={limit:?}");
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let result = client
+            .messages
+            .list(&signer.agent_id(), limit)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_messages_acknowledge(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let message_id = req_str(&params, "messageId")?.to_string();
+        log::debug!("{LOG_PREFIX} messages_acknowledge id={message_id}");
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        client
+            .messages
+            .acknowledge(&message_id, &signer.agent_id())
+            .await
+            .map_err(map_err)?;
+        to_value(serde_json::json!({ "ok": true }))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2780,5 +3143,60 @@ mod tests {
             .block_on(handle_tinyplace_signal_key_status(Map::new()))
             .unwrap_err();
         assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    #[test]
+    fn signal_send_requires_recipient_and_plaintext() {
+        let mut params = Map::new();
+        params.insert("plaintext".into(), Value::String("hello".into()));
+        let err = block_on(handle_tinyplace_signal_send_message(params)).unwrap_err();
+        assert!(err.contains("recipient"), "got: {err}");
+        let mut params = Map::new();
+        params.insert("recipient".into(), Value::String("peer123".into()));
+        let err = block_on(handle_tinyplace_signal_send_message(params)).unwrap_err();
+        assert!(err.contains("plaintext"), "got: {err}");
+    }
+
+    #[test]
+    fn signal_decrypt_requires_envelope() {
+        let err = block_on(handle_tinyplace_signal_decrypt_message(Map::new())).unwrap_err();
+        assert!(err.contains("envelope"), "got: {err}");
+    }
+
+    #[test]
+    fn messages_list_fails_at_client_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_messages_list(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    #[test]
+    fn messages_acknowledge_requires_message_id() {
+        let err = block_on(handle_tinyplace_messages_acknowledge(Map::new())).unwrap_err();
+        assert!(err.contains("messageId"), "got: {err}");
+    }
+
+    #[test]
+    fn signal_send_never_sends_plaintext_on_encryption_failure() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let mut params = Map::new();
+        params.insert("recipient".into(), Value::String("test_peer".into()));
+        params.insert("plaintext".into(), Value::String("secret message".into()));
+        let err = rt
+            .block_on(handle_tinyplace_signal_send_message(params))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+        assert!(
+            !err.contains("secret message"),
+            "plaintext leaked in error message: {err}"
+        );
     }
 }

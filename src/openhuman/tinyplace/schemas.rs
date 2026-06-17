@@ -41,13 +41,15 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
     handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
     handle_tinyplace_marketplace_offer, handle_tinyplace_marketplace_recent,
+    handle_tinyplace_messages_acknowledge, handle_tinyplace_messages_list,
     handle_tinyplace_profiles_activity, handle_tinyplace_profiles_agent_card,
     handle_tinyplace_profiles_attestations, handle_tinyplace_profiles_broadcasts,
     handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
     handle_tinyplace_registry_export, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
-    handle_tinyplace_signal_get_bundle, handle_tinyplace_signal_key_status,
-    handle_tinyplace_signal_provision, handle_tinyplace_signal_rotate_signed_pre_key,
+    handle_tinyplace_signal_decrypt_message, handle_tinyplace_signal_get_bundle,
+    handle_tinyplace_signal_key_status, handle_tinyplace_signal_provision,
+    handle_tinyplace_signal_rotate_signed_pre_key, handle_tinyplace_signal_send_message,
     handle_tinyplace_signal_upload_pre_keys, handle_tinyplace_solana_call,
     handle_tinyplace_solana_info, handle_tinyplace_streams_list, handle_tinyplace_streams_start,
     handle_tinyplace_streams_stop, handle_tinyplace_users_confirm_email_verification,
@@ -63,6 +65,15 @@ fn optional_object(name: &'static str, comment: &'static str) -> FieldSchema {
         ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
         comment,
         required: false,
+    }
+}
+
+fn required_object(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Json,
+        comment,
+        required: true,
     }
 }
 
@@ -1529,6 +1540,71 @@ fn schema_signal_key_status() -> ControllerSchema {
     }
 }
 
+fn schema_signal_send_message() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_send_message",
+        description: "Encrypt and send a Signal-protocol direct message to a peer agent. \
+             Performs X3DH key agreement on first message (PREKEY_BUNDLE), then Double \
+             Ratchet for subsequent messages (CIPHERTEXT). Plaintext is NEVER sent if \
+             encryption fails.",
+        inputs: vec![
+            required_string("recipient", "Target agent ID."),
+            required_string("plaintext", "Cleartext message body to encrypt and send."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "{ messageId: string, timestamp: string, encrypted: true }.",
+        )],
+    }
+}
+
+fn schema_signal_decrypt_message() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "signal_decrypt_message",
+        description: "Decrypt an incoming Signal-protocol message envelope. \
+             Handles both PREKEY_BUNDLE (initial) and CIPHERTEXT (ratchet) envelope types. \
+             Consumes one-time pre-keys on PREKEY_BUNDLE.",
+        inputs: vec![required_object(
+            "envelope",
+            "Full MessageEnvelope object as received from the server.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "{ plaintext: string, from: string, messageId: string }.",
+        )],
+    }
+}
+
+fn schema_messages_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "messages_list",
+        description: "Fetch the inbox of encrypted message envelopes for the current agent. \
+             Returns raw envelopes; call signal_decrypt_message on each to read content.",
+        inputs: vec![optional_integer(
+            "limit",
+            "Max number of envelopes to return.",
+        )],
+        outputs: vec![json_output("result", "Array of MessageEnvelope objects.")],
+    }
+}
+
+fn schema_messages_acknowledge() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "messages_acknowledge",
+        description: "Acknowledge (mark as delivered/read) a received message envelope. \
+             The server will stop re-delivering acknowledged messages.",
+        inputs: vec![required_string(
+            "messageId",
+            "ID of the envelope to acknowledge.",
+        )],
+        outputs: vec![json_output("result", "{ ok: true }.")],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1627,6 +1703,11 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_signal_rotate_signed_pre_key(),
         schema_signal_get_bundle(),
         schema_signal_key_status(),
+        // Signal messaging
+        schema_signal_send_message(),
+        schema_signal_decrypt_message(),
+        schema_messages_list(),
+        schema_messages_acknowledge(),
     ]
 }
 
@@ -1982,6 +2063,23 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_signal_key_status(),
             handler: handle_tinyplace_signal_key_status,
+        },
+        // Signal messaging
+        RegisteredController {
+            schema: schema_signal_send_message(),
+            handler: handle_tinyplace_signal_send_message,
+        },
+        RegisteredController {
+            schema: schema_signal_decrypt_message(),
+            handler: handle_tinyplace_signal_decrypt_message,
+        },
+        RegisteredController {
+            schema: schema_messages_list(),
+            handler: handle_tinyplace_messages_list,
+        },
+        RegisteredController {
+            schema: schema_messages_acknowledge(),
+            handler: handle_tinyplace_messages_acknowledge,
         },
     ]
 }

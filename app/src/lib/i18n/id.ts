@@ -5535,6 +5535,7 @@ const messages: TranslationMap = {
   'settings.profiles.editor.notFound': 'Profil tidak ditemukan',
   'settings.profiles.editor.saving': 'Menyimpan…',
   'settings.profiles.editor.idRequired': 'ID profil tidak boleh kosong',
+
 };
 
 export default messages;
