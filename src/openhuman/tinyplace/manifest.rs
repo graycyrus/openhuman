@@ -1917,6 +1917,65 @@ pub(crate) fn handle_tinyplace_registry_export(params: Map<String, Value>) -> Co
     })
 }
 
+// ── Users email verification ────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_users_start_email_verification(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        let email = req_str(&params, "email")?.trim().to_string();
+        if email.is_empty() {
+            return Err("missing required param 'email'".to_string());
+        }
+        log::debug!(
+            "{LOG_PREFIX} users_start_email_verification crypto_id={crypto_id} email=<redacted>"
+        );
+        let client = global_state().client().await?;
+        let request = tinyplace::types::UserEmailVerificationRequest {
+            email,
+            ..Default::default()
+        };
+        let result = client
+            .users
+            .start_email_verification(&crypto_id, request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_users_confirm_email_verification(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        let email = req_str(&params, "email")?.trim().to_string();
+        if email.is_empty() {
+            return Err("missing required param 'email'".to_string());
+        }
+        let code = req_str(&params, "code")?.trim().to_string();
+        if code.is_empty() {
+            return Err("missing required param 'code'".to_string());
+        }
+        log::debug!(
+            "{LOG_PREFIX} users_confirm_email_verification crypto_id={crypto_id} email=<redacted>"
+        );
+        let client = global_state().client().await?;
+        let request = tinyplace::types::UserEmailVerificationConfirmRequest {
+            email,
+            code,
+            ..Default::default()
+        };
+        let result = client
+            .users
+            .confirm_email_verification(&crypto_id, request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2122,5 +2181,59 @@ mod tests {
         p.insert("groupId".to_string(), Value::String("g-1".into()));
         let err = block_on(handle_tinyplace_groups_redeem_invite(p)).unwrap_err();
         assert!(err.contains("token"), "got: {err}");
+    }
+
+    /// Email verification handlers validate required params before any client work.
+    #[test]
+    fn email_verification_handlers_require_params() {
+        // start requires cryptoId.
+        let err =
+            block_on(handle_tinyplace_users_start_email_verification(Map::new())).unwrap_err();
+        assert!(err.contains("cryptoId"), "got: {err}");
+
+        // start requires email (cryptoId present but email missing).
+        let mut p = Map::new();
+        p.insert("cryptoId".to_string(), Value::String("wallet-1".into()));
+        let err = block_on(handle_tinyplace_users_start_email_verification(p)).unwrap_err();
+        assert!(err.contains("email"), "got: {err}");
+
+        // start rejects blank email.
+        let mut p = Map::new();
+        p.insert("cryptoId".to_string(), Value::String("wallet-1".into()));
+        p.insert("email".to_string(), Value::String("   ".into()));
+        let err = block_on(handle_tinyplace_users_start_email_verification(p)).unwrap_err();
+        assert!(err.contains("email"), "got: {err}");
+
+        // confirm requires cryptoId.
+        let err =
+            block_on(handle_tinyplace_users_confirm_email_verification(Map::new())).unwrap_err();
+        assert!(err.contains("cryptoId"), "got: {err}");
+
+        // confirm requires email (cryptoId present but email missing).
+        let mut p = Map::new();
+        p.insert("cryptoId".to_string(), Value::String("wallet-1".into()));
+        let err = block_on(handle_tinyplace_users_confirm_email_verification(p)).unwrap_err();
+        assert!(err.contains("email"), "got: {err}");
+
+        // confirm requires code (cryptoId + email present but code missing).
+        let mut p = Map::new();
+        p.insert("cryptoId".to_string(), Value::String("wallet-1".into()));
+        p.insert(
+            "email".to_string(),
+            Value::String("user@example.com".into()),
+        );
+        let err = block_on(handle_tinyplace_users_confirm_email_verification(p)).unwrap_err();
+        assert!(err.contains("code"), "got: {err}");
+
+        // confirm rejects blank code.
+        let mut p = Map::new();
+        p.insert("cryptoId".to_string(), Value::String("wallet-1".into()));
+        p.insert(
+            "email".to_string(),
+            Value::String("user@example.com".into()),
+        );
+        p.insert("code".to_string(), Value::String("   ".into()));
+        let err = block_on(handle_tinyplace_users_confirm_email_verification(p)).unwrap_err();
+        assert!(err.contains("code"), "got: {err}");
     }
 }

@@ -46,7 +46,8 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
     handle_tinyplace_registry_export, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
-    handle_tinyplace_users_get, handle_tinyplace_users_update_profile,
+    handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
+    handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -1326,6 +1327,46 @@ fn schema_groups_redeem_invite() -> ControllerSchema {
     }
 }
 
+// ── Users email verification schemas ────────────────────────────────────────
+
+fn schema_users_start_email_verification() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "users_start_email_verification",
+        description:
+            "Start email verification for a wallet — stores the email (unverified) and sends a code.",
+        inputs: vec![
+            required_string("cryptoId", "The wallet's base58 Solana address / cryptoId."),
+            required_string("email", "The email address to verify."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Updated User profile with email set and emailVerified:false.",
+        )],
+    }
+}
+
+fn schema_users_confirm_email_verification() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "users_confirm_email_verification",
+        description:
+            "Confirm the email verification code. On success, the email is marked verified.",
+        inputs: vec![
+            required_string("cryptoId", "The wallet's base58 Solana address / cryptoId."),
+            required_string(
+                "email",
+                "The email address being verified (must match the start request).",
+            ),
+            required_string("code", "The verification code received via email."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Updated User profile with emailVerified:true and emailVerifiedAt set.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1408,6 +1449,9 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_groups_preview_invite(),
         schema_groups_revoke_invite(),
         schema_groups_redeem_invite(),
+        // Users email verification
+        schema_users_start_email_verification(),
+        schema_users_confirm_email_verification(),
     ]
 }
 
@@ -1711,6 +1755,15 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_groups_redeem_invite(),
             handler: handle_tinyplace_groups_redeem_invite,
+        },
+        // Users email verification
+        RegisteredController {
+            schema: schema_users_start_email_verification(),
+            handler: handle_tinyplace_users_start_email_verification,
+        },
+        RegisteredController {
+            schema: schema_users_confirm_email_verification(),
+            handler: handle_tinyplace_users_confirm_email_verification,
         },
     ]
 }
