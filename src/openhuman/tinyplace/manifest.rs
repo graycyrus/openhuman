@@ -21,6 +21,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use base64::Engine as _;
 use serde_json::{Map, Value};
 
 use crate::core::all::ControllerFuture;
@@ -2084,6 +2085,320 @@ pub(crate) fn handle_tinyplace_streams_list(_params: Map<String, Value>) -> Cont
     })
 }
 
+// ── Signal key management ─────────────────────────────────────────────────────
+//
+// The `FileSessionStore` methods are defined via the `SessionStore` async trait.
+// We bring the trait into scope so the compiler resolves them correctly.
+use tinyplace::signal::store::SessionStore as _;
+
+/// Get the `Arc<dyn Signer>` from the client or fail with a clear message.
+///
+/// SECURITY: the signer holds the Ed25519 signing key in memory. The returned
+/// Arc is the *same* instance the `TinyPlaceClient` uses — no new key material
+/// is created.
+fn require_signer(
+    client: &tinyplace::TinyPlaceClient,
+) -> std::result::Result<std::sync::Arc<dyn tinyplace::Signer>, String> {
+    client
+        .http()
+        .signer()
+        .ok_or_else(|| "no signer configured — unlock wallet to manage Signal keys".to_string())
+}
+
+/// Bootstrap Signal keys: generate signed pre-key + one-time pre-keys, store
+/// locally in the encrypted `FileSessionStore`, publish to the backend, and
+/// return the resulting `KeyHealth`.
+///
+/// SECURITY: only PUBLIC keys are serialised for upload. Private key bytes
+/// remain in the encrypted `FileSessionStore` on disk.
+pub(crate) fn handle_tinyplace_signal_provision(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let pre_key_count = params
+            .get("preKeyCount")
+            .and_then(Value::as_u64)
+            .unwrap_or(100) as usize;
+        log::debug!("{LOG_PREFIX} signal_provision pre_key_count={pre_key_count}");
+
+        // 1. Acquire store, client, signer.
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let agent_id = signer.agent_id();
+        log::debug!("{LOG_PREFIX} signal_provision agent_id={agent_id}");
+
+        // 2. Identity key (X25519 public, base64). SECURITY: public key only.
+        let identity_kp = store
+            .identity_x25519_key_pair()
+            .await
+            .map_err(|e| format!("identity key: {e}"))?;
+        let identity_key_b64 =
+            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+
+        // 3. Generate + store signed pre-key.
+        let spk_id = format!(
+            "spk_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        );
+        let spk = tinyplace::signal::keys::generate_signed_pre_key(signer.as_ref(), &spk_id)
+            .await
+            .map_err(|e| format!("generate signed pre-key: {e}"))?;
+        store
+            .store_signed_pre_key(spk.clone())
+            .await
+            .map_err(|e| format!("store signed pre-key: {e}"))?;
+        log::debug!("{LOG_PREFIX} signal_provision stored signed pre-key id={spk_id}");
+
+        // 4. Generate + store one-time pre-keys.
+        let start_id = store
+            .all_pre_keys()
+            .await
+            .map_err(|e| format!("list pre-keys: {e}"))?
+            .len() as u64;
+        let pre_keys =
+            tinyplace::signal::keys::generate_pre_keys(signer.as_ref(), start_id, pre_key_count)
+                .await
+                .map_err(|e| format!("generate pre-keys: {e}"))?;
+        for pk in &pre_keys {
+            store
+                .store_pre_key(pk.clone())
+                .await
+                .map_err(|e| format!("store pre-key: {e}"))?;
+        }
+        log::debug!(
+            "{LOG_PREFIX} signal_provision stored {count} one-time pre-keys (start_id={start_id})",
+            count = pre_keys.len()
+        );
+
+        // 5. Serialise for upload — ONLY public keys leave this process.
+        let spk_wire = tinyplace::signal::keys::serialize_pre_key(&spk);
+        let otpk_wires: Vec<tinyplace::types::SignedKey> = pre_keys
+            .iter()
+            .map(tinyplace::signal::keys::serialize_pre_key)
+            .collect();
+
+        // 6. Upload signed pre-key.
+        client
+            .keys
+            .rotate_signed_pre_key(
+                &agent_id,
+                &tinyplace::types::SignedPreKeyRequest {
+                    identity_key: Some(identity_key_b64.clone()),
+                    signed_pre_key: spk_wire,
+                },
+            )
+            .await
+            .map_err(map_err)?;
+        log::debug!("{LOG_PREFIX} signal_provision uploaded signed pre-key");
+
+        // 7. Upload one-time pre-keys.
+        client
+            .keys
+            .upload_pre_keys(
+                &agent_id,
+                &tinyplace::types::PreKeysRequest {
+                    identity_key: Some(identity_key_b64),
+                    pre_keys: otpk_wires,
+                },
+            )
+            .await
+            .map_err(map_err)?;
+        log::debug!(
+            "{LOG_PREFIX} signal_provision uploaded {count} one-time pre-keys",
+            count = pre_keys.len()
+        );
+
+        // 8. Return key health.
+        let health = client.keys.health(&agent_id).await.map_err(map_err)?;
+        log::info!(
+            "{LOG_PREFIX} signal_provision complete agent_id={agent_id} \
+             otpk_count={} low={}",
+            health.one_time_pre_key_count,
+            health.low_one_time_pre_keys
+        );
+        to_value(health)
+    })
+}
+
+/// Generate and upload additional one-time pre-keys (replenishment). Does NOT
+/// generate a new signed pre-key.
+pub(crate) fn handle_tinyplace_signal_upload_pre_keys(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let count = params.get("count").and_then(Value::as_u64).unwrap_or(100) as usize;
+        log::debug!("{LOG_PREFIX} signal_upload_pre_keys count={count}");
+
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let agent_id = signer.agent_id();
+
+        // SECURITY: X25519 public identity key only.
+        let identity_kp = store
+            .identity_x25519_key_pair()
+            .await
+            .map_err(|e| format!("identity key: {e}"))?;
+        let identity_key_b64 =
+            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+
+        let start_id = store
+            .all_pre_keys()
+            .await
+            .map_err(|e| format!("list pre-keys: {e}"))?
+            .len() as u64;
+        let pre_keys = tinyplace::signal::keys::generate_pre_keys(signer.as_ref(), start_id, count)
+            .await
+            .map_err(|e| format!("generate pre-keys: {e}"))?;
+
+        for pk in &pre_keys {
+            store
+                .store_pre_key(pk.clone())
+                .await
+                .map_err(|e| format!("store pre-key: {e}"))?;
+        }
+
+        let wires: Vec<tinyplace::types::SignedKey> = pre_keys
+            .iter()
+            .map(tinyplace::signal::keys::serialize_pre_key)
+            .collect();
+
+        client
+            .keys
+            .upload_pre_keys(
+                &agent_id,
+                &tinyplace::types::PreKeysRequest {
+                    identity_key: Some(identity_key_b64),
+                    pre_keys: wires,
+                },
+            )
+            .await
+            .map_err(map_err)?;
+
+        let health = client.keys.health(&agent_id).await.map_err(map_err)?;
+        log::info!(
+            "{LOG_PREFIX} signal_upload_pre_keys complete count={count} \
+             otpk_count={} low={}",
+            health.one_time_pre_key_count,
+            health.low_one_time_pre_keys
+        );
+        to_value(health)
+    })
+}
+
+/// Generate a new signed pre-key, store locally, and upload. Existing one-time
+/// pre-keys are unaffected.
+pub(crate) fn handle_tinyplace_signal_rotate_signed_pre_key(
+    _params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} signal_rotate_signed_pre_key");
+
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let agent_id = signer.agent_id();
+
+        // SECURITY: X25519 public identity key only.
+        let identity_kp = store
+            .identity_x25519_key_pair()
+            .await
+            .map_err(|e| format!("identity key: {e}"))?;
+        let identity_key_b64 =
+            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+
+        let key_id = format!(
+            "spk_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        );
+        let spk = tinyplace::signal::keys::generate_signed_pre_key(signer.as_ref(), &key_id)
+            .await
+            .map_err(|e| format!("generate signed pre-key: {e}"))?;
+
+        store
+            .store_signed_pre_key(spk.clone())
+            .await
+            .map_err(|e| format!("store signed pre-key: {e}"))?;
+
+        client
+            .keys
+            .rotate_signed_pre_key(
+                &agent_id,
+                &tinyplace::types::SignedPreKeyRequest {
+                    identity_key: Some(identity_key_b64),
+                    signed_pre_key: tinyplace::signal::keys::serialize_pre_key(&spk),
+                },
+            )
+            .await
+            .map_err(map_err)?;
+
+        log::info!("{LOG_PREFIX} signal_rotate_signed_pre_key complete key_id={key_id}");
+        to_value(serde_json::json!({ "ok": true, "keyId": key_id }))
+    })
+}
+
+/// Fetch a peer's published Signal pre-key bundle (public endpoint, no auth).
+/// The `get_bundle` endpoint does not require a signer or the signal store.
+pub(crate) fn handle_tinyplace_signal_get_bundle(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = req_str(&params, "agentId")?.to_string();
+        log::debug!("{LOG_PREFIX} signal_get_bundle agent_id={agent_id}");
+        let client = global_state().client().await?;
+        let result = client.keys.get_bundle(&agent_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Local + remote key status for the current user. Remote health degrades
+/// gracefully if the backend is unreachable.
+pub(crate) fn handle_tinyplace_signal_key_status(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} signal_key_status");
+
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+        let client = global_state().client().await?;
+        let signer = require_signer(client)?;
+        let agent_id = signer.agent_id();
+
+        let local_pre_key_count = store
+            .all_pre_keys()
+            .await
+            .map_err(|e| format!("list pre-keys: {e}"))?
+            .len();
+        let has_active_spk = store.active_signed_pre_key().await.is_ok();
+
+        // Best-effort remote health — degrade gracefully.
+        let remote = match client.keys.health(&agent_id).await {
+            Ok(h) => {
+                log::debug!(
+                    "{LOG_PREFIX} signal_key_status remote otpk_count={} low={}",
+                    h.one_time_pre_key_count,
+                    h.low_one_time_pre_keys
+                );
+                Some(h)
+            }
+            Err(e) => {
+                log::warn!("{LOG_PREFIX} signal_key_status remote health fetch failed: {e}");
+                None
+            }
+        };
+
+        let remote_json = remote.and_then(|h| serde_json::to_value(h).ok());
+
+        to_value(serde_json::json!({
+            "agentId": agent_id,
+            "localPreKeyCount": local_pre_key_count,
+            "hasActiveSignedPreKey": has_active_spk,
+            "remote": remote_json,
+        }))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2403,5 +2718,67 @@ mod tests {
         params.insert("streamId".to_string(), Value::String("   ".to_string()));
         let err = block_on(handle_tinyplace_streams_stop(params)).unwrap_err();
         assert!(err.contains("streamId"), "got: {err}");
+    }
+
+    /// `signal_get_bundle` rejects a missing `agentId` before any client work.
+    #[test]
+    fn signal_get_bundle_requires_agent_id() {
+        let err = block_on(handle_tinyplace_signal_get_bundle(Map::new())).unwrap_err();
+        assert!(err.contains("agentId"), "got: {err}");
+    }
+
+    /// `signal_provision` has no required params; it must fail at `global_signal_store`
+    /// (wallet/config not available in unit tests), NOT at param extraction.
+    /// Uses a Tokio runtime because `global_signal_store` internally calls
+    /// `load_config_with_timeout` which requires Tokio.
+    #[test]
+    fn signal_provision_fails_at_store_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_signal_provision(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// `signal_upload_pre_keys` has no required params; same as above.
+    #[test]
+    fn signal_upload_pre_keys_fails_at_store_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_signal_upload_pre_keys(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// `signal_rotate_signed_pre_key` has no required params; same as above.
+    #[test]
+    fn signal_rotate_fails_at_store_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_signal_rotate_signed_pre_key(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// `signal_key_status` has no required params; same as above.
+    #[test]
+    fn signal_key_status_fails_at_store_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_signal_key_status(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
     }
 }

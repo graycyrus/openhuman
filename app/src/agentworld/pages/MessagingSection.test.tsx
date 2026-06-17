@@ -10,11 +10,34 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { apiClient } from '../AgentWorldShell';
 import MessagingSection from './MessagingSection';
 
+// Typed helpers so vi.mocked() calls are terse below.
+// These are resolved after the vi.mock factory runs.
+const getKeyStatus = () => vi.mocked(apiClient.signal.keyStatus);
+const getProvision = () => vi.mocked(apiClient.signal.provision);
+
 // ── Mock apiClient ────────────────────────────────────────────────────────────
 // The module exports apiClient as a named export; we replace its methods.
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
+    signal: {
+      keyStatus: vi
+        .fn()
+        .mockResolvedValue({
+          agentId: 'test-agent',
+          localPreKeyCount: 0,
+          hasActiveSignedPreKey: false,
+          remote: null,
+        }),
+      provision: vi
+        .fn()
+        .mockResolvedValue({
+          agentId: 'test-agent',
+          oneTimePreKeyCount: 0,
+          lowOneTimePreKeys: true,
+          updatedAt: '2026-06-17T00:00:00Z',
+        }),
+    },
     channels: {
       list: vi.fn().mockResolvedValue({ channels: [] }),
       join: vi.fn().mockResolvedValue(undefined),
@@ -503,5 +526,61 @@ describe('inbox stream lifecycle', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Inbox' }));
     await screen.findByText(/Your inbox is empty/i);
     expect(screen.queryByTestId('inbox-live-indicator')).not.toBeInTheDocument();
+  });
+});
+
+// ── SignalKeyStatusCard ───────────────────────────────────────────────────────
+
+describe('SignalKeyStatusCard', () => {
+  test('renders "Set up keys" button when no keys are provisioned', async () => {
+    getKeyStatus().mockResolvedValueOnce({
+      agentId: 'test-agent',
+      localPreKeyCount: 0,
+      hasActiveSignedPreKey: false,
+      remote: null,
+    });
+    render(<MessagingSection />);
+    expect(await screen.findByText('Set up keys')).toBeInTheDocument();
+    expect(screen.getByText(/Set up encryption keys/)).toBeInTheDocument();
+  });
+
+  test('renders "Keys ready" when keys are provisioned', async () => {
+    getKeyStatus().mockResolvedValueOnce({
+      agentId: 'test-agent',
+      localPreKeyCount: 100,
+      hasActiveSignedPreKey: true,
+      remote: null,
+    });
+    render(<MessagingSection />);
+    expect(await screen.findByText(/Keys ready/)).toBeInTheDocument();
+    expect(screen.queryByText('Set up keys')).not.toBeInTheDocument();
+  });
+
+  test('clicking "Set up keys" calls signal.provision and refreshes', async () => {
+    const user = userEvent.setup();
+    getKeyStatus()
+      .mockResolvedValueOnce({
+        agentId: 'test-agent',
+        localPreKeyCount: 0,
+        hasActiveSignedPreKey: false,
+        remote: null,
+      })
+      .mockResolvedValueOnce({
+        agentId: 'test-agent',
+        localPreKeyCount: 100,
+        hasActiveSignedPreKey: true,
+        remote: null,
+      });
+    getProvision().mockResolvedValueOnce({
+      agentId: 'test-agent',
+      oneTimePreKeyCount: 100,
+      lowOneTimePreKeys: false,
+      updatedAt: '2026-06-17T00:00:00Z',
+    });
+    render(<MessagingSection />);
+    const btn = await screen.findByText('Set up keys');
+    await user.click(btn);
+    expect(getProvision()).toHaveBeenCalled();
+    expect(await screen.findByText(/Keys ready/)).toBeInTheDocument();
   });
 });
