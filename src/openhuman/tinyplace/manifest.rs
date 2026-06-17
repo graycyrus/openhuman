@@ -1661,6 +1661,109 @@ pub(crate) fn handle_tinyplace_follows_feed(params: Map<String, Value>) -> Contr
     })
 }
 
+// ── Feedback handlers ─────────────────────────────────────────────────────────
+// TODO(staging): verify /feedback is deployed on staging-api.tiny.place before
+// integration testing.
+
+pub(crate) fn handle_tinyplace_feedback_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} feedback_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let list_params: Option<tinyplace::types::FeedbackListParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid feedback list params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        let result = client
+            .feedback
+            .list(list_params.as_ref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_feedback_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let feedback_id = req_str(&params, "feedbackId")?.to_string();
+        log::debug!("{LOG_PREFIX} feedback_get feedback_id={feedback_id}");
+        let client = global_state().client().await?;
+        let result = client.feedback.get(&feedback_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_feedback_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let title = req_str(&params, "title")?.trim().to_string();
+        if title.is_empty() {
+            return Err("missing required param 'title'".to_string());
+        }
+        let description = req_str(&params, "description")?.trim().to_string();
+        if description.is_empty() {
+            return Err("missing required param 'description'".to_string());
+        }
+        let category = get_opt_str(&params, "category")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        log::debug!("{LOG_PREFIX} feedback_create title={title} category={category:?}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        let feedback = tinyplace::types::FeedbackCreate {
+            feedback_id: None,
+            author: signer.agent_id(),
+            title,
+            description,
+            category,
+        };
+
+        let result = client.feedback.create(feedback).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_feedback_vote(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let feedback_id = req_str(&params, "feedbackId")?.to_string();
+        let vote = req_str(&params, "vote")?.to_string();
+        if vote != "up" && vote != "down" {
+            return Err(format!(
+                "invalid vote value '{vote}': must be 'up' or 'down'"
+            ));
+        }
+        log::debug!("{LOG_PREFIX} feedback_vote feedback_id={feedback_id} vote={vote}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        let vote_req = tinyplace::types::FeedbackVoteRequest {
+            voter: signer.agent_id(),
+            vote,
+        };
+
+        let result = client
+            .feedback
+            .vote(&feedback_id, vote_req)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1764,5 +1867,46 @@ mod tests {
             let err = block_on(handler(Map::new())).unwrap_err();
             assert!(err.contains("agentId"), "got: {err}");
         }
+    }
+
+    /// Feedback get/vote handlers reject missing required params before any client work.
+    #[test]
+    fn feedback_handlers_require_params() {
+        // feedback_get requires feedbackId.
+        let err = block_on(handle_tinyplace_feedback_get(Map::new())).unwrap_err();
+        assert!(err.contains("feedbackId"), "got: {err}");
+
+        // feedback_vote requires feedbackId.
+        let err = block_on(handle_tinyplace_feedback_vote(Map::new())).unwrap_err();
+        assert!(err.contains("feedbackId"), "got: {err}");
+
+        // feedback_vote requires vote (feedbackId present but vote missing).
+        let mut p = Map::new();
+        p.insert("feedbackId".to_string(), Value::String("fb-1".into()));
+        let err = block_on(handle_tinyplace_feedback_vote(p)).unwrap_err();
+        assert!(err.contains("vote"), "got: {err}");
+
+        // feedback_vote rejects invalid vote value.
+        let mut p = Map::new();
+        p.insert("feedbackId".to_string(), Value::String("fb-1".into()));
+        p.insert("vote".to_string(), Value::String("sideways".into()));
+        let err = block_on(handle_tinyplace_feedback_vote(p)).unwrap_err();
+        assert!(err.contains("must be 'up' or 'down'"), "got: {err}");
+
+        // feedback_create requires title.
+        let err = block_on(handle_tinyplace_feedback_create(Map::new())).unwrap_err();
+        assert!(err.contains("title"), "got: {err}");
+
+        // feedback_create requires description (title present but description missing).
+        let mut p = Map::new();
+        p.insert("title".to_string(), Value::String("A great idea".into()));
+        let err = block_on(handle_tinyplace_feedback_create(p)).unwrap_err();
+        assert!(err.contains("description"), "got: {err}");
+
+        // feedback_create rejects blank title.
+        let mut p = Map::new();
+        p.insert("title".to_string(), Value::String("   ".into()));
+        let err = block_on(handle_tinyplace_feedback_create(p)).unwrap_err();
+        assert!(err.contains("title"), "got: {err}");
     }
 }

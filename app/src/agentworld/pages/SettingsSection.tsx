@@ -1,5 +1,6 @@
 /**
- * SettingsSection — Agent World settings: language and theme preferences.
+ * SettingsSection — Agent World settings: language, theme preferences, and
+ * a community Feedback board.
  *
  * Ported from tiny.place `website/src/components/explore/Settings.tsx`.
  * The original used zustand (`useAppStore`) and react-i18next (`useTranslation`).
@@ -8,16 +9,24 @@
  *   - `useT()` from `I18nContext` for translations.
  *   - `LanguageSelect` for the locale picker (shared with main Settings).
  *
- * No SDK calls are made by this section — it is pure local-state UI.
- * Therefore no Rust handlers or bridge methods are added for this section.
+ * The Feedback section makes RPC calls via `apiClient.feedback.*` to the
+ * tinyplace backend. `author`/`voter` are resolved server-side by the Rust
+ * handler from `signer.agent_id()` and are NEVER accepted from the renderer.
  */
 import debug from 'debug';
-import { LuCheck } from 'react-icons/lu';
+import { useCallback, useEffect, useState } from 'react';
+import { LuCheck, LuChevronDown, LuChevronUp, LuLoader, LuSend } from 'react-icons/lu';
 
 import LanguageSelect from '../../components/LanguageSelect';
+import {
+  type FeedbackItem,
+  type FeedbackListParams,
+  type FeedbackListResponse,
+} from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setThemeMode, type ThemeMode } from '../../store/themeSlice';
+import { apiClient } from '../AgentWorldShell';
 
 const log = debug('openhuman:agent-world:settings');
 
@@ -59,6 +68,260 @@ const THEME_OPTIONS: ThemeOption[] = [
     accent: '#4A83DD',
   },
 ];
+
+// ── Feedback state ──────────────────────────────────────────────────────────
+
+type FeedbackState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ok'; items: FeedbackItem[] };
+
+function useFeedbackList(): [FeedbackState, () => void] {
+  const [state, setState] = useState<FeedbackState>({ status: 'loading' });
+
+  const refresh = useCallback(() => {
+    setState({ status: 'loading' });
+    void apiClient.feedback
+      .list({ limit: 50 } as FeedbackListParams)
+      .then((res: FeedbackListResponse) => {
+        setState({ status: 'ok', items: res.feedback ?? [] });
+      })
+      .catch((err: unknown) => {
+        log('feedback list error: %s', String(err));
+        setState({ status: 'error', message: String(err) });
+      });
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return [state, refresh];
+}
+
+// ── FeedbackItemCard ──────────────────────────────────────────────────────────
+
+function FeedbackItemCard({
+  item,
+  onVoted,
+}: {
+  item: FeedbackItem;
+  onVoted: (updated: FeedbackItem) => void;
+}) {
+  const [voting, setVoting] = useState<'up' | 'down' | null>(null);
+
+  const handleVote = useCallback(
+    async (direction: 'up' | 'down') => {
+      if (voting) return;
+      setVoting(direction);
+      try {
+        const updated = await apiClient.feedback.vote(item.feedbackId, direction);
+        onVoted(updated);
+      } catch (err) {
+        log('feedback vote error: %s', String(err));
+      } finally {
+        setVoting(null);
+      }
+    },
+    [voting, item.feedbackId, onVoted]
+  );
+
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="flex items-start gap-3">
+        {/* Vote controls */}
+        <div className="flex flex-col items-center gap-0.5">
+          <button
+            type="button"
+            aria-label="Upvote"
+            disabled={voting !== null}
+            onClick={() => void handleVote('up')}
+            className="rounded p-0.5 text-stone-400 transition-colors hover:text-emerald-600 disabled:opacity-50 dark:text-neutral-500 dark:hover:text-emerald-400">
+            {voting === 'up' ? (
+              <LuLoader size={16} className="animate-spin" />
+            ) : (
+              <LuChevronUp size={16} />
+            )}
+          </button>
+          <span className="min-w-[2ch] text-center text-sm font-semibold text-stone-700 dark:text-neutral-200">
+            {item.score}
+          </span>
+          <button
+            type="button"
+            aria-label="Downvote"
+            disabled={voting !== null}
+            onClick={() => void handleVote('down')}
+            className="rounded p-0.5 text-stone-400 transition-colors hover:text-red-600 disabled:opacity-50 dark:text-neutral-500 dark:hover:text-red-400">
+            {voting === 'down' ? (
+              <LuLoader size={16} className="animate-spin" />
+            ) : (
+              <LuChevronDown size={16} />
+            )}
+          </button>
+        </div>
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-stone-900 dark:text-neutral-100">{item.title}</p>
+          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{item.description}</p>
+          <div className="mt-1.5 flex items-center gap-2 text-xs text-stone-400 dark:text-neutral-500">
+            {item.category && (
+              <span className="rounded-full bg-stone-100 px-1.5 py-0.5 dark:bg-neutral-800">
+                {item.category}
+              </span>
+            )}
+            <span>{item.status}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FeedbackSubmitForm ────────────────────────────────────────────────────────
+
+function FeedbackSubmitForm({ onCreated }: { onCreated: () => void }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = title.trim().length > 0 && description.trim().length > 0 && !submitting;
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canSubmit) return;
+      setSubmitting(true);
+      setError(null);
+      try {
+        await apiClient.feedback.create(
+          title.trim(),
+          description.trim(),
+          category.trim() || undefined
+        );
+        log('feedback created title=%s', title.trim());
+        setTitle('');
+        setDescription('');
+        setCategory('');
+        onCreated();
+      } catch (err) {
+        log('feedback create error: %s', String(err));
+        setError(String(err));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [canSubmit, title, description, category, onCreated]
+  );
+
+  return (
+    <form onSubmit={e => void handleSubmit(e)} className="space-y-3">
+      <div>
+        <label
+          htmlFor="feedback-title"
+          className="block text-xs font-medium text-stone-700 dark:text-neutral-300">
+          Title
+        </label>
+        <input
+          id="feedback-title"
+          type="text"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Short summary of your feedback"
+          className="mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          disabled={submitting}
+        />
+      </div>
+      <div>
+        <label
+          htmlFor="feedback-description"
+          className="block text-xs font-medium text-stone-700 dark:text-neutral-300">
+          Description
+        </label>
+        <textarea
+          id="feedback-description"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Describe your idea, bug report, or suggestion"
+          rows={3}
+          className="mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          disabled={submitting}
+        />
+      </div>
+      <div>
+        <label
+          htmlFor="feedback-category"
+          className="block text-xs font-medium text-stone-700 dark:text-neutral-300">
+          Category (optional)
+        </label>
+        <input
+          id="feedback-category"
+          type="text"
+          value={category}
+          onChange={e => setCategory(e.target.value)}
+          placeholder="e.g. feature, bug, improvement"
+          className="mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          disabled={submitting}
+        />
+      </div>
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      <button
+        type="submit"
+        disabled={!canSubmit}
+        className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
+        {submitting ? <LuLoader size={14} className="animate-spin" /> : <LuSend size={14} />}
+        Submit
+      </button>
+    </form>
+  );
+}
+
+// ── FeedbackPanel ─────────────────────────────────────────────────────────────
+
+function FeedbackPanel() {
+  const [feedbackState, refresh] = useFeedbackList();
+
+  const handleVoted = useCallback(
+    (_updated: FeedbackItem) => {
+      // Refetch the full list so the order (sorted by score) stays correct.
+      refresh();
+    },
+    [refresh]
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Submit form */}
+      <FeedbackSubmitForm onCreated={refresh} />
+
+      {/* Feedback list */}
+      {feedbackState.status === 'loading' && (
+        <div className="flex items-center gap-2 py-4 text-xs text-stone-400 dark:text-neutral-500">
+          <LuLoader size={14} className="animate-spin" />
+          Loading feedback...
+        </div>
+      )}
+      {feedbackState.status === 'error' && (
+        <p className="py-2 text-xs text-stone-500 dark:text-neutral-400">
+          Could not load feedback: {feedbackState.message}
+        </p>
+      )}
+      {feedbackState.status === 'ok' && feedbackState.items.length === 0 && (
+        <p className="py-2 text-xs text-stone-400 dark:text-neutral-500">
+          No feedback submitted yet. Be the first!
+        </p>
+      )}
+      {feedbackState.status === 'ok' && feedbackState.items.length > 0 && (
+        <div className="space-y-2">
+          {feedbackState.items.map(item => (
+            <FeedbackItemCard key={item.feedbackId} item={item} onVoted={handleVoted} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -160,6 +423,15 @@ export default function SettingsSection() {
             );
           })}
         </div>
+      </section>
+
+      {/* Feedback */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">Feedback</h2>
+        <p className="text-xs text-stone-500 dark:text-neutral-400">
+          Share ideas, report bugs, or vote on community suggestions.
+        </p>
+        <FeedbackPanel />
       </section>
     </div>
   );

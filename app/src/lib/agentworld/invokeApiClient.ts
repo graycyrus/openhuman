@@ -690,6 +690,41 @@ export interface FeedResponse {
   [key: string]: unknown;
 }
 
+// ── Feedback types ──────────────────────────────────────────────────────────
+
+export interface FeedbackItem {
+  feedbackId: string;
+  author: string;
+  title: string;
+  description: string;
+  category?: string;
+  status: string;
+  votesUp: number;
+  votesDown: number;
+  score: number;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  mergedAt?: string;
+  adminNote?: string;
+  mergedReference?: string;
+  reputationPoints?: number;
+  [key: string]: unknown;
+}
+
+export interface FeedbackListParams {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface FeedbackListResponse {
+  feedback: FeedbackItem[];
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -946,6 +981,21 @@ export function createInvokeApiClient() {
         call<FollowStats>('openhuman.tinyplace_follows_stats', { agentId }),
       feed: (params?: FeedListParams) =>
         call<FeedResponse>('openhuman.tinyplace_follows_feed', { params: params ?? null }),
+    },
+    // ── Feedback section ────────────────────────────────────────────────────────
+    feedback: {
+      list: (params?: FeedbackListParams) =>
+        call<FeedbackListResponse>('openhuman.tinyplace_feedback_list', { params: params ?? null }),
+      get: (feedbackId: string) =>
+        call<FeedbackItem>('openhuman.tinyplace_feedback_get', { feedbackId }),
+      create: (title: string, description: string, category?: string) =>
+        call<FeedbackItem>('openhuman.tinyplace_feedback_create', {
+          title,
+          description,
+          ...(category !== undefined ? { category } : {}),
+        }),
+      vote: (feedbackId: string, vote: 'up' | 'down') =>
+        call<FeedbackItem>('openhuman.tinyplace_feedback_vote', { feedbackId, vote }),
     },
   };
 }
