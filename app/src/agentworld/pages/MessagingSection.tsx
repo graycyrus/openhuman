@@ -7,7 +7,7 @@
  *
  * Signal protocol / keys.* methods are intentionally NOT wired here.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   type BroadcastChannel,
@@ -24,6 +24,7 @@ import {
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
+import { useTinyplaceStream } from '../hooks/useTinyplaceStream';
 
 // ── Feature gate ──────────────────────────────────────────────────────────────
 
@@ -710,14 +711,43 @@ function useRowActions() {
     }
   }
 
-  return { version, busyKey, error, run };
+  return { version, setVersion, busyKey, error, run };
 }
 
 function InboxPanel() {
   const params: InboxQueryParams = { limit: 30 };
-  const { version, busyKey, error: actionError, run: runAction } = useRowActions();
+  const { version, busyKey, error: actionError, run: runAction, setVersion } = useRowActions();
   const itemsState = useAsyncCall(() => apiClient.inbox.list(params), [version]);
   const countsState = useAsyncCall(() => apiClient.inbox.counts(), [version]);
+
+  // Start the inbox stream on mount, stop on unmount.
+  const streamRef = useRef<string | null>(null);
+  const { messages: streamMessages, status: streamStatus } = useTinyplaceStream('inbox');
+
+  useEffect(() => {
+    let cancelled = false;
+    void apiClient.streams
+      .start('inbox')
+      .then(res => {
+        if (!cancelled) streamRef.current = res.streamId;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (streamRef.current !== null) {
+        void apiClient.streams.stop(streamRef.current).catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Bump version when a stream message arrives to trigger re-fetch.
+  useEffect(() => {
+    if (streamMessages.length > 0) {
+      setVersion(v => v + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamMessages.length]);
 
   if (itemsState.status === 'loading') return <LoadingPane />;
   if (itemsState.status === 'payment_required') return <PaymentRequiredPane />;
@@ -727,14 +757,6 @@ function InboxPanel() {
   const unread: number = countsState.status === 'ok' ? countsState.data.unread : 0;
   const anyBusy = busyKey !== null;
 
-  if (items.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
-        Your inbox is empty
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border border-stone-200 dark:border-neutral-800">
       <div className="flex items-center justify-between border-b border-stone-200 dark:border-neutral-800 px-4 py-2">
@@ -743,6 +765,14 @@ function InboxPanel() {
           {unread > 0 ? (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
               {unread}
+            </span>
+          ) : null}
+          {streamStatus === 'connected' ? (
+            <span
+              data-testid="inbox-live-indicator"
+              className="ml-2 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              Live
             </span>
           ) : null}
         </span>
@@ -759,63 +789,73 @@ function InboxPanel() {
           {actionError}
         </div>
       ) : null}
-      <div className="divide-y divide-stone-200 dark:divide-neutral-800/50">
-        {items.map(item => {
-          const busy = busyKey === item.itemId;
-          const archived = item.status === 'archived';
-          return (
-            <div key={item.itemId} className="flex items-start gap-3 px-4 py-3">
-              <div
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">
-                  {item.subject}
-                </p>
-                {item.summary ? (
-                  <p className="text-[10px] text-stone-500 dark:text-neutral-400">{item.summary}</p>
-                ) : null}
-                <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
-                  {formatTs(item.timestamp)}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {item.status === 'unread' ? (
-                  <RowAction
-                    label="Mark read"
-                    disabled={busy || anyBusy}
-                    onClick={() =>
-                      runAction(item.itemId, () => apiClient.inbox.markRead(item.itemId))
-                    }
-                  />
-                ) : null}
-                {archived ? (
-                  <RowAction
-                    label="Unarchive"
-                    disabled={busy || anyBusy}
-                    onClick={() =>
-                      runAction(item.itemId, () => apiClient.inbox.unarchive(item.itemId))
-                    }
-                  />
-                ) : (
-                  <RowAction
-                    label="Archive"
-                    disabled={busy || anyBusy}
-                    onClick={() =>
-                      runAction(item.itemId, () => apiClient.inbox.archive(item.itemId))
-                    }
-                  />
-                )}
-                <RowAction
-                  label="Remove"
-                  disabled={busy || anyBusy}
-                  onClick={() => runAction(item.itemId, () => apiClient.inbox.remove(item.itemId))}
+      {items.length === 0 ? (
+        <div className="flex items-center justify-center py-12 text-stone-400 dark:text-neutral-500 text-sm">
+          Your inbox is empty
+        </div>
+      ) : (
+        <div className="divide-y divide-stone-200 dark:divide-neutral-800/50">
+          {items.map(item => {
+            const busy = busyKey === item.itemId;
+            const archived = item.status === 'archived';
+            return (
+              <div key={item.itemId} className="flex items-start gap-3 px-4 py-3">
+                <div
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_DOT_COLORS[item.type] ?? 'bg-stone-400 dark:bg-neutral-500'}`}
                 />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+                    {item.subject}
+                  </p>
+                  {item.summary ? (
+                    <p className="text-[10px] text-stone-500 dark:text-neutral-400">
+                      {item.summary}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+                    {formatTs(item.timestamp)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {item.status === 'unread' ? (
+                    <RowAction
+                      label="Mark read"
+                      disabled={busy || anyBusy}
+                      onClick={() =>
+                        runAction(item.itemId, () => apiClient.inbox.markRead(item.itemId))
+                      }
+                    />
+                  ) : null}
+                  {archived ? (
+                    <RowAction
+                      label="Unarchive"
+                      disabled={busy || anyBusy}
+                      onClick={() =>
+                        runAction(item.itemId, () => apiClient.inbox.unarchive(item.itemId))
+                      }
+                    />
+                  ) : (
+                    <RowAction
+                      label="Archive"
+                      disabled={busy || anyBusy}
+                      onClick={() =>
+                        runAction(item.itemId, () => apiClient.inbox.archive(item.itemId))
+                      }
+                    />
+                  )}
+                  <RowAction
+                    label="Remove"
+                    disabled={busy || anyBusy}
+                    onClick={() =>
+                      runAction(item.itemId, () => apiClient.inbox.remove(item.itemId))
+                    }
+                  />
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

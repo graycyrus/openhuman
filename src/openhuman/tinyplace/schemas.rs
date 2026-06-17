@@ -46,7 +46,8 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
     handle_tinyplace_registry_export, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
-    handle_tinyplace_solana_call, handle_tinyplace_solana_info,
+    handle_tinyplace_solana_call, handle_tinyplace_solana_info, handle_tinyplace_streams_list,
+    handle_tinyplace_streams_start, handle_tinyplace_streams_stop,
     handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
     handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
 };
@@ -1399,6 +1400,53 @@ fn schema_solana_call() -> ControllerSchema {
     }
 }
 
+// ── Streams schemas ───────────────────────────────────────────────────────────
+
+fn schema_streams_start() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "streams_start",
+        description: "Start a tinyplace WebSocket stream (inbox or conversation).",
+        inputs: vec![
+            required_string("streamType", "Stream type: \"inbox\" or \"conversation\"."),
+            optional_string(
+                "streamId",
+                "Target id (e.g. conversation_id). Required for conversation streams.",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "{ streamId: string } — the stream handle.",
+        )],
+    }
+}
+
+fn schema_streams_stop() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "streams_stop",
+        description: "Stop an active tinyplace WebSocket stream.",
+        inputs: vec![required_string(
+            "streamId",
+            "The stream handle returned from streams_start.",
+        )],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_streams_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "streams_list",
+        description: "List all active tinyplace WebSocket streams.",
+        inputs: vec![],
+        outputs: vec![json_output(
+            "result",
+            "{ streams: Array<{ streamId, kind, status }> }.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1487,6 +1535,10 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // Solana section
         schema_solana_info(),
         schema_solana_call(),
+        // Streams section
+        schema_streams_start(),
+        schema_streams_stop(),
+        schema_streams_list(),
     ]
 }
 
@@ -1808,6 +1860,19 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_solana_call(),
             handler: handle_tinyplace_solana_call,
+        },
+        // Streams section
+        RegisteredController {
+            schema: schema_streams_start(),
+            handler: handle_tinyplace_streams_start,
+        },
+        RegisteredController {
+            schema: schema_streams_stop(),
+            handler: handle_tinyplace_streams_stop,
+        },
+        RegisteredController {
+            schema: schema_streams_list(),
+            handler: handle_tinyplace_streams_list,
         },
     ]
 }

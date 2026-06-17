@@ -30,6 +30,7 @@ mod ops;
 mod payment;
 mod schemas;
 mod state;
+pub(crate) mod streams;
 
 #[cfg(test)]
 mod tests;

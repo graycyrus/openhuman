@@ -880,6 +880,25 @@ export interface SolanaChainInfo {
   [key: string]: unknown;
 }
 
+// ── Streams types ─────────────────────────────────────────────────────────────
+
+export interface StreamStartResult {
+  streamId: string;
+  [key: string]: unknown;
+}
+
+export interface StreamEntry {
+  streamId: string;
+  kind: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface StreamListResult {
+  streams: StreamEntry[];
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -1192,6 +1211,19 @@ export function createInvokeApiClient() {
           params: params ?? null,
           id: id ?? null,
         }),
+    },
+    // ── Streams section ─────────────────────────────────────────────────────
+    streams: {
+      /** Start a tinyplace WebSocket stream (inbox or conversation). */
+      start: (streamType: string, streamId?: string) =>
+        call<StreamStartResult>('openhuman.tinyplace_streams_start', {
+          streamType,
+          ...(streamId !== undefined ? { streamId } : {}),
+        }),
+      /** Stop an active tinyplace WebSocket stream. */
+      stop: (streamId: string) => call<void>('openhuman.tinyplace_streams_stop', { streamId }),
+      /** List all active tinyplace WebSocket streams. */
+      list: () => call<StreamListResult>('openhuman.tinyplace_streams_list', {}),
     },
   };
 }
