@@ -1099,6 +1099,18 @@ function ActiveDmView({
           <p className="text-xs text-stone-400 animate-pulse">Loading encrypted messages...</p>
         ) : null}
         {error ? <p className="text-xs text-red-500">{error}</p> : null}
+        {!loading && !error && messages.length === 0 ? (
+          <div
+            data-testid="dm-empty-state"
+            className="flex h-full flex-col items-center justify-center gap-1 text-center">
+            <p className="text-sm font-medium text-stone-500 dark:text-neutral-400">
+              No messages yet
+            </p>
+            <p className="text-xs text-stone-400 dark:text-neutral-500">
+              Send the first end-to-end encrypted message below to start the conversation.
+            </p>
+          </div>
+        ) : null}
         {messages.map(msg => (
           <div
             key={msg.messageId}

@@ -326,6 +326,46 @@ mod messages_degrade {
     }
 }
 
+// ── Identity-key publish/convert round-trip (the /keys bundle contract) ─────────
+//
+// The backend stores and serves the wallet's Ed25519 public key as the bundle
+// identity key (it verifies pre-key signatures against it). Peers must convert
+// that Ed25519 key to X25519 (Montgomery) for Diffie-Hellman. This test pins the
+// invariant that makes publish-Ed25519 + convert-on-consume consistent: the
+// converted published key MUST equal the X25519 identity public key the owner
+// derives from the same wallet seed for its own DH.
+
+#[cfg(test)]
+mod identity_key_publish {
+    use base64::Engine as _;
+    use tinyplace::signal::crypto::{ed25519_pub_to_x25519_pub, ed25519_seed_to_x25519_keypair};
+    use tinyplace::Signer;
+
+    #[test]
+    fn published_ed25519_converts_to_owner_x25519_identity() {
+        // Arbitrary deterministic test seed (not a real wallet).
+        let seed = [7u8; 32];
+
+        // The owner's own X25519 DH identity, derived from the seed.
+        let our_x25519 = ed25519_seed_to_x25519_keypair(&seed);
+
+        // The Ed25519 wallet public key we publish to /keys (base64).
+        let signer = tinyplace::LocalSigner::from_seed(&seed).expect("signer from seed");
+        let ed_bytes: [u8; 32] = base64::engine::general_purpose::STANDARD
+            .decode(signer.public_key_base64())
+            .expect("base64 pubkey")
+            .try_into()
+            .expect("32-byte ed25519 pubkey");
+
+        // A peer converting our published Ed25519 key must land on our X25519 identity.
+        let converted = ed25519_pub_to_x25519_pub(&ed_bytes).expect("ed25519 -> x25519");
+        assert_eq!(
+            converted, our_x25519.public_key,
+            "converted published Ed25519 identity must equal the owner's X25519 DH identity"
+        );
+    }
+}
+
 // ── Make-discoverable card builder ─────────────────────────────────────────────
 
 #[cfg(test)]

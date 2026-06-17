@@ -2208,13 +2208,11 @@ pub(crate) fn handle_tinyplace_signal_provision(params: Map<String, Value>) -> C
         let agent_id = signer.agent_id();
         log::debug!("{LOG_PREFIX} signal_provision agent_id={agent_id}");
 
-        // 2. Identity key (X25519 public, base64). SECURITY: public key only.
-        let identity_kp = store
-            .identity_x25519_key_pair()
-            .await
-            .map_err(|e| format!("identity key: {e}"))?;
-        let identity_key_b64 =
-            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+        // 2. Identity key published to /keys = the wallet's Ed25519 public key.
+        //    The backend verifies the pre-key signatures against it (they are
+        //    signed by the wallet's Ed25519 signer) and serves it in the bundle;
+        //    peers convert it to X25519 for DH. SECURITY: public key only.
+        let identity_key_b64 = signer.public_key_base64();
 
         // 3. Generate + store signed pre-key.
         let spk_id = format!(
@@ -2318,13 +2316,10 @@ pub(crate) fn handle_tinyplace_signal_upload_pre_keys(
         let signer = require_signer(client)?;
         let agent_id = signer.agent_id();
 
-        // SECURITY: X25519 public identity key only.
-        let identity_kp = store
-            .identity_x25519_key_pair()
-            .await
-            .map_err(|e| format!("identity key: {e}"))?;
-        let identity_key_b64 =
-            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+        // Publish the wallet's Ed25519 public key as the identity key (the
+        // backend verifies pre-key signatures against it and serves it in the
+        // bundle; peers convert it to X25519 for DH). SECURITY: public key only.
+        let identity_key_b64 = signer.public_key_base64();
 
         let start_id = store
             .all_pre_keys()
@@ -2383,13 +2378,10 @@ pub(crate) fn handle_tinyplace_signal_rotate_signed_pre_key(
         let signer = require_signer(client)?;
         let agent_id = signer.agent_id();
 
-        // SECURITY: X25519 public identity key only.
-        let identity_kp = store
-            .identity_x25519_key_pair()
-            .await
-            .map_err(|e| format!("identity key: {e}"))?;
-        let identity_key_b64 =
-            base64::engine::general_purpose::STANDARD.encode(identity_kp.public_key);
+        // Publish the wallet's Ed25519 public key as the identity key (the
+        // backend verifies pre-key signatures against it and serves it in the
+        // bundle; peers convert it to X25519 for DH). SECURITY: public key only.
+        let identity_key_b64 = signer.public_key_base64();
 
         let key_id = format!(
             "spk_{}",
@@ -2532,8 +2524,19 @@ fn decode_32_byte_b64(b64: &str, label: &str) -> std::result::Result<[u8; 32], S
     Ok(arr)
 }
 
+/// Decode a peer's published identity key (from a fetched key bundle) into the
+/// X25519 public key used for X3DH / Double-Ratchet Diffie-Hellman.
+///
+/// The backend stores and serves the wallet's **Ed25519** public key as the
+/// bundle identity key — it verifies signed/one-time pre-key signatures against
+/// it (`ed25519.Verify(identityKey, ...)`) and re-validates on every fetch. So
+/// the served identity key is Ed25519; convert it to its Montgomery (X25519)
+/// form, which equals the peer's X25519 identity public key derived from the
+/// same wallet seed, so DH stays consistent on both ends.
 fn decode_identity_key(b64: &str) -> std::result::Result<[u8; 32], String> {
-    decode_32_byte_b64(b64, "identity_key")
+    let ed_pub = decode_32_byte_b64(b64, "identity_key")?;
+    tinyplace::signal::crypto::ed25519_pub_to_x25519_pub(&ed_pub)
+        .map_err(|e| format!("identity_key is not a valid Ed25519 public key: {e}"))
 }
 
 fn key_bundle_to_x3dh(

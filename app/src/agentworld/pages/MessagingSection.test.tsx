@@ -187,6 +187,21 @@ describe('DMs panel (E2E enabled)', () => {
     });
   });
 
+  test('shows an empty-state in an opened DM with no messages, alongside the compose box', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    await user.type(peerInput, 'peerEmpty');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    expect(await screen.findByTestId('dm-empty-state')).toBeInTheDocument();
+    // The compose box is present so the user can start the conversation.
+    expect(screen.getByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
   test('sendMessage is called with plaintext param, never direct backend body', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
