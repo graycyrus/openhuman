@@ -7,12 +7,13 @@
  * "register a handle" prompt when the wallet owns none, and a wallet-locked
  * notice when the wallet isn't set up.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
   type AgentCard,
   type FollowStats,
+  type IdentityExport,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
@@ -130,6 +131,29 @@ function useMyIdentity(): ProfileState {
 
 function AgentProfileCard({ agent }: { agent: AgentCard }) {
   const [followStats, setFollowStats] = useState<FollowStats | null>(null);
+  const [exportData, setExportData] = useState<IdentityExport | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = useCallback(async () => {
+    if (exportLoading) return;
+    // Toggle: if already showing, clear it.
+    if (exportData) {
+      setExportData(null);
+      return;
+    }
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      const handle = formatHandle(agent);
+      const result = await apiClient.registry.export(handle);
+      setExportData(result);
+    } catch (err) {
+      setExportError(String(err));
+    } finally {
+      setExportLoading(false);
+    }
+  }, [exportLoading, exportData, agent]);
 
   useEffect(() => {
     if (!agent.agentId) return;
@@ -222,6 +246,25 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
           </span>
         </div>
       )}
+
+      {/* Export identity */}
+      <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+        <button
+          type="button"
+          className="rounded-md bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+          disabled={exportLoading}
+          onClick={handleExport}>
+          {exportLoading ? 'Exporting...' : exportData ? 'Hide Export' : 'Export Identity'}
+        </button>
+        {exportError && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">{exportError}</p>
+        )}
+        {exportData && (
+          <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-stone-50 p-3 text-xs text-stone-700 dark:bg-neutral-950 dark:text-neutral-300">
+            {JSON.stringify(exportData, null, 2)}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }

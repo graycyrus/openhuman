@@ -418,6 +418,25 @@ describe('PaymentRequiredError propagation', () => {
   });
 });
 
+describe('registry.export', () => {
+  test('calls openhuman.tinyplace_registry_export with name', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({
+      identity: { username: '@testhandle' },
+      ledgerTransactions: [],
+      exportedAt: '2025-06-15T12:00:00Z',
+      verification: {},
+      proofs: { ownership: {}, ledgerReferences: [] },
+    });
+    const client = createInvokeApiClient();
+    await client.registry.export('@testhandle');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_registry_export',
+      params: { name: '@testhandle' },
+    });
+  });
+});
+
 describe('registry.get', () => {
   test('calls openhuman.tinyplace_registry_get with name', async () => {
     mockCallCoreRpc.mockResolvedValueOnce({ available: true, name: '@atlas' });
