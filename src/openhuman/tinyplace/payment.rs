@@ -12,10 +12,11 @@
 //! - It does **not** build the canonical message, sign it, or flatten the map —
 //!   that lives in the SDK ([`tinyplace::x402::build_x402_payment_map`]).
 //! - It does **not** *pick* a Solana cluster — `challenge.network` is passed
-//!   through verbatim and the asset is routed by symbol. It does, however,
-//!   expose a [`ensure_cluster_matches`] guard so callers can fail closed when a
-//!   challenge's network clearly targets a different cluster than the wallet is
-//!   configured for (Risk R6 — never broadcast to the wrong chain).
+//!   through verbatim and the asset is routed by symbol. It exposes an
+//!   *advisory* [`ensure_cluster_matches`] check (Risk R6); it does NOT block,
+//!   because tiny.place labels every cluster with the mainnet genesis, so the
+//!   challenge network is not an authoritative cluster signal. Cluster alignment
+//!   is governed by `OPENHUMAN_SOLANA_CLUSTER` + operator config.
 //! - It does **not** expose an RPC controller. The section write-handlers
 //!   (register / marketplace, in later PRs) call [`fulfill_payment`] and attach
 //!   the returned payment map to their domain request.
@@ -210,39 +211,55 @@ fn classify_network(network: &str) -> Option<SolanaCluster> {
     None
 }
 
-/// Fail closed when a challenge's network clearly targets a different Solana
-/// cluster than OpenHuman is configured for. Prevents broadcasting a transfer to
-/// the wrong chain (e.g. paying a devnet challenge from a mainnet-configured
-/// wallet). Unknown/unparseable networks are allowed through.
+/// Advisory cluster check (does **not** block).
 ///
-/// Call this **before** [`fulfill_payment`] in the confirmed-spend path. Reads
-/// the configured cluster from the environment via [`solana_cluster`]; the pure
-/// comparison lives in [`cluster_guard`] (unit-tested without env mutation).
+/// The original design hard-blocked when the challenge's `network` genesis hash
+/// implied a different cluster than [`solana_cluster`]. That premise is wrong for
+/// tiny.place: the backend hard-codes the CAIP-2 Solana network to the **mainnet
+/// genesis** (`solana:5eykt4…`) for *every* deployment — including devnet — and
+/// only switches the real settlement chain via its `SOLANA_RPC_URL` /
+/// `SOLANA_USDC_MINT` env (confirmed against the backend's `/payments/supported`,
+/// which returns the **devnet** USDC mint on staging). So the challenge label
+/// carries no reliable cluster signal, and a genesis-based hard block wrongly
+/// rejects valid devnet payments.
+///
+/// Cluster alignment is therefore governed by explicit config
+/// (`OPENHUMAN_SOLANA_CLUSTER`) + the operator pointing the wallet at the same
+/// chain the backend settles on. The wallet only ever transfers the configured
+/// cluster's USDC mint, so a true mismatch fails *safely* at verification (the
+/// backend never credits a tx it can't see) rather than mis-spending. We log a
+/// warning when the (advisory) label looks inconsistent.
+///
+/// TODO(devnet): replace this advisory check with a robust cross-check that
+/// compares the configured `solana_cluster().usdc_mint()` against the backend's
+/// `/payments/supported` Solana USDC address before spending (catches the
+/// real-funds case of configured=mainnet against a devnet-settling backend).
 pub(crate) fn ensure_cluster_matches(network: &str) -> Result<(), String> {
     cluster_guard(solana_cluster(), network)
 }
 
-/// Pure cluster-mismatch check (no env access — testable in isolation).
+/// Pure advisory check (no env access — testable in isolation). Always returns
+/// `Ok`; logs a warning when the challenge label implies a different cluster than
+/// configured (tiny.place's label is not authoritative — see
+/// [`ensure_cluster_matches`]).
 fn cluster_guard(configured: SolanaCluster, network: &str) -> Result<(), String> {
     match classify_network(network) {
         Some(challenge_cluster) if challenge_cluster != configured => {
             log::warn!(
-                "{LOG_PREFIX} cluster mismatch: challenge network='{network}' \
-                 ({challenge_cluster:?}) but wallet configured for {configured:?}"
+                "{LOG_PREFIX} advisory: challenge network label='{network}' implies \
+                 {challenge_cluster:?} but wallet configured for {configured:?}; tiny.place labels \
+                 every cluster with the mainnet genesis, so proceeding — ensure the backend \
+                 settles on {configured:?} (its /payments/supported USDC mint should match)"
             );
-            Err(format!(
-                "x402 challenge targets {challenge_cluster:?} but the wallet is configured for \
-                 {configured:?}; set OPENHUMAN_SOLANA_CLUSTER to match before paying"
-            ))
         }
         other => {
             log::debug!(
                 "{LOG_PREFIX} cluster guard ok: network='{network}' classified={other:?} \
                  configured={configured:?}"
             );
-            Ok(())
         }
     }
+    Ok(())
 }
 
 // ── High-level orchestrator (thin; logic delegated to the tested helpers) ─────
@@ -471,23 +488,29 @@ mod tests {
     }
 
     #[test]
-    fn cluster_guard_blocks_mismatch_allows_match_and_unknown() {
+    fn cluster_guard_is_advisory_never_blocks() {
         // Match → Ok.
         assert!(cluster_guard(SolanaCluster::Devnet, "solana-devnet").is_ok());
         assert!(cluster_guard(SolanaCluster::Mainnet, "solana-mainnet").is_ok());
-        // Mismatch → Err naming both clusters.
-        let err = cluster_guard(SolanaCluster::Mainnet, "solana-devnet").unwrap_err();
-        assert!(err.contains("Devnet"), "got: {err}");
-        assert!(err.contains("Mainnet"), "got: {err}");
-        assert!(err.contains("OPENHUMAN_SOLANA_CLUSTER"), "got: {err}");
+        // Mismatch → still Ok (advisory only; tiny.place labels every cluster with
+        // the mainnet genesis, so the label is not authoritative). This is the
+        // exact case that previously blocked valid devnet payments.
+        assert!(cluster_guard(SolanaCluster::Devnet, "solana-mainnet").is_ok());
+        assert!(cluster_guard(
+            SolanaCluster::Devnet,
+            "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+        )
+        .is_ok());
+        assert!(cluster_guard(SolanaCluster::Mainnet, "solana-devnet").is_ok());
         // Unknown network → Ok regardless of configured cluster.
         assert!(cluster_guard(SolanaCluster::Devnet, "solana:unknownhash").is_ok());
-        assert!(cluster_guard(SolanaCluster::Mainnet, "solana:unknownhash").is_ok());
     }
 
     #[test]
-    fn ensure_cluster_matches_allows_unknown_network() {
-        // Env-independent: the None branch is Ok for any configured cluster.
+    fn ensure_cluster_matches_never_blocks() {
+        // Env-independent: advisory check is Ok for any network, including the
+        // mainnet-genesis label tiny.place emits on devnet.
+        assert!(ensure_cluster_matches("solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp").is_ok());
         assert!(ensure_cluster_matches("solana:unparseable-network-id").is_ok());
     }
 
