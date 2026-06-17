@@ -46,6 +46,7 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
     handle_tinyplace_registry_export, handle_tinyplace_registry_get,
     handle_tinyplace_registry_register, handle_tinyplace_search_unified,
+    handle_tinyplace_solana_call, handle_tinyplace_solana_info,
     handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
     handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
 };
@@ -1367,6 +1368,37 @@ fn schema_users_confirm_email_verification() -> ControllerSchema {
     }
 }
 
+// ── Solana schemas ──────────────────────────────────────────────────────────
+
+fn schema_solana_info() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "solana_info",
+        description:
+            "Public chain metadata for the backend's configured Solana network (network, name, assets, RPC info).",
+        inputs: vec![],
+        outputs: vec![json_output(
+            "result",
+            "SolanaChainInfo { network, name, kind, nativeAsset, explorerUrl, confirmations, assets, rpc }.",
+        )],
+    }
+}
+
+fn schema_solana_call() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "solana_call",
+        description:
+            "Send a single Solana JSON-RPC call through the backend's proxy and return the unwrapped result.",
+        inputs: vec![
+            required_string("method", "The Solana JSON-RPC method name (e.g. 'getBalance')."),
+            optional_object("params", "Optional JSON-RPC params for the method."),
+            optional_object("id", "Optional JSON-RPC id (string or number); defaults to method name."),
+        ],
+        outputs: vec![json_output("result", "The JSON-RPC result value (arbitrary JSON).")],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1452,6 +1484,9 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // Users email verification
         schema_users_start_email_verification(),
         schema_users_confirm_email_verification(),
+        // Solana section
+        schema_solana_info(),
+        schema_solana_call(),
     ]
 }
 
@@ -1764,6 +1799,15 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_users_confirm_email_verification(),
             handler: handle_tinyplace_users_confirm_email_verification,
+        },
+        // Solana section
+        RegisteredController {
+            schema: schema_solana_info(),
+            handler: handle_tinyplace_solana_info,
+        },
+        RegisteredController {
+            schema: schema_solana_call(),
+            handler: handle_tinyplace_solana_call,
         },
     ]
 }

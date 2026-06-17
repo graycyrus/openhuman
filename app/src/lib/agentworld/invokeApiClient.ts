@@ -852,6 +852,34 @@ export interface FeedbackListResponse {
   [key: string]: unknown;
 }
 
+// ── Solana types ────────────────────────────────────────────────────────────
+
+export interface SolanaRpcInfo {
+  url: string;
+  rateLimitPerMin: number;
+  fallbacks: boolean;
+  [key: string]: unknown;
+}
+
+export interface SupportedAsset {
+  symbol: string;
+  address?: string;
+  decimals: number;
+  [key: string]: unknown;
+}
+
+export interface SolanaChainInfo {
+  network: string;
+  name: string;
+  kind: string;
+  nativeAsset: string;
+  explorerUrl: string;
+  confirmations: number;
+  assets: SupportedAsset[];
+  rpc: SolanaRpcInfo;
+  [key: string]: unknown;
+}
+
 // ── Client factory ────────────────────────────────────────────────────────────
 
 /**
@@ -1152,6 +1180,18 @@ export function createInvokeApiClient() {
         }),
       vote: (feedbackId: string, vote: 'up' | 'down') =>
         call<FeedbackItem>('openhuman.tinyplace_feedback_vote', { feedbackId, vote }),
+    },
+    // ── Solana section ──────────────────────────────────────────────────────
+    solana: {
+      /** Public chain metadata for the backend's configured Solana network. */
+      info: () => call<SolanaChainInfo>('openhuman.tinyplace_solana_info'),
+      /** Send a Solana JSON-RPC call through the backend's proxy. */
+      rpcCall: (method: string, params?: unknown, id?: unknown) =>
+        call<unknown>('openhuman.tinyplace_solana_call', {
+          method,
+          params: params ?? null,
+          id: id ?? null,
+        }),
     },
   };
 }

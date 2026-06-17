@@ -26,7 +26,7 @@ use serde_json::{Map, Value};
 use crate::core::all::ControllerFuture;
 use crate::openhuman::tinyplace::ops::{global_state, map_err};
 use crate::openhuman::tinyplace::payment::{
-    ensure_cluster_matches, fulfill_payment, PaymentContext,
+    ensure_backend_mint_matches, ensure_cluster_matches, fulfill_payment, PaymentContext,
 };
 use crate::openhuman::wallet::{balances, WalletChain};
 
@@ -522,10 +522,11 @@ pub(crate) fn handle_tinyplace_registry_register(params: Map<String, Value>) -> 
             }));
         }
 
-        // ── Confirmed: devnet guard, pay on-chain, re-submit with the map. ──
+        // ── Confirmed: cluster guards, pay on-chain, re-submit with the map. ──
         if let Some(network) = challenge.network.as_deref() {
             ensure_cluster_matches(network)?;
         }
+        ensure_backend_mint_matches(&client).await?;
 
         let mut extra_metadata = HashMap::new();
         extra_metadata.insert("identity".to_string(), format!("@{username}"));
@@ -751,6 +752,7 @@ pub(crate) fn handle_tinyplace_marketplace_buy_product(
         if let Some(network) = challenge.network.as_deref() {
             ensure_cluster_matches(network)?;
         }
+        ensure_backend_mint_matches(&client).await?;
         let mut extra_metadata = HashMap::new();
         extra_metadata.insert("productId".to_string(), product_id.clone());
         let fulfilled = fulfill_payment(
@@ -845,6 +847,7 @@ pub(crate) fn handle_tinyplace_marketplace_buy_identity(
         if let Some(network) = challenge.network.as_deref() {
             ensure_cluster_matches(network)?;
         }
+        ensure_backend_mint_matches(&client).await?;
         let mut extra_metadata = HashMap::new();
         extra_metadata.insert("listingId".to_string(), listing_id.clone());
         let fulfilled = fulfill_payment(
@@ -1976,6 +1979,42 @@ pub(crate) fn handle_tinyplace_users_confirm_email_verification(
     })
 }
 
+// ── Solana handlers ─────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_solana_info(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!("{LOG_PREFIX} solana_info");
+        let client = global_state().client().await?;
+        let result = client.solana.info().await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_solana_call(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let method = req_str(&params, "method")?.trim().to_string();
+        if method.is_empty() {
+            return Err("missing required param 'method'".to_string());
+        }
+        let rpc_params: Option<serde_json::Value> =
+            params
+                .get("params")
+                .and_then(|v| if v.is_null() { None } else { Some(v.clone()) });
+        let id: Option<serde_json::Value> =
+            params
+                .get("id")
+                .and_then(|v| if v.is_null() { None } else { Some(v.clone()) });
+        log::debug!("{LOG_PREFIX} solana_call method={method}");
+        let client = global_state().client().await?;
+        let result: serde_json::Value = client
+            .solana
+            .call::<serde_json::Value>(&method, rpc_params, id)
+            .await
+            .map_err(map_err)?;
+        Ok(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2235,5 +2274,17 @@ mod tests {
         p.insert("code".to_string(), Value::String("   ".into()));
         let err = block_on(handle_tinyplace_users_confirm_email_verification(p)).unwrap_err();
         assert!(err.contains("code"), "got: {err}");
+    }
+
+    /// solana_call rejects a missing/blank `method` before any client work.
+    #[test]
+    fn solana_call_requires_method() {
+        let err = block_on(handle_tinyplace_solana_call(Map::new())).unwrap_err();
+        assert!(err.contains("method"), "got: {err}");
+
+        let mut params = Map::new();
+        params.insert("method".to_string(), Value::String("   ".to_string()));
+        let err = block_on(handle_tinyplace_solana_call(params)).unwrap_err();
+        assert!(err.contains("method"), "got: {err}");
     }
 }

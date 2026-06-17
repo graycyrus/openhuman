@@ -1187,4 +1187,52 @@ describe('messaging write methods', () => {
       params: { feedbackId: 'fb-1', vote: 'down' },
     });
   });
+
+  // ── Solana namespace ──────────────────────────────────────────────────────
+
+  test('solana.info calls openhuman.tinyplace_solana_info with no params', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({
+      network: 'solana-devnet',
+      name: 'Solana Devnet',
+      kind: 'testnet',
+      nativeAsset: 'SOL',
+      explorerUrl: 'https://explorer.solana.com',
+      confirmations: 31,
+      assets: [
+        { symbol: 'SOL', decimals: 9 },
+        { symbol: 'USDC', address: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', decimals: 6 },
+      ],
+      rpc: { url: 'https://rpc.example.com', rateLimitPerMin: 600, fallbacks: true },
+    });
+    await client.solana.info();
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_solana_info',
+      params: undefined,
+    });
+  });
+
+  test('solana.rpcCall calls openhuman.tinyplace_solana_call with method and params', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce({ value: 1000000000 });
+    await client.solana.rpcCall('getBalance', ['4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU']);
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_solana_call',
+      params: {
+        method: 'getBalance',
+        params: ['4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'],
+        id: null,
+      },
+    });
+  });
+
+  test('solana.rpcCall sends null params and id when omitted', async () => {
+    const client = createInvokeApiClient();
+    mockCallCoreRpc.mockResolvedValueOnce(42);
+    await client.solana.rpcCall('getSlot');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_solana_call',
+      params: { method: 'getSlot', params: null, id: null },
+    });
+  });
 });
