@@ -78,7 +78,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
 function InitialAvatar({ name }: { name: string }) {
   const initial = (name[0] ?? '?').toUpperCase();
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ocean-500 text-xs font-semibold text-white">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-semibold text-white">
       {initial}
     </div>
   );
@@ -139,16 +139,16 @@ function CommentComposer({
         placeholder="Write a comment..."
         disabled={submitting}
         className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
-                   placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none
+                   placeholder:text-stone-400 focus:border-primary-400 focus:outline-none
                    dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
-                   dark:focus:border-ocean-600 disabled:opacity-50"
+                   dark:focus:border-primary-600 disabled:opacity-50"
       />
       <button
         type="button"
         onClick={() => void handleSubmit()}
         disabled={!body.trim() || submitting}
-        className="rounded-lg bg-ocean-500 px-3 py-2 text-sm font-medium text-white
-                   hover:bg-ocean-600 disabled:opacity-50 dark:bg-ocean-600 dark:hover:bg-ocean-500">
+        className="rounded-lg bg-primary-500 px-3 py-2 text-sm font-medium text-white
+                   hover:bg-primary-600 disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-500">
         {submitting ? 'Posting...' : 'Comment'}
       </button>
     </div>
@@ -193,9 +193,9 @@ function PostComposerModal({
           rows={4}
           disabled={submitting}
           className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
-                     placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none
+                     placeholder:text-stone-400 focus:border-primary-400 focus:outline-none
                      dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
-                     dark:focus:border-ocean-600 disabled:opacity-50"
+                     dark:focus:border-primary-600 disabled:opacity-50"
         />
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <div className="flex justify-end gap-2">
@@ -211,8 +211,8 @@ function PostComposerModal({
             type="button"
             onClick={() => void handleSubmit()}
             disabled={!body.trim() || submitting}
-            className="rounded-lg bg-ocean-500 px-4 py-2 text-sm font-medium text-white
-                       hover:bg-ocean-600 disabled:opacity-50 dark:bg-ocean-600 dark:hover:bg-ocean-500">
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white
+                       hover:bg-primary-600 disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-500">
             {submitting ? 'Posting...' : 'Post'}
           </button>
         </div>
@@ -251,7 +251,7 @@ function PostCard({
     <button
       type="button"
       onClick={() => onClick(post)}
-      className="w-full rounded-lg border border-stone-200 bg-white p-4 text-left transition-colors hover:border-ocean-300 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-ocean-700 dark:hover:bg-neutral-800">
+      className="w-full rounded-lg border border-stone-200 bg-white p-4 text-left transition-colors hover:border-primary-300 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-primary-700 dark:hover:bg-neutral-800">
       {/* Author row */}
       <div className="mb-2 flex items-center gap-2">
         {post.author.avatarUrl ? (
@@ -270,7 +270,7 @@ function PostCard({
             </span>
             {post.author.verified && (
               <svg
-                className="h-3.5 w-3.5 shrink-0 text-ocean-500"
+                className="h-3.5 w-3.5 shrink-0 text-primary-500"
                 fill="currentColor"
                 viewBox="0 0 20 20">
                 <path
@@ -293,8 +293,12 @@ function PostCard({
               e.stopPropagation();
               onToggleFollow(item.post.author.cryptoId);
             }}
-            className="ml-auto text-xs font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300 disabled:opacity-50">
-            {followState[item.post.author.cryptoId] ? 'Unfollow' : 'Follow'}
+            className={`ml-auto shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+              followState[item.post.author.cryptoId]
+                ? 'border-stone-300 text-stone-600 hover:bg-stone-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                : 'border-primary-600 bg-primary-600 text-white hover:bg-primary-700 dark:border-primary-500 dark:bg-primary-500'
+            }`}>
+            {followState[item.post.author.cryptoId] ? 'Following' : 'Follow'}
           </button>
         )}
         {myAgentId && post.author.cryptoId === myAgentId && (
@@ -446,7 +450,7 @@ function PostDetail({
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center gap-1 text-sm text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300">
+        className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
@@ -471,7 +475,10 @@ function PostDetail({
                 {post.author.displayName || post.author.handle}
               </span>
               {post.author.verified && (
-                <svg className="h-3.5 w-3.5 text-ocean-500" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="h-3.5 w-3.5 text-primary-500"
+                  fill="currentColor"
+                  viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -605,6 +612,30 @@ export default function FeedSection() {
   const [showComposer, setShowComposer] = useState(false);
 
   const myAgentId = useMyAgentId();
+
+  // ── Hydrate follow state from the server ───────────────────────────────────
+  // The home feed doesn't carry "am I following this author?", so seed the
+  // follow map from the wallet's actual following list. Without this, the
+  // optimistic local state resets to "Follow" on every remount (tab switch).
+  useEffect(() => {
+    if (!myAgentId) return;
+    let cancelled = false;
+    void apiClient.follows
+      .following(myAgentId)
+      .then(res => {
+        if (cancelled) return;
+        const followed: Record<string, boolean> = {};
+        for (const f of res.following ?? []) {
+          if (f.followee) followed[f.followee] = true;
+        }
+        // Merge so any optimistic toggles made before this resolves are kept.
+        setFollowState(prev => ({ ...followed, ...prev }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [myAgentId]);
 
   // ── Fetch home feed ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -828,8 +859,8 @@ export default function FeedSection() {
           <button
             type="button"
             onClick={() => setShowComposer(true)}
-            className="rounded-lg bg-ocean-500 px-4 py-2 text-sm font-medium text-white
-                       hover:bg-ocean-600 dark:bg-ocean-600 dark:hover:bg-ocean-500">
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white
+                       hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500">
             New Post
           </button>
         </div>

@@ -92,7 +92,7 @@ export function StatusBadge({ status }: { status: string }) {
 function TypeBadge({ type }: { type: string }) {
   const color =
     type === 'REGISTRATION'
-      ? 'bg-ocean-100 text-ocean-700 dark:bg-ocean-900/30 dark:text-ocean-400'
+      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
       : type === 'SALE'
         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
         : type === 'FEE'
@@ -111,7 +111,7 @@ function TypeBadge({ type }: { type: string }) {
 function TypeIcon({ type }: { type: string }) {
   const color =
     type === 'REGISTRATION'
-      ? 'bg-ocean-50 text-ocean-600 dark:bg-ocean-900/30 dark:text-ocean-400'
+      ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
       : type === 'SALE'
         ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
         : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400';
@@ -195,7 +195,7 @@ function TransactionRow({
                 href={explorerTxUrl(tx.onChainTx, tx.network)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whitespace-nowrap text-xs font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300"
+                className="whitespace-nowrap text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                 onClick={e => e.stopPropagation()}>
                 View on chain
               </a>

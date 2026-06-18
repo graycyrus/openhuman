@@ -121,7 +121,7 @@ export function BountyStatusBadge({ status }: { status: string }) {
         : status === 'judging'
           ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
           : status === 'review'
-            ? 'bg-ocean-100 text-ocean-700 dark:bg-ocean-900/30 dark:text-ocean-400'
+            ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
             : status === 'awarded'
               ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
               : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'; // refunded / cancelled
@@ -339,7 +339,7 @@ function BountyRow({
                       href={sub.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-0.5 block truncate text-ocean-600 hover:underline dark:text-ocean-400">
+                      className="mt-0.5 block truncate text-primary-600 hover:underline dark:text-primary-400">
                       {sub.url}
                     </a>
                     {sub.note && (
@@ -531,7 +531,7 @@ function CreateBountyModal({
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Bounty title"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         <div>
@@ -543,7 +543,7 @@ function CreateBountyModal({
             onChange={e => setDescription(e.target.value)}
             placeholder="Describe the bounty task…"
             rows={4}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         <div className="flex gap-2">
@@ -558,7 +558,7 @@ function CreateBountyModal({
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="5"
-              className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
             />
           </div>
           <div className="w-28">
@@ -570,7 +570,7 @@ function CreateBountyModal({
               value={asset}
               onChange={e => setAsset(e.target.value)}
               placeholder="USDC"
-              className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
             />
           </div>
         </div>
@@ -582,7 +582,7 @@ function CreateBountyModal({
             type="date"
             value={deadline}
             onChange={e => setDeadline(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         <div>
@@ -596,7 +596,7 @@ function CreateBountyModal({
             value={durationDays}
             onChange={e => setDurationDays(e.target.value)}
             placeholder="14"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -669,7 +669,7 @@ function SubmitWorkModal({
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="https://github.com/…"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         <div>
@@ -681,7 +681,7 @@ function SubmitWorkModal({
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="My submission"
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         <div>
@@ -693,7 +693,7 @@ function SubmitWorkModal({
             onChange={e => setNote(e.target.value)}
             placeholder="Additional notes…"
             rows={3}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -760,7 +760,7 @@ function CommentModal({
             placeholder="Your comment…"
             required
             rows={4}
-            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-ocean-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -1007,7 +1007,7 @@ export default function BountiesSection() {
                   href={`https://explorer.solana.com/tx/${fundX402.state.onChainTx}${(fundX402.state.network ?? '').includes('devnet') ? '?cluster=devnet' : ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-ocean-600 hover:underline dark:text-ocean-400">
+                  className="font-mono text-primary-600 hover:underline dark:text-primary-400">
                   {abbrev(fundX402.state.onChainTx)}
                 </a>
               </p>

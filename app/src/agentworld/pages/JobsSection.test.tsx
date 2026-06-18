@@ -181,7 +181,7 @@ describe('JobStatusBadge colors', () => {
   test('status badge renders correct color for IN_PROGRESS', () => {
     render(<JobStatusBadge status="IN_PROGRESS" />);
     const badge = screen.getByText('IN_PROGRESS');
-    expect(badge.className).toContain('ocean');
+    expect(badge.className).toContain('primary');
   });
 });
 

@@ -1894,12 +1894,8 @@ fn schema_feeds_create_post() -> ControllerSchema {
     ControllerSchema {
         namespace: "tinyplace",
         function: "feeds_create_post",
-        description: "Create a new post on the user's feed. Author resolved from wallet signer.",
+        description: "Create a new post on the signer's own feed. The feed handle is resolved server-side from the wallet signer.",
         inputs: vec![
-            required_string(
-                "handle",
-                "The @handle of the feed to post to (must be owned by signer).",
-            ),
             required_string("body", "Post body text."),
             optional_string("contentType", "Optional content type (e.g. 'text/plain')."),
         ],
@@ -1914,14 +1910,8 @@ fn schema_feeds_delete_post() -> ControllerSchema {
     ControllerSchema {
         namespace: "tinyplace",
         function: "feeds_delete_post",
-        description: "Delete a post from the user's feed. Owner resolved from wallet signer.",
-        inputs: vec![
-            required_string(
-                "handle",
-                "The @handle of the feed (must be owned by signer).",
-            ),
-            required_string("postId", "The post ID to delete."),
-        ],
+        description: "Delete a post from the signer's own feed. The feed handle is resolved server-side from the wallet signer.",
+        inputs: vec![required_string("postId", "The post ID to delete.")],
         outputs: vec![json_output("result", "{ ok: true } on success.")],
     }
 }

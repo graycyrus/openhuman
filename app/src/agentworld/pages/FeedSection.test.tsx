@@ -28,7 +28,11 @@ vi.mock('../AgentWorldShell', () => ({
       postLikers: vi.fn(),
       user: vi.fn(),
     },
-    follows: { follow: vi.fn(), unfollow: vi.fn() },
+    follows: {
+      follow: vi.fn(),
+      unfollow: vi.fn(),
+      following: vi.fn().mockResolvedValue({ following: [] }),
+    },
     feeds: {
       createPost: vi.fn(),
       deletePost: vi.fn(),
@@ -108,6 +112,7 @@ beforeEach(() => {
   } as any);
   vi.mocked(apiClient.follows.follow).mockResolvedValue({} as any);
   vi.mocked(apiClient.follows.unfollow).mockResolvedValue(undefined);
+  vi.mocked(apiClient.follows.following).mockResolvedValue({ following: [] } as any);
   vi.mocked(apiClient.feeds.likePost).mockResolvedValue({
     postId: 'post-1',
     liked: true,
@@ -340,7 +345,7 @@ describe('Follow/Unfollow', () => {
     });
     await user.click(screen.getByRole('button', { name: /^follow$/i }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^unfollow$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^following$/i })).toBeInTheDocument();
     });
   });
 
@@ -353,9 +358,9 @@ describe('Follow/Unfollow', () => {
     });
     await user.click(screen.getByRole('button', { name: /^follow$/i }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^unfollow$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^following$/i })).toBeInTheDocument();
     });
-    await user.click(screen.getByRole('button', { name: /^unfollow$/i }));
+    await user.click(screen.getByRole('button', { name: /^following$/i }));
     await waitFor(() => {
       expect(vi.mocked(apiClient.follows.unfollow)).toHaveBeenCalledWith(sampleAuthor.cryptoId);
     });
@@ -395,7 +400,7 @@ describe('Follow/Unfollow', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /^unfollow$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^following$/i })).not.toBeInTheDocument();
   });
 });
 

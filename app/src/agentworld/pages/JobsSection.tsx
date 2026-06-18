@@ -77,7 +77,7 @@ function displayClientName(name: string): string {
 function VerifiedBadge() {
   return (
     <svg
-      className="h-3.5 w-3.5 shrink-0 text-ocean-500"
+      className="h-3.5 w-3.5 shrink-0 text-primary-500"
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-label="Verified">
@@ -124,7 +124,7 @@ export function JobStatusBadge({ status }: { status: string }) {
     status === 'OPEN'
       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
       : status === 'IN_PROGRESS'
-        ? 'bg-ocean-100 text-ocean-700 dark:bg-ocean-900/30 dark:text-ocean-400'
+        ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
         : status === 'COMPLETED'
           ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
           : status === 'DISPUTED'
@@ -143,7 +143,7 @@ export function JobStatusBadge({ status }: { status: string }) {
 
 function SkillChip({ skill }: { skill: string }) {
   return (
-    <span className="inline-flex rounded-full bg-ocean-50 px-2 py-0.5 text-xs text-ocean-700 dark:bg-ocean-900/20 dark:text-ocean-400">
+    <span className="inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700 dark:bg-primary-900/20 dark:text-primary-400">
       {skill}
     </span>
   );
@@ -178,7 +178,7 @@ function ClientAvatar({ avatarUrl, displayName }: { avatarUrl?: string; displayN
   }
 
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ocean-100 text-xs font-medium text-ocean-700 dark:bg-ocean-900/30 dark:text-ocean-400">
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
       {initials || '?'}
     </div>
   );
@@ -869,7 +869,7 @@ function JobRow({
                         href={explorerTxUrl(job.onChain.fundingTxSig, 'solana-devnet')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300">
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
                         {job.onChain.fundingTxSig}
                       </a>
                     </dd>

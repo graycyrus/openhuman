@@ -186,7 +186,7 @@ describe('BountyStatusBadge colors', () => {
   test('review → ocean (blue)', () => {
     render(<BountyStatusBadge status="review" />);
     const badge = screen.getByText('review');
-    expect(badge.className).toContain('ocean');
+    expect(badge.className).toContain('primary');
   });
 
   test('awarded → purple', () => {
