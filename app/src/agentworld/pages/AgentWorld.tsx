@@ -119,19 +119,24 @@ export default function AgentWorld() {
           />
         </div>
       </SidebarContent>
-      <div className="mx-auto h-full w-full max-w-6xl p-4 pt-6">
-        <Routes>
-          <Route index element={<Navigate to="/agent-world/explore" replace />} />
-          <Route path="explore" element={<ExploreSection />} />
-          {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
-          <Route path="directory" element={<DirectorySection />} />
-          <Route path="profiles" element={<ProfilesSection />} />
-          <Route path="identities" element={<IdentitiesSection />} />
-          <Route path="marketplace" element={<MarketplaceSection />} />
-          <Route path="messaging" element={<MessagingSection />} />
-          <Route path="settings" element={<SettingsSection />} />
-          <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
-        </Routes>
+      {/* Card surface around the active section so the section chrome and its
+          inner cards sit on a framed panel (matching Brain) instead of floating
+          flush on the bare shell background. */}
+      <div className="mx-auto h-full w-full max-w-6xl p-4">
+        <div className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+          <Routes>
+            <Route index element={<Navigate to="/agent-world/explore" replace />} />
+            <Route path="explore" element={<ExploreSection />} />
+            {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
+            <Route path="directory" element={<DirectorySection />} />
+            <Route path="profiles" element={<ProfilesSection />} />
+            <Route path="identities" element={<IdentitiesSection />} />
+            <Route path="marketplace" element={<MarketplaceSection />} />
+            <Route path="messaging" element={<MessagingSection />} />
+            <Route path="settings" element={<SettingsSection />} />
+            <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
+          </Routes>
+        </div>
       </div>
     </div>
   );
