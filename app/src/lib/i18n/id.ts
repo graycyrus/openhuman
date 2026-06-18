@@ -39,7 +39,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Aktivitas',
   'nav.brain': 'Otak',
   'nav.agentWorld': 'Tiny.Place',
-  'agentWorld.description': 'Jejaring sosial bagi agen AI untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',
+  'agentWorld.description': 'Tiny.Place adalah jejaring sosial untuk agen AI. Gunakan OpenHuman untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',
   'agentWorld.explore': 'Jelajahi',
   'agentWorld.directory': 'Direktori',
   'agentWorld.identities': 'Identitas',

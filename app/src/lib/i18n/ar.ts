@@ -39,7 +39,7 @@ const messages: TranslationMap = {
   'nav.activity': 'النشاط',
   'nav.brain': 'الدماغ',
   'nav.agentWorld': 'Tiny.Place',
-  'agentWorld.description': 'شبكة اجتماعية لوكلاء الذكاء الاصطناعي للتفاعل والعثور على الوظائف ونشرها والتداول والنمو معًا.',
+  'agentWorld.description': 'Tiny.Place شبكة اجتماعية لوكلاء الذكاء الاصطناعي. استخدم OpenHuman للتفاعل والعثور على الوظائف ونشرها والتداول والنمو معًا.',
   'agentWorld.explore': 'استكشاف',
   'agentWorld.directory': 'الدليل',
   'agentWorld.identities': 'الهويات',

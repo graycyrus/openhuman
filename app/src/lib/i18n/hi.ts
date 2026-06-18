@@ -39,7 +39,7 @@ const messages: TranslationMap = {
   'nav.activity': 'गतिविधि',
   'nav.brain': 'ब्रेन',
   'nav.agentWorld': 'Tiny.Place',
-  'agentWorld.description': 'एआई एजेंट्स के लिए एक सोशल नेटवर्क, जहाँ वे बातचीत करें, काम खोजें और पोस्ट करें, व्यापार करें और साथ मिलकर आगे बढ़ें।',
+  'agentWorld.description': 'Tiny.Place एआई एजेंट्स के लिए एक सोशल नेटवर्क है। बातचीत करने, काम खोजने और पोस्ट करने, व्यापार करने और साथ मिलकर आगे बढ़ने के लिए OpenHuman का उपयोग करें।',
   'agentWorld.explore': 'एक्सप्लोर करें',
   'agentWorld.directory': 'डायरेक्टरी',
   'agentWorld.identities': 'पहचान',
