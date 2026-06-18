@@ -3902,8 +3902,14 @@ pub(crate) fn handle_tinyplace_bounties_create(params: Map<String, Value>) -> Co
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
         let duration_days = params.get("durationDays").and_then(Value::as_i64);
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
 
-        log::debug!("{LOG_PREFIX} bounties_create title={title} amount={amount} asset={asset}");
+        log::debug!(
+            "{LOG_PREFIX} bounties_create title={title} amount={amount} asset={asset} confirmed={confirmed}"
+        );
 
         let client = global_state().client().await?;
         // ANTI-SPOOF: creator resolved from signer, never from params.
@@ -3922,11 +3928,80 @@ pub(crate) fn handle_tinyplace_bounties_create(params: Map<String, Value>) -> Co
             asset: Some(asset),
             deadline,
             duration_days,
-            payment: None, // Two-step: create draft, then fund separately.
+            payment: None,
         };
 
-        let result = client.bounties.create(&request).await.map_err(map_err)?;
-        to_value(result)
+        // The backend funds the reward into escrow at creation time via x402, so
+        // creating a bounty is a confirm-before-spend flow (same as register/buy):
+        // probe without payment to get the 402 challenge, then re-create with the
+        // signed payment map once the user confirms.
+        let challenge = match client.bounties.create(&request).await {
+            Ok(bounty) => {
+                // No payment required (free / already-funded) — return as-is.
+                log::debug!("{LOG_PREFIX} bounties_create no payment needed");
+                return to_value(serde_json::json!({ "bounty": bounty }));
+            }
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+        log::debug!(
+            "{LOG_PREFIX} bounties_create 402 challenge network={:?} asset={:?} amount={:?}",
+            challenge.network,
+            challenge.asset,
+            challenge.amount,
+        );
+
+        // Unconfirmed: surface the challenge + balance, spend nothing.
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        // Confirmed: cluster guards, pay on-chain, re-create with the payment map.
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+        ensure_backend_mint_matches(&client).await?;
+
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("title".to_string(), request.title.clone());
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "bounties.create".to_string(),
+                nonce_prefix: "bounty".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        let mut funded_request = request.clone();
+        funded_request.payment = Some(fulfilled.payment_map.clone());
+
+        match settle_retry("bounties_create", || {
+            client.bounties.create(&funded_request)
+        })
+        .await
+        {
+            Ok(bounty) => to_value(serde_json::json!({
+                "bounty": bounty,
+                "payment": { "onChainTx": on_chain_tx },
+            })),
+            Err(SettleFailure::Hard(m)) => Err(format!(
+                "bounty creation failed after payment (onChainTx={on_chain_tx}): {m}"
+            )),
+            Err(SettleFailure::Exhausted(last)) => Err(format!(
+                "bounty paid but not confirmed in time (onChainTx={on_chain_tx}); last error: {last}"
+            )),
+        }
     })
 }
 

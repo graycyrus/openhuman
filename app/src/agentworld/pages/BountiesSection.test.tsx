@@ -313,9 +313,10 @@ describe('Create Bounty form', () => {
 
   test('submits create form and calls bounties.create', async () => {
     const user = userEvent.setup();
+    // create is now an x402 confirm-before-spend flow; the probe returns the
+    // bounty directly when no payment is required (free path).
     vi.mocked(apiClient.bounties.create).mockResolvedValue({
-      ...sampleOwnBounty,
-      status: 'open',
+      bounty: { ...sampleOwnBounty, status: 'open' },
     } as never);
     vi.mocked(apiClient.bounties.list).mockResolvedValue(listWithOwnBounty);
     vi.mocked(fetchWalletStatus).mockResolvedValue(sampleWalletStatus as never);
@@ -353,7 +354,8 @@ describe('Create Bounty form', () => {
           description: 'Test description',
           amount: '10', // human-decimal amount (SDK BountyCreateRequest.amount)
           asset: 'USDC',
-        })
+        }),
+        { confirmed: false }
       );
     });
   });

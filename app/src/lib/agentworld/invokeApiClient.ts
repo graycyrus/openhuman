@@ -1777,14 +1777,18 @@ export function createInvokeApiClient() {
       list: (params?: BountyQueryParams) =>
         call<BountyListResponse>('openhuman.tinyplace_bounties_list', { params: params ?? null }),
       get: (bountyId: string) => call<Bounty>('openhuman.tinyplace_bounties_get', { bountyId }),
-      create: (params: BountyCreateParams) =>
-        call<Bounty>('openhuman.tinyplace_bounties_create', {
+      /** Create a bounty via x402 confirm-before-spend (the reward is funded into
+       *  escrow at creation). confirmed:false returns the challenge (no spend);
+       *  confirmed:true pays and creates. */
+      create: (params: BountyCreateParams, opts?: { confirmed?: boolean }) =>
+        call<X402BuyResult>('openhuman.tinyplace_bounties_create', {
           title: params.title,
           description: params.description,
           amount: params.amount,
           asset: params.asset ?? null,
           deadline: params.deadline ?? null,
           durationDays: params.durationDays ?? null,
+          confirmed: opts?.confirmed ?? false,
         }),
       /** Fund a bounty via x402 confirm-before-spend. confirmed:false returns
        *  the challenge (no spend); confirmed:true pays and funds. */

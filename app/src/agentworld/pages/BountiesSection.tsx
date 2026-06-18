@@ -23,6 +23,8 @@ import {
   type BountyCreateParams,
   type BountyListResponse,
   type BountySubmission,
+  type RegistrationChallenge,
+  type RegistryWalletBalance,
 } from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
@@ -474,20 +476,30 @@ function CreateBountyModal({
   const [durationDays, setDurationDays] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Confirm-before-spend: creating a bounty funds the reward into escrow via
+  // x402, so the first submit probes for the challenge, then a confirm dialog
+  // pays and creates. `confirm` holds the probe result + the params to re-send.
+  const [confirm, setConfirm] = useState<{
+    params: BountyCreateParams;
+    challenge: RegistrationChallenge;
+    balance: RegistryWalletBalance | null;
+    walletAddress: string;
+  } | null>(null);
+  const [paying, setPaying] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Build the create params from the form, or null + set an error if invalid. */
+  function buildParams(): BountyCreateParams | null {
     if (!title.trim()) {
       setError('Title is required');
-      return;
+      return null;
     }
     if (!description.trim()) {
       setError('Description is required');
-      return;
+      return null;
     }
     if (!amount.trim() || isNaN(Number(amount)) || Number(amount) <= 0) {
       setError('Amount must be a positive number');
-      return;
+      return null;
     }
     // deadline and durationDays are alternatives — a <input type="date"> yields
     // "YYYY-MM-DD" but the backend wants an RFC3339 timestamp, so pin it to
@@ -495,31 +507,91 @@ function CreateBountyModal({
     const deadlineIso = deadline.trim() ? `${deadline.trim()}T23:59:59Z` : undefined;
     if (deadlineIso && new Date(deadlineIso).getTime() <= Date.now()) {
       setError('Deadline must be in the future');
-      return;
+      return null;
     }
-    setSubmitting(true);
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      // BountyCreateRequest.amount is a HUMAN-decimal amount (e.g. "5"), not base units.
+      amount: amount.trim(),
+      asset: asset.trim() || 'USDC',
+      deadline: deadlineIso,
+      durationDays: deadlineIso
+        ? undefined
+        : durationDays.trim()
+          ? Number(durationDays)
+          : undefined,
+    };
+  }
+
+  // Phase 1 — probe for the x402 challenge (no spend).
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
+    const params = buildParams();
+    if (!params) return;
+    setSubmitting(true);
     try {
-      const params: BountyCreateParams = {
-        title: title.trim(),
-        description: description.trim(),
-        // BountyCreateRequest.amount is a HUMAN-decimal amount (e.g. "5"), not base units.
-        amount: amount.trim(),
-        asset: asset.trim() || 'USDC',
-        deadline: deadlineIso,
-        durationDays: deadlineIso
-          ? undefined
-          : durationDays.trim()
-            ? Number(durationDays)
-            : undefined,
-      };
-      const bounty = await apiClient.bounties.create(params);
-      onCreated(bounty as unknown as Bounty);
+      const res = await apiClient.bounties.create(params, { confirmed: false });
+      if (res.challenge) {
+        setConfirm({
+          params,
+          challenge: res.challenge,
+          balance: res.walletBalance ?? null,
+          walletAddress: res.walletAddress ?? '',
+        });
+      } else if (res.bounty) {
+        onCreated(res.bounty as Bounty);
+      } else {
+        setError('Unexpected response from create.');
+      }
     } catch (err) {
       setError(String(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Phase 2 — pay on-chain + create (spends).
+  async function handleConfirm() {
+    if (!confirm) return;
+    setPaying(true);
+    setError(null);
+    try {
+      const res = await apiClient.bounties.create(confirm.params, { confirmed: true });
+      if (res.bounty) {
+        onCreated(res.bounty as Bounty);
+      } else {
+        setError('Bounty creation did not complete.');
+        setConfirm(null);
+      }
+    } catch (err) {
+      setError(String(err));
+      setConfirm(null);
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  // Confirm-before-spend dialog (shown after the probe returns a challenge).
+  if (confirm) {
+    return (
+      <X402ConfirmDialog
+        title="Create Bounty"
+        subtitle={`Fund "${confirm.params.title}" into escrow`}
+        amount={confirm.challenge.amount ?? '0'}
+        asset={confirm.challenge.asset ?? 'USDC'}
+        network={confirm.challenge.network}
+        balance={confirm.balance}
+        walletAddress={confirm.walletAddress}
+        busy={paying}
+        busyLabel="Broadcasting…"
+        onConfirm={() => void handleConfirm()}
+        onCancel={() => {
+          if (!paying) setConfirm(null);
+        }}
+      />
+    );
   }
 
   return (
