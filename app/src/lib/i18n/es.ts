@@ -3,6 +3,22 @@ import type { TranslationMap } from './types';
 // Spanish (Español) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'conversations.backgroundTasks.title': 'Background tasks',
+  'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
+  'conversations.backgroundTasks.running': '{count} running',
+  'conversations.backgroundTasks.noneRunning': 'none running',
+  'conversations.backgroundTasks.total': '{count} total',
+  'conversations.backgroundTasks.empty':
+    'No background tasks in this chat. Ask the assistant to do something in the background and it shows up here.',
+  'conversations.backgroundTasks.statusRunning': 'Running',
+  'conversations.backgroundTasks.statusDone': 'Done',
+  'conversations.backgroundTasks.statusFailed': 'Failed',
+  'conversations.backgroundTasks.statusNeedsYou': 'Needs you',
+  'conversations.backgroundTasks.toolCallOne': '{count} tool call',
+  'conversations.backgroundTasks.toolCallOther': '{count} tool calls',
+  'conversations.backgroundTasks.steps': '{count} steps',
+  'conversations.backgroundTasks.viewDetails': 'View details →',
+  'conversations.backgroundTasks.close': 'Close',
   'nav.home': 'Inicio',
   'nav.human': 'Humano',
   'nav.chat': 'Charla',
@@ -307,8 +323,7 @@ const messages: TranslationMap = {
   'home.greetingAfternoon': 'Buenas tardes',
   'home.greetingEvening': 'Buenas noches',
   'home.askAssistant': 'Pregúntale lo que quieras a tu asistente...',
-  'home.statusOk':
-    'Tu dispositivo está conectado. Mantén la app abierta para conservar la conexión. Envíale un mensaje a tu agente con el botón de abajo.',
+  'home.statusOk': 'Tu asistente está listo cuando tú lo estés. Escribe algo abajo para empezar.',
   'home.statusBackendOnly':
     'Reconectando al backend… tu agente estará disponible nuevamente en breve.',
   'home.statusCoreUnreachable':
@@ -355,6 +370,10 @@ const messages: TranslationMap = {
   'routines.typeCommand': 'Comando',
   'nav.routines': 'Routines',
   'chat.newThread': 'Nuevo hilo',
+  'chat.newConversation': 'Nueva conversación',
+  'chat.newWindowWelcome1': 'Hola, {name} 👋',
+  'chat.newWindowWelcome2': 'Manos a la obra, {name} 🧑‍🍳.',
+  'chat.newWindowWelcome3': 'Hora de concentrarse 🧘🏻',
   'chat.typeMessage': '¿En qué puedo ayudarte hoy?',
   'chat.send': 'Enviar mensaje',
   'chat.parallelBranchHint': 'Escribe una rama paralela — ⌘/Ctrl+Enter para enviar',
@@ -441,6 +460,9 @@ const messages: TranslationMap = {
   'memory.tab.agentWork': 'Trabajo del agente',
   'memory.tab.agentWorkDescription':
     'Un centro de mando para cada ejecución de agente en segundo plano, agrupado según lo que necesita tu intervención, lo que está en curso y lo que ha terminado.',
+  'memory.tab.worktrees': 'Worktrees',
+  'memory.tab.worktreesDescription':
+    'Worktrees de git aislados de los workers de agentes en paralelo: inspecciona los cambios, ábrelos o límpialos.',
   'memory.tab.teams': 'Equipos',
   'memory.tab.teamsDescription':
     'Equipos de agentes coordinados: quién se encarga de cada tarea, qué está bloqueado y qué se dicen los compañeros entre sí.',
@@ -1375,6 +1397,9 @@ const messages: TranslationMap = {
     'Reinstale este servidor con los valores sugeridos para aplicarlos: {keys}',
   'mcp.detail.connect': 'Conectar',
   'mcp.detail.connecting': 'Conectando...',
+  'mcp.detail.authenticate': 'Iniciar sesión',
+  'mcp.detail.authRequired':
+    'Este servidor necesita que inicies sesión o agregues un token de acceso antes de poder conectarse. Haz clic en “Iniciar sesión” para autenticarte.',
   'mcp.detail.disconnect': 'Desconectar',
   'mcp.detail.hideAssistant': 'Ocultar asistente',
   'mcp.detail.helpConfigure': 'Ayúdame a configurar',
@@ -1393,6 +1418,7 @@ const messages: TranslationMap = {
   'mcp.detail.enable': 'Habilitar',
   'mcp.detail.disable': 'Deshabilitar',
   'mcp.status.disabled': 'Deshabilitado',
+  'mcp.status.unauthorized': 'Inicio de sesión necesario',
   'mcp.detail.tools': 'Herramientas',
   'mcp.connectAuth.title': 'Conectar {name}',
   'mcp.connectAuth.hint':
@@ -2941,8 +2967,7 @@ const messages: TranslationMap = {
   'home.banners.earlyBirdTitle': 'Los primeros 1.000 usuarios obtienen un 60% de descuento.',
   'home.banners.earlyBirdUseCode': 'Usar código early bird',
   'home.banners.getSubscription': 'obtener una suscripción',
-  'home.banners.promoCreditsBody': 'Cuerpo de créditos promocionales',
-  'home.banners.promoCreditsTitle': '{amount}',
+  'home.banners.promoCreditsBody': 'Tienes {amount} en créditos promocionales. Puedes',
   'home.banners.promoCreditsUsage': 'Uso de créditos promocionales',
   'intelligence.memoryChunk.detail.chunk': 'Fragmento',
   'intelligence.memoryChunk.detail.copyChunkId': 'Copiar ID de fragmento',
@@ -3078,6 +3103,42 @@ const messages: TranslationMap = {
   'intelligence.agentWork.kind.workflowChild': 'Hijo de flujo de trabajo',
   'intelligence.agentWork.openThread': 'Abrir hilo',
   'intelligence.agentWork.openWorker': 'Abrir trabajador',
+  'worktree.label': 'Worktree',
+  'worktree.dirty': 'Cambios sin confirmar',
+  'worktree.clean': 'Limpio',
+  'worktree.changedFile': 'archivo modificado',
+  'worktree.changedFiles': 'archivos modificados',
+  'worktree.removing': 'Eliminando…',
+  'worktree.removeFailed': 'No se pudo eliminar el worktree',
+  'worktree.diffFailed': 'No se pudo cargar el diff',
+  'worktree.diffLoading': 'Cargando diff…',
+  'worktree.diffEmpty': 'Sin cambios respecto a HEAD.',
+  'worktree.dirtyConfirm':
+    'Este worktree tiene cambios sin confirmar. Eliminarlo descarta ese trabajo. La rama del worker se conserva.',
+  'worktree.action.open': 'Abrir carpeta',
+  'worktree.action.diff': 'Diff',
+  'worktree.action.hideDiff': 'Ocultar diff',
+  'worktree.action.remove': 'Eliminar',
+  'worktree.action.removeAnyway': 'Descartar y eliminar',
+  'worktree.action.preserve': 'Conservar',
+  'worktree.panel.subtitle':
+    'Worktrees de git aislados creados por workers de agentes en paralelo.',
+  'worktree.panel.loading': 'Cargando worktrees…',
+  'worktree.panel.failedToLoad': 'No se pudieron cargar los worktrees',
+  'worktree.panel.empty':
+    'No hay worktrees aislados. Los workers en paralelo con aislamiento de worktree aparecerán aquí.',
+  'worktree.panel.overlapsTitle': 'Cambios superpuestos',
+  'worktree.panel.overlapHint':
+    'Estos archivos fueron modificados por más de un worktree: concilia antes de fusionar.',
+  'intelligence.agentWork.action.stop': 'Detener',
+  'intelligence.agentWork.action.retry': 'Reintentar',
+  'intelligence.agentWork.action.continue': 'Continuar',
+  'intelligence.agentWork.action.followUp': 'Hacer seguimiento',
+  'intelligence.agentWork.action.send': 'Enviar',
+  'intelligence.agentWork.action.cancel': 'Cancelar',
+  'intelligence.agentWork.action.continuePlaceholder': 'Responde para desbloquear este agente…',
+  'intelligence.agentWork.action.followUpPlaceholder': 'Envía una instrucción de seguimiento…',
+  'intelligence.agentWork.action.failed': 'La acción falló',
   'intelligence.teams.subtitle': 'Equipos de agentes coordinados y las tareas que comparten.',
   'intelligence.teams.loading': 'Cargando equipos…',
   'intelligence.teams.failedToLoad': 'Error al cargar los equipos',
@@ -3111,6 +3172,16 @@ const messages: TranslationMap = {
   'intelligence.teams.activity.title': 'Actividad del equipo',
   'intelligence.teams.activity.empty': 'Aún no hay mensajes',
   'intelligence.teams.activity.toTeam': 'equipo',
+  'intelligence.teams.member.start': 'Iniciar',
+  'intelligence.teams.composer.placeholder': 'Mensaje a un compañero…',
+  'intelligence.teams.composer.send': 'Enviar',
+  'intelligence.teams.composer.recipient': 'Destinatario',
+  'intelligence.teams.composer.toTeam': 'Todo el equipo',
+  'intelligence.teams.action.blocked': 'Esperando dependencias',
+  'intelligence.teams.action.alreadyClaimed': 'Ya reclamada por otro compañero',
+  'intelligence.teams.action.alreadyActive': 'El compañero ya está en ejecución',
+  'intelligence.teams.action.noClaimableTask': 'No hay tarea lista para este compañero',
+  'intelligence.teams.action.unknownTask': 'Tarea no encontrada',
   'intelligence.refine.objectiveDefault':
     'Convierte la tarea de origen en una tarea de agente lista para implementar: {title}',
   'intelligence.refine.sourceLine': 'Origen: {url}',
@@ -3138,6 +3209,11 @@ const messages: TranslationMap = {
   'notifications.center.filterAll': 'Filtrar todo',
   'notifications.center.markAllRead': 'Marcar todo como leído',
   'notifications.center.title': 'Notificaciones',
+  'notifications.meeting.joinListen': 'Unirse (solo escuchar)',
+  'notifications.meeting.joinActive': 'Unirse y responder',
+  'notifications.meeting.skip': 'Esta no',
+  'notifications.meeting.alwaysJoin': 'Unirse siempre',
+  'notifications.meeting.actionError': 'No se pudo completar esa acción. Inténtalo de nuevo.',
   'oauth.button.connecting': 'Conectando...',
   'oauth.button.loopbackTimeout':
     'El inicio de sesión expiró — el navegador no completó la redirección OAuth. Por favor, inténtalo de nuevo.',
@@ -3386,6 +3462,7 @@ const messages: TranslationMap = {
   'settings.ai.endpointUrlRequired': 'Se requiere el punto final URL.',
   'settings.ai.endpointProtocolRequired': 'El punto final debe comenzar con http:// o https://.',
   'settings.ai.connectProviderDialog': 'Conectar {label}',
+  'settings.ai.getProviderApiKey': 'Obtener API Key',
   'settings.ai.or': 'O',
   'settings.ai.codexOauthMissingAuthUrl':
     'Codex OAuth no devolvió una URL de autorización. Intenta iniciar sesión de nuevo.',
@@ -4282,6 +4359,32 @@ const messages: TranslationMap = {
   'settings.permissions.foldersDesc':
     'La carpeta predeterminada que el asistente lee y escribe. Puedes añadir más carpetas en los ajustes avanzados.',
 
+  'settings.meetings.title': 'Reuniones',
+  'settings.meetings.menuDesc':
+    'Auto-unión, resúmenes y transcripciones del Asistente de reuniones',
+  'settings.meetings.desktopOnly':
+    'Los ajustes de reuniones solo están disponibles en el escritorio.',
+  'settings.meetings.loading': 'Cargando…',
+  'settings.meetings.loadError': 'No se pudieron cargar los ajustes de reuniones.',
+  'settings.meetings.saveError': 'No se pudieron guardar los ajustes de reuniones.',
+  'settings.meetings.saved': 'Guardado',
+  'settings.meetings.saving': 'Guardando…',
+  'settings.meetings.autoJoin.title': 'Política de auto-unión',
+  'settings.meetings.autoJoin.desc':
+    'Cuando un evento del calendario tiene un enlace de Google Meet',
+  'settings.meetings.autoJoin.askEachTime': 'Preguntar cada vez',
+  'settings.meetings.autoJoin.always': 'Unirse siempre',
+  'settings.meetings.autoJoin.never': 'No unirse nunca',
+  'settings.meetings.autoSummarize.title': 'Resumen tras la llamada',
+  'settings.meetings.autoSummarize.desc': 'Generar un resumen al terminar la llamada',
+  'settings.meetings.autoSummarize.ask': 'Preguntar tras la llamada',
+  'settings.meetings.autoSummarize.always': 'Resumir siempre',
+  'settings.meetings.autoSummarize.never': 'No resumir nunca',
+  'settings.meetings.listenOnly': 'Modo solo escucha',
+  'settings.meetings.listenOnlyDesc': 'Unirse con el micrófono silenciado',
+  'settings.meetings.ingestTranscripts': 'Ingerir transcripciones del backend',
+  'settings.meetings.ingestTranscriptsDesc':
+    'Guardar las transcripciones de reuniones en la memoria',
   'settings.sandbox.title': 'Ejecución en sandbox',
   'settings.sandbox.menuDesc':
     'Configurar backends de sandbox para el aislamiento de herramientas del agente.',
@@ -4462,6 +4565,19 @@ const messages: TranslationMap = {
     'Ventana de memoria más pequeña. La más barata, rápida y con menor continuidad entre ejecuciones.',
   'settings.memoryWindow.minimal.label': 'Mínimo',
   'settings.memoryWindow.title': 'Ventana de memoria a largo plazo',
+  'settings.agentbox.title': 'AgentBox',
+  'settings.agentbox.desc':
+    'Estado del adaptador del mercado de GMI Cloud y configuración del proveedor',
+  'settings.agentbox.intro':
+    'Estado de solo lectura del adaptador del mercado AgentBox. El modo y el proveedor GMI MaaS se establecen mediante variables de entorno al iniciar el núcleo.',
+  'settings.agentbox.modeLabel': 'Modo del mercado',
+  'settings.agentbox.providerHeading': 'Proveedor GMI MaaS',
+  'settings.agentbox.slug': 'Identificador del proveedor',
+  'settings.agentbox.baseUrl': 'URL base',
+  'settings.agentbox.model': 'Modelo',
+  'settings.agentbox.notConfigured':
+    'Sin configurar. Establece las variables de entorno GMI_MAAS_BASE_URL, GMI_MAAS_API_KEY y GMI_MODELS.',
+  'settings.agentbox.unavailable': 'Estado de AgentBox no disponible',
   'settings.modelHealth.title': 'Salud del modelo',
   'settings.modelHealth.desc':
     'Comparación por modelo de calidad, tasa de alucinaciones y costo entre los modelos activos',
@@ -4670,6 +4786,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.recentCallsEmpty':
     'Aún no hay llamadas anteriores — tu historial de reuniones aparecerá aquí.',
   'skills.meetingBots.recentCallsLoading': 'Cargando\u2026',
+  'skills.meetingBots.recentCallAddedBy': 'Añadido por {name}',
+  'skills.meetingBots.recentCallParticipants': 'Con {names}',
   'skills.meetingBots.liveBadge': 'En vivo',
   'skills.meetingBots.liveTitle': 'En reunión',
   'skills.meetingBots.liveStatusJoining': 'Uniéndose\u2026',
@@ -4686,6 +4804,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.wakePhraseHint': 'Hey OpenHuman',
   'skills.meetingBots.wakePhraseDesc':
     'El participante debe decir esto antes de que el bot responda.',
+  'skills.meetingBots.activeMode': 'Responder cuando me dirija a él',
+  'skills.meetingBots.activeModeDesc':
+    'Si está activado, el bot responde en voz alta después de que digas su frase de activación. Si está desactivado, solo escucha y transcribe.',
   'skills.resource.preview.closeAriaLabel': 'Cerrar vista previa',
   'skills.resource.preview.failed': 'Vista previa fallida',
   'skills.resource.preview.loading': 'Cargando vista previa…',
@@ -5412,6 +5533,8 @@ const messages: TranslationMap = {
     'El modelo de extracción de memoria está agotando el tiempo de espera, por lo que la wiki tiene poca estructura. Cambia el modelo de extracción de memoria por uno más rápido en Configuración → IA.',
   'memory.health.remediation.summarizer_unavailable':
     'No hay ningún proveedor de resúmenes disponible para Crear árboles de resumen. Activa la IA local (Ollama) o activa el resumen en la nube en Configuración → IA → Memoria.',
+  'memory.health.remediation.empty_input_refused':
+    'Se omitió un elemento de memoria porque su texto estaba vacío. No se requiere ninguna acción — los elementos nuevos siguen incrustándose con normalidad.',
   'memory.health.remediation.transient':
     'Un error temporal interrumpió el procesamiento de la memoria. Se reintentará automáticamente.',
   'memory.health.remediation.unknown':
@@ -5583,6 +5706,56 @@ const messages: TranslationMap = {
   'notch.speaking': 'Hablando…',
   'notch.transcribing': 'Transcribiendo…',
   'notch.executing': 'Ejecutando…',
+  'memory.tab.orchestration': 'Orquestación',
+  'memory.tab.orchestrationDescription':
+    'Ejecuta flujos de trabajo con múltiples agentes: distribuye una pregunta entre agentes paralelos, contrasta sus hallazgos y observa cómo cada fase culmina en una única respuesta sintetizada.',
+  'orchestration.subtitle':
+    'Inicia un flujo de trabajo con múltiples agentes, observa el avance de sus fases y lee el resultado sintetizado.',
+  'orchestration.loading': 'Cargando flujos de trabajo…',
+  'orchestration.failedToLoad': 'No se pudieron cargar los flujos de trabajo',
+  'orchestration.definitions': 'Flujos de trabajo disponibles',
+  'orchestration.noDefinitions': 'No hay definiciones de flujos de trabajo disponibles.',
+  'orchestration.approvalRequired': 'Aprobación requerida',
+  'orchestration.start': 'Iniciar',
+  'orchestration.confirmStart': 'Iniciar ejecución',
+  'orchestration.starting': 'Iniciando…',
+  'orchestration.questionLabel': 'Pregunta de investigación (opcional)',
+  'orchestration.questionPlaceholder': '¿Qué deben investigar los agentes?',
+  'orchestration.runProgress': 'Progreso de la ejecución',
+  'orchestration.recentRuns': 'Ejecuciones recientes',
+  'orchestration.noRuns': 'Aún no hay ejecuciones de flujos de trabajo.',
+  'orchestration.close': 'Cerrar',
+  'orchestration.tier.readOnly': 'Solo lectura',
+  'orchestration.tier.standard': 'Estándar',
+  'orchestration.tier.editCapable': 'Con capacidad de edición',
+  'orchestration.approval.title': 'Aprobar esta ejecución del flujo de trabajo',
+  'orchestration.approval.body':
+    'Esta es una ejecución de alto costo o alta concurrencia y necesita tu aprobación explícita antes de iniciar:',
+  'orchestration.approval.reason.tier':
+    'Sus agentes pueden realizar acciones más allá de la investigación de solo lectura.',
+  'orchestration.approval.reason.concurrency': 'Ejecuta muchos agentes al mismo tiempo.',
+  'orchestration.approval.reason.children': 'Puede generar una gran cantidad de agentes en total.',
+  'orchestration.approval.tier': 'Nivel de seguridad',
+  'orchestration.approval.concurrency': 'Concurrencia',
+  'orchestration.approval.maxChildren': 'Máx. de agentes',
+  'orchestration.approval.approve': 'Aprobar e iniciar',
+  'orchestration.approval.starting': 'Iniciando…',
+  'orchestration.approval.cancel': 'Cancelar',
+  'orchestration.runStatus.pending': 'Pendiente',
+  'orchestration.runStatus.running': 'En ejecución',
+  'orchestration.runStatus.completed': 'Completada',
+  'orchestration.runStatus.failed': 'Fallida',
+  'orchestration.runStatus.cancelled': 'Cancelada',
+  'orchestration.runStatus.interrupted': 'Interrumpida',
+  'orchestration.phaseStatus.pending': 'Pendiente',
+  'orchestration.phaseStatus.running': 'En ejecución',
+  'orchestration.phaseStatus.completed': 'Completada',
+  'orchestration.phaseStatus.failed': 'Fallida',
+  'orchestration.detail.stop': 'Detener',
+  'orchestration.detail.resume': 'Reanudar',
+  'orchestration.detail.agents': 'agentes',
+  'orchestration.detail.childRefs': 'Agentes secundarios',
+  'orchestration.detail.synthesis': 'Síntesis final',
   // ── Agent Profiles ───────────────────────────────────────────────────────
   'settings.profiles.title': 'Perfiles de agente',
   'settings.profiles.subtitle':

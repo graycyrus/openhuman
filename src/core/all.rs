@@ -106,6 +106,8 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     let mut controllers = Vec::new();
     // Application information and capabilities
     controllers.extend(crate::openhuman::about_app::all_about_app_registered_controllers());
+    // AgentBox marketplace adapter status
+    controllers.extend(crate::openhuman::agentbox::all_agentbox_registered_controllers());
     // Core application shell state
     controllers.extend(crate::openhuman::app_state::all_app_state_registered_controllers());
     // Audio generation + podcast-style email delivery
@@ -304,6 +306,9 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Durable agent-team coordination — teams, members, dependency-aware task claiming, messaging
     controllers
         .extend(crate::openhuman::agent_orchestration::all_agent_team_registered_controllers());
+    // Git-worktree isolation manager — list / status / diff / remove worker worktrees (#3376)
+    controllers
+        .extend(crate::openhuman::agent_orchestration::all_worktree_registered_controllers());
     controllers
 }
 
@@ -332,6 +337,7 @@ fn build_internal_only_controllers() -> Vec<RegisteredController> {
 fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     let mut schemas = Vec::new();
     schemas.extend(crate::openhuman::about_app::all_about_app_controller_schemas());
+    schemas.extend(crate::openhuman::agentbox::all_agentbox_controller_schemas());
     schemas.extend(crate::openhuman::app_state::all_app_state_controller_schemas());
     schemas.extend(crate::openhuman::audio_toolkit::all_audio_toolkit_controller_schemas());
     schemas.extend(crate::openhuman::composio::all_composio_controller_schemas());
@@ -440,6 +446,8 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::agent_orchestration::all_workflow_run_controller_schemas());
     // Durable agent-team coordination
     schemas.extend(crate::openhuman::agent_orchestration::all_agent_team_controller_schemas());
+    // Git-worktree isolation manager (#3376)
+    schemas.extend(crate::openhuman::agent_orchestration::all_worktree_controller_schemas());
     schemas
 }
 
@@ -465,6 +473,7 @@ pub fn rpc_method_name(schema: &ControllerSchema) -> String {
 pub fn namespace_description(namespace: &str) -> Option<&'static str> {
     match namespace {
         "about_app" => Some("Catalog the app's user-facing capabilities and where to find them."),
+        "agentbox" => Some("AgentBox marketplace adapter status — mode flag and GMI MaaS provider wiring."),
         "ai" => Some("Agent-generated artifact storage, retrieval, and lifecycle management."),
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
         "auth" => Some("Manage app session and provider credentials."),

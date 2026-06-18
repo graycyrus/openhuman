@@ -132,6 +132,31 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     error = %redacted,
                     "[rpc] transient downstream failure — not reporting to Sentry (message redacted)"
                 );
+            } else if let Some(unknown_method) =
+                crate::core::dispatch::unknown_method_name(&display_message)
+            {
+                // An unrecognised RPC method is a transport-boundary mismatch
+                // (infra probe traffic, or a client on a different release than
+                // the running core), not an actionable core defect (#3567).
+                // Known external probes never become real methods, so they are
+                // debug-only and never reach Sentry; any other unknown method
+                // is still recorded for triage but at warn severity (captured,
+                // no page) rather than an error event. Either way the JSON-RPC
+                // method-not-found response to the caller below is unchanged.
+                if crate::core::dispatch::is_known_probe_method(unknown_method) {
+                    tracing::debug!(
+                        method = %method,
+                        elapsed_ms = ms as u64,
+                        "[rpc] unknown probe/legacy method (allow-listed) — debug only, not reporting to Sentry"
+                    );
+                } else {
+                    crate::core::observability::report_warning_message(
+                        display_message.as_str(),
+                        "rpc",
+                        "invoke_method",
+                        &[("method", method.as_str()), ("elapsed_ms", &ms.to_string())],
+                    );
+                }
             } else {
                 crate::core::observability::report_error_or_expected(
                     display_message.as_str(),
@@ -1025,7 +1050,7 @@ const MAX_RPC_BODY_BYTES: usize = 64 * 1024 * 1024;
 /// 2. `rpc_auth_middleware`   — validates `Authorization: Bearer <token>` on protected paths
 /// 3. `http_request_log_middleware` — logs non-RPC HTTP requests with timing
 pub fn build_core_http_router(socketio_enabled: bool) -> Router {
-    let router = Router::new()
+    let mut router = Router::new()
         .route("/", get(root_handler))
         .route("/health", get(health_handler))
         .route("/schema", get(schema_handler))
@@ -1052,13 +1077,55 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         .route("/oauth/mcp/callback", get(oauth_mcp_callback_handler))
         // OpenAI-compatible inference endpoint (/v1/chat/completions, /v1/models)
         .nest("/v1", crate::openhuman::inference::http::router())
-        .fallback(not_found_handler)
-        .layer(middleware::from_fn(http_request_log_middleware))
-        .layer(middleware::from_fn(crate::core::auth::rpc_auth_middleware))
-        .layer(middleware::from_fn(cors_middleware))
+        // Apply `AppState` here (before any state-less sub-routers such as
+        // AgentBox are merged below) so the outer router becomes
+        // `Router<()>` and matches them.
         .with_state(AppState {
             core_version: env!("CARGO_PKG_VERSION").to_string(),
         });
+
+    // Mount AgentBox marketplace routes when explicitly enabled.
+    //
+    // Gate is strict literal "1" — "true"/"yes"/etc. do NOT enable it. Auth
+    // bypass for `/run` and `/jobs/{id}` is unconditional in
+    // [`crate::core::auth`]; the router-side gate is what actually exposes
+    // the handlers. The spawned sweep loop lives until process exit.
+    if crate::openhuman::agentbox::agentbox_mode_enabled() {
+        let store = crate::openhuman::agentbox::JobStore::new(std::time::Duration::from_secs(3600));
+        let invoker: std::sync::Arc<dyn crate::openhuman::agentbox::invoker::AgentInvoker> =
+            std::sync::Arc::new(crate::openhuman::agentbox::invoker::CoreAgentInvoker);
+        let job_timeout = std::env::var("OPENHUMAN_AGENTBOX_JOB_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(std::time::Duration::from_secs)
+            .unwrap_or_else(|| std::time::Duration::from_secs(600));
+
+        // Spawn sweep loop — bounds memory under sustained traffic.
+        let sweep_store = store.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tick.tick().await;
+                let evicted = sweep_store.sweep_now();
+                if evicted > 0 {
+                    log::info!("[agentbox] sweep evicted {} terminal jobs", evicted);
+                }
+            }
+        });
+
+        log::info!("[agentbox] enabled; public routes: POST /run, GET /jobs/{{id}}, GET /health");
+        router = router.merge(crate::openhuman::agentbox::agentbox_router(
+            store,
+            invoker,
+            job_timeout,
+        ));
+    }
+
+    let router = router
+        .fallback(not_found_handler)
+        .layer(middleware::from_fn(http_request_log_middleware))
+        .layer(middleware::from_fn(crate::core::auth::rpc_auth_middleware))
+        .layer(middleware::from_fn(cors_middleware));
 
     if socketio_enabled {
         let (socket_layer, io) = crate::core::socketio::attach_socketio();
@@ -1623,6 +1690,13 @@ async fn run_server_inner(
     // a no-op if already called (e.g. from run_core_from_args for CLI).
     crate::openhuman::keyring::init_master_key();
 
+    // AgentBox GMI MaaS provider bridge — no-op when env vars absent.
+    // Must run BEFORE `build_core_http_router` mounts the AgentBox routes so
+    // that by the time `/run` accepts traffic the inference catalog already
+    // knows about `"gmi-maas"`. Never panics; missing/blank env vars log a
+    // warning and leave the core booting in degraded mode.
+    crate::openhuman::agentbox::register_gmi_provider_if_present();
+
     // Initialize the per-process RPC bearer token.
     //
     // Preferred path (in-process core spawned by the Tauri shell): the caller
@@ -1686,6 +1760,17 @@ async fn run_server_inner(
                     ),
                     Err(e) => log::warn!("[boot] memory::global init failed: {e}"),
                 }
+                // Install the on-disk image-attachment sidecar dir so inbound
+                // image markers persist under <workspace>/attachments/ instead
+                // of an in-memory FIFO (survives restarts + delegation hops).
+                // Also fires a best-effort stale-file sweep.
+                crate::openhuman::agent::multimodal::init_attachments_dir(
+                    cfg.workspace_dir.join("attachments"),
+                );
+                log::info!(
+                    "[boot] image attachments sidecar dir = {}",
+                    cfg.workspace_dir.join("attachments").display()
+                );
                 // Initialize the WhatsApp data store so scanner ingest calls
                 // can write data without requiring a lazy-init fallback.
                 match crate::openhuman::whatsapp_data::global::init(cfg.workspace_dir.clone()) {
@@ -2184,6 +2269,11 @@ fn register_domain_subscribers(
         // The agent `agent.run_turn` handler is what channel dispatch
         // calls instead of importing `run_tool_call_loop` directly.
         crate::openhuman::agent::bus::register_agent_handlers();
+
+        // Background-completion delivery: when a detached sub-agent
+        // (spawn_async_subagent) finishes, surface its result back into the
+        // originating chat as an idle-gated, batched, system-injected turn.
+        crate::openhuman::agent_orchestration::background_delivery::register_background_delivery();
 
         // MCP clients lifecycle subscriber: logs McpServer{Installed,Connected,
         // Disconnected} + McpClientToolExecuted for observability. The boot-time

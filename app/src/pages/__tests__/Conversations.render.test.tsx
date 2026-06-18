@@ -13,6 +13,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import { threadApi } from '../../services/api/threadApi';
 import { chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
@@ -127,6 +128,11 @@ vi.mock('../../services/api/openrouterFreeModels', () => ({
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
+// The new-window hero pulls useUser/useCoreState; stub it so the page renders
+// without a CoreStateProvider (these tests assert the sidebar/composer, not the
+// empty-state hero).
+vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
+
 vi.mock('../../store/socketSelectors', () => ({
   selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
     state.socket?.byUser?.__pending__?.status ?? 'disconnected',
@@ -202,7 +208,12 @@ async function renderConversations(preload: Record<string, unknown> = {}) {
   render(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/conversations']}>
-        <Conversations />
+        {/* The thread sidebar is projected into the root sidebar slot, so the
+            page needs a provider + outlet for that portal to mount in tests. */}
+        <SidebarSlotProvider>
+          <SidebarSlotOutlet />
+          <Conversations />
+        </SidebarSlotProvider>
       </MemoryRouter>
     </Provider>
   );
@@ -210,12 +221,9 @@ async function renderConversations(preload: Record<string, unknown> = {}) {
   return store;
 }
 
-/** Click the sidebar toggle so the thread list becomes visible. */
+/** The thread sidebar is always projected now (no toggle); just flush effects. */
 async function openSidebar() {
-  const toggleBtn = screen.getByTitle('Show sidebar');
-  await act(async () => {
-    fireEvent.click(toggleBtn);
-  });
+  await act(async () => {});
 }
 
 // Default empty state
@@ -326,28 +334,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await openSidebar();
 
     expect(screen.getByText('General')).toBeInTheDocument();
-  });
-
-  it('restores and updates the persisted thread sidebar visibility', async () => {
-    let renderedStore: ReturnType<typeof buildStore> | undefined;
-    await act(async () => {
-      renderedStore = await renderConversations({
-        thread: emptyThreadState,
-        // Sidebar visibility now lives in the reusable `layout` slice (id `chat`).
-        layout: { panels: { chat: { sidebarVisible: true, sidebarWidth: 256 } } },
-      });
-    });
-
-    expect(screen.getByText('General')).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(screen.getByTitle('Hide sidebar'));
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByText('General')).not.toBeInTheDocument();
-    });
-    expect(renderedStore?.getState().layout.panels.chat.sidebarVisible).toBe(false);
   });
 
   // Covers line 941 empty branch
@@ -1371,7 +1357,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(screen.queryByRole('tab', { name: 'Briefing' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Notification' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Workers' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tablist')).toHaveClass('flex-wrap');
+    expect(screen.getByRole('tablist')).toHaveClass('flex-nowrap');
   });
 
   it('starts with the "General" tab selected', async () => {
@@ -1557,9 +1543,19 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
   // toolbar (#3611) — those tests removed; the pill no longer renders here.
 });
 
-describe('Conversations — thread title editing', () => {
+// #3717 (Bug 2) — A single logical assistant turn can be persisted as multiple
+// agent ThreadMessages. The "Agentic task insights" panel used to be anchored
+// inside the per-message map, immediately before the LAST agent message, which
+// dropped it BETWEEN the earlier agent content and the final message — splitting
+// one response into two disconnected chunks. The panel (and the "View full agent
+// process" button) are now hoisted out of the map so they render exactly once,
+// AFTER the complete response, regardless of how many agent messages the turn
+// produced.
+describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
+    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
     mockUseUsageState.mockReturnValue({
       teamUsage: null,
       currentPlan: null,
@@ -1573,120 +1569,104 @@ describe('Conversations — thread title editing', () => {
       isLoading: false,
       refresh: vi.fn(),
     });
-    mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
   });
 
-  it('shows pencil icon on hover and enters edit mode on click', async () => {
-    const thread = makeThread({ id: 'edit-title-thread', title: 'Original Title' });
+  it('renders the insights panel exactly once, after the last agent message of a multi-message turn', async () => {
+    const thread = makeThread({ id: 'multi-agent-thread', title: 'Multi-message turn' });
+    // One logical assistant turn persisted as TWO agent ThreadMessages.
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Plan and then summarize.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent-1',
+        sender: 'agent',
+        type: 'text',
+        content: 'First part of the answer.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+      {
+        id: 'm-agent-2',
+        sender: 'agent',
+        type: 'text',
+        content: 'Second part of the answer.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:02:00.000Z',
+      },
+    ];
     mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
 
+    let store: ReturnType<typeof buildStore> | undefined;
     await act(async () => {
-      await renderConversations({
-        thread: selectedThreadState(thread),
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
         socket: socketState('connected'),
       });
     });
 
-    expect(screen.getByText('Original Title')).toBeInTheDocument();
-
-    const editBtn = screen.getByRole('button', { name: 'Edit thread title' });
-    expect(editBtn).toBeInTheDocument();
-
+    // Seed the tool timeline after mount settles (mount-time turn-state
+    // hydration would otherwise clobber a preloaded timeline). Include a
+    // running subagent row so the panel exposes its "view full processing"
+    // affordance (drives the onViewSubagent callback below).
+    await screen.findByText('Second part of the answer.');
     await act(async () => {
-      fireEvent.mouseDown(editBtn);
+      store!.dispatch(
+        setToolTimelineForThread({
+          threadId: thread.id,
+          entries: [
+            { id: 'tl-1', name: 'web_fetch', round: 1, status: 'success' },
+            {
+              id: 'sa-1',
+              name: 'subagent:researcher',
+              round: 1,
+              status: 'running',
+              subagent: { taskId: 'task-1', agentId: 'researcher', toolCalls: [] },
+            },
+          ],
+        })
+      );
     });
 
-    const input = screen.getByRole('textbox', { name: 'Edit thread title' });
-    expect(input).toBeInTheDocument();
-    expect(input).toHaveValue('Original Title');
-  });
+    // Panel renders once — not once per agent message.
+    const panels = await screen.findAllByTestId('agent-task-insights');
+    expect(panels).toHaveLength(1);
+    const panel = panels[0];
 
-  it('commits edited title on Enter and dispatches updateThreadTitle', async () => {
-    const thread = makeThread({ id: 'commit-title-thread', title: 'Old Title' });
-    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
-    (threadApi.updateTitle as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ...thread,
-      title: 'New Title',
-    });
+    // The "View full agent process" button is hoisted alongside it — also once.
+    expect(screen.getAllByTestId('view-process-source')).toHaveLength(1);
 
+    // DOM order: the panel must follow the LAST agent message's content, never
+    // sit between the two agent bubbles.
+    const lastAgentText = screen.getByText('Second part of the answer.');
+    const firstAgentText = screen.getByText('First part of the answer.');
+    expect(lastAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(firstAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+
+    // Exercise the hoisted button: opens the "Agent Process Source" panel.
     await act(async () => {
-      await renderConversations({
-        thread: selectedThreadState(thread),
-        socket: socketState('connected'),
-      });
+      fireEvent.click(screen.getByTestId('view-process-source'));
     });
 
-    const editBtn = screen.getByRole('button', { name: 'Edit thread title' });
+    // Exercise onViewSubagent: clicking the subagent row's "view full
+    // processing" affordance opens the subagent drawer for that task.
     await act(async () => {
-      fireEvent.mouseDown(editBtn);
+      fireEvent.click(screen.getByTestId('subagent-view-processing'));
     });
-
-    const input = screen.getByRole('textbox', { name: 'Edit thread title' });
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'New Title' } });
-    });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
-    });
-
-    await waitFor(() => {
-      expect(threadApi.updateTitle).toHaveBeenCalledWith('commit-title-thread', 'New Title');
-    });
-  });
-
-  it('cancels editing on Escape without dispatching', async () => {
-    const thread = makeThread({ id: 'cancel-title-thread', title: 'Keep Me' });
-    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
-
-    await act(async () => {
-      await renderConversations({
-        thread: selectedThreadState(thread),
-        socket: socketState('connected'),
-      });
-    });
-
-    const editBtn = screen.getByRole('button', { name: 'Edit thread title' });
-    await act(async () => {
-      fireEvent.click(editBtn);
-    });
-
-    const input = screen.getByLabelText('Edit thread title');
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'Changed' } });
-    });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Escape' });
-    });
-
-    expect(screen.getByText('Keep Me')).toBeInTheDocument();
-    expect(threadApi.updateTitle).not.toHaveBeenCalled();
-  });
-
-  it('does not dispatch when title is empty after trim', async () => {
-    const thread = makeThread({ id: 'empty-title-thread', title: 'Has Title' });
-    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
-
-    await act(async () => {
-      await renderConversations({
-        thread: selectedThreadState(thread),
-        socket: socketState('connected'),
-      });
-    });
-
-    const editBtn = screen.getByRole('button', { name: 'Edit thread title' });
-    await act(async () => {
-      fireEvent.click(editBtn);
-    });
-
-    const input = screen.getByLabelText('Edit thread title');
-    await act(async () => {
-      fireEvent.change(input, { target: { value: '   ' } });
-    });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
-    });
-
-    expect(threadApi.updateTitle).not.toHaveBeenCalled();
   });
 });
 
