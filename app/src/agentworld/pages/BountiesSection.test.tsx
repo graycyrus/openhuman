@@ -351,7 +351,7 @@ describe('Create Bounty form', () => {
         expect.objectContaining({
           title: 'Test bounty title',
           description: 'Test description',
-          amount: '10000000', // 10 USDC in base units
+          amount: '10', // human-decimal amount (SDK BountyCreateRequest.amount)
           asset: 'USDC',
         })
       );

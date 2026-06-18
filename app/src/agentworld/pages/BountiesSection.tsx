@@ -489,22 +489,29 @@ function CreateBountyModal({
       setError('Amount must be a positive number');
       return;
     }
+    // deadline and durationDays are alternatives — a <input type="date"> yields
+    // "YYYY-MM-DD" but the backend wants an RFC3339 timestamp, so pin it to
+    // end-of-day UTC. Send only one of the two (deadline wins when set).
+    const deadlineIso = deadline.trim() ? `${deadline.trim()}T23:59:59Z` : undefined;
+    if (deadlineIso && new Date(deadlineIso).getTime() <= Date.now()) {
+      setError('Deadline must be in the future');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      // Convert human amount to base units (e.g. 5 USDC -> "5000000")
-      const decimals = decimalsForAsset(asset);
-      const baseUnits =
-        decimals > 0
-          ? String(Math.round(Number(amount) * Math.pow(10, decimals)))
-          : String(Math.round(Number(amount)));
       const params: BountyCreateParams = {
         title: title.trim(),
         description: description.trim(),
-        amount: baseUnits,
+        // BountyCreateRequest.amount is a HUMAN-decimal amount (e.g. "5"), not base units.
+        amount: amount.trim(),
         asset: asset.trim() || 'USDC',
-        deadline: deadline.trim() || undefined,
-        durationDays: durationDays.trim() ? Number(durationDays) : undefined,
+        deadline: deadlineIso,
+        durationDays: deadlineIso
+          ? undefined
+          : durationDays.trim()
+            ? Number(durationDays)
+            : undefined,
       };
       const bounty = await apiClient.bounties.create(params);
       onCreated(bounty as unknown as Bounty);
@@ -581,6 +588,7 @@ function CreateBountyModal({
           <input
             type="date"
             value={deadline}
+            min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
             onChange={e => setDeadline(e.target.value)}
             className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />
