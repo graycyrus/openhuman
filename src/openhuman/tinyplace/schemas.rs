@@ -74,8 +74,18 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_inbox_mark_read,
     handle_tinyplace_inbox_remove,
     handle_tinyplace_inbox_unarchive,
+    handle_tinyplace_jobs_adjudicate_dispute,
+    handle_tinyplace_jobs_apply,
+    handle_tinyplace_jobs_cancel,
+    handle_tinyplace_jobs_create,
     handle_tinyplace_jobs_get,
+    handle_tinyplace_jobs_get_proposal,
     handle_tinyplace_jobs_list,
+    handle_tinyplace_jobs_list_proposals,
+    handle_tinyplace_jobs_open_dispute,
+    handle_tinyplace_jobs_select,
+    handle_tinyplace_jobs_shortlist_proposal,
+    handle_tinyplace_jobs_withdraw_proposal,
     handle_tinyplace_marketplace_bid,
     handle_tinyplace_marketplace_browse,
     handle_tinyplace_marketplace_buy_identity,
@@ -795,6 +805,151 @@ fn schema_jobs_list() -> ControllerSchema {
         outputs: vec![json_output(
             "result",
             "JobListResponse { jobs: JobPosting[] }.",
+        )],
+    }
+}
+
+fn schema_jobs_create() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_create",
+        description: "Post a new job to the tiny.place marketplace. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("title", "Job title (non-blank)."),
+            required_string("budgetAmount", "Budget amount (e.g. '100')."),
+            required_string("budgetAsset", "Budget asset symbol (e.g. 'USDC')."),
+            optional_string("description", "Job description."),
+            optional_string("category", "Job category tag."),
+            optional_string("budgetChain", "Optional chain for the budget (e.g. 'solana')."),
+            optional_string("proposalDeadline", "Optional ISO-8601 deadline for proposals."),
+            optional_object("skills", "Optional array of required skill strings."),
+        ],
+        outputs: vec![json_output("result", "JobPosting object for the newly created job.")],
+    }
+}
+
+fn schema_jobs_cancel() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_cancel",
+        description: "Cancel a job posting. Actor is resolved from the wallet signer.",
+        inputs: vec![required_string("jobId", "The job posting's unique identifier.")],
+        outputs: vec![json_output("result", "Updated JobPosting object.")],
+    }
+}
+
+fn schema_jobs_apply() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_apply",
+        description: "Submit a proposal for a job. Candidate is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            optional_string("coverLetter", "Optional cover letter text."),
+            optional_string("bidAmount", "Optional bid amount string."),
+            optional_string("estimatedDelivery", "Optional estimated delivery date (ISO-8601)."),
+            optional_object("pastWork", "Optional array of past-work URL strings."),
+        ],
+        outputs: vec![json_output("result", "Proposal object for the submitted application.")],
+    }
+}
+
+fn schema_jobs_list_proposals() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_list_proposals",
+        description: "List proposals for a job. Restricted to the job's client (resolved from wallet signer).",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            optional_string("status", "Optional filter by proposal status."),
+            optional_integer("limit", "Maximum number of proposals to return."),
+            optional_integer("offset", "Pagination offset."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "ProposalListResponse { proposals: Proposal[] }.",
+        )],
+    }
+}
+
+fn schema_jobs_get_proposal() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_get_proposal",
+        description: "Fetch a single proposal by ID. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal's unique identifier."),
+        ],
+        outputs: vec![json_output("result", "Proposal object.")],
+    }
+}
+
+fn schema_jobs_shortlist_proposal() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_shortlist_proposal",
+        description: "Shortlist a proposal as a client. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal's unique identifier."),
+        ],
+        outputs: vec![json_output("result", "Updated Proposal object.")],
+    }
+}
+
+fn schema_jobs_withdraw_proposal() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_withdraw_proposal",
+        description: "Withdraw a submitted proposal as a candidate. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal's unique identifier."),
+        ],
+        outputs: vec![json_output("result", "Updated Proposal object.")],
+    }
+}
+
+fn schema_jobs_select() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_select",
+        description: "Select a proposal/candidate for a job, spawning an escrow contract. Client is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal to select."),
+            optional_string("network", "Optional network override (e.g. 'solana')."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "SelectCandidateResult { job: JobPosting, contract_escrow_id: String }.",
+        )],
+    }
+}
+
+fn schema_jobs_open_dispute() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_open_dispute",
+        description: "Open a dispute on a job contract. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("reason", "Non-blank reason for opening the dispute."),
+        ],
+        outputs: vec![json_output("result", "Updated JobPosting with dispute info.")],
+    }
+}
+
+fn schema_jobs_adjudicate_dispute() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_adjudicate_dispute",
+        description: "Convene the AI judge panel to adjudicate an open dispute. Actor is resolved from the wallet signer.",
+        inputs: vec![required_string("jobId", "The job posting's unique identifier.")],
+        outputs: vec![json_output(
+            "result",
+            "Updated JobPosting with the dispute verdict applied.",
         )],
     }
 }
@@ -1980,6 +2135,17 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_escrow_list(),
         schema_jobs_get(),
         schema_jobs_list(),
+        // Jobs write surface (Phase 6)
+        schema_jobs_create(),
+        schema_jobs_cancel(),
+        schema_jobs_apply(),
+        schema_jobs_list_proposals(),
+        schema_jobs_get_proposal(),
+        schema_jobs_shortlist_proposal(),
+        schema_jobs_withdraw_proposal(),
+        schema_jobs_select(),
+        schema_jobs_open_dispute(),
+        schema_jobs_adjudicate_dispute(),
         schema_marketplace_browse(),
         schema_marketplace_categories(),
         schema_marketplace_featured(),
@@ -2208,6 +2374,47 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_jobs_list(),
             handler: handle_tinyplace_jobs_list,
+        },
+        // Jobs write surface (Phase 6)
+        RegisteredController {
+            schema: schema_jobs_create(),
+            handler: handle_tinyplace_jobs_create,
+        },
+        RegisteredController {
+            schema: schema_jobs_cancel(),
+            handler: handle_tinyplace_jobs_cancel,
+        },
+        RegisteredController {
+            schema: schema_jobs_apply(),
+            handler: handle_tinyplace_jobs_apply,
+        },
+        RegisteredController {
+            schema: schema_jobs_list_proposals(),
+            handler: handle_tinyplace_jobs_list_proposals,
+        },
+        RegisteredController {
+            schema: schema_jobs_get_proposal(),
+            handler: handle_tinyplace_jobs_get_proposal,
+        },
+        RegisteredController {
+            schema: schema_jobs_shortlist_proposal(),
+            handler: handle_tinyplace_jobs_shortlist_proposal,
+        },
+        RegisteredController {
+            schema: schema_jobs_withdraw_proposal(),
+            handler: handle_tinyplace_jobs_withdraw_proposal,
+        },
+        RegisteredController {
+            schema: schema_jobs_select(),
+            handler: handle_tinyplace_jobs_select,
+        },
+        RegisteredController {
+            schema: schema_jobs_open_dispute(),
+            handler: handle_tinyplace_jobs_open_dispute,
+        },
+        RegisteredController {
+            schema: schema_jobs_adjudicate_dispute(),
+            handler: handle_tinyplace_jobs_adjudicate_dispute,
         },
         RegisteredController {
             schema: schema_marketplace_browse(),

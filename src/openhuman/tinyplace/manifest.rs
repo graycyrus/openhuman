@@ -1850,6 +1850,319 @@ pub(crate) fn handle_tinyplace_feedback_vote(params: Map<String, Value>) -> Cont
     })
 }
 
+// ── Jobs write handlers ───────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_jobs_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let title = req_str(&params, "title")?.trim().to_string();
+        if title.is_empty() {
+            return Err("missing required param 'title'".to_string());
+        }
+        let budget_amount = req_str(&params, "budgetAmount")?.trim().to_string();
+        if budget_amount.is_empty() {
+            return Err("missing required param 'budgetAmount'".to_string());
+        }
+        let budget_asset = req_str(&params, "budgetAsset")?.trim().to_string();
+        if budget_asset.is_empty() {
+            return Err("missing required param 'budgetAsset'".to_string());
+        }
+        let description = get_opt_str(&params, "description")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let category = get_opt_str(&params, "category")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let budget_chain = get_opt_str(&params, "budgetChain")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let proposal_deadline = get_opt_str(&params, "proposalDeadline")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        // Skills: optional JSON array of strings
+        let skills: Option<Vec<String>> = params
+            .get("skills")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid 'skills' param: {e}"))
+            })
+            .transpose()?;
+
+        log::debug!("{LOG_PREFIX} jobs_create title={title} category={category:?}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let request = tinyplace::types::JobCreateRequest {
+            client: actor,
+            title,
+            description,
+            category,
+            skills,
+            budget: tinyplace::types::JobBudget {
+                amount: budget_amount,
+                asset: budget_asset,
+                chain: budget_chain,
+            },
+            on_chain: None,
+            proposal_deadline,
+        };
+
+        let result = client.jobs.create(&request).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_cancel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_cancel job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client.jobs.cancel(&job_id, &actor).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_apply(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let cover_letter = get_opt_str(&params, "coverLetter")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let bid_amount = get_opt_str(&params, "bidAmount")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let estimated_delivery = get_opt_str(&params, "estimatedDelivery")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let past_work: Option<Vec<String>> = params
+            .get("pastWork")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid 'pastWork' param: {e}"))
+            })
+            .transpose()?;
+
+        log::debug!("{LOG_PREFIX} jobs_apply job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let request = tinyplace::types::ProposalCreateRequest {
+            candidate: actor,
+            cover_letter,
+            bid_amount,
+            estimated_delivery,
+            past_work,
+        };
+
+        let result = client.jobs.apply(&job_id, &request).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_list_proposals(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        use tinyplace::api::jobs::ProposalQueryParams;
+
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let status = get_opt_str(&params, "status")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let limit = params.get("limit").and_then(|v| v.as_i64());
+        let offset = params.get("offset").and_then(|v| v.as_i64());
+
+        log::debug!("{LOG_PREFIX} jobs_list_proposals job_id={job_id} status={status:?}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let query_params = ProposalQueryParams {
+            status,
+            limit,
+            offset,
+        };
+
+        let result = client
+            .jobs
+            .list_proposals(&job_id, &actor, Some(&query_params))
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_get_proposal(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_get_proposal job_id={job_id} proposal_id={proposal_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .get_proposal(&job_id, &proposal_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_shortlist_proposal(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        log::debug!(
+            "{LOG_PREFIX} jobs_shortlist_proposal job_id={job_id} proposal_id={proposal_id}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .shortlist_proposal(&job_id, &proposal_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_withdraw_proposal(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        log::debug!(
+            "{LOG_PREFIX} jobs_withdraw_proposal job_id={job_id} proposal_id={proposal_id}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .withdraw_proposal(&job_id, &proposal_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_select(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        let network = get_opt_str(&params, "network")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        log::debug!(
+            "{LOG_PREFIX} jobs_select job_id={job_id} proposal_id={proposal_id} network={network:?}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .select(&job_id, &actor, &proposal_id, network.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_open_dispute(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let reason = req_str(&params, "reason")?.trim().to_string();
+        if reason.is_empty() {
+            return Err("missing required param 'reason'".to_string());
+        }
+        log::debug!("{LOG_PREFIX} jobs_open_dispute job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .open_dispute(&job_id, &actor, &reason)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_adjudicate_dispute(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_adjudicate_dispute job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .adjudicate_dispute(&job_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 // ── Groups invite/role management ────────────────────────────────────────────
 
 pub(crate) fn handle_tinyplace_groups_set_member_role(
@@ -3910,6 +4223,180 @@ mod tests {
         assert!(
             !err.contains("=="),
             "error should not contain base64 fragments: {err}"
+        );
+    }
+
+    /// Verify all 10 Jobs write handlers reject missing required params.
+    ///
+    /// Actor (client/candidate) is NEVER read from params — it is always derived
+    /// from the wallet signer. These tests only exercise param-validation logic;
+    /// they cannot reach the SDK call (no running tiny.place client in unit tests).
+    #[test]
+    fn jobs_write_handlers_require_params() {
+        // ── jobs_create ───────────────────────────────────────────────────────
+
+        // Blank Map → must complain about 'title'
+        let err = block_on(handle_tinyplace_jobs_create(Map::new())).unwrap_err();
+        assert!(err.contains("title"), "jobs_create missing title: {err}");
+
+        // title present, budgetAmount absent
+        {
+            let mut p = Map::new();
+            p.insert("title".into(), Value::String("Build a bot".into()));
+            let err = block_on(handle_tinyplace_jobs_create(p)).unwrap_err();
+            assert!(
+                err.contains("budgetAmount"),
+                "jobs_create missing budgetAmount: {err}"
+            );
+        }
+
+        // title + budgetAmount present, budgetAsset absent
+        {
+            let mut p = Map::new();
+            p.insert("title".into(), Value::String("Build a bot".into()));
+            p.insert("budgetAmount".into(), Value::String("100".into()));
+            let err = block_on(handle_tinyplace_jobs_create(p)).unwrap_err();
+            assert!(
+                err.contains("budgetAsset"),
+                "jobs_create missing budgetAsset: {err}"
+            );
+        }
+
+        // Blank title must be rejected
+        {
+            let mut p = Map::new();
+            p.insert("title".into(), Value::String("   ".into()));
+            p.insert("budgetAmount".into(), Value::String("100".into()));
+            p.insert("budgetAsset".into(), Value::String("USDC".into()));
+            let err = block_on(handle_tinyplace_jobs_create(p)).unwrap_err();
+            assert!(err.contains("title"), "jobs_create blank title: {err}");
+        }
+
+        // ── jobs_cancel ───────────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_cancel(Map::new())).unwrap_err();
+        assert!(err.contains("jobId"), "jobs_cancel missing jobId: {err}");
+
+        // ── jobs_apply ────────────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_apply(Map::new())).unwrap_err();
+        assert!(err.contains("jobId"), "jobs_apply missing jobId: {err}");
+
+        // ── jobs_list_proposals ───────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_list_proposals(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_list_proposals missing jobId: {err}"
+        );
+
+        // ── jobs_get_proposal ─────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_get_proposal(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_get_proposal missing jobId: {err}"
+        );
+
+        // jobId present, proposalId absent
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_get_proposal(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_get_proposal missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_shortlist_proposal ───────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_shortlist_proposal(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_shortlist_proposal missing jobId: {err}"
+        );
+
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_shortlist_proposal(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_shortlist_proposal missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_withdraw_proposal ────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_withdraw_proposal(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_withdraw_proposal missing jobId: {err}"
+        );
+
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_withdraw_proposal(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_withdraw_proposal missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_select ───────────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_select(Map::new())).unwrap_err();
+        assert!(err.contains("jobId"), "jobs_select missing jobId: {err}");
+
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_select(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_select missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_open_dispute ─────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_open_dispute(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_open_dispute missing jobId: {err}"
+        );
+
+        // jobId present, reason absent
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_open_dispute(p)).unwrap_err();
+            assert!(
+                err.contains("reason"),
+                "jobs_open_dispute missing reason: {err}"
+            );
+        }
+
+        // Blank reason must be rejected
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            p.insert("reason".into(), Value::String("   ".into()));
+            let err = block_on(handle_tinyplace_jobs_open_dispute(p)).unwrap_err();
+            assert!(
+                err.contains("reason"),
+                "jobs_open_dispute blank reason: {err}"
+            );
+        }
+
+        // ── jobs_adjudicate_dispute ───────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_adjudicate_dispute(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_adjudicate_dispute missing jobId: {err}"
         );
     }
 }
