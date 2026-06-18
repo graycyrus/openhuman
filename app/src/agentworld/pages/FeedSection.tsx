@@ -99,23 +99,6 @@ function useMyAgentId(): string | null {
   return agentId;
 }
 
-// ── useMyHandle ───────────────────────────────────────────────────────────────
-
-function useMyHandle(myAgentId: string | null): string | null {
-  const [handle, setHandle] = useState<string | null>(null);
-  useEffect(() => {
-    if (!myAgentId) return;
-    void apiClient.graphql
-      .user(myAgentId)
-      .then(profile => {
-        const username = profile?.identities?.[0]?.username;
-        if (username) setHandle(username);
-      })
-      .catch(() => {});
-  }, [myAgentId]);
-  return handle;
-}
-
 // ── CommentComposer ───────────────────────────────────────────────────────────
 
 function CommentComposer({
@@ -175,11 +158,9 @@ function CommentComposer({
 // ── PostComposerModal ─────────────────────────────────────────────────────────
 
 function PostComposerModal({
-  myHandle,
   onClose,
   onPostCreated,
 }: {
-  myHandle: string;
   onClose: () => void;
   onPostCreated: () => void;
 }) {
@@ -192,7 +173,7 @@ function PostComposerModal({
     setSubmitting(true);
     setError(null);
     try {
-      await apiClient.feeds.createPost(myHandle, body.trim());
+      await apiClient.feeds.createPost(body.trim());
       onClose();
       onPostCreated();
     } catch (err) {
@@ -624,7 +605,6 @@ export default function FeedSection() {
   const [showComposer, setShowComposer] = useState(false);
 
   const myAgentId = useMyAgentId();
-  const myHandle = useMyHandle(myAgentId);
 
   // ── Fetch home feed ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -737,7 +717,7 @@ export default function FeedSection() {
   const handleDeletePost = (post: GqlPost) => {
     if (!confirm('Delete this post?')) return;
     void apiClient.feeds
-      .deletePost(post.author.handle, post.postId)
+      .deletePost(post.postId)
       .then(() => {
         void apiClient.graphql.homeFeed({ limit: 50 }).then(result => {
           const items = Array.isArray(result?.items) ? result.items : [];
@@ -843,7 +823,7 @@ export default function FeedSection() {
 
   return (
     <PanelScaffold description="Social feed">
-      {myAgentId && myHandle && feedState.status === 'ok' && (
+      {myAgentId && feedState.status === 'ok' && (
         <div className="mb-3 flex justify-end">
           <button
             type="button"
@@ -855,9 +835,8 @@ export default function FeedSection() {
         </div>
       )}
       {body}
-      {showComposer && myHandle && (
+      {showComposer && (
         <PostComposerModal
-          myHandle={myHandle}
           onClose={() => setShowComposer(false)}
           onPostCreated={() => {
             setShowComposer(false);

@@ -3598,10 +3598,6 @@ pub(crate) fn handle_tinyplace_directory_find_by_encryption_key(
 /// owns it via `post_directory_auth_as`. Actor is NEVER accepted from params.
 pub(crate) fn handle_tinyplace_feeds_create_post(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let handle = req_str(&params, "handle")?.trim().to_string();
-        if handle.is_empty() {
-            return Err("missing required param 'handle'".to_string());
-        }
         let body = req_str(&params, "body")?.trim().to_string();
         if body.is_empty() {
             return Err("missing required param 'body'".to_string());
@@ -3610,18 +3606,21 @@ pub(crate) fn handle_tinyplace_feeds_create_post(params: Map<String, Value>) -> 
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
 
+        let client = global_state().client().await?;
+        // Post to the SIGNER's OWN feed. The handle is resolved server-side from
+        // the wallet (its crypto id is a valid feed handle) — never accepted from
+        // the client — so this works for every wallet, registered @handle or not,
+        // and a caller cannot post to a feed they don't own.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let handle = signer.agent_id();
+
         log::debug!(
             "{LOG_PREFIX} feeds_create_post handle={handle} body_len={}",
             body.len()
         );
-
-        let client = global_state().client().await?;
-        let _signer = client
-            .http()
-            .signer()
-            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
-        // Signer is required (validates wallet is unlocked); handle ownership is
-        // enforced by the backend via `post_directory_auth_as(handle)`.
 
         let post_create = tinyplace::types::PostCreate {
             body,
@@ -3637,27 +3636,23 @@ pub(crate) fn handle_tinyplace_feeds_create_post(params: Map<String, Value>) -> 
     })
 }
 
-/// Delete a post from a feed owned by the signer.
-/// `handle` is accepted from the client but backend rejects if signer does not
-/// own the handle. Actor is NEVER accepted from params.
+/// Delete a post from the SIGNER's OWN feed. The handle is resolved server-side
+/// from the wallet (owner-only) — never accepted from the client.
 pub(crate) fn handle_tinyplace_feeds_delete_post(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let handle = req_str(&params, "handle")?.trim().to_string();
-        if handle.is_empty() {
-            return Err("missing required param 'handle'".to_string());
-        }
         let post_id = req_str(&params, "postId")?.trim().to_string();
         if post_id.is_empty() {
             return Err("missing required param 'postId'".to_string());
         }
 
-        log::debug!("{LOG_PREFIX} feeds_delete_post handle={handle} post_id={post_id}");
-
         let client = global_state().client().await?;
-        let _signer = client
+        let signer = client
             .http()
             .signer()
             .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let handle = signer.agent_id();
+
+        log::debug!("{LOG_PREFIX} feeds_delete_post handle={handle} post_id={post_id}");
 
         client
             .feeds
@@ -4632,26 +4627,27 @@ mod tests {
 
     /// feeds_create_post requires non-blank `handle` then non-blank `body`.
     #[test]
-    fn feeds_create_post_requires_handle_and_body() {
-        // Missing handle
+    fn feeds_create_post_requires_body_not_handle() {
+        // `body` is required and validated before any client/signer access.
         let err = block_on(handle_tinyplace_feeds_create_post(Map::new())).unwrap_err();
-        assert!(err.contains("handle"), "got: {err}");
-        // handle present, body missing
-        let mut p = Map::new();
-        p.insert("handle".into(), Value::String("alice".into()));
-        let err = block_on(handle_tinyplace_feeds_create_post(p)).unwrap_err();
         assert!(err.contains("body"), "got: {err}");
+        // The owner handle is resolved server-side from the signer, so the
+        // handler must NOT read a client-supplied 'handle'.
+        assert!(
+            !err.contains("handle"),
+            "handle must not be a client param: {err}"
+        );
     }
 
-    /// feeds_delete_post requires non-blank `handle` then non-blank `postId`.
+    /// feeds_delete_post requires `postId`; the owner handle is signer-derived.
     #[test]
-    fn feeds_delete_post_requires_handle_and_post_id() {
+    fn feeds_delete_post_requires_post_id_not_handle() {
         let err = block_on(handle_tinyplace_feeds_delete_post(Map::new())).unwrap_err();
-        assert!(err.contains("handle"), "got: {err}");
-        let mut p = Map::new();
-        p.insert("handle".into(), Value::String("alice".into()));
-        let err = block_on(handle_tinyplace_feeds_delete_post(p)).unwrap_err();
         assert!(err.contains("postId"), "got: {err}");
+        assert!(
+            !err.contains("handle"),
+            "handle must not be a client param: {err}"
+        );
     }
 
     /// feeds_add_comment requires `handle`, `postId`, then `body`.

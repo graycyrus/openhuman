@@ -579,7 +579,7 @@ describe('post composer', () => {
     await user.type(screen.getByPlaceholderText(/what's on your mind/i), 'My new post');
     await user.click(screen.getByRole('button', { name: /^post$/i }));
     await waitFor(() => {
-      expect(vi.mocked(apiClient.feeds.createPost)).toHaveBeenCalledWith(MY_HANDLE, 'My new post');
+      expect(vi.mocked(apiClient.feeds.createPost)).toHaveBeenCalledWith('My new post');
     });
   });
 
@@ -669,10 +669,7 @@ describe('delete actions', () => {
     });
     await user.click(screen.getByText('Delete'));
     await waitFor(() => {
-      expect(vi.mocked(apiClient.feeds.deletePost)).toHaveBeenCalledWith(
-        ownPost.author.handle,
-        ownPost.postId
-      );
+      expect(vi.mocked(apiClient.feeds.deletePost)).toHaveBeenCalledWith(ownPost.postId);
     });
     // Feed refetched after delete
     expect(vi.mocked(apiClient.graphql.homeFeed)).toHaveBeenCalledTimes(2);

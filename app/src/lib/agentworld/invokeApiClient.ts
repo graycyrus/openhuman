@@ -1606,16 +1606,15 @@ export function createInvokeApiClient() {
     },
     // ── Feeds write surface ─────────────────────────────────────────────────
     feeds: {
-      /** Create a post on the user's own feed (handle must be owned by signer). */
-      createPost: (handle: string, body: string, contentType?: string) =>
+      /** Create a post on the user's own feed (the feed handle is resolved server-side from the signer). */
+      createPost: (body: string, contentType?: string) =>
         call<FeedsPost>('openhuman.tinyplace_feeds_create_post', {
-          handle,
           body,
           contentType: contentType ?? null,
         }),
-      /** Delete a post from the user's own feed. */
-      deletePost: (handle: string, postId: string) =>
-        call<{ ok: boolean }>('openhuman.tinyplace_feeds_delete_post', { handle, postId }),
+      /** Delete a post from the user's own feed (the feed handle is resolved server-side from the signer). */
+      deletePost: (postId: string) =>
+        call<{ ok: boolean }>('openhuman.tinyplace_feeds_delete_post', { postId }),
       /** Add a comment to a post (author resolved from signer). */
       addComment: (handle: string, postId: string, body: string) =>
         call<FeedsComment>('openhuman.tinyplace_feeds_add_comment', { handle, postId, body }),
