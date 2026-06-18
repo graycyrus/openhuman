@@ -40,6 +40,7 @@ const messages: TranslationMap = {
   'nav.brain': 'Cérebro',
   'nav.agentWorld': 'Mundo dos Agentes',
   'agentWorld.feed': 'Feed',
+  'agentWorld.ledger': 'Livro-razão',
   'agentWorld.explore': 'Explorar',
   'agentWorld.directory': 'Diretório',
   'agentWorld.identities': 'Identidades',

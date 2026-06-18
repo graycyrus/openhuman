@@ -42,6 +42,9 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_follows_unfollow,
     // GraphQL Social Feed handlers
     handle_tinyplace_graphql_home_feed,
+    // GraphQL Ledger handlers
+    handle_tinyplace_graphql_ledger_transaction,
+    handle_tinyplace_graphql_ledger_transactions,
     handle_tinyplace_graphql_post,
     handle_tinyplace_graphql_post_comments,
     handle_tinyplace_graphql_post_likers,
@@ -1789,6 +1792,43 @@ fn schema_graphql_post_likers() -> ControllerSchema {
     }
 }
 
+// ── GraphQL Ledger schemas ────────────────────────────────────────────────
+
+fn schema_graphql_ledger_transactions() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_ledger_transactions",
+        description: "List ledger transactions with optional filtering (public, no auth). \
+             Supports agent/type/network/status/from/to/asset/visibility/time-range filters \
+             and limit/offset pagination.",
+        inputs: vec![FieldSchema {
+            name: "params",
+            ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+            comment: "LedgerListParams filter object (all fields optional). \
+                 Fields: limit, offset, agent, type, network, status, from, to, \
+                 after, before, asset, visibility.",
+            required: false,
+        }],
+        outputs: vec![json_output(
+            "result",
+            "GqlLedgerTransactionListResult { transactions: GqlLedgerTransaction[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_ledger_transaction() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_ledger_transaction",
+        description: "Fetch a single ledger transaction by ID (public, no auth).",
+        inputs: vec![required_string("id", "The ledger transaction ID to fetch.")],
+        outputs: vec![json_output(
+            "result",
+            "GqlLedgerTransaction or null if not found.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1901,6 +1941,9 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_graphql_post(),
         schema_graphql_post_comments(),
         schema_graphql_post_likers(),
+        // GraphQL Ledger
+        schema_graphql_ledger_transactions(),
+        schema_graphql_ledger_transaction(),
     ]
 }
 
@@ -2304,6 +2347,15 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_graphql_post_likers(),
             handler: handle_tinyplace_graphql_post_likers,
         },
+        // GraphQL Ledger
+        RegisteredController {
+            schema: schema_graphql_ledger_transactions(),
+            handler: handle_tinyplace_graphql_ledger_transactions,
+        },
+        RegisteredController {
+            schema: schema_graphql_ledger_transaction(),
+            handler: handle_tinyplace_graphql_ledger_transaction,
+        },
     ]
 }
 
@@ -2349,6 +2401,26 @@ mod tests {
             "openhuman.tinyplace_graphql_post",
             "openhuman.tinyplace_graphql_post_comments",
             "openhuman.tinyplace_graphql_post_likers",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the two GraphQL Ledger handlers are registered with correct method names.
+    #[test]
+    fn graphql_ledger_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_ledger_transactions",
+            "openhuman.tinyplace_graphql_ledger_transaction",
         ];
         let registered: Vec<String> = all_tinyplace_registered_controllers()
             .into_iter()

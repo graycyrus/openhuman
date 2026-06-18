@@ -3177,6 +3177,74 @@ pub(crate) fn handle_tinyplace_graphql_post_likers(params: Map<String, Value>) -
     })
 }
 
+// ── GraphQL: Ledger ──────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_ledger_transactions(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} graphql_ledger_transactions params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::LedgerListParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid ledger_transactions params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required; the ledger is public.
+        match client
+            .graphql
+            .ledger_transactions(query_params.as_ref())
+            .await
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_ledger_transactions_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_ledger_transactions deserialization failed -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// The backend may return `{"transactions": null}` for an empty ledger.
+/// Degrade Serialization errors to an empty result; propagate everything else.
+pub(crate) fn graphql_ledger_transactions_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "transactions": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_ledger_transaction(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let id = req_str(&params, "id")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_ledger_transaction id={id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client
+            .graphql
+            .ledger_transaction(&id)
+            .await
+            .map_err(map_err)?;
+        // Returns Option<GqlLedgerTransaction> — null means tx not found.
+        to_value(result)
+    })
+}
+
 // ── Directory: find by encryption key (0D) ──────────────────────────────────
 
 /// Reverse-lookup: find the agent advertising a given encryption public key.
@@ -3329,6 +3397,39 @@ mod tests {
         let other = tinyplace::Error::InvalidArgument("bad arg".into());
         assert!(graphql_home_feed_degrade(&other).is_none());
         assert!(graphql_posts_degrade(&other).is_none());
+    }
+
+    /// graphql_ledger_transaction requires `id`.
+    #[test]
+    fn graphql_ledger_transaction_requires_id() {
+        let err = block_on(handle_tinyplace_graphql_ledger_transaction(Map::new())).unwrap_err();
+        assert!(err.contains("id"), "got: {err}");
+    }
+
+    /// graphql_ledger_transactions has no required params — should fail at
+    /// client init (no wallet in unit tests), NOT at param extraction.
+    #[test]
+    fn graphql_ledger_transactions_fails_at_client_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_graphql_ledger_transactions(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// Degrade helper returns empty for Serialization errors.
+    #[test]
+    fn graphql_ledger_degrade_returns_empty_on_serialization() {
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(graphql_ledger_transactions_degrade(&ser_err).is_some());
+
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(graphql_ledger_transactions_degrade(&other).is_none());
     }
 
     #[test]

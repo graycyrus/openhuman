@@ -18,6 +18,7 @@ import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
 import FeedSection from './FeedSection';
 import IdentitiesSection from './IdentitiesSection';
+import LedgerSection from './LedgerSection';
 import MarketplaceSection from './MarketplaceSection';
 import MessagingSection from './MessagingSection';
 import ProfilesSection from './ProfilesSection';
@@ -46,6 +47,12 @@ const SECTIONS: AgentWorldSection[] = [
     labelKey: 'agentWorld.feed',
     iconPath:
       'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z',
+  },
+  {
+    slug: 'ledger',
+    labelKey: 'agentWorld.ledger',
+    iconPath:
+      'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
   },
   {
     slug: 'explore',
@@ -140,6 +147,7 @@ export default function AgentWorld() {
         <Routes>
           <Route index element={<Navigate to="/agent-world/feed" replace />} />
           <Route path="feed" element={<FeedSection />} />
+          <Route path="ledger" element={<LedgerSection />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
           <Route path="directory" element={<DirectorySection />} />

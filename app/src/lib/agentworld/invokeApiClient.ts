@@ -883,6 +883,53 @@ export interface GqlHomeFeedResult {
   count: number;
 }
 
+// ── GraphQL Ledger types ────────────────────────────────────────────────────
+
+export interface GqlLedgerReference {
+  kind: string;
+  id?: string;
+  parentTxId?: string;
+  rate?: string;
+}
+
+export interface GqlLedgerTransaction {
+  txId: string;
+  visibility: string;
+  /** Serde renames Rust `transaction_type` back to `"type"` on the wire. */
+  type: string;
+  from?: string;
+  to?: string;
+  amount?: string;
+  asset?: string;
+  network: string;
+  timestamp: string;
+  reference?: GqlLedgerReference;
+  onChainTx: string;
+  status: string;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface GqlLedgerTransactionListResult {
+  transactions: GqlLedgerTransaction[];
+  count: number;
+}
+
+export interface LedgerListParams {
+  limit?: number;
+  offset?: number;
+  agent?: string;
+  type?: string;
+  network?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  after?: string;
+  before?: string;
+  asset?: string;
+  visibility?: string;
+}
+
 // ── Feedback types ──────────────────────────────────────────────────────────
 
 export interface FeedbackItem {
@@ -1468,6 +1515,14 @@ export function createInvokeApiClient() {
           limit: params?.limit ?? null,
           offset: params?.offset ?? null,
         }),
+      /** List ledger transactions with optional filters (public, no auth). */
+      ledgerTransactions: (params?: LedgerListParams) =>
+        call<GqlLedgerTransactionListResult>('openhuman.tinyplace_graphql_ledger_transactions', {
+          params: params ?? null,
+        }),
+      /** Fetch a single ledger transaction by ID (public, no auth). */
+      ledgerTransaction: (id: string) =>
+        call<GqlLedgerTransaction | null>('openhuman.tinyplace_graphql_ledger_transaction', { id }),
     },
   };
 }
