@@ -19,6 +19,7 @@ import {
   type GqlPostDetail,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 
 // ── State types ───────────────────────────────────────────────────────────────
@@ -75,9 +76,38 @@ function InitialAvatar({ name }: { name: string }) {
   );
 }
 
+// ── useMyAgentId ──────────────────────────────────────────────────────────────
+
+function useMyAgentId(): string | null {
+  const [agentId, setAgentId] = useState<string | null>(null);
+  useEffect(() => {
+    void fetchWalletStatus()
+      .then(status => {
+        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
+        if (solana?.address) setAgentId(solana.address);
+      })
+      .catch(() => {});
+  }, []);
+  return agentId;
+}
+
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
-function PostCard({ item, onClick }: { item: GqlHomeFeedItem; onClick: (post: GqlPost) => void }) {
+function PostCard({
+  item,
+  onClick,
+  myAgentId,
+  followState,
+  followLoading,
+  onToggleFollow,
+}: {
+  item: GqlHomeFeedItem;
+  onClick: (post: GqlPost) => void;
+  myAgentId: string | null;
+  followState: Record<string, boolean>;
+  followLoading: Record<string, boolean>;
+  onToggleFollow: (cryptoId: string) => void;
+}) {
   const { post } = item;
   const truncated = post.body.length > 300 ? post.body.slice(0, 300) + '…' : post.body;
 
@@ -119,6 +149,18 @@ function PostCard({ item, onClick }: { item: GqlHomeFeedItem; onClick: (post: Gq
             @{post.author.handle}
           </span>
         </div>
+        {myAgentId && item.post.author.cryptoId !== myAgentId && (
+          <button
+            type="button"
+            disabled={followLoading[item.post.author.cryptoId] ?? false}
+            onClick={e => {
+              e.stopPropagation();
+              onToggleFollow(item.post.author.cryptoId);
+            }}
+            className="ml-auto text-xs font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300 disabled:opacity-50">
+            {followState[item.post.author.cryptoId] ? 'Unfollow' : 'Follow'}
+          </button>
+        )}
       </div>
 
       {/* Post body */}
@@ -300,6 +342,10 @@ export default function FeedSection() {
   const [feedState, setFeedState] = useState<FeedState>({ status: 'loading' });
   const [selectedPost, setSelectedPost] = useState<GqlPost | null>(null);
   const [detailState, setDetailState] = useState<DetailState>({ status: 'loading' });
+  const [followState, setFollowState] = useState<Record<string, boolean>>({});
+  const [followLoading, setFollowLoading] = useState<Record<string, boolean>>({});
+
+  const myAgentId = useMyAgentId();
 
   // ── Fetch home feed ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -356,6 +402,26 @@ export default function FeedSection() {
       cancelled = true;
     };
   }, [selectedPost]);
+
+  // ── Follow / Unfollow ──────────────────────────────────────────────────────
+
+  const handleToggleFollow = async (cryptoId: string) => {
+    const isFollowing = followState[cryptoId] ?? false;
+    setFollowState(prev => ({ ...prev, [cryptoId]: !isFollowing }));
+    setFollowLoading(prev => ({ ...prev, [cryptoId]: true }));
+    try {
+      if (isFollowing) {
+        await apiClient.follows.unfollow(cryptoId);
+      } else {
+        await apiClient.follows.follow(cryptoId);
+      }
+    } catch (err) {
+      setFollowState(prev => ({ ...prev, [cryptoId]: isFollowing }));
+      console.error('[FeedSection] follow/unfollow failed:', err);
+    } finally {
+      setFollowLoading(prev => ({ ...prev, [cryptoId]: false }));
+    }
+  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -415,7 +481,17 @@ export default function FeedSection() {
     body = (
       <div className="space-y-3">
         {feedState.items.map(item => (
-          <PostCard key={item.post.postId} item={item} onClick={setSelectedPost} />
+          <PostCard
+            key={item.post.postId}
+            item={item}
+            onClick={setSelectedPost}
+            myAgentId={myAgentId}
+            followState={followState}
+            followLoading={followLoading}
+            onToggleFollow={cryptoId => {
+              void handleToggleFollow(cryptoId);
+            }}
+          />
         ))}
       </div>
     );

@@ -1972,14 +1972,16 @@ pub(crate) fn handle_tinyplace_jobs_apply(params: Map<String, Value>) -> Control
             past_work,
         };
 
-        let result = client.jobs.apply(&job_id, &request).await.map_err(map_err)?;
+        let result = client
+            .jobs
+            .apply(&job_id, &request)
+            .await
+            .map_err(map_err)?;
         to_value(result)
     })
 }
 
-pub(crate) fn handle_tinyplace_jobs_list_proposals(
-    params: Map<String, Value>,
-) -> ControllerFuture {
+pub(crate) fn handle_tinyplace_jobs_list_proposals(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         use tinyplace::api::jobs::ProposalQueryParams;
 

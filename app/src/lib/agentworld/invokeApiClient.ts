@@ -1006,6 +1006,63 @@ export interface GqlJobQueryParams {
   offset?: number;
 }
 
+// ── Jobs Write types ──────────────────────────────────────────────────────────
+
+/** Request shape for creating a job posting. Actor (client) resolved server-side. */
+export interface JobCreateParams {
+  title: string;
+  description?: string;
+  category?: string;
+  skills?: string[];
+  budgetAmount: string;
+  budgetAsset: string;
+  budgetChain?: string;
+  proposalDeadline?: string;
+}
+
+/** Request shape for applying to a job posting. Actor (candidate) resolved server-side. */
+export interface ProposalCreateParams {
+  coverLetter?: string;
+  bidAmount?: string;
+  estimatedDelivery?: string;
+  pastWork?: string[];
+}
+
+/** Proposal object returned by the backend. */
+export interface Proposal {
+  proposalId: string;
+  jobId: string;
+  candidate: string;
+  coverLetter: string;
+  bidAmount: string;
+  estimatedDelivery?: string;
+  pastWork?: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+/** Response from list_proposals. */
+export interface ProposalListResponse {
+  proposals: Proposal[];
+  [key: string]: unknown;
+}
+
+/** Query params for listing proposals. */
+export interface ProposalQueryParams {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Result of selecting a candidate (spawns escrow). */
+export interface SelectCandidateResult {
+  job: JobPosting;
+  contractEscrowId: string;
+  [key: string]: unknown;
+}
+
 // ── GraphQL Profile + Identity types ─────────────────────────────────────────
 
 /** Identity registration record (mirrors tinyplace::types::Identity). */
@@ -1685,6 +1742,51 @@ export function createInvokeApiClient() {
       /** Fetch an agent card by agent ID (public GraphQL). */
       agentCard: (id: string) =>
         call<AgentCard | null>('openhuman.tinyplace_graphql_agent_card', { id }),
+    },
+    jobsWrite: {
+      create: (params: JobCreateParams) =>
+        call<JobPosting>('openhuman.tinyplace_jobs_create', {
+          title: params.title,
+          description: params.description ?? null,
+          category: params.category ?? null,
+          skills: params.skills ?? null,
+          budgetAmount: params.budgetAmount,
+          budgetAsset: params.budgetAsset,
+          budgetChain: params.budgetChain ?? null,
+          proposalDeadline: params.proposalDeadline ?? null,
+        }),
+      cancel: (jobId: string) => call<JobPosting>('openhuman.tinyplace_jobs_cancel', { jobId }),
+      apply: (jobId: string, params?: ProposalCreateParams) =>
+        call<Proposal>('openhuman.tinyplace_jobs_apply', {
+          jobId,
+          coverLetter: params?.coverLetter ?? null,
+          bidAmount: params?.bidAmount ?? null,
+          estimatedDelivery: params?.estimatedDelivery ?? null,
+          pastWork: params?.pastWork ?? null,
+        }),
+      listProposals: (jobId: string, params?: ProposalQueryParams) =>
+        call<ProposalListResponse>('openhuman.tinyplace_jobs_list_proposals', {
+          jobId,
+          status: params?.status ?? null,
+          limit: params?.limit ?? null,
+          offset: params?.offset ?? null,
+        }),
+      getProposal: (jobId: string, proposalId: string) =>
+        call<Proposal>('openhuman.tinyplace_jobs_get_proposal', { jobId, proposalId }),
+      shortlistProposal: (jobId: string, proposalId: string) =>
+        call<Proposal>('openhuman.tinyplace_jobs_shortlist_proposal', { jobId, proposalId }),
+      withdrawProposal: (jobId: string, proposalId: string) =>
+        call<Proposal>('openhuman.tinyplace_jobs_withdraw_proposal', { jobId, proposalId }),
+      select: (jobId: string, proposalId: string, network?: string) =>
+        call<SelectCandidateResult>('openhuman.tinyplace_jobs_select', {
+          jobId,
+          proposalId,
+          network: network ?? null,
+        }),
+      openDispute: (jobId: string, reason: string) =>
+        call<JobPosting>('openhuman.tinyplace_jobs_open_dispute', { jobId, reason }),
+      adjudicateDispute: (jobId: string) =>
+        call<JobPosting>('openhuman.tinyplace_jobs_adjudicate_dispute', { jobId }),
     },
   };
 }

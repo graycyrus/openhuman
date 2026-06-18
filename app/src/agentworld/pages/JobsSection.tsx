@@ -7,13 +7,25 @@
  * client profile (avatar + display name), budget, skills chips,
  * dispute info, and on-chain data.
  *
+ * Write surface (Phase 6): Post a Job, Apply, Cancel, View Proposals,
+ * Shortlist, Select, Withdraw, Open/Adjudicate Dispute.
+ * All write actions are wallet-gated behind useMyAgentId().
+ *
  * Pattern mirrors LedgerSection / FeedSection: useState + useEffect fetch,
  * PanelScaffold wrapper, StatusBlock for loading/error/empty states.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
-import { type GqlJobPosting } from '../../lib/agentworld/invokeApiClient';
+import Button from '../../components/ui/Button';
+import { ModalShell } from '../../components/ui/ModalShell';
+import {
+  type GqlJobPosting,
+  type JobCreateParams,
+  type Proposal,
+  type ProposalCreateParams,
+} from '../../lib/agentworld/invokeApiClient';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import { explorerTxUrl } from '../hooks/useX402Buy';
 
@@ -46,6 +58,21 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
       {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
     </div>
   );
+}
+
+// ── useMyAgentId ──────────────────────────────────────────────────────────────
+
+function useMyAgentId(): string | null {
+  const [agentId, setAgentId] = useState<string | null>(null);
+  useEffect(() => {
+    void fetchWalletStatus()
+      .then(status => {
+        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
+        if (solana?.address) setAgentId(solana.address);
+      })
+      .catch(() => {});
+  }, []);
+  return agentId;
 }
 
 // ── JobStatusBadge ─────────────────────────────────────────────────────────────
@@ -117,21 +144,372 @@ function ClientAvatar({ avatarUrl, displayName }: { avatarUrl?: string; displayN
   );
 }
 
+// ── PostJobModal ──────────────────────────────────────────────────────────────
+
+function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [skillsCsv, setSkillsCsv] = useState('');
+  const [budgetAmount, setBudgetAmount] = useState('');
+  const [budgetAsset, setBudgetAsset] = useState('USDC');
+  const [proposalDeadline, setProposalDeadline] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !budgetAmount.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    const params: JobCreateParams = {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      category: category.trim() || undefined,
+      skills: skillsCsv.trim()
+        ? skillsCsv
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : undefined,
+      budgetAmount: budgetAmount.trim(),
+      budgetAsset: budgetAsset.trim() || 'USDC',
+      proposalDeadline: proposalDeadline || undefined,
+    };
+    try {
+      await apiClient.jobsWrite.create(params);
+      onCreated();
+      onClose();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      onClose={onClose}
+      title="Post a Job"
+      titleId="post-job-modal-title"
+      maxWidthClassName="max-w-lg">
+      <form
+        onSubmit={e => {
+          void handleSubmit(e);
+        }}
+        className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Title *
+          </label>
+          <input
+            type="text"
+            required
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="e.g. Build a Solana integration"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Description
+          </label>
+          <textarea
+            rows={3}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="Describe the work, requirements, and deliverables"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Category
+          </label>
+          <input
+            type="text"
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="e.g. development, design, research"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Skills
+          </label>
+          <input
+            type="text"
+            value={skillsCsv}
+            onChange={e => setSkillsCsv(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="e.g. React, TypeScript"
+          />
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+              Budget Amount *
+            </label>
+            <input
+              type="text"
+              required
+              value={budgetAmount}
+              onChange={e => setBudgetAmount(e.target.value)}
+              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              placeholder="500"
+            />
+          </div>
+          <div className="w-28">
+            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+              Asset
+            </label>
+            <input
+              type="text"
+              value={budgetAsset}
+              onChange={e => setBudgetAsset(e.target.value)}
+              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              placeholder="USDC"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Proposal Deadline
+          </label>
+          <input
+            type="date"
+            value={proposalDeadline}
+            onChange={e => setProposalDeadline(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+          />
+        </div>
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Posting…' : 'Post Job'}
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+// ── ApplyModal ────────────────────────────────────────────────────────────────
+
+function ApplyModal({
+  jobId,
+  onClose,
+  onApplied,
+}: {
+  jobId: string;
+  onClose: () => void;
+  onApplied: () => void;
+}) {
+  const [coverLetter, setCoverLetter] = useState('');
+  const [bidAmount, setBidAmount] = useState('');
+  const [estimatedDelivery, setEstimatedDelivery] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    const params: ProposalCreateParams = {
+      coverLetter: coverLetter.trim() || undefined,
+      bidAmount: bidAmount.trim() || undefined,
+      estimatedDelivery: estimatedDelivery.trim() || undefined,
+    };
+    try {
+      await apiClient.jobsWrite.apply(jobId, params);
+      onApplied();
+      onClose();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      onClose={onClose}
+      title="Apply for Job"
+      titleId="apply-modal-title"
+      maxWidthClassName="max-w-lg">
+      <form
+        onSubmit={e => {
+          void handleSubmit(e);
+        }}
+        className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Cover Letter
+          </label>
+          <textarea
+            rows={4}
+            value={coverLetter}
+            onChange={e => setCoverLetter(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="Describe your experience and why you're a good fit"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Bid Amount
+          </label>
+          <input
+            type="text"
+            value={bidAmount}
+            onChange={e => setBidAmount(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="e.g. 450 USDC"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Estimated Delivery
+          </label>
+          <input
+            type="text"
+            value={estimatedDelivery}
+            onChange={e => setEstimatedDelivery(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="e.g. 2 weeks"
+          />
+        </div>
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Applying…' : 'Submit Application'}
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+// ── DisputeModal ──────────────────────────────────────────────────────────────
+
+function DisputeModal({
+  jobId,
+  onClose,
+  onDisputed,
+}: {
+  jobId: string;
+  onClose: () => void;
+  onDisputed: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reason.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiClient.jobsWrite.openDispute(jobId, reason.trim());
+      onDisputed();
+      onClose();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      onClose={onClose}
+      title="Open Dispute"
+      titleId="dispute-modal-title"
+      maxWidthClassName="max-w-md">
+      <form
+        onSubmit={e => {
+          void handleSubmit(e);
+        }}
+        className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            Reason *
+          </label>
+          <textarea
+            rows={4}
+            required
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="Describe the issue that requires dispute resolution"
+          />
+        </div>
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Opening…' : 'Open Dispute'}
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
 // ── JobRow ────────────────────────────────────────────────────────────────────
 
 function JobRow({
   job,
   expanded,
   onToggle,
+  myAgentId,
+  onApply,
+  onCancel,
+  onViewProposals,
+  onOpenDispute,
+  onAdjudicate,
+  proposalsForJobId,
+  proposals,
+  proposalsLoading,
+  onShortlist,
+  onSelect,
+  onWithdraw,
+  mutating,
 }: {
   job: GqlJobPosting;
   expanded: boolean;
   onToggle: () => void;
+  myAgentId: string | null;
+  onApply: (jobId: string) => void;
+  onCancel: (jobId: string) => void;
+  onViewProposals: (jobId: string) => void;
+  onOpenDispute: (jobId: string) => void;
+  onAdjudicate: (jobId: string) => void;
+  proposalsForJobId: string | null;
+  proposals: Proposal[];
+  proposalsLoading: boolean;
+  onShortlist: (jobId: string, proposalId: string) => void;
+  onSelect: (jobId: string, proposalId: string) => void;
+  onWithdraw: (jobId: string, proposalId: string) => void;
+  mutating: boolean;
 }) {
   const budgetLabel = `${job.budget.amount} ${job.budget.asset}`;
   const skills = job.skills ?? [];
   const visibleSkills = skills.slice(0, 3);
   const overflowCount = skills.length - visibleSkills.length;
+
+  const isClient = myAgentId === job.client;
+  const showingProposals = proposalsForJobId === job.jobId;
 
   return (
     <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
@@ -463,6 +841,118 @@ function JobRow({
               </dl>
             </div>
           )}
+
+          {/* Write actions (wallet-gated) */}
+          {myAgentId ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {/* Candidate actions: Apply (non-client, OPEN jobs) */}
+              {!isClient && job.status === 'OPEN' && (
+                <Button type="button" onClick={() => onApply(job.jobId)} disabled={mutating}>
+                  Apply
+                </Button>
+              )}
+
+              {/* Client actions */}
+              {isClient && (
+                <>
+                  {job.status === 'OPEN' && (
+                    <Button type="button" onClick={() => onCancel(job.jobId)} disabled={mutating}>
+                      Cancel Job
+                    </Button>
+                  )}
+                  {(job.status === 'OPEN' || job.status === 'IN_PROGRESS') && (
+                    <Button
+                      type="button"
+                      onClick={() => onViewProposals(job.jobId)}
+                      disabled={mutating}>
+                      View Proposals
+                    </Button>
+                  )}
+                  {job.status === 'IN_PROGRESS' && !job.dispute && (
+                    <Button
+                      type="button"
+                      onClick={() => onOpenDispute(job.jobId)}
+                      disabled={mutating}>
+                      Open Dispute
+                    </Button>
+                  )}
+                  {job.status === 'DISPUTED' && (
+                    <Button
+                      type="button"
+                      onClick={() => onAdjudicate(job.jobId)}
+                      disabled={mutating}>
+                      Adjudicate
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-stone-400 dark:text-neutral-500">
+              Unlock your wallet to interact with this job.
+            </p>
+          )}
+
+          {/* Inline proposals panel */}
+          {showingProposals && (
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold text-stone-600 dark:text-neutral-300">
+                Proposals
+              </p>
+              {proposalsLoading ? (
+                <p className="text-xs text-stone-400 dark:text-neutral-500 animate-pulse">
+                  Loading proposals…
+                </p>
+              ) : proposals.length === 0 ? (
+                <p className="text-xs text-stone-400 dark:text-neutral-500">No proposals yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {proposals.map(p => (
+                    <div
+                      key={p.proposalId}
+                      className="rounded border border-stone-200 bg-white p-2 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="font-mono text-stone-600 dark:text-neutral-400">
+                          {p.candidate.slice(0, 8)}…
+                        </span>
+                        <span className="text-stone-500 dark:text-neutral-500">{p.status}</span>
+                        {p.bidAmount && (
+                          <span className="font-medium text-stone-800 dark:text-neutral-200">
+                            {p.bidAmount}
+                          </span>
+                        )}
+                      </div>
+                      {p.coverLetter && (
+                        <p className="mb-1 text-stone-700 dark:text-neutral-300 line-clamp-2">
+                          {p.coverLetter}
+                        </p>
+                      )}
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          onClick={() => onShortlist(job.jobId, p.proposalId)}
+                          disabled={mutating}>
+                          Shortlist
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => onSelect(job.jobId, p.proposalId)}
+                          disabled={mutating}>
+                          Select
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => onWithdraw(job.jobId, p.proposalId)}
+                          disabled={mutating}>
+                          Withdraw
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -474,8 +964,30 @@ function JobRow({
 export default function JobsSection() {
   const [jobsState, setJobsState] = useState<JobsState>({ status: 'loading' });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [showPostJob, setShowPostJob] = useState(false);
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [disputeJobId, setDisputeJobId] = useState<string | null>(null);
+  const [proposalsForJobId, setProposalsForJobId] = useState<string | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [mutating, setMutating] = useState(false);
+
+  const myAgentId = useMyAgentId();
 
   // ── Fetch jobs ─────────────────────────────────────────────────────────────
+  const refetchJobs = useCallback(() => {
+    setJobsState({ status: 'loading' });
+    void apiClient.graphql
+      .jobs({ limit: 50 })
+      .then(result => {
+        const jobs = Array.isArray(result?.jobs) ? result.jobs : [];
+        setJobsState({ status: 'ok', jobs });
+      })
+      .catch((err: unknown) => {
+        setJobsState({ status: 'error', message: String(err) });
+      });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setJobsState({ status: 'loading' });
@@ -496,6 +1008,101 @@ export default function JobsSection() {
       cancelled = true;
     };
   }, []);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleCancel = useCallback(
+    async (jobId: string) => {
+      setMutating(true);
+      try {
+        await apiClient.jobsWrite.cancel(jobId);
+        refetchJobs();
+      } catch (err) {
+        console.error('[JobsSection] cancel failed:', err);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [refetchJobs]
+  );
+
+  const handleViewProposals = useCallback(async (jobId: string) => {
+    setProposalsForJobId(jobId);
+    setProposalsLoading(true);
+    try {
+      const result = await apiClient.jobsWrite.listProposals(jobId);
+      setProposals(Array.isArray(result?.proposals) ? result.proposals : []);
+    } catch (err) {
+      console.error('[JobsSection] listProposals failed:', err);
+      setProposals([]);
+    } finally {
+      setProposalsLoading(false);
+    }
+  }, []);
+
+  const handleShortlist = useCallback(
+    async (jobId: string, proposalId: string) => {
+      setMutating(true);
+      try {
+        await apiClient.jobsWrite.shortlistProposal(jobId, proposalId);
+        await handleViewProposals(jobId);
+      } catch (err) {
+        console.error('[JobsSection] shortlist failed:', err);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [handleViewProposals]
+  );
+
+  const handleSelect = useCallback(
+    async (jobId: string, proposalId: string) => {
+      if (!window.confirm('Select this candidate and initiate escrow?')) return;
+      setMutating(true);
+      try {
+        const result = await apiClient.jobsWrite.select(jobId, proposalId);
+        console.debug('[JobsSection] selected candidate, escrow:', result.contractEscrowId);
+        refetchJobs();
+      } catch (err) {
+        console.error('[JobsSection] select failed:', err);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [refetchJobs]
+  );
+
+  const handleWithdraw = useCallback(
+    async (jobId: string, proposalId: string) => {
+      setMutating(true);
+      try {
+        await apiClient.jobsWrite.withdrawProposal(jobId, proposalId);
+        if (proposalsForJobId === jobId) {
+          await handleViewProposals(jobId);
+        }
+      } catch (err) {
+        console.error('[JobsSection] withdraw failed:', err);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [proposalsForJobId, handleViewProposals]
+  );
+
+  const handleAdjudicate = useCallback(
+    async (jobId: string) => {
+      setMutating(true);
+      try {
+        await apiClient.jobsWrite.adjudicateDispute(jobId);
+        refetchJobs();
+      } catch (err) {
+        console.error('[JobsSection] adjudicate failed:', err);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [refetchJobs]
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -532,11 +1139,66 @@ export default function JobsSection() {
             job={job}
             expanded={expandedJobId === job.jobId}
             onToggle={() => setExpandedJobId(prev => (prev === job.jobId ? null : job.jobId))}
+            myAgentId={myAgentId}
+            onApply={jobId => setApplyingJobId(jobId)}
+            onCancel={jobId => {
+              void handleCancel(jobId);
+            }}
+            onViewProposals={jobId => {
+              void handleViewProposals(jobId);
+            }}
+            onOpenDispute={jobId => setDisputeJobId(jobId)}
+            onAdjudicate={jobId => {
+              void handleAdjudicate(jobId);
+            }}
+            proposalsForJobId={proposalsForJobId}
+            proposals={proposals}
+            proposalsLoading={proposalsLoading}
+            onShortlist={(jobId, proposalId) => {
+              void handleShortlist(jobId, proposalId);
+            }}
+            onSelect={(jobId, proposalId) => {
+              void handleSelect(jobId, proposalId);
+            }}
+            onWithdraw={(jobId, proposalId) => {
+              void handleWithdraw(jobId, proposalId);
+            }}
+            mutating={mutating}
           />
         ))}
       </div>
     );
   }
 
-  return <PanelScaffold description="Jobs">{body}</PanelScaffold>;
+  return (
+    <PanelScaffold description="Jobs">
+      {/* Post a Job button (wallet-gated) */}
+      {myAgentId && (
+        <div className="mb-4 flex justify-end">
+          <Button onClick={() => setShowPostJob(true)}>Post a Job</Button>
+        </div>
+      )}
+
+      {body}
+
+      {/* Modals */}
+      {showPostJob && (
+        <PostJobModal onClose={() => setShowPostJob(false)} onCreated={refetchJobs} />
+      )}
+      {applyingJobId && (
+        <ApplyModal
+          jobId={applyingJobId}
+          onClose={() => setApplyingJobId(null)}
+          onApplied={() => setApplyingJobId(null)}
+        />
+      )}
+      {disputeJobId && (
+        <DisputeModal
+          jobId={disputeJobId}
+          onClose={() => setDisputeJobId(null)}
+          onDisputed={refetchJobs}
+        />
+      )}
+    </PanelScaffold>
+  );
 }

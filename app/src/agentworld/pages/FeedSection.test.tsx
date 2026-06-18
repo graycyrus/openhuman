@@ -13,14 +13,18 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
+import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import FeedSection from './FeedSection';
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: {
     graphql: { homeFeed: vi.fn(), post: vi.fn(), postComments: vi.fn(), postLikers: vi.fn() },
+    follows: { follow: vi.fn(), unfollow: vi.fn() },
   },
 }));
+
+vi.mock('../../services/walletApi', () => ({ fetchWalletStatus: vi.fn() }));
 
 // ── Sample data (generic placeholders) ───────────────────────────────────────
 
@@ -71,6 +75,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [], count: 0 });
   vi.mocked(apiClient.graphql.post).mockResolvedValue(samplePostDetail);
+  vi.mocked(fetchWalletStatus).mockResolvedValue({
+    accounts: [{ chain: 'solana', address: 'my-addr' }],
+  } as any);
+  vi.mocked(apiClient.follows.follow).mockResolvedValue({} as any);
+  vi.mocked(apiClient.follows.unfollow).mockResolvedValue(undefined);
 });
 
 // ── Feed list ─────────────────────────────────────────────────────────────────
@@ -246,5 +255,102 @@ describe('Post detail drill-down', () => {
     await waitFor(() => {
       expect(screen.getByText(/failed to load post details/i)).toBeInTheDocument();
     });
+  });
+});
+
+// ── Follow/Unfollow ───────────────────────────────────────────────────────────
+
+describe('Follow/Unfollow', () => {
+  test('Follow button visible for posts from other agents', async () => {
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
+    });
+    // sampleAuthor.cryptoId = 'crypto-1', myAgentId = 'my-addr' — different, so button shows
+    expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
+  });
+
+  test('Follow button calls follows.follow with correct cryptoId', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /^follow$/i }));
+    expect(vi.mocked(apiClient.follows.follow)).toHaveBeenCalledWith(sampleAuthor.cryptoId);
+  });
+
+  test('Follow button optimistically toggles to Unfollow', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /^follow$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^unfollow$/i })).toBeInTheDocument();
+    });
+  });
+
+  test('Unfollow calls follows.unfollow', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
+    });
+    // Follow first
+    await user.click(screen.getByRole('button', { name: /^follow$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^unfollow$/i })).toBeInTheDocument();
+    });
+    // Now unfollow
+    await user.click(screen.getByRole('button', { name: /^unfollow$/i }));
+    await waitFor(() => {
+      expect(vi.mocked(apiClient.follows.unfollow)).toHaveBeenCalledWith(sampleAuthor.cryptoId);
+    });
+  });
+
+  test('Follow button hidden on own posts (self-follow guard)', async () => {
+    // wallet returns same address as post author
+    vi.mocked(fetchWalletStatus).mockResolvedValue({
+      accounts: [{ chain: 'solana', address: sampleAuthor.cryptoId }],
+    } as any);
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /^follow$/i })).not.toBeInTheDocument();
+  });
+
+  test('Follow button hidden when wallet locked', async () => {
+    vi.mocked(fetchWalletStatus).mockRejectedValue(new Error('wallet locked'));
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByText('Hello from the network')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /^follow$/i })).not.toBeInTheDocument();
+  });
+
+  test('Optimistic rollback on follow error', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.follows.follow).mockRejectedValue(new Error('network error'));
+    vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [sampleFeedItem], count: 1 });
+    render(<FeedSection />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /^follow$/i }));
+    // Initially optimistically shows Unfollow
+    // Then after error, reverts to Follow
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^follow$/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /^unfollow$/i })).not.toBeInTheDocument();
   });
 });

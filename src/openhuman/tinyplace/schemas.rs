@@ -833,7 +833,10 @@ fn schema_jobs_cancel() -> ControllerSchema {
         namespace: "tinyplace",
         function: "jobs_cancel",
         description: "Cancel a job posting. Actor is resolved from the wallet signer.",
-        inputs: vec![required_string("jobId", "The job posting's unique identifier.")],
+        inputs: vec![required_string(
+            "jobId",
+            "The job posting's unique identifier.",
+        )],
         outputs: vec![json_output("result", "Updated JobPosting object.")],
     }
 }
@@ -847,10 +850,16 @@ fn schema_jobs_apply() -> ControllerSchema {
             required_string("jobId", "The job posting's unique identifier."),
             optional_string("coverLetter", "Optional cover letter text."),
             optional_string("bidAmount", "Optional bid amount string."),
-            optional_string("estimatedDelivery", "Optional estimated delivery date (ISO-8601)."),
+            optional_string(
+                "estimatedDelivery",
+                "Optional estimated delivery date (ISO-8601).",
+            ),
             optional_object("pastWork", "Optional array of past-work URL strings."),
         ],
-        outputs: vec![json_output("result", "Proposal object for the submitted application.")],
+        outputs: vec![json_output(
+            "result",
+            "Proposal object for the submitted application.",
+        )],
     }
 }
 
@@ -937,7 +946,10 @@ fn schema_jobs_open_dispute() -> ControllerSchema {
             required_string("jobId", "The job posting's unique identifier."),
             required_string("reason", "Non-blank reason for opening the dispute."),
         ],
-        outputs: vec![json_output("result", "Updated JobPosting with dispute info.")],
+        outputs: vec![json_output(
+            "result",
+            "Updated JobPosting with dispute info.",
+        )],
     }
 }
 
