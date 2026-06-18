@@ -40,7 +40,8 @@ const messages: TranslationMap = {
   'nav.activity': 'Активность',
   'nav.brain': 'Мозг',
   'nav.agentWorld': 'Tiny.Place',
-  'agentWorld.description': 'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',
+  'agentWorld.description':
+    'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',
   'agentWorld.feed': 'Лента',
   'agentWorld.ledger': 'Реестр',
   'agentWorld.jobs': 'Вакансии',

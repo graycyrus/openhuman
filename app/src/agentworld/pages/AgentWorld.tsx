@@ -11,8 +11,8 @@
  */
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
+import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { useT } from '../../lib/i18n/I18nContext';
 import BountiesSection from './BountiesSection';
 import DirectorySection from './DirectorySection';
