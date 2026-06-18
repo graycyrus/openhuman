@@ -50,6 +50,46 @@ function relativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
+/**
+ * Group the integer part of a numeric amount with thousands separators while
+ * preserving the original decimals ("1000000" → "1,000,000", "0.50" → "0.50").
+ * Non-numeric strings pass through unchanged.
+ */
+function formatAmount(amount: string): string {
+  if (!Number.isFinite(Number(amount))) return amount;
+  const negative = amount.startsWith('-');
+  const body = negative ? amount.slice(1) : amount;
+  const [intPart, fracPart] = body.split('.');
+  const grouped = Number(intPart).toLocaleString('en-US');
+  const out = fracPart != null ? `${grouped}.${fracPart}` : grouped;
+  return negative ? `-${out}` : out;
+}
+
+/** Collapse a raw base58 address-like display name to `abcd…wxyz`; leave real names. */
+function displayClientName(name: string): string {
+  if (name.length > 16 && !/\s/.test(name)) {
+    return `${name.slice(0, 4)}…${name.slice(-4)}`;
+  }
+  return name;
+}
+
+/** Verified check badge (replaces the bare ✓ glyph). */
+function VerifiedBadge() {
+  return (
+    <svg
+      className="h-3.5 w-3.5 shrink-0 text-ocean-500"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-label="Verified">
+      <path
+        fillRule="evenodd"
+        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 /** Centered status message for loading / error / info states. */
 function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
   return (
@@ -503,72 +543,69 @@ function JobRow({
   onWithdraw: (jobId: string, proposalId: string) => void;
   mutating: boolean;
 }) {
-  const budgetLabel = `${job.budget.amount} ${job.budget.asset}`;
+  const budgetLabel = `${formatAmount(job.budget.amount)} ${job.budget.asset}`;
   const skills = job.skills ?? [];
   const visibleSkills = skills.slice(0, 3);
   const overflowCount = skills.length - visibleSkills.length;
 
   const isClient = myAgentId === job.client;
   const showingProposals = proposalsForJobId === job.jobId;
+  const proposalLabel = `${job.proposalCount} proposal${job.proposalCount !== 1 ? 's' : ''}`;
 
   return (
     <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
-      {/* Summary row */}
+      {/* Summary row — avatar · stacked content · fixed meta column */}
       <button
         type="button"
         onClick={onToggle}
-        className="w-full px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {/* Client avatar */}
-          <ClientAvatar
-            avatarUrl={job.clientProfile.avatarUrl ?? undefined}
-            displayName={job.clientProfile.displayName}
-          />
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+        <ClientAvatar
+          avatarUrl={job.clientProfile.avatarUrl ?? undefined}
+          displayName={job.clientProfile.displayName}
+        />
 
-          {/* Client name + verified */}
-          <span className="text-xs text-stone-500 dark:text-neutral-400">
-            {job.clientProfile.displayName}
-            {job.clientProfile.verified && (
-              <span className="ml-1 text-ocean-500" title="Verified">
-                ✓
-              </span>
-            )}
-          </span>
-
-          {/* Title */}
-          <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-            {job.title}
-          </span>
-
-          {/* Budget */}
-          <span className="text-sm font-medium text-stone-700 dark:text-neutral-300">
-            {budgetLabel}
-          </span>
-
-          {/* Status */}
-          <JobStatusBadge status={job.status} />
-
-          {/* Skills (up to 3 + overflow) */}
-          {visibleSkills.map(skill => (
-            <SkillChip key={skill} skill={skill} />
-          ))}
-          {overflowCount > 0 && (
-            <span className="text-xs text-stone-400 dark:text-neutral-500">
-              +{overflowCount} more
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          {/* Line 1: title + status */}
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              {job.title}
             </span>
-          )}
+            <span className="shrink-0">
+              <JobStatusBadge status={job.status} />
+            </span>
+          </div>
 
-          {/* Proposal count */}
-          <span className="text-xs text-stone-400 dark:text-neutral-500">
-            {job.proposalCount} proposal{job.proposalCount !== 1 ? 's' : ''}
-          </span>
+          {/* Line 2: client · budget */}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
+            <span className="truncate">{displayClientName(job.clientProfile.displayName)}</span>
+            {job.clientProfile.verified && <VerifiedBadge />}
+            <span className="text-stone-300 dark:text-neutral-600">·</span>
+            <span className="whitespace-nowrap font-medium text-stone-700 dark:text-neutral-300">
+              {budgetLabel}
+            </span>
+          </div>
 
-          {/* Time */}
-          <span className="ml-auto text-xs text-stone-400 dark:text-neutral-500">
+          {/* Line 3: skills + proposal count */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {visibleSkills.map(skill => (
+              <SkillChip key={skill} skill={skill} />
+            ))}
+            {overflowCount > 0 && (
+              <span className="text-xs text-stone-400 dark:text-neutral-500">+{overflowCount}</span>
+            )}
+            <span className="text-xs text-stone-400 dark:text-neutral-500">
+              {skills.length > 0 ? '· ' : ''}
+              {proposalLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Fixed meta column: time + chevron */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span className="whitespace-nowrap text-xs text-stone-400 dark:text-neutral-500">
             {relativeTime(job.createdAt)}
           </span>
-
-          {/* Expand chevron */}
           <svg
             className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
             fill="none"

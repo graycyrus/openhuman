@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import { type GqlLedgerTransaction } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
+import { friendlyNetwork } from '../components/X402ConfirmDialog';
 import { explorerTxUrl } from '../hooks/useX402Buy';
 
 // ── State types ───────────────────────────────────────────────────────────────
@@ -37,9 +38,25 @@ function relativeTime(iso: string): string {
 }
 
 export function abbreviateAddress(addr: string | undefined): string {
-  if (!addr) return '-';
+  if (!addr) return '—';
   if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
+}
+
+/**
+ * Group the integer part of a numeric amount with thousands separators while
+ * preserving the original decimal places (so "0.50" stays "0.50" and
+ * "1000000" becomes "1,000,000"). Non-numeric strings pass through unchanged.
+ */
+export function formatAmount(amount: string | undefined): string {
+  if (!amount) return '—';
+  if (!Number.isFinite(Number(amount))) return amount;
+  const negative = amount.startsWith('-');
+  const body = negative ? amount.slice(1) : amount;
+  const [intPart, fracPart] = body.split('.');
+  const grouped = Number(intPart).toLocaleString('en-US');
+  const out = fracPart != null ? `${grouped}.${fracPart}` : grouped;
+  return negative ? `-${out}` : out;
 }
 
 /** Centered status message for loading / error / info states. */
@@ -82,9 +99,35 @@ function TypeBadge({ type }: { type: string }) {
           ? 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'
           : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${color}`}>
       {type}
     </span>
+  );
+}
+
+// ── TypeIcon (leading circular glyph, colored by type) ──────────────────────────
+
+function TypeIcon({ type }: { type: string }) {
+  const color =
+    type === 'REGISTRATION'
+      ? 'bg-ocean-50 text-ocean-600 dark:bg-ocean-900/30 dark:text-ocean-400'
+      : type === 'SALE'
+        ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+        : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400';
+  return (
+    <div
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${color}`}
+      aria-hidden="true">
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -99,60 +142,77 @@ function TransactionRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const amountLabel = tx.amount && tx.asset ? `${tx.amount} ${tx.asset}` : (tx.amount ?? '-');
-
   return (
     <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
-      {/* Summary row */}
+      {/* Summary row — leading icon · stacked content · fixed meta column */}
       <button
         type="button"
         onClick={onToggle}
-        className="w-full px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {/* Type */}
-          <TypeBadge type={tx.type} />
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+        <TypeIcon type={tx.type} />
 
-          {/* Amount */}
-          <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-            {amountLabel}
-          </span>
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          {/* Line 1: amount + type + status */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              {formatAmount(tx.amount)}
+              {tx.asset ? ` ${tx.asset}` : ''}
+            </span>
+            <TypeBadge type={tx.type} />
+            <StatusBadge status={tx.status} />
+          </div>
 
-          {/* From → To */}
-          <span className="text-xs text-stone-500 dark:text-neutral-400">
-            {abbreviateAddress(tx.from)} → {abbreviateAddress(tx.to)}
-          </span>
+          {/* Line 2: from → to · network */}
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
+            <span className="font-mono">{abbreviateAddress(tx.from)}</span>
+            <svg
+              className="h-3 w-3 shrink-0 text-stone-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              />
+            </svg>
+            <span className="font-mono">{abbreviateAddress(tx.to)}</span>
+            <span className="text-stone-300 dark:text-neutral-600">·</span>
+            <span className="truncate">{friendlyNetwork(tx.network)}</span>
+          </div>
+        </div>
 
-          {/* Network */}
-          <span className="text-xs text-stone-400 dark:text-neutral-500">{tx.network}</span>
-
-          {/* Status */}
-          <StatusBadge status={tx.status} />
-
-          {/* Time */}
-          <span className="ml-auto text-xs text-stone-400 dark:text-neutral-500">
+        {/* Fixed meta column: time + (view-on-chain + chevron) */}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="whitespace-nowrap text-xs text-stone-400 dark:text-neutral-500">
             {relativeTime(tx.timestamp)}
           </span>
-
-          {/* Explorer link */}
-          {tx.onChainTx && (
-            <a
-              href={explorerTxUrl(tx.onChainTx, tx.network)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300"
-              onClick={e => e.stopPropagation()}>
-              View on chain
-            </a>
-          )}
-
-          {/* Expand chevron */}
-          <svg
-            className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          <div className="flex items-center gap-2">
+            {tx.onChainTx && (
+              <a
+                href={explorerTxUrl(tx.onChainTx, tx.network)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whitespace-nowrap text-xs font-medium text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300"
+                onClick={e => e.stopPropagation()}>
+                View on chain
+              </a>
+            )}
+            <svg
+              className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
         </div>
       </button>
 

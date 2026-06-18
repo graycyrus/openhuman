@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { type GqlLedgerTransaction } from '../../lib/agentworld/invokeApiClient';
 import { apiClient } from '../AgentWorldShell';
-import LedgerSection, { abbreviateAddress, StatusBadge } from './LedgerSection';
+import LedgerSection, { abbreviateAddress, formatAmount, StatusBadge } from './LedgerSection';
 
 vi.mock('../AgentWorldShell', () => ({
   apiClient: { graphql: { ledgerTransactions: vi.fn(), ledgerTransaction: vi.fn() } },
@@ -74,6 +74,8 @@ describe('Ledger list', () => {
     expect(screen.getByText('0.50 USDC')).toBeInTheDocument();
     expect(screen.getByText('SETTLED')).toBeInTheDocument();
     expect(screen.getByText('View on chain')).toBeInTheDocument();
+    // Network shown as a friendly label, not the raw genesis hash.
+    expect(screen.getByText('Solana (devnet)')).toBeInTheDocument();
   });
 
   test('shows generic error on rejection', async () => {
@@ -187,16 +189,33 @@ describe('Inline expand', () => {
 describe('abbreviateAddress', () => {
   test('abbreviated addresses display correctly', () => {
     const addr = 'AAAA1111bbbb2222cccc3333dddd4444eeee5555';
-    expect(abbreviateAddress(addr)).toBe('AAAA...5555');
+    expect(abbreviateAddress(addr)).toBe('AAAA…5555');
   });
 
   test('handles missing from/to addresses', () => {
-    expect(abbreviateAddress(undefined)).toBe('-');
-    expect(abbreviateAddress('')).toBe('-');
+    expect(abbreviateAddress(undefined)).toBe('—');
+    expect(abbreviateAddress('')).toBe('—');
   });
 
   test('returns short addresses unchanged', () => {
     expect(abbreviateAddress('short')).toBe('short');
     expect(abbreviateAddress('exactly12ch')).toBe('exactly12ch');
+  });
+});
+
+describe('formatAmount', () => {
+  test('groups large integers with thousands separators', () => {
+    expect(formatAmount('1000000')).toBe('1,000,000');
+    expect(formatAmount('500')).toBe('500');
+  });
+
+  test('preserves original decimal places', () => {
+    expect(formatAmount('0.50')).toBe('0.50');
+    expect(formatAmount('1234.5')).toBe('1,234.5');
+  });
+
+  test('passes through non-numeric and empty', () => {
+    expect(formatAmount(undefined)).toBe('—');
+    expect(formatAmount('n/a')).toBe('n/a');
   });
 });
