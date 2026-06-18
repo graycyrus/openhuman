@@ -395,7 +395,7 @@ function CommentRow({
             <button
               type="button"
               onClick={() => {
-                if (confirm('Delete this comment?')) {
+                if (window.confirm('Delete this comment?')) {
                   void apiClient.feeds
                     .deleteComment(handle, postId, comment.commentId)
                     .then(() => onCommentDeleted())
@@ -746,7 +746,7 @@ export default function FeedSection() {
   // ── Delete post ────────────────────────────────────────────────────────────
 
   const handleDeletePost = (post: GqlPost) => {
-    if (!confirm('Delete this post?')) return;
+    if (!window.confirm('Delete this post?')) return;
     void apiClient.feeds
       .deletePost(post.postId)
       .then(() => {

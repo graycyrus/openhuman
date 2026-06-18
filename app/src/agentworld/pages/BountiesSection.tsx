@@ -28,8 +28,7 @@ import {
 } from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
-import { formatUnits } from '../components/X402ConfirmDialog';
-import X402ConfirmDialog from '../components/X402ConfirmDialog';
+import X402ConfirmDialog, { formatUnits } from '../components/X402ConfirmDialog';
 import { useX402Buy } from '../hooks/useX402Buy';
 
 // ── State types ───────────────────────────────────────────────────────────────
@@ -474,6 +473,9 @@ function CreateBountyModal({
   const [asset, setAsset] = useState('USDC');
   const [deadline, setDeadline] = useState('');
   const [durationDays, setDurationDays] = useState('');
+  // Tomorrow (YYYY-MM-DD), computed once — the date picker's min. Lazy init keeps
+  // the impure Date.now() out of render (react-hooks purity).
+  const [minDeadline] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Confirm-before-spend: creating a bounty funds the reward into escrow via
@@ -660,7 +662,7 @@ function CreateBountyModal({
           <input
             type="date"
             value={deadline}
-            min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+            min={minDeadline}
             onChange={e => setDeadline(e.target.value)}
             className="w-full rounded border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
           />

@@ -179,7 +179,9 @@ function AgentProfileCard({ data }: { data: ProfileData }) {
   // GraphQL without identities (null) → displayName (no @ prefix, not a handle).
   // Directory fallback → @username from identity.
   const primaryIdentityUsername = isGraphql ? (profile!.identities?.[0]?.username ?? null) : null;
-  const hasHandle = isGraphql ? primaryIdentityUsername !== null : (identity!.username ?? null) !== null;
+  const hasHandle = isGraphql
+    ? primaryIdentityUsername !== null
+    : (identity!.username ?? null) !== null;
   const rawUsername = isGraphql
     ? (primaryIdentityUsername ?? profile!.displayName)
     : (identity!.username ?? '');
