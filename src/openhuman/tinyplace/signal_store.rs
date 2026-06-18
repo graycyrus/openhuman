@@ -35,6 +35,7 @@
 use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -587,13 +588,47 @@ impl SessionStore for FileSessionStore {
 
 // ── Process-global accessor ───────────────────────────────────────────────────
 
-/// Process-global [`FileSessionStore`] instance.
+/// Process-global [`FileSessionStore`] instance, stored as `Arc` so it can be
+/// shared with [`tinyplace::signal::session::SignalSession::new`] which takes
+/// `Arc<dyn SessionStore>`.
 ///
-/// Built lazily on first call to [`global_signal_store`]. Uses
-/// [`tokio::sync::OnceCell`] because the initialisation is async.
-static SIGNAL_STORE: OnceCell<FileSessionStore> = OnceCell::const_new();
+/// Built lazily on first call to [`global_signal_store`] or
+/// [`global_signal_store_arc`]. Uses [`tokio::sync::OnceCell`] because
+/// initialisation is async.
+static SIGNAL_STORE: OnceCell<Arc<FileSessionStore>> = OnceCell::const_new();
 
-/// Return the process-global [`FileSessionStore`], building it on first access.
+/// Shared initialisation — builds the `FileSessionStore` and wraps it in an
+/// `Arc`. Called by both `global_signal_store` and `global_signal_store_arc`.
+async fn init_signal_store() -> std::result::Result<Arc<FileSessionStore>, String> {
+    log::debug!("[signal_store] initializing global signal store");
+
+    // 1. Derive the identity key from the wallet seed.
+    //    The seed is never logged or persisted.
+    let seed = crate::openhuman::wallet::tinyplace_signer_seed().await?;
+    let identity = ed25519_seed_to_x25519_keypair(&seed);
+    log::debug!("[signal_store] identity key derived (key not logged)");
+
+    // 2. Resolve workspace_dir from config.
+    let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
+    let store_dir = config.workspace_dir.join("tinyplace").join("signal");
+
+    // 3. Build a SecretStore backed by the same keychain master key that
+    //    protects wallet credentials. The `openhuman_dir` is the parent
+    //    of `config_path` (e.g. `~/.openhuman/users/<id>/`).
+    let openhuman_dir = config
+        .config_path
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let secret_store = SecretStore::new(&openhuman_dir, true);
+
+    // 4. Construct and wrap in Arc (warms the cache).
+    let store = FileSessionStore::new(identity, store_dir, secret_store).await?;
+    Ok(Arc::new(store))
+}
+
+/// Return a `&'static`-deref reference to the process-global [`FileSessionStore`],
+/// building it on first access.
 ///
 /// Requires:
 /// 1. The wallet to be unlocked (for `tinyplace_signer_seed()`).
@@ -605,33 +640,23 @@ static SIGNAL_STORE: OnceCell<FileSessionStore> = OnceCell::const_new();
 pub(crate) async fn global_signal_store() -> std::result::Result<&'static FileSessionStore, String>
 {
     SIGNAL_STORE
-        .get_or_try_init(|| async {
-            log::debug!("[signal_store] initializing global signal store");
-
-            // 1. Derive the identity key from the wallet seed.
-            //    The seed is never logged or persisted.
-            let seed = crate::openhuman::wallet::tinyplace_signer_seed().await?;
-            let identity = ed25519_seed_to_x25519_keypair(&seed);
-            log::debug!("[signal_store] identity key derived (key not logged)");
-
-            // 2. Resolve workspace_dir from config.
-            let config = crate::openhuman::config::rpc::load_config_with_timeout().await?;
-            let store_dir = config.workspace_dir.join("tinyplace").join("signal");
-
-            // 3. Build a SecretStore backed by the same keychain master key that
-            //    protects wallet credentials. The `openhuman_dir` is the parent
-            //    of `config_path` (e.g. `~/.openhuman/users/<id>/`).
-            let openhuman_dir = config
-                .config_path
-                .parent()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("."));
-            let secret_store = SecretStore::new(&openhuman_dir, true);
-
-            // 4. Construct and return the store (warms the cache).
-            FileSessionStore::new(identity, store_dir, secret_store).await
-        })
+        .get_or_try_init(|| async { init_signal_store().await })
         .await
+        .map(|arc| arc.as_ref())
+}
+
+/// Return an `Arc`-wrapped handle to the process-global [`FileSessionStore`],
+/// for use with [`tinyplace::signal::session::SignalSession::new`] which requires
+/// `Arc<dyn SessionStore>`.
+///
+/// Clones the `Arc` from `SIGNAL_STORE` (cheap — one atomic increment).
+/// All existing callers of `global_signal_store()` are unaffected.
+pub(crate) async fn global_signal_store_arc() -> std::result::Result<Arc<FileSessionStore>, String>
+{
+    SIGNAL_STORE
+        .get_or_try_init(|| async { init_signal_store().await })
+        .await
+        .map(Arc::clone)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
