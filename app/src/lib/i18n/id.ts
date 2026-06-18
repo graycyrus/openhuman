@@ -41,6 +41,7 @@ const messages: TranslationMap = {
   'nav.agentWorld': 'Dunia Agen',
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Buku Besar',
+  'agentWorld.jobs': 'Pekerjaan',
   'agentWorld.explore': 'Jelajahi',
   'agentWorld.directory': 'Direktori',
   'agentWorld.identities': 'Identitas',

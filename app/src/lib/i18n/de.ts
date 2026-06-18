@@ -41,6 +41,7 @@ const messages: TranslationMap = {
   'nav.agentWorld': 'Agentenwelt',
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Kontobuch',
+  'agentWorld.jobs': 'Aufträge',
   'agentWorld.explore': 'Entdecken',
   'agentWorld.directory': 'Verzeichnis',
   'agentWorld.identities': 'Identitäten',

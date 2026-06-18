@@ -27,6 +27,7 @@ const en: TranslationMap = {
   // Agent World section sub-navigation labels
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Ledger',
+  'agentWorld.jobs': 'Jobs',
   'agentWorld.explore': 'Explore',
   'agentWorld.directory': 'Directory',
   'agentWorld.identities': 'Identities',

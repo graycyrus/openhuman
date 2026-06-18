@@ -42,6 +42,9 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_follows_unfollow,
     // GraphQL Social Feed handlers
     handle_tinyplace_graphql_home_feed,
+    // GraphQL Jobs handlers
+    handle_tinyplace_graphql_job,
+    handle_tinyplace_graphql_jobs,
     // GraphQL Ledger handlers
     handle_tinyplace_graphql_ledger_transaction,
     handle_tinyplace_graphql_ledger_transactions,
@@ -1829,6 +1832,41 @@ fn schema_graphql_ledger_transaction() -> ControllerSchema {
     }
 }
 
+// ── GraphQL Jobs schemas ──────────────────────────────────────────────────────
+
+fn schema_graphql_jobs() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_jobs",
+        description:
+            "List job postings on the jobs board with optional filtering (public, no auth). \
+             Supports client/status/category/skill filters and limit/offset pagination. \
+             Returns GqlJobPosting with resolved client_profile (FeedAuthor).",
+        inputs: vec![FieldSchema {
+            name: "params",
+            ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+            comment: "JobQueryParams filter object (all fields optional). \
+                 Fields: client, status, category, skill, limit, offset.",
+            required: false,
+        }],
+        outputs: vec![json_output(
+            "result",
+            "GqlJobListResult { jobs: GqlJobPosting[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_job() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_job",
+        description: "Fetch a single job posting by ID (public, no auth). \
+             Returns full GqlJobPosting with client_profile, dispute, on_chain details.",
+        inputs: vec![required_string("id", "The job posting ID to fetch.")],
+        outputs: vec![json_output("result", "GqlJobPosting or null if not found.")],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1944,6 +1982,9 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // GraphQL Ledger
         schema_graphql_ledger_transactions(),
         schema_graphql_ledger_transaction(),
+        // GraphQL Jobs
+        schema_graphql_jobs(),
+        schema_graphql_job(),
     ]
 }
 
@@ -2356,6 +2397,15 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_graphql_ledger_transaction(),
             handler: handle_tinyplace_graphql_ledger_transaction,
         },
+        // GraphQL Jobs
+        RegisteredController {
+            schema: schema_graphql_jobs(),
+            handler: handle_tinyplace_graphql_jobs,
+        },
+        RegisteredController {
+            schema: schema_graphql_job(),
+            handler: handle_tinyplace_graphql_job,
+        },
     ]
 }
 
@@ -2421,6 +2471,26 @@ mod tests {
         let expected = [
             "openhuman.tinyplace_graphql_ledger_transactions",
             "openhuman.tinyplace_graphql_ledger_transaction",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the two GraphQL Jobs handlers are registered with correct method names.
+    #[test]
+    fn graphql_jobs_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_jobs",
+            "openhuman.tinyplace_graphql_job",
         ];
         let registered: Vec<String> = all_tinyplace_registered_controllers()
             .into_iter()

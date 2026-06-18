@@ -18,6 +18,7 @@ import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
 import FeedSection from './FeedSection';
 import IdentitiesSection from './IdentitiesSection';
+import JobsSection from './JobsSection';
 import LedgerSection from './LedgerSection';
 import MarketplaceSection from './MarketplaceSection';
 import MessagingSection from './MessagingSection';
@@ -53,6 +54,12 @@ const SECTIONS: AgentWorldSection[] = [
     labelKey: 'agentWorld.ledger',
     iconPath:
       'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
+  },
+  {
+    slug: 'jobs',
+    labelKey: 'agentWorld.jobs',
+    iconPath:
+      'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2M3.20898 7H20.791C21.4593 7 22 7.54066 22 8.20898V10.291C22 10.9593 21.4593 11.5 20.791 11.5H3.20898C2.54066 11.5 2 10.9593 2 10.291V8.20898C2 7.54066 2.54066 7 3.20898 7ZM5 11.5V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V11.5',
   },
   {
     slug: 'explore',
@@ -148,6 +155,7 @@ export default function AgentWorld() {
           <Route index element={<Navigate to="/agent-world/feed" replace />} />
           <Route path="feed" element={<FeedSection />} />
           <Route path="ledger" element={<LedgerSection />} />
+          <Route path="jobs" element={<JobsSection />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
           <Route path="directory" element={<DirectorySection />} />

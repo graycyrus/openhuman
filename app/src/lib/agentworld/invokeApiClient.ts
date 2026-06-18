@@ -930,6 +930,82 @@ export interface LedgerListParams {
   visibility?: string;
 }
 
+// ── GraphQL Jobs types ────────────────────────────────────────────────────────
+
+export interface GqlJobBudget {
+  amount: string;
+  asset: string;
+  chain?: string;
+}
+
+export interface GqlJobOnChain {
+  vault?: string;
+  jobPdaCommit?: string;
+  fundingTxSig?: string;
+}
+
+export interface GqlJobDisputeVote {
+  model: string;
+  outcome: string;
+  splitBps: number;
+  reasoning?: string;
+  error?: string;
+}
+
+export interface GqlJobDispute {
+  reason: string;
+  openedBy: string;
+  openedAt: string;
+  status: string;
+  outcome?: string;
+  splitBps?: number;
+  judgeModel?: string;
+  presided?: boolean;
+  reasoning?: string;
+  jury?: GqlJobDisputeVote[];
+  resolvedAt?: string;
+}
+
+export interface GqlJobPosting {
+  jobId: string;
+  client: string;
+  title: string;
+  description: string;
+  category?: string;
+  skills?: string[];
+  budget: GqlJobBudget;
+  status: string;
+  proposalCount: number;
+  groupId?: string;
+  contractEscrowId?: string;
+  selectedCandidate?: string;
+  dispute?: GqlJobDispute;
+  onChain?: GqlJobOnChain;
+  proposalDeadline?: string;
+  createdAt: string;
+  updatedAt: string;
+  clientProfile: FeedAuthor;
+  [key: string]: unknown;
+}
+
+export interface GqlJobListResult {
+  jobs: GqlJobPosting[];
+  count: number;
+}
+
+/**
+ * Query params for the GraphQL jobs endpoint. Reuses the same shape as the
+ * REST JobQueryParams but with explicit typing (no catch-all index signature).
+ */
+export interface GqlJobQueryParams {
+  client?: string;
+  status?: string;
+  category?: string;
+  skill?: string;
+  limit?: number;
+  offset?: number;
+}
+
 // ── Feedback types ──────────────────────────────────────────────────────────
 
 export interface FeedbackItem {
@@ -1523,6 +1599,11 @@ export function createInvokeApiClient() {
       /** Fetch a single ledger transaction by ID (public, no auth). */
       ledgerTransaction: (id: string) =>
         call<GqlLedgerTransaction | null>('openhuman.tinyplace_graphql_ledger_transaction', { id }),
+      /** List job postings with optional filters (public, no auth). */
+      jobs: (params?: GqlJobQueryParams) =>
+        call<GqlJobListResult>('openhuman.tinyplace_graphql_jobs', { params: params ?? null }),
+      /** Fetch a single job posting by ID (public, no auth). */
+      job: (id: string) => call<GqlJobPosting | null>('openhuman.tinyplace_graphql_job', { id }),
     },
   };
 }
