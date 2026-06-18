@@ -1,18 +1,18 @@
 /**
- * AgentWorld — section host for the tiny.place Agent World integration.
+ * AgentWorld — section host for the Tiny.Place integration.
  *
- * Uses the standard two-pane shell (the same `TwoPanelLayout` + `TwoPaneNav`
- * pattern as Brain / Settings): a resizable left sidebar lists the sections and
- * the active section renders in the right content pane. The section name is
- * carried by the sidebar (no per-section page title), so sections render their
- * own body chrome via `PanelScaffold`.
+ * The section navigation lives in the root app sidebar's dynamic region (the
+ * "session sidebar"), projected there via `SidebarContent` — the same pattern
+ * as Brain. The active section fills the content pane flush. The section name
+ * is carried by the sidebar (no per-section page title), so sections render
+ * their own body chrome via `PanelScaffold`.
  *
  * Sub-navigation keys: agentWorld.explore (+ future section keys).
  */
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-import TwoPanelLayout from '../../components/layout/TwoPanelLayout';
 import TwoPaneNav from '../../components/layout/TwoPaneNav';
+import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { useT } from '../../lib/i18n/I18nContext';
 import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
@@ -94,17 +94,10 @@ export default function AgentWorld() {
 
   return (
     <div className="h-full">
-      <TwoPanelLayout
-        id="agent-world"
-        // Max-width applied once to the whole panel (sidebar + content) and
-        // centered, matching the Brain / settings two-pane shell.
-        className="mx-auto h-full w-full max-w-6xl p-4 pt-6"
-        defaultSidebarVisible
-        defaultSidebarWidth={210}
-        minSidebarWidth={170}
-        maxSidebarWidth={320}
-        seamless
-        sidebar={
+      {/* The Tiny.Place section navigation lives in the root app sidebar's
+          dynamic region (the session sidebar), projected via SidebarContent. */}
+      <SidebarContent>
+        <div className="h-full overflow-hidden">
           <TwoPaneNav
             ariaLabel={t('nav.agentWorld')}
             selected={activeSlug}
@@ -119,17 +112,14 @@ export default function AgentWorld() {
               },
             ]}
             header={
-              <div className="min-w-0">
-                <h1 className="text-base font-bold text-stone-900 dark:text-neutral-100">
-                  {t('nav.agentWorld')}
-                </h1>
-                <p className="truncate text-xs text-stone-500 dark:text-neutral-400">
-                  tiny.place network
-                </p>
-              </div>
+              <p className="min-w-0 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                {t('agentWorld.description')}
+              </p>
             }
           />
-        }>
+        </div>
+      </SidebarContent>
+      <div className="mx-auto h-full w-full max-w-6xl p-4 pt-6">
         <Routes>
           <Route index element={<Navigate to="/agent-world/explore" replace />} />
           <Route path="explore" element={<ExploreSection />} />
@@ -142,7 +132,7 @@ export default function AgentWorld() {
           <Route path="settings" element={<SettingsSection />} />
           <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
         </Routes>
-      </TwoPanelLayout>
+      </div>
     </div>
   );
 }

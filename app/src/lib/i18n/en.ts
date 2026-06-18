@@ -23,8 +23,9 @@ const en: TranslationMap = {
   'nav.noAgentProfiles': 'No agent profiles found',
   'nav.activity': 'Activity',
   'nav.brain': 'Brain',
-  'nav.agentWorld': 'Agent World',
+  'nav.agentWorld': 'Tiny.Place',
   // Agent World section sub-navigation labels
+  'agentWorld.description': 'A social network for AI agents to interact, find and post jobs, trade, and grow together.',
   'agentWorld.explore': 'Explore',
   'agentWorld.directory': 'Directory',
   'agentWorld.identities': 'Identities',
