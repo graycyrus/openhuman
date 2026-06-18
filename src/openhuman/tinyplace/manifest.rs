@@ -1850,6 +1850,321 @@ pub(crate) fn handle_tinyplace_feedback_vote(params: Map<String, Value>) -> Cont
     })
 }
 
+// ── Jobs write handlers ───────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_jobs_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let title = req_str(&params, "title")?.trim().to_string();
+        if title.is_empty() {
+            return Err("missing required param 'title'".to_string());
+        }
+        let budget_amount = req_str(&params, "budgetAmount")?.trim().to_string();
+        if budget_amount.is_empty() {
+            return Err("missing required param 'budgetAmount'".to_string());
+        }
+        let budget_asset = req_str(&params, "budgetAsset")?.trim().to_string();
+        if budget_asset.is_empty() {
+            return Err("missing required param 'budgetAsset'".to_string());
+        }
+        let description = get_opt_str(&params, "description")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let category = get_opt_str(&params, "category")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let budget_chain = get_opt_str(&params, "budgetChain")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let proposal_deadline = get_opt_str(&params, "proposalDeadline")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        // Skills: optional JSON array of strings
+        let skills: Option<Vec<String>> = params
+            .get("skills")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid 'skills' param: {e}"))
+            })
+            .transpose()?;
+
+        log::debug!("{LOG_PREFIX} jobs_create title={title} category={category:?}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let request = tinyplace::types::JobCreateRequest {
+            client: actor,
+            title,
+            description,
+            category,
+            skills,
+            budget: tinyplace::types::JobBudget {
+                amount: budget_amount,
+                asset: budget_asset,
+                chain: budget_chain,
+            },
+            on_chain: None,
+            proposal_deadline,
+        };
+
+        let result = client.jobs.create(&request).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_cancel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_cancel job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client.jobs.cancel(&job_id, &actor).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_apply(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let cover_letter = get_opt_str(&params, "coverLetter")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let bid_amount = get_opt_str(&params, "bidAmount")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let estimated_delivery = get_opt_str(&params, "estimatedDelivery")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let past_work: Option<Vec<String>> = params
+            .get("pastWork")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid 'pastWork' param: {e}"))
+            })
+            .transpose()?;
+
+        log::debug!("{LOG_PREFIX} jobs_apply job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let request = tinyplace::types::ProposalCreateRequest {
+            candidate: actor,
+            cover_letter,
+            bid_amount,
+            estimated_delivery,
+            past_work,
+        };
+
+        let result = client
+            .jobs
+            .apply(&job_id, &request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_list_proposals(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        use tinyplace::api::jobs::ProposalQueryParams;
+
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let status = get_opt_str(&params, "status")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let limit = params.get("limit").and_then(|v| v.as_i64());
+        let offset = params.get("offset").and_then(|v| v.as_i64());
+
+        log::debug!("{LOG_PREFIX} jobs_list_proposals job_id={job_id} status={status:?}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let query_params = ProposalQueryParams {
+            status,
+            limit,
+            offset,
+        };
+
+        let result = client
+            .jobs
+            .list_proposals(&job_id, &actor, Some(&query_params))
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_get_proposal(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_get_proposal job_id={job_id} proposal_id={proposal_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .get_proposal(&job_id, &proposal_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_shortlist_proposal(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        log::debug!(
+            "{LOG_PREFIX} jobs_shortlist_proposal job_id={job_id} proposal_id={proposal_id}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .shortlist_proposal(&job_id, &proposal_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_withdraw_proposal(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        log::debug!(
+            "{LOG_PREFIX} jobs_withdraw_proposal job_id={job_id} proposal_id={proposal_id}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .withdraw_proposal(&job_id, &proposal_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_select(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let proposal_id = req_str(&params, "proposalId")?.to_string();
+        let network = get_opt_str(&params, "network")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        log::debug!(
+            "{LOG_PREFIX} jobs_select job_id={job_id} proposal_id={proposal_id} network={network:?}"
+        );
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .select(&job_id, &actor, &proposal_id, network.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_open_dispute(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        let reason = req_str(&params, "reason")?.trim().to_string();
+        if reason.is_empty() {
+            return Err("missing required param 'reason'".to_string());
+        }
+        log::debug!("{LOG_PREFIX} jobs_open_dispute job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .open_dispute(&job_id, &actor, &reason)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_jobs_adjudicate_dispute(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let job_id = req_str(&params, "jobId")?.to_string();
+        log::debug!("{LOG_PREFIX} jobs_adjudicate_dispute job_id={job_id}");
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        let result = client
+            .jobs
+            .adjudicate_dispute(&job_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 // ── Groups invite/role management ────────────────────────────────────────────
 
 pub(crate) fn handle_tinyplace_groups_set_member_role(
@@ -2171,6 +2486,10 @@ pub(crate) fn handle_tinyplace_streams_list(_params: Map<String, Value>) -> Cont
 //
 // The `FileSessionStore` methods are defined via the `SessionStore` async trait.
 // We bring the trait into scope so the compiler resolves them correctly.
+use std::sync::Arc;
+
+use tinyplace::signal::session::SignalSession;
+use tinyplace::signal::store::SessionStore;
 use tinyplace::signal::store::SessionStore as _;
 
 /// Get the `Arc<dyn Signer>` from the client or fail with a clear message.
@@ -2539,30 +2858,6 @@ fn decode_identity_key(b64: &str) -> std::result::Result<[u8; 32], String> {
         .map_err(|e| format!("identity_key is not a valid Ed25519 public key: {e}"))
 }
 
-fn key_bundle_to_x3dh(
-    bundle: &tinyplace::types::KeyBundle,
-) -> std::result::Result<tinyplace::signal::x3dh::X3DHBundle, String> {
-    let identity_key = decode_identity_key(&bundle.identity_key)?;
-    let signed_pre_key = decode_32_byte_b64(
-        &bundle.signed_pre_key.public_key,
-        "signed_pre_key.public_key",
-    )?;
-    let (one_time_pre_key_id, one_time_pre_key) = match &bundle.one_time_pre_key {
-        Some(otpk) => {
-            let key = decode_32_byte_b64(&otpk.public_key, "one_time_pre_key.public_key")?;
-            (Some(otpk.key_id.clone()), Some(key))
-        }
-        None => (None, None),
-    };
-    Ok(tinyplace::signal::x3dh::X3DHBundle {
-        identity_key,
-        signed_pre_key_id: bundle.signed_pre_key.key_id.clone(),
-        signed_pre_key,
-        one_time_pre_key_id,
-        one_time_pre_key,
-    })
-}
-
 fn decode_ed25519_pub(
     agent: &tinyplace::types::AgentCard,
 ) -> std::result::Result<[u8; 32], String> {
@@ -2581,115 +2876,91 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
             "{LOG_PREFIX} signal_send_message to={recipient} len={}",
             plaintext.len()
         );
-        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+
+        // Obtain our identity public key and an Arc-wrapped store for SignalSession.
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store_arc().await?;
         let client = global_state().client().await?;
         let signer = require_signer(client)?;
         let our_agent_id = signer.agent_id();
-        let our_identity = store
+        let our_identity_pub = store
             .identity_x25519_key_pair()
             .await
-            .map_err(|e| format!("identity key: {e}"))?;
-        let mut is_prekey_bundle = false;
-        let mut ephemeral_key: Option<[u8; 32]> = None;
-        let mut signed_pre_key_id: Option<String> = None;
-        let mut one_time_pre_key_id: Option<String> = None;
-        let their_identity_key: [u8; 32];
-        let existing_session = store
-            .session(&recipient)
+            .map_err(|e| format!("identity key: {e}"))?
+            .public_key;
+
+        // Fetch recipient's published key bundle (always needed for the X25519
+        // identity key used in associated-data computation, even for existing
+        // sessions).
+        let bundle = client.keys.get_bundle(&recipient).await.map_err(map_err)?;
+        // Ed25519 -> X25519 conversion: the backend serves the Ed25519 identity;
+        // SignalSession::encrypt takes the X25519 form.  decode_identity_key
+        // performs this conversion and must be preserved.
+        let their_x25519_identity = decode_identity_key(&bundle.identity_key)?;
+
+        // Determine whether this is a new session (needs full X3DH bundle + Ed25519
+        // key for signature verification) or an existing session (no bundle needed).
+        let signal_session = SignalSession::new(
+            Arc::clone(&store) as Arc<dyn SessionStore>,
+            our_identity_pub,
+        );
+        let has_session = signal_session
+            .has_session(&recipient)
             .await
-            .map_err(|e| format!("load session: {e}"))?;
-        let mut session = if let Some(s) = existing_session {
+            .map_err(|e| format!("check session: {e}"))?;
+
+        let (bundle_opt, ed25519_opt) = if has_session {
             log::debug!("{LOG_PREFIX} signal_send_message using existing session for {recipient}");
-            let bundle = client.keys.get_bundle(&recipient).await.map_err(map_err)?;
-            their_identity_key = decode_identity_key(&bundle.identity_key)?;
-            s
+            (None, None)
         } else {
             log::debug!(
                 "{LOG_PREFIX} signal_send_message establishing new session for {recipient}"
             );
-            is_prekey_bundle = true;
-            let bundle = client.keys.get_bundle(&recipient).await.map_err(map_err)?;
-            their_identity_key = decode_identity_key(&bundle.identity_key)?;
             let peer_entry = client
                 .directory
                 .get_agent(&recipient)
                 .await
                 .map_err(map_err)?;
             let peer_ed25519_pub = decode_ed25519_pub(&peer_entry)?;
-            tinyplace::signal::x3dh::verify_pre_key_signature(
-                &peer_ed25519_pub,
-                &bundle.signed_pre_key.public_key,
-                bundle.signed_pre_key.signature.as_deref(),
-                "signed pre-key",
+            (Some(bundle), Some(peer_ed25519_pub))
+        };
+
+        // Encrypt via SDK SignalSession.
+        //
+        // SECURITY INVARIANT: if encryption fails we abort immediately — plaintext
+        // is NEVER sent and the session is NOT stored (store_session runs after
+        // ratchet_encrypt inside SignalSession::encrypt, so a failure before that
+        // point leaves no partial state).
+        let encrypted = signal_session
+            .encrypt(
+                &recipient,
+                &their_x25519_identity,
+                plaintext.as_bytes(),
+                bundle_opt.as_ref(),
+                ed25519_opt.as_ref(),
             )
-            .map_err(|e| format!("bundle verification failed: {e}"))?;
-            if let Some(ref otpk) = bundle.one_time_pre_key {
-                tinyplace::signal::x3dh::verify_pre_key_signature(
-                    &peer_ed25519_pub,
-                    &otpk.public_key,
-                    otpk.signature.as_deref(),
-                    "one-time pre-key",
-                )
-                .map_err(|e| format!("bundle verification failed: {e}"))?;
-            }
-            let x3dh_bundle = key_bundle_to_x3dh(&bundle)?;
-            let x3dh_result = tinyplace::signal::x3dh::x3dh_initiate(&our_identity, &x3dh_bundle);
-            ephemeral_key = Some(x3dh_result.ephemeral_public_key);
-            signed_pre_key_id = Some(x3dh_result.signed_pre_key_id.clone());
-            one_time_pre_key_id = x3dh_result.one_time_pre_key_id.clone();
-            log::debug!("{LOG_PREFIX} signal_send_message x3dh_initiate complete for {recipient}");
-            x3dh_result.session
-        };
-        let ad = tinyplace::signal::x3dh::build_associated_data(
-            &our_identity.public_key,
-            &their_identity_key,
-        );
-        let ratchet_msg =
-            tinyplace::signal::ratchet::ratchet_encrypt(&mut session, plaintext.as_bytes(), &ad)
-                .map_err(|e| {
-                    log::error!(
-                        "{LOG_PREFIX} signal_send_message ENCRYPTION FAILED for {recipient}: {e} \
-                 — aborting send (plaintext will NOT be sent)"
-                    );
-                    format!("encryption failed — message NOT sent: {e}")
-                })?;
-        store
-            .store_session(&recipient, session)
             .await
-            .map_err(|e| format!("store session: {e}"))?;
-        let body_b64 = base64::engine::general_purpose::STANDARD.encode(&ratchet_msg.ciphertext);
-        let ratchet_key_b64 =
-            base64::engine::general_purpose::STANDARD.encode(ratchet_msg.header.public_key);
-        let signal_meta = tinyplace::types::SignalMetadata {
-            ephemeral_key: ephemeral_key
-                .map(|k| base64::engine::general_purpose::STANDARD.encode(k)),
-            signed_pre_key_id,
-            one_time_pre_key_id,
-            ratchet_key: Some(ratchet_key_b64),
-            message_number: Some(ratchet_msg.header.message_number as i64),
-            previous_chain_length: Some(ratchet_msg.header.previous_chain_length as i64),
-            sender_key_id: None,
-            sender_key_iteration: None,
-            rotation_required: None,
-            rotation_id: None,
-            rotation_epoch: None,
-            removed_agent_id: None,
-        };
+            .map_err(|e| {
+                log::error!(
+                    "{LOG_PREFIX} signal_send_message ENCRYPTION FAILED for {recipient}: {e} \
+                     — aborting send (plaintext will NOT be sent)"
+                );
+                format!("encryption failed — message NOT sent: {e}")
+            })?;
+
+        // Map EncryptedMessage -> MessageEnvelope (wire-format preserving).
+        // Field correspondence is verified in phase-signalsession-spec.md §4.
         let envelope = tinyplace::types::MessageEnvelope {
             id: String::new(),
             from: our_agent_id.clone(),
             to: recipient.clone(),
             timestamp: String::new(),
             device_id: 1,
-            envelope_type: if is_prekey_bundle {
-                "PREKEY_BUNDLE".to_string()
-            } else {
-                "CIPHERTEXT".to_string()
-            },
-            body: body_b64,
+            envelope_type: encrypted.message_type.clone(), // "PREKEY_BUNDLE" or "CIPHERTEXT"
+            body: encrypted.body.clone(),
             content_hint: Some("DEFAULT".to_string()),
-            signal: Some(signal_meta),
+            signal: Some(encrypted.signal.clone()),
         };
+
         let sent = client.messages.send(envelope).await.map_err(map_err)?;
         log::info!(
             "{LOG_PREFIX} signal_send_message sent encrypted message to={recipient} \
@@ -2722,120 +2993,37 @@ pub(crate) fn handle_tinyplace_signal_decrypt_message(
             envelope.envelope_type,
             envelope.id
         );
-        let store = crate::openhuman::tinyplace::signal_store::global_signal_store().await?;
+
+        // Obtain our identity public key and an Arc-wrapped store for SignalSession.
+        let store = crate::openhuman::tinyplace::signal_store::global_signal_store_arc().await?;
         let client = global_state().client().await?;
-        let our_identity = store
+        let our_identity_pub = store
             .identity_x25519_key_pair()
             .await
-            .map_err(|e| format!("identity key: {e}"))?;
-        let ciphertext = base64::engine::general_purpose::STANDARD
-            .decode(&envelope.body)
-            .map_err(|e| format!("invalid body base64: {e}"))?;
-        let signal = envelope
-            .signal
-            .as_ref()
-            .ok_or("missing signal metadata in envelope")?;
-        let ratchet_key_bytes = signal
-            .ratchet_key
-            .as_ref()
-            .ok_or("missing ratchet_key in signal metadata")?;
-        let ratchet_key = decode_32_byte_b64(ratchet_key_bytes, "ratchet_key")?;
-        let message_number = signal
-            .message_number
-            .ok_or("missing message_number in signal metadata")?
-            as u32;
-        let previous_chain_length = signal
-            .previous_chain_length
-            .ok_or("missing previous_chain_length in signal metadata")?
-            as u32;
-        let ratchet_msg = tinyplace::signal::ratchet::RatchetMessage {
-            header: tinyplace::signal::ratchet::RatchetHeader {
-                public_key: ratchet_key,
-                previous_chain_length,
-                message_number,
-            },
-            ciphertext,
-        };
+            .map_err(|e| format!("identity key: {e}"))?
+            .public_key;
+
         let sender = envelope.from.clone();
-        let mut session = if envelope.envelope_type == "PREKEY_BUNDLE" {
-            log::debug!(
-                "{LOG_PREFIX} signal_decrypt_message PREKEY_BUNDLE from {sender} — x3dh_respond"
-            );
-            let spk_id = signal
-                .signed_pre_key_id
-                .as_ref()
-                .ok_or("PREKEY_BUNDLE missing signed_pre_key_id")?;
-            let spk_opt = store
-                .signed_pre_key(spk_id)
-                .await
-                .map_err(|e| format!("load signed pre-key: {e}"))?;
-            let spk = spk_opt.ok_or_else(|| {
-                format!("signed pre-key '{spk_id}' not found — cannot complete handshake")
-            })?;
-            let otpk = if let Some(otpk_id) = &signal.one_time_pre_key_id {
-                let pk = store
-                    .pre_key(otpk_id)
-                    .await
-                    .map_err(|e| format!("load one-time pre-key: {e}"))?;
-                if pk.is_none() {
-                    log::warn!(
-                        "{LOG_PREFIX} signal_decrypt_message one-time pre-key '{otpk_id}' \
-                         not found — proceeding without it (reduced forward secrecy)"
-                    );
-                }
-                pk
-            } else {
-                None
-            };
-            let sender_bundle = client.keys.get_bundle(&sender).await.map_err(map_err)?;
-            let their_identity_key = decode_identity_key(&sender_bundle.identity_key)?;
-            let ephemeral_b64 = signal
-                .ephemeral_key
-                .as_ref()
-                .ok_or("PREKEY_BUNDLE missing ephemeral_key")?;
-            let their_ephemeral = decode_32_byte_b64(ephemeral_b64, "ephemeral_key")?;
-            let sess = tinyplace::signal::x3dh::x3dh_respond(
-                &our_identity,
-                &spk.key_pair,
-                &their_identity_key,
-                &their_ephemeral,
-                otpk.as_ref().map(|pk| &pk.key_pair),
-            );
-            if let Some(otpk_id) = &signal.one_time_pre_key_id {
-                store
-                    .remove_pre_key(otpk_id)
-                    .await
-                    .map_err(|e| format!("remove consumed pre-key: {e}"))?;
-                log::debug!(
-                    "{LOG_PREFIX} signal_decrypt_message consumed one-time pre-key {otpk_id}"
-                );
-            }
-            sess
-        } else {
-            store
-                .session(&sender)
-                .await
-                .map_err(|e| format!("load session: {e}"))?
-                .ok_or_else(|| {
-                    format!(
-                        "no session with {sender} — cannot decrypt CIPHERTEXT envelope. \
-                         A PREKEY_BUNDLE message must be received first."
-                    )
-                })?
-        };
+
+        // Fetch sender's published key bundle to obtain their X25519 identity key.
+        // Ed25519 -> X25519 conversion via decode_identity_key — must be preserved.
         let sender_bundle = client.keys.get_bundle(&sender).await.map_err(map_err)?;
-        let their_identity_key = decode_identity_key(&sender_bundle.identity_key)?;
-        let ad = tinyplace::signal::x3dh::build_associated_data(
-            &their_identity_key,
-            &our_identity.public_key,
+        let sender_x25519_identity = decode_identity_key(&sender_bundle.identity_key)?;
+
+        // Decrypt via SDK SignalSession.
+        //
+        // SignalSession::decrypt handles both PREKEY_BUNDLE and CIPHERTEXT paths
+        // internally (via process_pre_key_message), including one-time pre-key
+        // consumption, x3dh_respond, ratchet_decrypt, and store_session.
+        let signal_session = SignalSession::new(
+            Arc::clone(&store) as Arc<dyn SessionStore>,
+            our_identity_pub,
         );
-        let plaintext_bytes =
-            tinyplace::signal::ratchet::ratchet_decrypt(&mut session, &ratchet_msg, &ad)
-                .map_err(|e| format!("decryption failed: {e}"))?;
-        store
-            .store_session(&sender, session)
+        let plaintext_bytes = signal_session
+            .decrypt(&sender, &sender_x25519_identity, &envelope)
             .await
-            .map_err(|e| format!("store session: {e}"))?;
+            .map_err(|e| format!("decryption failed: {e}"))?;
+
         let plaintext = String::from_utf8(plaintext_bytes)
             .map_err(|e| format!("plaintext is not valid UTF-8: {e}"))?;
         log::info!(
@@ -3027,6 +3215,362 @@ pub(crate) fn build_default_agent_card(
     }
 }
 
+// ── GraphQL: Social Feed ─────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_home_feed(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let offset = params.get("offset").and_then(Value::as_i64);
+        let include_self = params.get("includeSelf").and_then(Value::as_bool);
+        log::debug!(
+            "{LOG_PREFIX} graphql_home_feed limit={limit:?} offset={offset:?} include_self={include_self:?}"
+        );
+        let client = global_state().client().await?;
+        // home_feed uses GraphQLAuth::Agent — requires a configured signer.
+        let _signer = require_signer(client)?;
+        match client.graphql.home_feed(limit, offset, include_self).await {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_home_feed_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_home_feed deserialization failed (likely empty feed) -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// The backend may return `{"items": null}` for an empty home feed, which
+/// fails the SDK's `items: Vec<GqlHomeFeedItem>` deserialization. Treat
+/// serialization failures as an empty feed; propagate every other error.
+pub(crate) fn graphql_home_feed_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "items": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_posts(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.to_string();
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let before = params.get("before").and_then(Value::as_i64);
+        let viewer = get_opt_str(&params, "viewer").map(|s| s.to_string());
+        log::debug!("{LOG_PREFIX} graphql_posts handle={handle} limit={limit:?} before={before:?}");
+        let sdk_params = tinyplace::api::graphql::PostGraphQLParams {
+            limit,
+            before,
+            viewer,
+        };
+        let client = global_state().client().await?;
+        match client.graphql.posts(&handle, Some(&sdk_params)).await {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_posts_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} graphql_posts deserialization failed -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// Empty user feed may return `{"posts": null}`. Degrade like inbox_list.
+pub(crate) fn graphql_posts_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "posts": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.to_string();
+        let post_id = req_str(&params, "postId")?.to_string();
+        let viewer = get_opt_str(&params, "viewer").map(|s| s.to_string());
+        let comment_limit = params.get("commentLimit").and_then(Value::as_i64);
+        let comment_after = params.get("commentAfter").and_then(Value::as_i64);
+        let liker_limit = params.get("likerLimit").and_then(Value::as_i64);
+        let liker_offset = params.get("likerOffset").and_then(Value::as_i64);
+        log::debug!(
+            "{LOG_PREFIX} graphql_post handle={handle} post_id={post_id} comment_limit={comment_limit:?}"
+        );
+        let sdk_params = tinyplace::api::graphql::PostDetailGraphQLParams {
+            viewer,
+            comment_limit,
+            comment_after,
+            liker_limit,
+            liker_offset,
+        };
+        let client = global_state().client().await?;
+        let result = client
+            .graphql
+            .post(&handle, &post_id, Some(&sdk_params))
+            .await
+            .map_err(map_err)?;
+        // SDK returns Option<GqlPostDetail> — null means post not found.
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_post_comments(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let post_id = req_str(&params, "postId")?.to_string();
+        let feed_id = get_opt_str(&params, "feedId").map(|s| s.to_string());
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let after = params.get("after").and_then(Value::as_i64);
+        log::debug!(
+            "{LOG_PREFIX} graphql_post_comments post_id={post_id} limit={limit:?} after={after:?}"
+        );
+        let sdk_params = tinyplace::api::graphql::CommentGraphQLParams {
+            feed_id,
+            limit,
+            after,
+        };
+        let client = global_state().client().await?;
+        let result = client
+            .graphql
+            .post_comments(&post_id, Some(&sdk_params))
+            .await
+            .map_err(map_err)?;
+        // Returns Vec<GqlComment> — wrap in an object for consistent RPC shape.
+        to_value(serde_json::json!({ "comments": result }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_post_likers(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let post_id = req_str(&params, "postId")?.to_string();
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let offset = params.get("offset").and_then(Value::as_i64);
+        log::debug!(
+            "{LOG_PREFIX} graphql_post_likers post_id={post_id} limit={limit:?} offset={offset:?}"
+        );
+        let sdk_params = tinyplace::api::graphql::PaginationGraphQLParams { limit, offset };
+        let client = global_state().client().await?;
+        let result = client
+            .graphql
+            .post_likers(&post_id, Some(&sdk_params))
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── GraphQL: Ledger ──────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_ledger_transactions(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} graphql_ledger_transactions params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::LedgerListParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid ledger_transactions params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required; the ledger is public.
+        match client
+            .graphql
+            .ledger_transactions(query_params.as_ref())
+            .await
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_ledger_transactions_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_ledger_transactions deserialization failed -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// The backend may return `{"transactions": null}` for an empty ledger.
+/// Degrade Serialization errors to an empty result; propagate everything else.
+pub(crate) fn graphql_ledger_transactions_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "transactions": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_ledger_transaction(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let id = req_str(&params, "id")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_ledger_transaction id={id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client
+            .graphql
+            .ledger_transaction(&id)
+            .await
+            .map_err(map_err)?;
+        // Returns Option<GqlLedgerTransaction> — null means tx not found.
+        to_value(result)
+    })
+}
+
+// ── GraphQL: Jobs Board ────────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_jobs(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} graphql_jobs params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::JobQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid graphql_jobs params: {e}"))
+            })
+            .transpose()?;
+
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required; the jobs board is public.
+        match client.graphql.jobs(query_params.as_ref()).await {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_jobs_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} graphql_jobs deserialization failed -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// The backend may return `{"jobs": null}` for an empty jobs board.
+/// Degrade Serialization errors to an empty result; propagate everything else.
+pub(crate) fn graphql_jobs_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "jobs": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_job(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let id = req_str(&params, "id")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_job id={id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.job(&id).await.map_err(map_err)?;
+        // Returns Option<GqlJobPosting> — null means job not found.
+        to_value(result)
+    })
+}
+
+// ── GraphQL: Profile + Identity ───────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_profile(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_profile username={username}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.profile(&username).await.map_err(map_err)?;
+        // Returns Option<GqlProfile> — null means profile not found.
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_user(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_user crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.user(&crypto_id).await.map_err(map_err)?;
+        // Returns Option<GqlProfile> — null means no profile for this crypto_id.
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_identity(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_identity username={username}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.identity(&username).await.map_err(map_err)?;
+        // Returns Option<GqlIdentity> — null means identity not found.
+        to_value(result)
+    })
+}
+
+/// The backend may return `{"identities": null}` for a wallet with no handles.
+/// Degrade Serialization errors to an empty array; propagate everything else.
+pub(crate) fn graphql_identities_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!([]))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_identities(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_identities crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = match client.graphql.identities(&crypto_id).await {
+            Ok(identities) => identities,
+            Err(e) => match graphql_identities_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_identities deserialization failed -> empty: {e}"
+                    );
+                    // Wrap empty array in the RPC envelope shape for consistency.
+                    return to_value(serde_json::json!({ "identities": empty }));
+                }
+                None => return Err(map_err(e)),
+            },
+        };
+        // Wrap Vec<Identity> in a named key for consistent RPC shape.
+        to_value(serde_json::json!({ "identities": result }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_agent_card(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let id = req_str(&params, "id")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_agent_card id={id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.agent_card(&id).await.map_err(map_err)?;
+        // Returns Option<AgentCard> — null means agent card not found.
+        to_value(result)
+    })
+}
+
 // ── Directory: find by encryption key (0D) ──────────────────────────────────
 
 /// Reverse-lookup: find the agent advertising a given encryption public key.
@@ -3041,6 +3585,708 @@ pub(crate) fn handle_tinyplace_directory_find_by_encryption_key(
         let result = client
             .directory
             .find_agent_by_encryption_key(&encryption_key)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Feeds write surface (Phase A) ─────────────────────────────────────────────
+
+/// Create a new post on a feed owned by the signer.
+/// `handle` identifies the target feed but the backend enforces that the signer
+/// owns it via `post_directory_auth_as`. Actor is NEVER accepted from params.
+pub(crate) fn handle_tinyplace_feeds_create_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let body = req_str(&params, "body")?.trim().to_string();
+        if body.is_empty() {
+            return Err("missing required param 'body'".to_string());
+        }
+        let content_type = get_opt_str(&params, "contentType")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+
+        let client = global_state().client().await?;
+        // Post to the SIGNER's OWN feed. The handle is resolved server-side from
+        // the wallet (its crypto id is a valid feed handle) — never accepted from
+        // the client — so this works for every wallet, registered @handle or not,
+        // and a caller cannot post to a feed they don't own.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let handle = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_create_post handle={handle} body_len={}",
+            body.len()
+        );
+
+        let post_create = tinyplace::types::PostCreate {
+            body,
+            content_type,
+            post_id: None,
+        };
+        let result = client
+            .feeds
+            .create_post(&handle, &post_create)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Delete a post from the SIGNER's OWN feed. The handle is resolved server-side
+/// from the wallet (owner-only) — never accepted from the client.
+pub(crate) fn handle_tinyplace_feeds_delete_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let handle = signer.agent_id();
+
+        log::debug!("{LOG_PREFIX} feeds_delete_post handle={handle} post_id={post_id}");
+
+        client
+            .feeds
+            .delete_post(&handle, &post_id)
+            .await
+            .map_err(map_err)?;
+        Ok(serde_json::json!({ "ok": true }))
+    })
+}
+
+/// Add a comment to a post. Author is resolved from the wallet signer — NEVER
+/// from client-supplied params.
+pub(crate) fn handle_tinyplace_feeds_add_comment(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+        let body = req_str(&params, "body")?.trim().to_string();
+        if body.is_empty() {
+            return Err("missing required param 'body'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: author is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let author = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_add_comment handle={handle} post_id={post_id} author={author}"
+        );
+
+        let comment_create = tinyplace::types::CommentCreate {
+            body,
+            comment_id: None,
+        };
+        let result = client
+            .feeds
+            .add_comment(&handle, &post_id, &author, &comment_create)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Delete a comment. Actor is resolved from the wallet signer — NEVER from
+/// client-supplied params.
+pub(crate) fn handle_tinyplace_feeds_delete_comment(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+        let comment_id = req_str(&params, "commentId")?.trim().to_string();
+        if comment_id.is_empty() {
+            return Err("missing required param 'commentId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_delete_comment handle={handle} post_id={post_id} \
+             comment_id={comment_id} actor={actor}"
+        );
+
+        client
+            .feeds
+            .delete_comment(&handle, &post_id, &comment_id, &actor)
+            .await
+            .map_err(map_err)?;
+        Ok(serde_json::json!({ "ok": true }))
+    })
+}
+
+/// Like a post. Actor is resolved from the wallet signer — NEVER from params.
+/// Idempotent.
+pub(crate) fn handle_tinyplace_feeds_like_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        log::debug!("{LOG_PREFIX} feeds_like_post handle={handle} post_id={post_id} actor={actor}");
+
+        let result = client
+            .feeds
+            .like_post(&handle, &post_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Unlike a post. Actor is resolved from the wallet signer — NEVER from params.
+/// Idempotent.
+pub(crate) fn handle_tinyplace_feeds_unlike_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_unlike_post handle={handle} post_id={post_id} actor={actor}"
+        );
+
+        let result = client
+            .feeds
+            .unlike_post(&handle, &post_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+// ── Bounties section (Phase B) ────────────────────────────────────────────────
+
+/// BountyListResponse.bounties is a bare Vec<Bounty> — a null/missing field
+/// fails deserialization. Degrade to an empty list.
+pub(crate) fn bounties_list_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "bounties": [] }))
+    } else {
+        None
+    }
+}
+
+/// BountySubmissionsResponse.submissions is a bare Vec<BountySubmission>.
+pub(crate) fn bounties_submissions_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "submissions": [] }))
+    } else {
+        None
+    }
+}
+
+/// BountyCommentsResponse.comments is a bare Vec<BountyComment>.
+pub(crate) fn bounties_comments_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "comments": [] }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_bounties_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} bounties_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::BountyQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid bounties list params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        match client.bounties.list(query_params.as_ref()).await {
+            Ok(result) => to_value(result),
+            Err(e) => match bounties_list_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} bounties_list deserialization failed -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_get bounty_id={bounty_id}");
+        let client = global_state().client().await?;
+        let result = client.bounties.get(&bounty_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let title = req_str(&params, "title")?.trim().to_string();
+        if title.is_empty() {
+            return Err("missing required param 'title'".to_string());
+        }
+        let description = req_str(&params, "description")?.trim().to_string();
+        if description.is_empty() {
+            return Err("missing required param 'description'".to_string());
+        }
+        let amount = req_str(&params, "amount")?.trim().to_string();
+        if amount.is_empty() {
+            return Err("missing required param 'amount'".to_string());
+        }
+        let asset = get_opt_str(&params, "asset")
+            .filter(|s| !s.is_empty())
+            .unwrap_or("USDC")
+            .to_string();
+        let deadline = get_opt_str(&params, "deadline")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let duration_days = params.get("durationDays").and_then(Value::as_i64);
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        log::debug!(
+            "{LOG_PREFIX} bounties_create title={title} amount={amount} asset={asset} confirmed={confirmed}"
+        );
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: creator resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let creator = signer.agent_id();
+
+        let request = tinyplace::types::BountyCreateRequest {
+            creator: Some(creator.clone()),
+            creator_crypto_id: Some(creator),
+            title,
+            description,
+            amount,
+            asset: Some(asset),
+            deadline,
+            duration_days,
+            payment: None,
+        };
+
+        // The backend funds the reward into escrow at creation time via x402, so
+        // creating a bounty is a confirm-before-spend flow (same as register/buy):
+        // probe without payment to get the 402 challenge, then re-create with the
+        // signed payment map once the user confirms.
+        let challenge = match client.bounties.create(&request).await {
+            Ok(bounty) => {
+                // No payment required (free / already-funded) — return as-is.
+                log::debug!("{LOG_PREFIX} bounties_create no payment needed");
+                return to_value(serde_json::json!({ "bounty": bounty }));
+            }
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+        log::debug!(
+            "{LOG_PREFIX} bounties_create 402 challenge network={:?} asset={:?} amount={:?}",
+            challenge.network,
+            challenge.asset,
+            challenge.amount,
+        );
+
+        // Unconfirmed: surface the challenge + balance, spend nothing.
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        // Confirmed: cluster guards, pay on-chain, re-create with the payment map.
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+        ensure_backend_mint_matches(&client).await?;
+
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("title".to_string(), request.title.clone());
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "bounties.create".to_string(),
+                nonce_prefix: "bounty".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        let mut funded_request = request.clone();
+        funded_request.payment = Some(fulfilled.payment_map.clone());
+
+        match settle_retry("bounties_create", || {
+            client.bounties.create(&funded_request)
+        })
+        .await
+        {
+            Ok(bounty) => to_value(serde_json::json!({
+                "bounty": bounty,
+                "payment": { "onChainTx": on_chain_tx },
+            })),
+            Err(SettleFailure::Hard(m)) => Err(format!(
+                "bounty creation failed after payment (onChainTx={on_chain_tx}): {m}"
+            )),
+            Err(SettleFailure::Exhausted(last)) => Err(format!(
+                "bounty paid but not confirmed in time (onChainTx={on_chain_tx}); last error: {last}"
+            )),
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_fund(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.trim().to_string();
+        if bounty_id.is_empty() {
+            return Err("missing required param 'bountyId'".to_string());
+        }
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        log::debug!("{LOG_PREFIX} bounties_fund bounty_id={bounty_id} confirmed={confirmed}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: creator resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let creator = signer.agent_id();
+
+        // Phase A: probe for the 402 challenge (or a free/already-funded bounty).
+        let challenge = match client.bounties.fund(&bounty_id, &creator, None).await {
+            Ok(bounty) => {
+                log::debug!("{LOG_PREFIX} bounties_fund no payment needed bounty_id={bounty_id}");
+                return to_value(serde_json::json!({ "bounty": bounty }));
+            }
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+        log::debug!(
+            "{LOG_PREFIX} bounties_fund 402 challenge network={:?} asset={:?} amount={:?}",
+            challenge.network,
+            challenge.asset,
+            challenge.amount,
+        );
+
+        // Unconfirmed: surface the challenge + balance, spend nothing.
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        // Confirmed: cluster guards, pay on-chain, re-submit with the map.
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+        ensure_backend_mint_matches(&client).await?;
+
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("bountyId".to_string(), bounty_id.clone());
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "bounties.fund".to_string(),
+                nonce_prefix: "fund".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        // Re-submit with the payment map, retrying while settlement confirms.
+        match settle_retry("bounties_fund", || {
+            client
+                .bounties
+                .fund(&bounty_id, &creator, Some(&fulfilled.payment_map))
+        })
+        .await
+        {
+            Ok(bounty) => to_value(serde_json::json!({
+                "bounty": bounty,
+                "payment": { "onChainTx": on_chain_tx },
+            })),
+            Err(SettleFailure::Hard(m)) => Err(format!(
+                "bounty funding failed after payment (onChainTx={on_chain_tx}): {m}"
+            )),
+            Err(SettleFailure::Exhausted(last)) => Err(format!(
+                "bounty funded but not confirmed in time (onChainTx={on_chain_tx}); \
+                 last error: {last}"
+            )),
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_cancel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_cancel bounty_id={bounty_id}");
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: creator resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let creator = signer.agent_id();
+        let result = client
+            .bounties
+            .cancel(&bounty_id, &creator)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_submit(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        let url = req_str(&params, "url")?.trim().to_string();
+        if url.is_empty() {
+            return Err("missing required param 'url'".to_string());
+        }
+        let title = get_opt_str(&params, "title")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let note = get_opt_str(&params, "note")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        log::debug!("{LOG_PREFIX} bounties_submit bounty_id={bounty_id} url={url}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: submitter resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let submitter = signer.agent_id();
+
+        let request = tinyplace::types::BountySubmissionCreateRequest {
+            submitter: Some(submitter),
+            submitter_crypto_id: None,
+            url,
+            title,
+            note,
+        };
+        let result = client
+            .bounties
+            .submit(&bounty_id, &request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_list_submissions(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_list_submissions bounty_id={bounty_id}");
+        let query_params: Option<tinyplace::types::BountySubmissionQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid bounties list_submissions params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        match client
+            .bounties
+            .list_submissions(&bounty_id, query_params.as_ref())
+            .await
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match bounties_submissions_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} bounties_list_submissions degrade -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_comment(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        let body = req_str(&params, "body")?.trim().to_string();
+        if body.is_empty() {
+            return Err("missing required param 'body'".to_string());
+        }
+        log::debug!("{LOG_PREFIX} bounties_comment bounty_id={bounty_id}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: author resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let author = signer.agent_id();
+
+        let request = tinyplace::types::BountyCommentCreateRequest {
+            author: Some(author),
+            author_crypto_id: None,
+            body,
+        };
+        let result = client
+            .bounties
+            .comment(&bounty_id, &request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_list_comments(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_list_comments bounty_id={bounty_id}");
+        let query_params: Option<tinyplace::types::BountyCommentQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid bounties list_comments params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        match client
+            .bounties
+            .list_comments(&bounty_id, query_params.as_ref())
+            .await
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match bounties_comments_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} bounties_list_comments degrade -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_run_council(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_run_council bounty_id={bounty_id}");
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+        let result = client
+            .bounties
+            .run_council(&bounty_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_approve(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        let submission_id = get_opt_str(&params, "submissionId").map(|s| s.to_string());
+        log::debug!(
+            "{LOG_PREFIX} bounties_approve bounty_id={bounty_id} \
+             submission_id={submission_id:?}"
+        );
+        let client = global_state().client().await?;
+        // NOTE: approve uses post_admin auth on the SDK side. The backend
+        // enforces the admin gate. If the caller is not an admin, the backend
+        // rejects with 403. The v1 UI hides this button entirely.
+        let result = client
+            .bounties
+            .approve(&bounty_id, submission_id.as_deref())
             .await
             .map_err(map_err)?;
         to_value(result)
@@ -3112,6 +4358,141 @@ mod tests {
         // explicit asset is honoured.
         p.insert("asset".to_string(), Value::String("SOL".into()));
         assert_eq!(price_from_params(&p).unwrap().asset, "SOL");
+    }
+
+    // ── GraphQL Feed handler param validation ────────────────────────────────
+
+    /// graphql_posts requires `handle`.
+    #[test]
+    fn graphql_posts_requires_handle() {
+        let err = block_on(handle_tinyplace_graphql_posts(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+    }
+
+    /// graphql_post requires `handle` and `postId`.
+    #[test]
+    fn graphql_post_requires_handle_and_post_id() {
+        let err = block_on(handle_tinyplace_graphql_post(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("handle".to_string(), Value::String("alice".into()));
+        let err = block_on(handle_tinyplace_graphql_post(p)).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// graphql_post_comments requires `postId`.
+    #[test]
+    fn graphql_post_comments_requires_post_id() {
+        let err = block_on(handle_tinyplace_graphql_post_comments(Map::new())).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// graphql_post_likers requires `postId`.
+    #[test]
+    fn graphql_post_likers_requires_post_id() {
+        let err = block_on(handle_tinyplace_graphql_post_likers(Map::new())).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// graphql_home_feed has no required params — it should fail at
+    /// global_state/client initialization (no wallet in unit tests),
+    /// NOT at param extraction.
+    #[test]
+    fn graphql_home_feed_fails_at_client_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_graphql_home_feed(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// Degrade helpers return empty results for Serialization errors, and
+    /// propagate non-serialization errors (InvalidArgument).
+    #[test]
+    fn graphql_degrade_helpers_return_empty_on_serialization() {
+        // Construct a real serde_json::Error by deserializing invalid JSON.
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(graphql_home_feed_degrade(&ser_err).is_some());
+        assert!(graphql_posts_degrade(&ser_err).is_some());
+
+        // Non-serialization errors should NOT be degraded.
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(graphql_home_feed_degrade(&other).is_none());
+        assert!(graphql_posts_degrade(&other).is_none());
+    }
+
+    /// graphql_ledger_transaction requires `id`.
+    #[test]
+    fn graphql_ledger_transaction_requires_id() {
+        let err = block_on(handle_tinyplace_graphql_ledger_transaction(Map::new())).unwrap_err();
+        assert!(err.contains("id"), "got: {err}");
+    }
+
+    /// graphql_ledger_transactions has no required params — should fail at
+    /// client init (no wallet in unit tests), NOT at param extraction.
+    #[test]
+    fn graphql_ledger_transactions_fails_at_client_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_graphql_ledger_transactions(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// Degrade helper returns empty for Serialization errors.
+    #[test]
+    fn graphql_ledger_degrade_returns_empty_on_serialization() {
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(graphql_ledger_transactions_degrade(&ser_err).is_some());
+
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(graphql_ledger_transactions_degrade(&other).is_none());
+    }
+
+    // ── GraphQL Jobs handler param validation ───────────────────────────────
+
+    /// graphql_jobs has no required params — should fail at
+    /// client init (no wallet in unit tests), NOT at param extraction.
+    #[test]
+    fn graphql_jobs_fails_at_client_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_graphql_jobs(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// graphql_job requires `id`.
+    #[test]
+    fn graphql_job_requires_id() {
+        let err = block_on(handle_tinyplace_graphql_job(Map::new())).unwrap_err();
+        assert!(err.contains("id"), "got: {err}");
+    }
+
+    /// Degrade helper returns empty for Serialization errors.
+    #[test]
+    fn graphql_jobs_degrade_returns_empty_on_serialization() {
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(graphql_jobs_degrade(&ser_err).is_some());
+
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(graphql_jobs_degrade(&other).is_none());
     }
 
     #[test]
@@ -3546,6 +4927,389 @@ mod tests {
         assert!(
             !err.contains("=="),
             "error should not contain base64 fragments: {err}"
+        );
+    }
+
+    /// Verify all 10 Jobs write handlers reject missing required params.
+    ///
+    /// Actor (client/candidate) is NEVER read from params — it is always derived
+    /// from the wallet signer. These tests only exercise param-validation logic;
+    /// they cannot reach the SDK call (no running tiny.place client in unit tests).
+    #[test]
+    fn jobs_write_handlers_require_params() {
+        // ── jobs_create ───────────────────────────────────────────────────────
+
+        // Blank Map → must complain about 'title'
+        let err = block_on(handle_tinyplace_jobs_create(Map::new())).unwrap_err();
+        assert!(err.contains("title"), "jobs_create missing title: {err}");
+
+        // title present, budgetAmount absent
+        {
+            let mut p = Map::new();
+            p.insert("title".into(), Value::String("Build a bot".into()));
+            let err = block_on(handle_tinyplace_jobs_create(p)).unwrap_err();
+            assert!(
+                err.contains("budgetAmount"),
+                "jobs_create missing budgetAmount: {err}"
+            );
+        }
+
+        // title + budgetAmount present, budgetAsset absent
+        {
+            let mut p = Map::new();
+            p.insert("title".into(), Value::String("Build a bot".into()));
+            p.insert("budgetAmount".into(), Value::String("100".into()));
+            let err = block_on(handle_tinyplace_jobs_create(p)).unwrap_err();
+            assert!(
+                err.contains("budgetAsset"),
+                "jobs_create missing budgetAsset: {err}"
+            );
+        }
+
+        // Blank title must be rejected
+        {
+            let mut p = Map::new();
+            p.insert("title".into(), Value::String("   ".into()));
+            p.insert("budgetAmount".into(), Value::String("100".into()));
+            p.insert("budgetAsset".into(), Value::String("USDC".into()));
+            let err = block_on(handle_tinyplace_jobs_create(p)).unwrap_err();
+            assert!(err.contains("title"), "jobs_create blank title: {err}");
+        }
+
+        // ── jobs_cancel ───────────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_cancel(Map::new())).unwrap_err();
+        assert!(err.contains("jobId"), "jobs_cancel missing jobId: {err}");
+
+        // ── jobs_apply ────────────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_apply(Map::new())).unwrap_err();
+        assert!(err.contains("jobId"), "jobs_apply missing jobId: {err}");
+
+        // ── jobs_list_proposals ───────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_list_proposals(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_list_proposals missing jobId: {err}"
+        );
+
+        // ── jobs_get_proposal ─────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_get_proposal(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_get_proposal missing jobId: {err}"
+        );
+
+        // jobId present, proposalId absent
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_get_proposal(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_get_proposal missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_shortlist_proposal ───────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_shortlist_proposal(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_shortlist_proposal missing jobId: {err}"
+        );
+
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_shortlist_proposal(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_shortlist_proposal missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_withdraw_proposal ────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_withdraw_proposal(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_withdraw_proposal missing jobId: {err}"
+        );
+
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_withdraw_proposal(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_withdraw_proposal missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_select ───────────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_select(Map::new())).unwrap_err();
+        assert!(err.contains("jobId"), "jobs_select missing jobId: {err}");
+
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_select(p)).unwrap_err();
+            assert!(
+                err.contains("proposalId"),
+                "jobs_select missing proposalId: {err}"
+            );
+        }
+
+        // ── jobs_open_dispute ─────────────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_open_dispute(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_open_dispute missing jobId: {err}"
+        );
+
+        // jobId present, reason absent
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            let err = block_on(handle_tinyplace_jobs_open_dispute(p)).unwrap_err();
+            assert!(
+                err.contains("reason"),
+                "jobs_open_dispute missing reason: {err}"
+            );
+        }
+
+        // Blank reason must be rejected
+        {
+            let mut p = Map::new();
+            p.insert("jobId".into(), Value::String("job-1".into()));
+            p.insert("reason".into(), Value::String("   ".into()));
+            let err = block_on(handle_tinyplace_jobs_open_dispute(p)).unwrap_err();
+            assert!(
+                err.contains("reason"),
+                "jobs_open_dispute blank reason: {err}"
+            );
+        }
+
+        // ── jobs_adjudicate_dispute ───────────────────────────────────────────
+
+        let err = block_on(handle_tinyplace_jobs_adjudicate_dispute(Map::new())).unwrap_err();
+        assert!(
+            err.contains("jobId"),
+            "jobs_adjudicate_dispute missing jobId: {err}"
+        );
+    }
+
+    // ── Feeds write surface param validation (Phase A) ───────────────────────
+
+    /// feeds_create_post requires non-blank `handle` then non-blank `body`.
+    #[test]
+    fn feeds_create_post_requires_body_not_handle() {
+        // `body` is required and validated before any client/signer access.
+        let err = block_on(handle_tinyplace_feeds_create_post(Map::new())).unwrap_err();
+        assert!(err.contains("body"), "got: {err}");
+        // The owner handle is resolved server-side from the signer, so the
+        // handler must NOT read a client-supplied 'handle'.
+        assert!(
+            !err.contains("handle"),
+            "handle must not be a client param: {err}"
+        );
+    }
+
+    /// feeds_delete_post requires `postId`; the owner handle is signer-derived.
+    #[test]
+    fn feeds_delete_post_requires_post_id_not_handle() {
+        let err = block_on(handle_tinyplace_feeds_delete_post(Map::new())).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+        assert!(
+            !err.contains("handle"),
+            "handle must not be a client param: {err}"
+        );
+    }
+
+    /// feeds_add_comment requires `handle`, `postId`, then `body`.
+    #[test]
+    fn feeds_add_comment_requires_handle_post_id_and_body() {
+        let err = block_on(handle_tinyplace_feeds_add_comment(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+        let mut p = Map::new();
+        p.insert("handle".into(), Value::String("alice".into()));
+        let err = block_on(handle_tinyplace_feeds_add_comment(p)).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+        let mut p2 = Map::new();
+        p2.insert("handle".into(), Value::String("alice".into()));
+        p2.insert("postId".into(), Value::String("p1".into()));
+        let err = block_on(handle_tinyplace_feeds_add_comment(p2)).unwrap_err();
+        assert!(err.contains("body"), "got: {err}");
+    }
+
+    /// feeds_delete_comment requires `handle` at minimum.
+    #[test]
+    fn feeds_delete_comment_requires_params() {
+        let err = block_on(handle_tinyplace_feeds_delete_comment(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+    }
+
+    /// Both like and unlike handlers require `handle` then `postId`.
+    /// This test also verifies that the `actor` is NOT read from params:
+    /// both handlers fail at param extraction (before any client/network work),
+    /// and neither produces an error mentioning "actor".
+    #[test]
+    fn feeds_like_unlike_require_handle_and_post_id() {
+        for handler in [
+            handle_tinyplace_feeds_like_post as fn(Map<String, Value>) -> ControllerFuture,
+            handle_tinyplace_feeds_unlike_post,
+        ] {
+            let err = block_on(handler(Map::new())).unwrap_err();
+            assert!(err.contains("handle"), "got: {err}");
+            // actor is server-derived — must not appear in the error message
+            assert!(
+                !err.contains("actor"),
+                "actor must never come from params; got: {err}"
+            );
+            let mut p = Map::new();
+            p.insert("handle".into(), Value::String("alice".into()));
+            let err = block_on(handler(p)).unwrap_err();
+            assert!(err.contains("postId"), "got: {err}");
+        }
+    }
+
+    // ── Bounties handlers (Phase B) ───────────────────────────────────────────
+
+    /// Degrade helpers return empty results for Serialization errors, and
+    /// propagate non-serialization errors.
+    #[test]
+    fn bounties_degrade_helpers_return_empty_on_serialization() {
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(bounties_list_degrade(&ser_err).is_some());
+        assert!(bounties_submissions_degrade(&ser_err).is_some());
+        assert!(bounties_comments_degrade(&ser_err).is_some());
+
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(bounties_list_degrade(&other).is_none());
+        assert!(bounties_submissions_degrade(&other).is_none());
+        assert!(bounties_comments_degrade(&other).is_none());
+    }
+
+    /// bounties_create rejects blank title before any client work.
+    #[test]
+    fn bounties_create_rejects_blank_title() {
+        let mut params = Map::new();
+        params.insert("title".to_string(), Value::String("".to_string()));
+        params.insert("description".to_string(), Value::String("desc".to_string()));
+        params.insert("amount".to_string(), Value::String("100".to_string()));
+        let result = block_on(handle_tinyplace_bounties_create(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("title"),
+            "expected 'title' in error"
+        );
+    }
+
+    /// bounties_create rejects missing amount before any client work.
+    #[test]
+    fn bounties_create_rejects_missing_amount() {
+        let mut params = Map::new();
+        params.insert("title".to_string(), Value::String("test".to_string()));
+        params.insert("description".to_string(), Value::String("desc".to_string()));
+        let result = block_on(handle_tinyplace_bounties_create(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("amount"),
+            "expected 'amount' in error"
+        );
+    }
+
+    /// bounties_fund rejects blank bountyId before any client work.
+    #[test]
+    fn bounties_fund_rejects_blank_bounty_id() {
+        let mut params = Map::new();
+        params.insert("bountyId".to_string(), Value::String("  ".to_string()));
+        let result = block_on(handle_tinyplace_bounties_fund(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("bountyId"),
+            "expected 'bountyId' in error"
+        );
+    }
+
+    /// bounties_submit rejects blank url before any client work.
+    #[test]
+    fn bounties_submit_rejects_blank_url() {
+        let mut params = Map::new();
+        params.insert("bountyId".to_string(), Value::String("b1".to_string()));
+        params.insert("url".to_string(), Value::String("".to_string()));
+        let result = block_on(handle_tinyplace_bounties_submit(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("url"),
+            "expected 'url' in error"
+        );
+    }
+
+    /// bounties_comment rejects blank body before any client work.
+    #[test]
+    fn bounties_comment_rejects_blank_body() {
+        let mut params = Map::new();
+        params.insert("bountyId".to_string(), Value::String("b1".to_string()));
+        params.insert("body".to_string(), Value::String("   ".to_string()));
+        let result = block_on(handle_tinyplace_bounties_comment(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("body"),
+            "expected 'body' in error"
+        );
+    }
+
+    /// ANTI-SPOOF: bounties_create, bounties_cancel, bounties_submit, bounties_comment,
+    /// and bounties_run_council must NOT read actor/creator/submitter/author from params.
+    /// These handlers fail at param extraction or client init — never at an actor param.
+    #[test]
+    fn bounties_write_handlers_do_not_accept_actor_from_params() {
+        // bounties_create: fails on title before any actor check
+        let err = block_on(handle_tinyplace_bounties_create(Map::new())).unwrap_err();
+        assert!(err.contains("title"), "got: {err}");
+        assert!(
+            !err.contains("creator"),
+            "creator must not be a client param: {err}"
+        );
+
+        // bounties_cancel: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_cancel(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("creator"),
+            "creator must not be a client param: {err}"
+        );
+
+        // bounties_submit: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_submit(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("submitter"),
+            "submitter must not be a client param: {err}"
+        );
+
+        // bounties_comment: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_comment(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("author"),
+            "author must not be a client param: {err}"
+        );
+
+        // bounties_run_council: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_run_council(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("actor"),
+            "actor must not be a client param: {err}"
         );
     }
 }

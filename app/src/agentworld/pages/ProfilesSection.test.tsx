@@ -9,7 +9,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
+import { type GqlProfile, PaymentRequiredError } from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import ProfilesSection from './ProfilesSection';
@@ -20,6 +20,7 @@ vi.mock('../AgentWorldShell', () => ({
     directory: { reverse: vi.fn() },
     follows: { stats: vi.fn() },
     registry: { export: vi.fn() },
+    graphql: { user: vi.fn() },
   },
 }));
 vi.mock('../../services/walletApi', () => ({ fetchWalletStatus: vi.fn() }));
@@ -28,6 +29,7 @@ const reverse = vi.mocked(apiClient.directory.reverse);
 const walletStatus = vi.mocked(fetchWalletStatus);
 const followStats = vi.mocked(apiClient.follows.stats);
 const registryExport = vi.mocked(apiClient.registry.export);
+const graphqlUser = vi.mocked(apiClient.graphql.user);
 
 const SOLANA_ADDR = 'WaLLetSoLanaAddr0123456789';
 
@@ -43,6 +45,9 @@ function walletWithSolana() {
 beforeEach(() => {
   vi.clearAllMocks();
   walletStatus.mockResolvedValue(walletWithSolana());
+  // Default: graphql.user returns null so all existing tests exercise the directory.reverse
+  // fallback path, which is identical to pre-Phase-4 behavior.
+  graphqlUser.mockResolvedValue(null);
   reverse.mockResolvedValue({ cryptoId: SOLANA_ADDR, identities: [] });
   followStats.mockResolvedValue({ agentId: '', followerCount: 0, followingCount: 0 });
 });
@@ -77,11 +82,14 @@ describe('wallet_locked state', () => {
 // ── No handle ───────────────────────────────────────────────────────────────────
 describe('no_handle state', () => {
   test('prompts to register when the wallet owns no handle', async () => {
+    // graphqlUser returns null (default) so hook falls through to directory.reverse.
     reverse.mockResolvedValueOnce({ cryptoId: SOLANA_ADDR, identities: [] });
     render(<ProfilesSection />);
     expect(await screen.findByText(/No handle registered yet/i)).toBeInTheDocument();
     // Mentions the truncated wallet + points at the Identities tab.
     expect(screen.getByText(/Register one in the Identities tab/i)).toBeInTheDocument();
+    // graphql.user was tried first before falling back.
+    expect(graphqlUser).toHaveBeenCalledWith(SOLANA_ADDR);
     expect(reverse).toHaveBeenCalledWith(SOLANA_ADDR);
   });
 });
@@ -298,5 +306,129 @@ describe('cancellation', () => {
     unmount();
     resolve(walletWithSolana());
     await waitFor(() => expect(walletStatus).toHaveBeenCalled());
+  });
+});
+
+// ── GraphQL-enriched profile card ─────────────────────────────────────────────
+
+/** Minimal identity fields needed to satisfy GqlProfile.identities[]. */
+const minimalIdentity = {
+  publicKey: 'pubkey-test',
+  registeredAt: '2026-01-01T00:00:00Z',
+  expiresAt: '2027-01-01T00:00:00Z',
+  status: 'active',
+  updatedAt: '2026-01-01T00:00:00Z',
+};
+
+/** Build a minimal GqlProfile for test mocks. */
+function makeProfile(overrides: Partial<GqlProfile> = {}): GqlProfile {
+  return {
+    cryptoId: SOLANA_ADDR,
+    actorType: 'agent',
+    displayName: 'Test Agent',
+    bio: '',
+    private: false,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    verified: false,
+    attestations: [],
+    agentCard: null,
+    identities: null,
+    ...overrides,
+  };
+}
+
+describe('graphql-enriched profile card', () => {
+  test('renders rich profile from graphql.user when available', async () => {
+    graphqlUser.mockResolvedValueOnce(
+      makeProfile({
+        displayName: 'Agent Alice',
+        bio: 'Building the future',
+        tags: ['ai', 'automation'],
+        verified: true,
+        attestations: [
+          {
+            attestationId: 'att-1',
+            platform: 'github',
+            handle: 'alice',
+            proofUrl: 'https://github.com/alice',
+            status: 'verified',
+            verifiedAt: '2026-02-01T00:00:00Z',
+          },
+        ],
+        identities: [
+          { username: 'alice', cryptoId: SOLANA_ADDR, primary: true, ...minimalIdentity },
+        ],
+      })
+    );
+    render(<ProfilesSection />);
+
+    // Rich data rendered
+    expect(await screen.findByText('@alice')).toBeInTheDocument();
+    expect(screen.getByText('Building the future')).toBeInTheDocument();
+    expect(screen.getByText('ai')).toBeInTheDocument();
+    expect(screen.getByText('automation')).toBeInTheDocument();
+    // Attestation row
+    expect(screen.getByText(/github.*alice/i)).toBeInTheDocument();
+    // Verified Accounts section heading
+    expect(screen.getByText('Verified Accounts')).toBeInTheDocument();
+    // directory.reverse should NOT have been called (graphql.user succeeded)
+    expect(reverse).not.toHaveBeenCalled();
+  });
+
+  test('falls back to directory.reverse when graphql.user returns null', async () => {
+    graphqlUser.mockResolvedValueOnce(null);
+    reverse.mockResolvedValueOnce({
+      cryptoId: SOLANA_ADDR,
+      identities: [{ username: '@fallbackuser', cryptoId: SOLANA_ADDR, primary: true }],
+    });
+    render(<ProfilesSection />);
+    expect(await screen.findByText('@fallbackuser')).toBeInTheDocument();
+    expect(graphqlUser).toHaveBeenCalledWith(SOLANA_ADDR);
+    expect(reverse).toHaveBeenCalledWith(SOLANA_ADDR);
+  });
+
+  test('falls back to directory.reverse when graphql.user throws non-402 error', async () => {
+    graphqlUser.mockRejectedValueOnce(new Error('GraphQL endpoint unreachable'));
+    reverse.mockResolvedValueOnce({
+      cryptoId: SOLANA_ADDR,
+      identities: [{ username: '@resilientuser', cryptoId: SOLANA_ADDR, primary: true }],
+    });
+    render(<ProfilesSection />);
+    expect(await screen.findByText('@resilientuser')).toBeInTheDocument();
+    expect(reverse).toHaveBeenCalledWith(SOLANA_ADDR);
+  });
+
+  test('does NOT fall back when graphql.user throws PaymentRequiredError', async () => {
+    graphqlUser.mockRejectedValueOnce(new PaymentRequiredError({ terms: 'x402' }));
+    render(<ProfilesSection />);
+    expect(await screen.findByText(/Access requires payment/i)).toBeInTheDocument();
+    expect(reverse).not.toHaveBeenCalled();
+  });
+
+  test('renders profile with null identities (profile exists but no registered handle)', async () => {
+    graphqlUser.mockResolvedValueOnce(
+      makeProfile({ displayName: 'No Handle Agent', bio: '', identities: null })
+    );
+    render(<ProfilesSection />);
+    expect(await screen.findByText('No Handle Agent')).toBeInTheDocument();
+    expect(reverse).not.toHaveBeenCalled();
+  });
+
+  test('renders profile with empty attestations array — no Verified Accounts section', async () => {
+    graphqlUser.mockResolvedValueOnce(
+      makeProfile({
+        displayName: 'Plain Agent',
+        bio: 'No attestations here',
+        attestations: [],
+        identities: [
+          { username: 'plain', cryptoId: SOLANA_ADDR, primary: true, ...minimalIdentity },
+        ],
+      })
+    );
+    render(<ProfilesSection />);
+    expect(await screen.findByText('No attestations here')).toBeInTheDocument();
+    // "Verified Accounts" section should not render when attestations is empty
+    expect(screen.queryByText('Verified Accounts')).not.toBeInTheDocument();
   });
 });

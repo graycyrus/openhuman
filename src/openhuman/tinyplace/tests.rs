@@ -412,3 +412,82 @@ mod default_agent_card {
         assert_eq!(card.username, None);
     }
 }
+
+// ── GraphQL Profile + Identity handler param-validation tests ─────────────────
+
+#[cfg(test)]
+mod graphql_profile_handlers {
+    use crate::openhuman::tinyplace::manifest::{
+        handle_tinyplace_graphql_agent_card, handle_tinyplace_graphql_identities,
+        handle_tinyplace_graphql_identity, handle_tinyplace_graphql_profile,
+        handle_tinyplace_graphql_user,
+    };
+    use serde_json::Map;
+
+    #[tokio::test]
+    async fn graphql_profile_requires_username() {
+        let err = handle_tinyplace_graphql_profile(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("username"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn graphql_user_requires_crypto_id() {
+        let err = handle_tinyplace_graphql_user(Map::new()).await.unwrap_err();
+        assert!(err.contains("cryptoId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn graphql_identity_requires_username() {
+        let err = handle_tinyplace_graphql_identity(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("username"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn graphql_identities_requires_crypto_id() {
+        let err = handle_tinyplace_graphql_identities(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("cryptoId"), "got: {err}");
+    }
+
+    #[tokio::test]
+    async fn graphql_agent_card_requires_id() {
+        let err = handle_tinyplace_graphql_agent_card(Map::new())
+            .await
+            .unwrap_err();
+        assert!(err.contains("id"), "got: {err}");
+    }
+}
+
+// ── graphql_identities_degrade helper tests ───────────────────────────────────
+
+#[cfg(test)]
+mod graphql_identities_degrade_tests {
+    use crate::openhuman::tinyplace::manifest::graphql_identities_degrade;
+
+    fn serialization_error() -> tinyplace::Error {
+        let err = serde_json::from_str::<i64>("\"not a number\"").unwrap_err();
+        tinyplace::Error::Serialization(err)
+    }
+
+    #[test]
+    fn serialization_error_degrades_to_empty_array() {
+        let degraded = graphql_identities_degrade(&serialization_error())
+            .expect("serialization error should degrade");
+        assert_eq!(degraded, serde_json::json!([]));
+    }
+
+    #[test]
+    fn non_serialization_error_propagates() {
+        // Use a non-Serialization error variant — these must NOT degrade.
+        let signing_err = tinyplace::Error::Signing("key error".to_string());
+        assert!(
+            graphql_identities_degrade(&signing_err).is_none(),
+            "non-serialization errors should not degrade"
+        );
+    }
+}

@@ -12,50 +12,144 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use crate::openhuman::tinyplace::manifest::{
-    handle_tinyplace_artifacts_get, handle_tinyplace_artifacts_list,
-    handle_tinyplace_broadcasts_list, handle_tinyplace_broadcasts_subscribe,
-    handle_tinyplace_broadcasts_unsubscribe, handle_tinyplace_channels_join,
-    handle_tinyplace_channels_leave, handle_tinyplace_channels_list,
-    handle_tinyplace_directory_find_by_encryption_key, handle_tinyplace_directory_get_agent,
-    handle_tinyplace_directory_list_agents, handle_tinyplace_directory_list_identities,
-    handle_tinyplace_directory_resolve, handle_tinyplace_directory_reverse,
-    handle_tinyplace_directory_skills, handle_tinyplace_escrow_get, handle_tinyplace_escrow_list,
-    handle_tinyplace_explorer_overview, handle_tinyplace_feedback_create,
-    handle_tinyplace_feedback_get, handle_tinyplace_feedback_list, handle_tinyplace_feedback_vote,
-    handle_tinyplace_follows_feed, handle_tinyplace_follows_follow,
-    handle_tinyplace_follows_followers, handle_tinyplace_follows_following,
-    handle_tinyplace_follows_stats, handle_tinyplace_follows_unfollow,
-    handle_tinyplace_groups_create_invite, handle_tinyplace_groups_join,
-    handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
-    handle_tinyplace_groups_list_invites, handle_tinyplace_groups_preview_invite,
-    handle_tinyplace_groups_redeem_invite, handle_tinyplace_groups_revoke_invite,
-    handle_tinyplace_groups_set_member_role, handle_tinyplace_inbox_archive,
-    handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
-    handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
-    handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get,
-    handle_tinyplace_jobs_list, handle_tinyplace_marketplace_bid,
-    handle_tinyplace_marketplace_browse, handle_tinyplace_marketplace_buy_identity,
-    handle_tinyplace_marketplace_buy_product, handle_tinyplace_marketplace_categories,
-    handle_tinyplace_marketplace_featured, handle_tinyplace_marketplace_get_product,
+    handle_tinyplace_artifacts_get,
+    handle_tinyplace_artifacts_list,
+    // Bounties section (Phase B)
+    handle_tinyplace_bounties_approve,
+    handle_tinyplace_bounties_cancel,
+    handle_tinyplace_bounties_comment,
+    handle_tinyplace_bounties_create,
+    handle_tinyplace_bounties_fund,
+    handle_tinyplace_bounties_get,
+    handle_tinyplace_bounties_list,
+    handle_tinyplace_bounties_list_comments,
+    handle_tinyplace_bounties_list_submissions,
+    handle_tinyplace_bounties_run_council,
+    handle_tinyplace_bounties_submit,
+    handle_tinyplace_broadcasts_list,
+    handle_tinyplace_broadcasts_subscribe,
+    handle_tinyplace_broadcasts_unsubscribe,
+    handle_tinyplace_channels_join,
+    handle_tinyplace_channels_leave,
+    handle_tinyplace_channels_list,
+    handle_tinyplace_directory_find_by_encryption_key,
+    handle_tinyplace_directory_get_agent,
+    handle_tinyplace_directory_list_agents,
+    handle_tinyplace_directory_list_identities,
+    handle_tinyplace_directory_resolve,
+    handle_tinyplace_directory_reverse,
+    handle_tinyplace_directory_skills,
+    handle_tinyplace_escrow_get,
+    handle_tinyplace_escrow_list,
+    handle_tinyplace_explorer_overview,
+    handle_tinyplace_feedback_create,
+    handle_tinyplace_feedback_get,
+    handle_tinyplace_feedback_list,
+    handle_tinyplace_feedback_vote,
+    // Feeds write surface handlers (Phase A)
+    handle_tinyplace_feeds_add_comment,
+    handle_tinyplace_feeds_create_post,
+    handle_tinyplace_feeds_delete_comment,
+    handle_tinyplace_feeds_delete_post,
+    handle_tinyplace_feeds_like_post,
+    handle_tinyplace_feeds_unlike_post,
+    handle_tinyplace_follows_feed,
+    handle_tinyplace_follows_follow,
+    handle_tinyplace_follows_followers,
+    handle_tinyplace_follows_following,
+    handle_tinyplace_follows_stats,
+    handle_tinyplace_follows_unfollow,
+    // GraphQL Profile + Identity handlers
+    handle_tinyplace_graphql_agent_card,
+    // GraphQL Social Feed handlers
+    handle_tinyplace_graphql_home_feed,
+    handle_tinyplace_graphql_identities,
+    handle_tinyplace_graphql_identity,
+    // GraphQL Jobs handlers
+    handle_tinyplace_graphql_job,
+    handle_tinyplace_graphql_jobs,
+    // GraphQL Ledger handlers
+    handle_tinyplace_graphql_ledger_transaction,
+    handle_tinyplace_graphql_ledger_transactions,
+    handle_tinyplace_graphql_post,
+    handle_tinyplace_graphql_post_comments,
+    handle_tinyplace_graphql_post_likers,
+    handle_tinyplace_graphql_posts,
+    handle_tinyplace_graphql_profile,
+    handle_tinyplace_graphql_user,
+    handle_tinyplace_groups_create_invite,
+    handle_tinyplace_groups_join,
+    handle_tinyplace_groups_leave,
+    handle_tinyplace_groups_list,
+    handle_tinyplace_groups_list_invites,
+    handle_tinyplace_groups_preview_invite,
+    handle_tinyplace_groups_redeem_invite,
+    handle_tinyplace_groups_revoke_invite,
+    handle_tinyplace_groups_set_member_role,
+    handle_tinyplace_inbox_archive,
+    handle_tinyplace_inbox_counts,
+    handle_tinyplace_inbox_list,
+    handle_tinyplace_inbox_mark_all_read,
+    handle_tinyplace_inbox_mark_read,
+    handle_tinyplace_inbox_remove,
+    handle_tinyplace_inbox_unarchive,
+    handle_tinyplace_jobs_adjudicate_dispute,
+    handle_tinyplace_jobs_apply,
+    handle_tinyplace_jobs_cancel,
+    handle_tinyplace_jobs_create,
+    handle_tinyplace_jobs_get,
+    handle_tinyplace_jobs_get_proposal,
+    handle_tinyplace_jobs_list,
+    handle_tinyplace_jobs_list_proposals,
+    handle_tinyplace_jobs_open_dispute,
+    handle_tinyplace_jobs_select,
+    handle_tinyplace_jobs_shortlist_proposal,
+    handle_tinyplace_jobs_withdraw_proposal,
+    handle_tinyplace_marketplace_bid,
+    handle_tinyplace_marketplace_browse,
+    handle_tinyplace_marketplace_buy_identity,
+    handle_tinyplace_marketplace_buy_product,
+    handle_tinyplace_marketplace_categories,
+    handle_tinyplace_marketplace_featured,
+    handle_tinyplace_marketplace_get_product,
     handle_tinyplace_marketplace_identity_floor,
-    handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
-    handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
-    handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
-    handle_tinyplace_marketplace_offer, handle_tinyplace_marketplace_recent,
-    handle_tinyplace_messages_acknowledge, handle_tinyplace_messages_list,
-    handle_tinyplace_profiles_activity, handle_tinyplace_profiles_agent_card,
-    handle_tinyplace_profiles_attestations, handle_tinyplace_profiles_broadcasts,
-    handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
-    handle_tinyplace_registry_export, handle_tinyplace_registry_get,
-    handle_tinyplace_registry_register, handle_tinyplace_search_unified,
-    handle_tinyplace_signal_decrypt_message, handle_tinyplace_signal_get_bundle,
-    handle_tinyplace_signal_key_status, handle_tinyplace_signal_provision,
-    handle_tinyplace_signal_register_encryption_key, handle_tinyplace_signal_rotate_signed_pre_key,
-    handle_tinyplace_signal_send_message, handle_tinyplace_signal_upload_pre_keys,
-    handle_tinyplace_solana_call, handle_tinyplace_solana_info, handle_tinyplace_streams_list,
-    handle_tinyplace_streams_start, handle_tinyplace_streams_stop,
-    handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
-    handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
+    handle_tinyplace_marketplace_identity_sale_history,
+    handle_tinyplace_marketplace_list_bids,
+    handle_tinyplace_marketplace_list_identities,
+    handle_tinyplace_marketplace_list_offers,
+    handle_tinyplace_marketplace_list_product_reviews,
+    handle_tinyplace_marketplace_list_products,
+    handle_tinyplace_marketplace_offer,
+    handle_tinyplace_marketplace_recent,
+    handle_tinyplace_messages_acknowledge,
+    handle_tinyplace_messages_list,
+    handle_tinyplace_profiles_activity,
+    handle_tinyplace_profiles_agent_card,
+    handle_tinyplace_profiles_attestations,
+    handle_tinyplace_profiles_broadcasts,
+    handle_tinyplace_profiles_get,
+    handle_tinyplace_profiles_groups,
+    handle_tinyplace_registry_export,
+    handle_tinyplace_registry_get,
+    handle_tinyplace_registry_register,
+    handle_tinyplace_search_unified,
+    handle_tinyplace_signal_decrypt_message,
+    handle_tinyplace_signal_get_bundle,
+    handle_tinyplace_signal_key_status,
+    handle_tinyplace_signal_provision,
+    handle_tinyplace_signal_register_encryption_key,
+    handle_tinyplace_signal_rotate_signed_pre_key,
+    handle_tinyplace_signal_send_message,
+    handle_tinyplace_signal_upload_pre_keys,
+    handle_tinyplace_solana_call,
+    handle_tinyplace_solana_info,
+    handle_tinyplace_streams_list,
+    handle_tinyplace_streams_start,
+    handle_tinyplace_streams_stop,
+    handle_tinyplace_users_confirm_email_verification,
+    handle_tinyplace_users_get,
+    handle_tinyplace_users_start_email_verification,
+    handle_tinyplace_users_update_profile,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -730,6 +824,163 @@ fn schema_jobs_list() -> ControllerSchema {
         outputs: vec![json_output(
             "result",
             "JobListResponse { jobs: JobPosting[] }.",
+        )],
+    }
+}
+
+fn schema_jobs_create() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_create",
+        description: "Post a new job to the tiny.place marketplace. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("title", "Job title (non-blank)."),
+            required_string("budgetAmount", "Budget amount (e.g. '100')."),
+            required_string("budgetAsset", "Budget asset symbol (e.g. 'USDC')."),
+            optional_string("description", "Job description."),
+            optional_string("category", "Job category tag."),
+            optional_string("budgetChain", "Optional chain for the budget (e.g. 'solana')."),
+            optional_string("proposalDeadline", "Optional ISO-8601 deadline for proposals."),
+            optional_object("skills", "Optional array of required skill strings."),
+        ],
+        outputs: vec![json_output("result", "JobPosting object for the newly created job.")],
+    }
+}
+
+fn schema_jobs_cancel() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_cancel",
+        description: "Cancel a job posting. Actor is resolved from the wallet signer.",
+        inputs: vec![required_string(
+            "jobId",
+            "The job posting's unique identifier.",
+        )],
+        outputs: vec![json_output("result", "Updated JobPosting object.")],
+    }
+}
+
+fn schema_jobs_apply() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_apply",
+        description: "Submit a proposal for a job. Candidate is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            optional_string("coverLetter", "Optional cover letter text."),
+            optional_string("bidAmount", "Optional bid amount string."),
+            optional_string(
+                "estimatedDelivery",
+                "Optional estimated delivery date (ISO-8601).",
+            ),
+            optional_object("pastWork", "Optional array of past-work URL strings."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Proposal object for the submitted application.",
+        )],
+    }
+}
+
+fn schema_jobs_list_proposals() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_list_proposals",
+        description: "List proposals for a job. Restricted to the job's client (resolved from wallet signer).",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            optional_string("status", "Optional filter by proposal status."),
+            optional_integer("limit", "Maximum number of proposals to return."),
+            optional_integer("offset", "Pagination offset."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "ProposalListResponse { proposals: Proposal[] }.",
+        )],
+    }
+}
+
+fn schema_jobs_get_proposal() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_get_proposal",
+        description: "Fetch a single proposal by ID. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal's unique identifier."),
+        ],
+        outputs: vec![json_output("result", "Proposal object.")],
+    }
+}
+
+fn schema_jobs_shortlist_proposal() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_shortlist_proposal",
+        description: "Shortlist a proposal as a client. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal's unique identifier."),
+        ],
+        outputs: vec![json_output("result", "Updated Proposal object.")],
+    }
+}
+
+fn schema_jobs_withdraw_proposal() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_withdraw_proposal",
+        description: "Withdraw a submitted proposal as a candidate. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal's unique identifier."),
+        ],
+        outputs: vec![json_output("result", "Updated Proposal object.")],
+    }
+}
+
+fn schema_jobs_select() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_select",
+        description: "Select a proposal/candidate for a job, spawning an escrow contract. Client is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("proposalId", "The proposal to select."),
+            optional_string("network", "Optional network override (e.g. 'solana')."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "SelectCandidateResult { job: JobPosting, contract_escrow_id: String }.",
+        )],
+    }
+}
+
+fn schema_jobs_open_dispute() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_open_dispute",
+        description: "Open a dispute on a job contract. Actor is resolved from the wallet signer.",
+        inputs: vec![
+            required_string("jobId", "The job posting's unique identifier."),
+            required_string("reason", "Non-blank reason for opening the dispute."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Updated JobPosting with dispute info.",
+        )],
+    }
+}
+
+fn schema_jobs_adjudicate_dispute() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "jobs_adjudicate_dispute",
+        description: "Convene the AI judge panel to adjudicate an open dispute. Actor is resolved from the wallet signer.",
+        inputs: vec![required_string("jobId", "The job posting's unique identifier.")],
+        outputs: vec![json_output(
+            "result",
+            "Updated JobPosting with the dispute verdict applied.",
         )],
     }
 }
@@ -1637,6 +1888,526 @@ fn schema_directory_find_by_encryption_key() -> ControllerSchema {
     }
 }
 
+// ── Feeds write schemas (Phase A) ──────────────────────────────────────────
+
+fn schema_feeds_create_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_create_post",
+        description: "Create a new post on the signer's own feed. The feed handle is resolved server-side from the wallet signer.",
+        inputs: vec![
+            required_string("body", "Post body text."),
+            optional_string("contentType", "Optional content type (e.g. 'text/plain')."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Post object for the newly created post.",
+        )],
+    }
+}
+
+fn schema_feeds_delete_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_delete_post",
+        description: "Delete a post from the signer's own feed. The feed handle is resolved server-side from the wallet signer.",
+        inputs: vec![required_string("postId", "The post ID to delete.")],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_feeds_add_comment() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_add_comment",
+        description: "Add a comment to a post. Author resolved from wallet signer.",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID to comment on."),
+            required_string("body", "Comment body text."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Comment object for the newly added comment.",
+        )],
+    }
+}
+
+fn schema_feeds_delete_comment() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_delete_comment",
+        description: "Delete a comment. Actor resolved from wallet signer \
+             (must be comment author or feed owner).",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID the comment belongs to."),
+            required_string("commentId", "The comment ID to delete."),
+        ],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_feeds_like_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_like_post",
+        description: "Like a post (idempotent). Actor resolved from wallet signer.",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID to like."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "LikeResult { postId, liked, likeCount }.",
+        )],
+    }
+}
+
+fn schema_feeds_unlike_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_unlike_post",
+        description: "Unlike a post (idempotent). Actor resolved from wallet signer.",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID to unlike."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "LikeResult { postId, liked, likeCount }.",
+        )],
+    }
+}
+
+// ── Bounties schemas (Phase B) ────────────────────────────────────────────────
+
+fn schema_bounties_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_list",
+        description: "List bounties with optional filtering.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional BountyQueryParams (creator, status, limit, offset).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "BountyListResponse { bounties: Bounty[] }.",
+        )],
+    }
+}
+
+fn schema_bounties_get() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_get",
+        description: "Fetch a single bounty by its ID.",
+        inputs: vec![required_string(
+            "bountyId",
+            "The bounty's unique identifier.",
+        )],
+        outputs: vec![json_output("result", "Bounty object.")],
+    }
+}
+
+fn schema_bounties_create() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_create",
+        description: "Create a bounty via x402 confirm-before-spend (the reward is funded into \
+             escrow at creation). Creator resolved from wallet signer. confirmed=false returns \
+             the 402 challenge + wallet balance (no spend); confirmed=true pays and creates.",
+        inputs: vec![
+            required_string("title", "Bounty title (non-blank)."),
+            required_string("description", "Bounty description (non-blank)."),
+            required_string(
+                "amount",
+                "Reward amount (human-decimal string, e.g. '5' for 5 USDC).",
+            ),
+            optional_string("asset", "Reward asset symbol (defaults to 'USDC')."),
+            optional_string("deadline", "Optional RFC3339 deadline."),
+            optional_integer(
+                "durationDays",
+                "Optional duration in days (alternative to deadline).",
+            ),
+            buy_confirmed_input(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "{ bounty } (free / already funded), { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { bounty, payment: { onChainTx } } (paid).",
+        )],
+    }
+}
+
+fn schema_bounties_fund() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_fund",
+        description: "Fund a bounty via x402 confirm-before-spend. confirmed=false returns the \
+             402 challenge + wallet balance (no spend); confirmed=true pays and funds.",
+        inputs: vec![
+            required_string("bountyId", "The bounty ID to fund."),
+            buy_confirmed_input(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Either { bounty } (already funded), { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { bounty, payment: { onChainTx } } (paid).",
+        )],
+    }
+}
+
+fn schema_bounties_cancel() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_cancel",
+        description: "Cancel a bounty. Creator resolved from wallet signer.",
+        inputs: vec![required_string("bountyId", "The bounty ID to cancel.")],
+        outputs: vec![json_output("result", "Updated Bounty object.")],
+    }
+}
+
+fn schema_bounties_submit() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_submit",
+        description: "Submit work for a bounty. Submitter resolved from wallet signer.",
+        inputs: vec![
+            required_string("bountyId", "The bounty to submit work for."),
+            required_string("url", "URL of the submitted work (non-blank)."),
+            optional_string("title", "Optional title for the submission."),
+            optional_string("note", "Optional note for the submission."),
+        ],
+        outputs: vec![json_output("result", "BountySubmission object.")],
+    }
+}
+
+fn schema_bounties_list_submissions() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_list_submissions",
+        description: "List submissions for a bounty.",
+        inputs: vec![
+            required_string("bountyId", "The bounty whose submissions to list."),
+            optional_object(
+                "params",
+                "Optional BountySubmissionQueryParams (status, submitter, limit).",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "BountySubmissionsResponse { submissions: BountySubmission[] }.",
+        )],
+    }
+}
+
+fn schema_bounties_comment() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_comment",
+        description: "Add a comment to a bounty. Author resolved from wallet signer.",
+        inputs: vec![
+            required_string("bountyId", "The bounty to comment on."),
+            required_string("body", "Comment body text (non-blank)."),
+        ],
+        outputs: vec![json_output("result", "BountyComment object.")],
+    }
+}
+
+fn schema_bounties_list_comments() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_list_comments",
+        description: "List comments on a bounty.",
+        inputs: vec![
+            required_string("bountyId", "The bounty whose comments to list."),
+            optional_object(
+                "params",
+                "Optional BountyCommentQueryParams (limit, offset).",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "BountyCommentsResponse { comments: BountyComment[] }.",
+        )],
+    }
+}
+
+fn schema_bounties_run_council() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_run_council",
+        description:
+            "Run the AI council to judge bounty submissions. Actor resolved from wallet signer.",
+        inputs: vec![required_string(
+            "bountyId",
+            "The bounty to convene the council for.",
+        )],
+        outputs: vec![json_output("result", "Updated Bounty with council state.")],
+    }
+}
+
+fn schema_bounties_approve() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_approve",
+        description: "Approve a bounty winner and trigger payout. Admin-only (backend enforced). \
+             Not surfaced in v1 UI.",
+        inputs: vec![
+            required_string("bountyId", "The bounty to approve."),
+            optional_string(
+                "submissionId",
+                "Optional submission ID to approve as winner.",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Updated Bounty object with awarded status.",
+        )],
+    }
+}
+
+// ── GraphQL Social Feed schemas ─────────────────────────────────────────────
+
+fn schema_graphql_home_feed() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_home_feed",
+        description: "Personalized home feed for the authenticated agent (GraphQL, \
+             requires unlocked wallet). Returns scored posts from followed agents.",
+        inputs: vec![
+            optional_integer("limit", "Max items to return."),
+            optional_integer("offset", "Pagination offset."),
+            FieldSchema {
+                name: "includeSelf",
+                ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+                comment: "Include the viewer's own posts in the feed.",
+                required: false,
+            },
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlHomeFeedResult { items: GqlHomeFeedItem[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_posts() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_posts",
+        description: "List posts by a specific agent handle (public, no auth required).",
+        inputs: vec![
+            required_string("handle", "The agent handle whose posts to list."),
+            optional_integer("limit", "Max posts to return."),
+            optional_integer(
+                "before",
+                "Cursor: return posts before this timestamp (epoch ms).",
+            ),
+            optional_string("viewer", "Optional viewer agent ID for viewerHasLiked."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlPostListResult { posts: GqlPost[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_post",
+        description: "Fetch a single post with its comments and likers (public).",
+        inputs: vec![
+            required_string("handle", "The author's agent handle."),
+            required_string("postId", "The post ID to fetch."),
+            optional_string("viewer", "Optional viewer agent ID for viewerHasLiked."),
+            optional_integer("commentLimit", "Max comments to include."),
+            optional_integer("commentAfter", "Cursor: comments after this timestamp."),
+            optional_integer("likerLimit", "Max likers to include."),
+            optional_integer("likerOffset", "Likers pagination offset."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlPostDetail (post + comments[] + likers[]) or null if not found.",
+        )],
+    }
+}
+
+fn schema_graphql_post_comments() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_post_comments",
+        description: "List comments on a post, with optional pagination (public).",
+        inputs: vec![
+            required_string("postId", "The post whose comments to list."),
+            optional_string("feedId", "Optional feed ID scope."),
+            optional_integer("limit", "Max comments to return."),
+            optional_integer("after", "Cursor: comments after this timestamp."),
+        ],
+        outputs: vec![json_output("result", "{ comments: GqlComment[] }.")],
+    }
+}
+
+fn schema_graphql_post_likers() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_post_likers",
+        description: "List agents who liked a post, with pagination (public).",
+        inputs: vec![
+            required_string("postId", "The post whose likers to list."),
+            optional_integer("limit", "Max likers to return."),
+            optional_integer("offset", "Pagination offset."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlPostLikerListResult { likers: GqlPostLike[], count }.",
+        )],
+    }
+}
+
+// ── GraphQL Ledger schemas ────────────────────────────────────────────────
+
+fn schema_graphql_ledger_transactions() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_ledger_transactions",
+        description: "List ledger transactions with optional filtering (public, no auth). \
+             Supports agent/type/network/status/from/to/asset/visibility/time-range filters \
+             and limit/offset pagination.",
+        inputs: vec![FieldSchema {
+            name: "params",
+            ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+            comment: "LedgerListParams filter object (all fields optional). \
+                 Fields: limit, offset, agent, type, network, status, from, to, \
+                 after, before, asset, visibility.",
+            required: false,
+        }],
+        outputs: vec![json_output(
+            "result",
+            "GqlLedgerTransactionListResult { transactions: GqlLedgerTransaction[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_ledger_transaction() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_ledger_transaction",
+        description: "Fetch a single ledger transaction by ID (public, no auth).",
+        inputs: vec![required_string("id", "The ledger transaction ID to fetch.")],
+        outputs: vec![json_output(
+            "result",
+            "GqlLedgerTransaction or null if not found.",
+        )],
+    }
+}
+
+// ── GraphQL Jobs schemas ──────────────────────────────────────────────────────
+
+fn schema_graphql_jobs() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_jobs",
+        description:
+            "List job postings on the jobs board with optional filtering (public, no auth). \
+             Supports client/status/category/skill filters and limit/offset pagination. \
+             Returns GqlJobPosting with resolved client_profile (FeedAuthor).",
+        inputs: vec![FieldSchema {
+            name: "params",
+            ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+            comment: "JobQueryParams filter object (all fields optional). \
+                 Fields: client, status, category, skill, limit, offset.",
+            required: false,
+        }],
+        outputs: vec![json_output(
+            "result",
+            "GqlJobListResult { jobs: GqlJobPosting[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_job() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_job",
+        description: "Fetch a single job posting by ID (public, no auth). \
+             Returns full GqlJobPosting with client_profile, dispute, on_chain details.",
+        inputs: vec![required_string("id", "The job posting ID to fetch.")],
+        outputs: vec![json_output("result", "GqlJobPosting or null if not found.")],
+    }
+}
+
+fn schema_graphql_profile() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_profile",
+        description: "Fetch a full profile by @handle (public GraphQL). Returns GqlProfile \
+            with bio, avatar, tags, attestations, agent_card, identities in a single call.",
+        inputs: vec![required_string(
+            "username",
+            "The @handle to look up (with or without @).",
+        )],
+        outputs: vec![json_output("result", "GqlProfile or null if not found.")],
+    }
+}
+
+fn schema_graphql_user() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_user",
+        description: "Fetch a full profile by crypto_id / Solana address (public GraphQL). \
+            Same rich GqlProfile response as graphql_profile but keyed by address.",
+        inputs: vec![required_string(
+            "cryptoId",
+            "The Solana address / crypto_id to look up.",
+        )],
+        outputs: vec![json_output("result", "GqlProfile or null if not found.")],
+    }
+}
+
+fn schema_graphql_identity() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_identity",
+        description: "Fetch identity registration details with optional owner profile \
+            (public GraphQL).",
+        inputs: vec![required_string(
+            "username",
+            "The @handle whose identity record to fetch.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "GqlIdentity { identity, owner? } or null.",
+        )],
+    }
+}
+
+fn schema_graphql_identities() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_identities",
+        description: "List all identities owned by a crypto_id (public GraphQL).",
+        inputs: vec![required_string(
+            "cryptoId",
+            "The Solana address whose identities to list.",
+        )],
+        outputs: vec![json_output("result", "{ identities: Identity[] }.")],
+    }
+}
+
+fn schema_graphql_agent_card() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_agent_card",
+        description: "Fetch an agent card by agent ID (public GraphQL).",
+        inputs: vec![required_string("id", "The agent ID to look up.")],
+        outputs: vec![json_output("result", "AgentCard or null if not found.")],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1676,6 +2447,17 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_escrow_list(),
         schema_jobs_get(),
         schema_jobs_list(),
+        // Jobs write surface (Phase 6)
+        schema_jobs_create(),
+        schema_jobs_cancel(),
+        schema_jobs_apply(),
+        schema_jobs_list_proposals(),
+        schema_jobs_get_proposal(),
+        schema_jobs_shortlist_proposal(),
+        schema_jobs_withdraw_proposal(),
+        schema_jobs_select(),
+        schema_jobs_open_dispute(),
+        schema_jobs_adjudicate_dispute(),
         schema_marketplace_browse(),
         schema_marketplace_categories(),
         schema_marketplace_featured(),
@@ -1743,6 +2525,43 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // Encryption key registration + discovery (0D)
         schema_signal_register_encryption_key(),
         schema_directory_find_by_encryption_key(),
+        // Feeds write surface (Phase A)
+        schema_feeds_create_post(),
+        schema_feeds_delete_post(),
+        schema_feeds_add_comment(),
+        schema_feeds_delete_comment(),
+        schema_feeds_like_post(),
+        schema_feeds_unlike_post(),
+        // Bounties section (Phase B)
+        schema_bounties_list(),
+        schema_bounties_get(),
+        schema_bounties_create(),
+        schema_bounties_fund(),
+        schema_bounties_cancel(),
+        schema_bounties_submit(),
+        schema_bounties_list_submissions(),
+        schema_bounties_comment(),
+        schema_bounties_list_comments(),
+        schema_bounties_run_council(),
+        schema_bounties_approve(),
+        // GraphQL Social Feed
+        schema_graphql_home_feed(),
+        schema_graphql_posts(),
+        schema_graphql_post(),
+        schema_graphql_post_comments(),
+        schema_graphql_post_likers(),
+        // GraphQL Ledger
+        schema_graphql_ledger_transactions(),
+        schema_graphql_ledger_transaction(),
+        // GraphQL Jobs
+        schema_graphql_jobs(),
+        schema_graphql_job(),
+        // GraphQL Profile + Identity
+        schema_graphql_profile(),
+        schema_graphql_user(),
+        schema_graphql_identity(),
+        schema_graphql_identities(),
+        schema_graphql_agent_card(),
     ]
 }
 
@@ -1886,6 +2705,47 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_jobs_list(),
             handler: handle_tinyplace_jobs_list,
+        },
+        // Jobs write surface (Phase 6)
+        RegisteredController {
+            schema: schema_jobs_create(),
+            handler: handle_tinyplace_jobs_create,
+        },
+        RegisteredController {
+            schema: schema_jobs_cancel(),
+            handler: handle_tinyplace_jobs_cancel,
+        },
+        RegisteredController {
+            schema: schema_jobs_apply(),
+            handler: handle_tinyplace_jobs_apply,
+        },
+        RegisteredController {
+            schema: schema_jobs_list_proposals(),
+            handler: handle_tinyplace_jobs_list_proposals,
+        },
+        RegisteredController {
+            schema: schema_jobs_get_proposal(),
+            handler: handle_tinyplace_jobs_get_proposal,
+        },
+        RegisteredController {
+            schema: schema_jobs_shortlist_proposal(),
+            handler: handle_tinyplace_jobs_shortlist_proposal,
+        },
+        RegisteredController {
+            schema: schema_jobs_withdraw_proposal(),
+            handler: handle_tinyplace_jobs_withdraw_proposal,
+        },
+        RegisteredController {
+            schema: schema_jobs_select(),
+            handler: handle_tinyplace_jobs_select,
+        },
+        RegisteredController {
+            schema: schema_jobs_open_dispute(),
+            handler: handle_tinyplace_jobs_open_dispute,
+        },
+        RegisteredController {
+            schema: schema_jobs_adjudicate_dispute(),
+            handler: handle_tinyplace_jobs_adjudicate_dispute,
         },
         RegisteredController {
             schema: schema_marketplace_browse(),
@@ -2125,6 +2985,136 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_directory_find_by_encryption_key(),
             handler: handle_tinyplace_directory_find_by_encryption_key,
         },
+        // Feeds write surface (Phase A)
+        RegisteredController {
+            schema: schema_feeds_create_post(),
+            handler: handle_tinyplace_feeds_create_post,
+        },
+        RegisteredController {
+            schema: schema_feeds_delete_post(),
+            handler: handle_tinyplace_feeds_delete_post,
+        },
+        RegisteredController {
+            schema: schema_feeds_add_comment(),
+            handler: handle_tinyplace_feeds_add_comment,
+        },
+        RegisteredController {
+            schema: schema_feeds_delete_comment(),
+            handler: handle_tinyplace_feeds_delete_comment,
+        },
+        RegisteredController {
+            schema: schema_feeds_like_post(),
+            handler: handle_tinyplace_feeds_like_post,
+        },
+        RegisteredController {
+            schema: schema_feeds_unlike_post(),
+            handler: handle_tinyplace_feeds_unlike_post,
+        },
+        // Bounties section (Phase B)
+        RegisteredController {
+            schema: schema_bounties_list(),
+            handler: handle_tinyplace_bounties_list,
+        },
+        RegisteredController {
+            schema: schema_bounties_get(),
+            handler: handle_tinyplace_bounties_get,
+        },
+        RegisteredController {
+            schema: schema_bounties_create(),
+            handler: handle_tinyplace_bounties_create,
+        },
+        RegisteredController {
+            schema: schema_bounties_fund(),
+            handler: handle_tinyplace_bounties_fund,
+        },
+        RegisteredController {
+            schema: schema_bounties_cancel(),
+            handler: handle_tinyplace_bounties_cancel,
+        },
+        RegisteredController {
+            schema: schema_bounties_submit(),
+            handler: handle_tinyplace_bounties_submit,
+        },
+        RegisteredController {
+            schema: schema_bounties_list_submissions(),
+            handler: handle_tinyplace_bounties_list_submissions,
+        },
+        RegisteredController {
+            schema: schema_bounties_comment(),
+            handler: handle_tinyplace_bounties_comment,
+        },
+        RegisteredController {
+            schema: schema_bounties_list_comments(),
+            handler: handle_tinyplace_bounties_list_comments,
+        },
+        RegisteredController {
+            schema: schema_bounties_run_council(),
+            handler: handle_tinyplace_bounties_run_council,
+        },
+        RegisteredController {
+            schema: schema_bounties_approve(),
+            handler: handle_tinyplace_bounties_approve,
+        },
+        // GraphQL Social Feed
+        RegisteredController {
+            schema: schema_graphql_home_feed(),
+            handler: handle_tinyplace_graphql_home_feed,
+        },
+        RegisteredController {
+            schema: schema_graphql_posts(),
+            handler: handle_tinyplace_graphql_posts,
+        },
+        RegisteredController {
+            schema: schema_graphql_post(),
+            handler: handle_tinyplace_graphql_post,
+        },
+        RegisteredController {
+            schema: schema_graphql_post_comments(),
+            handler: handle_tinyplace_graphql_post_comments,
+        },
+        RegisteredController {
+            schema: schema_graphql_post_likers(),
+            handler: handle_tinyplace_graphql_post_likers,
+        },
+        // GraphQL Ledger
+        RegisteredController {
+            schema: schema_graphql_ledger_transactions(),
+            handler: handle_tinyplace_graphql_ledger_transactions,
+        },
+        RegisteredController {
+            schema: schema_graphql_ledger_transaction(),
+            handler: handle_tinyplace_graphql_ledger_transaction,
+        },
+        // GraphQL Jobs
+        RegisteredController {
+            schema: schema_graphql_jobs(),
+            handler: handle_tinyplace_graphql_jobs,
+        },
+        RegisteredController {
+            schema: schema_graphql_job(),
+            handler: handle_tinyplace_graphql_job,
+        },
+        // GraphQL Profile + Identity
+        RegisteredController {
+            schema: schema_graphql_profile(),
+            handler: handle_tinyplace_graphql_profile,
+        },
+        RegisteredController {
+            schema: schema_graphql_user(),
+            handler: handle_tinyplace_graphql_user,
+        },
+        RegisteredController {
+            schema: schema_graphql_identity(),
+            handler: handle_tinyplace_graphql_identity,
+        },
+        RegisteredController {
+            schema: schema_graphql_identities(),
+            handler: handle_tinyplace_graphql_identities,
+        },
+        RegisteredController {
+            schema: schema_graphql_agent_card(),
+            handler: handle_tinyplace_graphql_agent_card,
+        },
     ]
 }
 
@@ -2160,6 +3150,116 @@ mod tests {
         }
     }
 
+    /// Verify the six feeds write handlers (Phase A) are registered with correct method names.
+    #[test]
+    fn feeds_write_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_feeds_create_post",
+            "openhuman.tinyplace_feeds_delete_post",
+            "openhuman.tinyplace_feeds_add_comment",
+            "openhuman.tinyplace_feeds_delete_comment",
+            "openhuman.tinyplace_feeds_like_post",
+            "openhuman.tinyplace_feeds_unlike_post",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the five GraphQL Social Feed handlers are registered with correct method names.
+    #[test]
+    fn graphql_feed_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_home_feed",
+            "openhuman.tinyplace_graphql_posts",
+            "openhuman.tinyplace_graphql_post",
+            "openhuman.tinyplace_graphql_post_comments",
+            "openhuman.tinyplace_graphql_post_likers",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the two GraphQL Ledger handlers are registered with correct method names.
+    #[test]
+    fn graphql_ledger_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_ledger_transactions",
+            "openhuman.tinyplace_graphql_ledger_transaction",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the two GraphQL Jobs handlers are registered with correct method names.
+    #[test]
+    fn graphql_jobs_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_jobs",
+            "openhuman.tinyplace_graphql_job",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the five GraphQL Profile + Identity handlers are registered with correct method names.
+    #[test]
+    fn graphql_profile_identity_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_profile",
+            "openhuman.tinyplace_graphql_user",
+            "openhuman.tinyplace_graphql_identity",
+            "openhuman.tinyplace_graphql_identities",
+            "openhuman.tinyplace_graphql_agent_card",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
     /// Verify the four new Directory section handlers are wired in and have the
     /// expected RPC method names.
     #[test]
@@ -2170,6 +3270,35 @@ mod tests {
             "openhuman.tinyplace_directory_reverse",
             "openhuman.tinyplace_directory_list_identities",
             "openhuman.tinyplace_directory_skills",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify all 11 Bounties handlers (Phase B) are registered with correct method names.
+    #[test]
+    fn bounties_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_bounties_list",
+            "openhuman.tinyplace_bounties_get",
+            "openhuman.tinyplace_bounties_create",
+            "openhuman.tinyplace_bounties_fund",
+            "openhuman.tinyplace_bounties_cancel",
+            "openhuman.tinyplace_bounties_submit",
+            "openhuman.tinyplace_bounties_list_submissions",
+            "openhuman.tinyplace_bounties_comment",
+            "openhuman.tinyplace_bounties_list_comments",
+            "openhuman.tinyplace_bounties_run_council",
+            "openhuman.tinyplace_bounties_approve",
         ];
         let registered: Vec<String> = all_tinyplace_registered_controllers()
             .into_iter()

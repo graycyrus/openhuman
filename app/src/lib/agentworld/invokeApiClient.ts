@@ -817,6 +817,493 @@ export interface FeedResponse {
   [key: string]: unknown;
 }
 
+// ── GraphQL Feed types ──────────────────────────────────────────────────────
+
+export interface FeedAuthor {
+  handle: string;
+  cryptoId: string;
+  displayName: string;
+  avatarUrl?: string;
+  verified: boolean;
+}
+
+export interface GqlPost {
+  postId: string;
+  feedId: string;
+  body: string;
+  contentType?: string;
+  commentCount: number;
+  likeCount: number;
+  createdAt: string;
+  moderationState?: string;
+  viewerHasLiked: boolean;
+  author: FeedAuthor;
+}
+
+export interface GqlComment {
+  commentId: string;
+  postId: string;
+  feedId: string;
+  body: string;
+  createdAt: string;
+  moderationState?: string;
+  author: FeedAuthor;
+}
+
+export interface GqlPostLike {
+  postId: string;
+  feedId: string;
+  actor: FeedAuthor;
+  createdAt: string;
+}
+
+export interface GqlPostDetail extends GqlPost {
+  comments: GqlComment[];
+  likers: GqlPostLike[];
+}
+
+export interface GqlPostListResult {
+  posts: GqlPost[];
+  count: number;
+}
+
+export interface GqlPostLikerListResult {
+  likers: GqlPostLike[];
+  count: number;
+}
+
+export interface GqlHomeFeedItem {
+  post: GqlPost;
+  score: number;
+  reason: string;
+}
+
+export interface GqlHomeFeedResult {
+  items: GqlHomeFeedItem[];
+  count: number;
+}
+
+// ── Feeds REST types (write surface) ──────────────────────────────────────
+
+export interface FeedsPost {
+  postId: string;
+  feedId: string;
+  author: string;
+  authorCryptoId?: string;
+  body: string;
+  contentType?: string;
+  sequence?: number;
+  commentCount: number;
+  likeCount: number;
+  likedByMe?: boolean;
+  createdAt: string;
+  deletedAt?: string;
+  moderationState?: string;
+}
+
+export interface FeedsComment {
+  commentId: string;
+  postId: string;
+  feedId: string;
+  author: string;
+  authorCryptoId?: string;
+  body: string;
+  sequence?: number;
+  createdAt: string;
+}
+
+export interface LikeResult {
+  postId: string;
+  liked: boolean;
+  likeCount: number;
+}
+
+// ── Bounties types ──────────────────────────────────────────────────────────
+
+export interface BountyReward {
+  amount: string;
+  asset: string;
+  network?: string;
+}
+
+export interface BountyThumbnail {
+  url?: string;
+  alt?: string;
+  [key: string]: unknown;
+}
+
+export interface BountyCouncilVote {
+  model?: string;
+  winnerSubmissionId?: string;
+  reasoning?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface BountyCouncil {
+  status?: string;
+  ranAt?: string;
+  winnerSubmissionId?: string;
+  judgeModel?: string;
+  presided?: boolean;
+  reasoning?: string;
+  votes?: BountyCouncilVote[];
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface Bounty {
+  bountyId: string;
+  creator: string;
+  creatorCryptoId?: string;
+  title: string;
+  description: string;
+  reward: BountyReward;
+  status: string;
+  thumbnail?: BountyThumbnail;
+  escrowAddress?: string;
+  fundingTxSig?: string;
+  fundingLedgerTxId?: string;
+  submissionCount: number;
+  commentCount: number;
+  council?: BountyCouncil;
+  winnerSubmissionId?: string;
+  winnerAgent?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  payoutTxSig?: string;
+  payoutLedgerTxId?: string;
+  startAt?: string;
+  deadline?: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface BountySubmission {
+  submissionId: string;
+  bountyId: string;
+  submitter: string;
+  submitterCryptoId?: string;
+  url: string;
+  title?: string;
+  note?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface BountyComment {
+  commentId: string;
+  bountyId: string;
+  author: string;
+  authorCryptoId?: string;
+  body: string;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export interface BountyCreateParams {
+  title: string;
+  description: string;
+  amount: string;
+  asset?: string;
+  deadline?: string;
+  durationDays?: number;
+}
+
+export interface BountyQueryParams {
+  creator?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface BountySubmissionQueryParams {
+  status?: string;
+  submitter?: string;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export interface BountyCommentQueryParams {
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface BountyListResponse {
+  bounties: Bounty[];
+  [key: string]: unknown;
+}
+
+export interface BountySubmissionsResponse {
+  submissions: BountySubmission[];
+  [key: string]: unknown;
+}
+
+export interface BountyCommentsResponse {
+  comments: BountyComment[];
+  [key: string]: unknown;
+}
+
+export type BountyStatus =
+  | 'draft'
+  | 'open'
+  | 'judging'
+  | 'review'
+  | 'awarded'
+  | 'refunded'
+  | 'cancelled';
+
+// ── GraphQL Ledger types ────────────────────────────────────────────────────
+
+export interface GqlLedgerReference {
+  kind: string;
+  id?: string;
+  parentTxId?: string;
+  rate?: string;
+}
+
+export interface GqlLedgerTransaction {
+  txId: string;
+  visibility: string;
+  /** Serde renames Rust `transaction_type` back to `"type"` on the wire. */
+  type: string;
+  from?: string;
+  to?: string;
+  amount?: string;
+  asset?: string;
+  network: string;
+  timestamp: string;
+  reference?: GqlLedgerReference;
+  onChainTx: string;
+  status: string;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface GqlLedgerTransactionListResult {
+  transactions: GqlLedgerTransaction[];
+  count: number;
+}
+
+export interface LedgerListParams {
+  limit?: number;
+  offset?: number;
+  agent?: string;
+  type?: string;
+  network?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  after?: string;
+  before?: string;
+  asset?: string;
+  visibility?: string;
+}
+
+// ── GraphQL Jobs types ────────────────────────────────────────────────────────
+
+export interface GqlJobBudget {
+  amount: string;
+  asset: string;
+  chain?: string;
+}
+
+export interface GqlJobOnChain {
+  vault?: string;
+  jobPdaCommit?: string;
+  fundingTxSig?: string;
+}
+
+export interface GqlJobDisputeVote {
+  model: string;
+  outcome: string;
+  splitBps: number;
+  reasoning?: string;
+  error?: string;
+}
+
+export interface GqlJobDispute {
+  reason: string;
+  openedBy: string;
+  openedAt: string;
+  status: string;
+  outcome?: string;
+  splitBps?: number;
+  judgeModel?: string;
+  presided?: boolean;
+  reasoning?: string;
+  jury?: GqlJobDisputeVote[];
+  resolvedAt?: string;
+}
+
+export interface GqlJobPosting {
+  jobId: string;
+  client: string;
+  title: string;
+  description: string;
+  category?: string;
+  skills?: string[];
+  budget: GqlJobBudget;
+  status: string;
+  proposalCount: number;
+  groupId?: string;
+  contractEscrowId?: string;
+  selectedCandidate?: string;
+  dispute?: GqlJobDispute;
+  onChain?: GqlJobOnChain;
+  proposalDeadline?: string;
+  createdAt: string;
+  updatedAt: string;
+  clientProfile: FeedAuthor;
+  [key: string]: unknown;
+}
+
+export interface GqlJobListResult {
+  jobs: GqlJobPosting[];
+  count: number;
+}
+
+/**
+ * Query params for the GraphQL jobs endpoint. Reuses the same shape as the
+ * REST JobQueryParams but with explicit typing (no catch-all index signature).
+ */
+export interface GqlJobQueryParams {
+  client?: string;
+  status?: string;
+  category?: string;
+  skill?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// ── Jobs Write types ──────────────────────────────────────────────────────────
+
+/** Request shape for creating a job posting. Actor (client) resolved server-side. */
+export interface JobCreateParams {
+  title: string;
+  description?: string;
+  category?: string;
+  skills?: string[];
+  budgetAmount: string;
+  budgetAsset: string;
+  budgetChain?: string;
+  proposalDeadline?: string;
+}
+
+/** Request shape for applying to a job posting. Actor (candidate) resolved server-side. */
+export interface ProposalCreateParams {
+  coverLetter?: string;
+  bidAmount?: string;
+  estimatedDelivery?: string;
+  pastWork?: string[];
+}
+
+/** Proposal object returned by the backend. */
+export interface Proposal {
+  proposalId: string;
+  jobId: string;
+  candidate: string;
+  coverLetter: string;
+  bidAmount: string;
+  estimatedDelivery?: string;
+  pastWork?: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+/** Response from list_proposals. */
+export interface ProposalListResponse {
+  proposals: Proposal[];
+  [key: string]: unknown;
+}
+
+/** Query params for listing proposals. */
+export interface ProposalQueryParams {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Result of selecting a candidate (spawns escrow). */
+export interface SelectCandidateResult {
+  job: JobPosting;
+  contractEscrowId: string;
+  [key: string]: unknown;
+}
+
+// ── GraphQL Profile + Identity types ─────────────────────────────────────────
+
+/** Identity registration record (mirrors tinyplace::types::Identity). */
+export interface Identity {
+  username: string;
+  cryptoId: string;
+  publicKey: string;
+  registeredAt: string;
+  expiresAt: string;
+  status: string;
+  registrationTx?: string;
+  paymentMethods?: unknown[];
+  primary?: boolean;
+  subnames?: unknown[];
+  signature?: string;
+  payment?: Record<string, string>;
+  lastRenewalTx?: string;
+  updatedAt: string;
+}
+
+export interface GqlAttestation {
+  attestationId: string;
+  platform: string;
+  handle: string;
+  proofUrl?: string;
+  status: string;
+  verifiedAt: string;
+}
+
+export interface GqlProfile {
+  cryptoId: string;
+  actorType: string;
+  displayName: string;
+  bio: string;
+  avatarUrl?: string;
+  link?: string;
+  tags?: string[];
+  private: boolean;
+  createdAt: string;
+  updatedAt: string;
+  verified: boolean;
+  attestations: GqlAttestation[];
+  agentCard: AgentCard | null;
+  identities: Identity[] | null;
+}
+
+/** GqlIdentity: Identity fields flattened + optional owner profile. */
+export interface GqlIdentity {
+  username: string;
+  cryptoId: string;
+  publicKey: string;
+  registeredAt: string;
+  expiresAt: string;
+  status: string;
+  registrationTx?: string;
+  paymentMethods?: unknown[];
+  primary?: boolean;
+  subnames?: unknown[];
+  signature?: string;
+  payment?: Record<string, string>;
+  lastRenewalTx?: string;
+  updatedAt: string;
+  /** Owner profile (optional, may be null). */
+  owner?: GqlProfile | null;
+}
+
 // ── Feedback types ──────────────────────────────────────────────────────────
 
 export interface FeedbackItem {
@@ -1257,6 +1744,89 @@ export function createInvokeApiClient() {
       feed: (params?: FeedListParams) =>
         call<FeedResponse>('openhuman.tinyplace_follows_feed', { params: params ?? null }),
     },
+    // ── Feeds write surface ─────────────────────────────────────────────────
+    feeds: {
+      /** Create a post on the user's own feed (the feed handle is resolved server-side from the signer). */
+      createPost: (body: string, contentType?: string) =>
+        call<FeedsPost>('openhuman.tinyplace_feeds_create_post', {
+          body,
+          contentType: contentType ?? null,
+        }),
+      /** Delete a post from the user's own feed (the feed handle is resolved server-side from the signer). */
+      deletePost: (postId: string) =>
+        call<{ ok: boolean }>('openhuman.tinyplace_feeds_delete_post', { postId }),
+      /** Add a comment to a post (author resolved from signer). */
+      addComment: (handle: string, postId: string, body: string) =>
+        call<FeedsComment>('openhuman.tinyplace_feeds_add_comment', { handle, postId, body }),
+      /** Delete a comment (actor resolved from signer; must be comment author or feed owner). */
+      deleteComment: (handle: string, postId: string, commentId: string) =>
+        call<{ ok: boolean }>('openhuman.tinyplace_feeds_delete_comment', {
+          handle,
+          postId,
+          commentId,
+        }),
+      /** Like a post (idempotent, actor resolved from signer). */
+      likePost: (handle: string, postId: string) =>
+        call<LikeResult>('openhuman.tinyplace_feeds_like_post', { handle, postId }),
+      /** Unlike a post (idempotent, actor resolved from signer). */
+      unlikePost: (handle: string, postId: string) =>
+        call<LikeResult>('openhuman.tinyplace_feeds_unlike_post', { handle, postId }),
+    },
+    // ── Bounties section ────────────────────────────────────────────────────────
+    bounties: {
+      list: (params?: BountyQueryParams) =>
+        call<BountyListResponse>('openhuman.tinyplace_bounties_list', { params: params ?? null }),
+      get: (bountyId: string) => call<Bounty>('openhuman.tinyplace_bounties_get', { bountyId }),
+      /** Create a bounty via x402 confirm-before-spend (the reward is funded into
+       *  escrow at creation). confirmed:false returns the challenge (no spend);
+       *  confirmed:true pays and creates. */
+      create: (params: BountyCreateParams, opts?: { confirmed?: boolean }) =>
+        call<X402BuyResult>('openhuman.tinyplace_bounties_create', {
+          title: params.title,
+          description: params.description,
+          amount: params.amount,
+          asset: params.asset ?? null,
+          deadline: params.deadline ?? null,
+          durationDays: params.durationDays ?? null,
+          confirmed: opts?.confirmed ?? false,
+        }),
+      /** Fund a bounty via x402 confirm-before-spend. confirmed:false returns
+       *  the challenge (no spend); confirmed:true pays and funds. */
+      fund: (bountyId: string, opts?: { confirmed?: boolean }) =>
+        call<X402BuyResult>('openhuman.tinyplace_bounties_fund', {
+          bountyId,
+          confirmed: opts?.confirmed ?? false,
+        }),
+      cancel: (bountyId: string) =>
+        call<Bounty>('openhuman.tinyplace_bounties_cancel', { bountyId }),
+      submit: (bountyId: string, url: string, title?: string, note?: string) =>
+        call<BountySubmission>('openhuman.tinyplace_bounties_submit', {
+          bountyId,
+          url,
+          title: title ?? null,
+          note: note ?? null,
+        }),
+      listSubmissions: (bountyId: string, params?: BountySubmissionQueryParams) =>
+        call<BountySubmissionsResponse>('openhuman.tinyplace_bounties_list_submissions', {
+          bountyId,
+          params: params ?? null,
+        }),
+      comment: (bountyId: string, body: string) =>
+        call<BountyComment>('openhuman.tinyplace_bounties_comment', { bountyId, body }),
+      listComments: (bountyId: string, params?: BountyCommentQueryParams) =>
+        call<BountyCommentsResponse>('openhuman.tinyplace_bounties_list_comments', {
+          bountyId,
+          params: params ?? null,
+        }),
+      runCouncil: (bountyId: string) =>
+        call<Bounty>('openhuman.tinyplace_bounties_run_council', { bountyId }),
+      /** Admin-only. Not surfaced in v1 UI. */
+      approve: (bountyId: string, submissionId?: string) =>
+        call<Bounty>('openhuman.tinyplace_bounties_approve', {
+          bountyId,
+          submissionId: submissionId ?? null,
+        }),
+    },
     // ── Feedback section ────────────────────────────────────────────────────────
     feedback: {
       list: (params?: FeedbackListParams) =>
@@ -1345,6 +1915,136 @@ export function createInvokeApiClient() {
       /** Acknowledge (delete) a delivered message. */
       acknowledge: (messageId: string) =>
         call<void>('openhuman.tinyplace_messages_acknowledge', { messageId }),
+    },
+    // ── GraphQL Social Feed ──────────────────────────────────────────────────
+    graphql: {
+      /** Personalized home feed (requires unlocked wallet — GraphQLAuth::Agent). */
+      homeFeed: (params?: { limit?: number; offset?: number; includeSelf?: boolean }) =>
+        call<GqlHomeFeedResult>('openhuman.tinyplace_graphql_home_feed', {
+          limit: params?.limit ?? null,
+          offset: params?.offset ?? null,
+          includeSelf: params?.includeSelf ?? null,
+        }),
+      /** List posts by a specific agent handle (public). */
+      posts: (handle: string, params?: { limit?: number; before?: number; viewer?: string }) =>
+        call<GqlPostListResult>('openhuman.tinyplace_graphql_posts', {
+          handle,
+          limit: params?.limit ?? null,
+          before: params?.before ?? null,
+          viewer: params?.viewer ?? null,
+        }),
+      /** Fetch a single post with comments and likers (public). */
+      post: (
+        handle: string,
+        postId: string,
+        params?: {
+          viewer?: string;
+          commentLimit?: number;
+          commentAfter?: number;
+          likerLimit?: number;
+          likerOffset?: number;
+        }
+      ) =>
+        call<GqlPostDetail | null>('openhuman.tinyplace_graphql_post', {
+          handle,
+          postId,
+          viewer: params?.viewer ?? null,
+          commentLimit: params?.commentLimit ?? null,
+          commentAfter: params?.commentAfter ?? null,
+          likerLimit: params?.likerLimit ?? null,
+          likerOffset: params?.likerOffset ?? null,
+        }),
+      /** List comments on a post (public). */
+      postComments: (
+        postId: string,
+        params?: { feedId?: string; limit?: number; after?: number }
+      ) =>
+        call<{ comments: GqlComment[] }>('openhuman.tinyplace_graphql_post_comments', {
+          postId,
+          feedId: params?.feedId ?? null,
+          limit: params?.limit ?? null,
+          after: params?.after ?? null,
+        }),
+      /** List agents who liked a post (public). */
+      postLikers: (postId: string, params?: { limit?: number; offset?: number }) =>
+        call<GqlPostLikerListResult>('openhuman.tinyplace_graphql_post_likers', {
+          postId,
+          limit: params?.limit ?? null,
+          offset: params?.offset ?? null,
+        }),
+      /** List ledger transactions with optional filters (public, no auth). */
+      ledgerTransactions: (params?: LedgerListParams) =>
+        call<GqlLedgerTransactionListResult>('openhuman.tinyplace_graphql_ledger_transactions', {
+          params: params ?? null,
+        }),
+      /** Fetch a single ledger transaction by ID (public, no auth). */
+      ledgerTransaction: (id: string) =>
+        call<GqlLedgerTransaction | null>('openhuman.tinyplace_graphql_ledger_transaction', { id }),
+      /** List job postings with optional filters (public, no auth). */
+      jobs: (params?: GqlJobQueryParams) =>
+        call<GqlJobListResult>('openhuman.tinyplace_graphql_jobs', { params: params ?? null }),
+      /** Fetch a single job posting by ID (public, no auth). */
+      job: (id: string) => call<GqlJobPosting | null>('openhuman.tinyplace_graphql_job', { id }),
+      /** Fetch a full GqlProfile by @handle (public GraphQL). */
+      profile: (username: string) =>
+        call<GqlProfile | null>('openhuman.tinyplace_graphql_profile', { username }),
+      /** Fetch a full GqlProfile by Solana address / crypto_id (public GraphQL). */
+      user: (cryptoId: string) =>
+        call<GqlProfile | null>('openhuman.tinyplace_graphql_user', { cryptoId }),
+      /** Fetch identity registration details with optional owner profile (public GraphQL). */
+      identity: (username: string) =>
+        call<GqlIdentity | null>('openhuman.tinyplace_graphql_identity', { username }),
+      /** List all identities owned by a crypto_id (public GraphQL). */
+      identities: (cryptoId: string) =>
+        call<{ identities: Identity[] }>('openhuman.tinyplace_graphql_identities', { cryptoId }),
+      /** Fetch an agent card by agent ID (public GraphQL). */
+      agentCard: (id: string) =>
+        call<AgentCard | null>('openhuman.tinyplace_graphql_agent_card', { id }),
+    },
+    jobsWrite: {
+      create: (params: JobCreateParams) =>
+        call<JobPosting>('openhuman.tinyplace_jobs_create', {
+          title: params.title,
+          description: params.description ?? null,
+          category: params.category ?? null,
+          skills: params.skills ?? null,
+          budgetAmount: params.budgetAmount,
+          budgetAsset: params.budgetAsset,
+          budgetChain: params.budgetChain ?? null,
+          proposalDeadline: params.proposalDeadline ?? null,
+        }),
+      cancel: (jobId: string) => call<JobPosting>('openhuman.tinyplace_jobs_cancel', { jobId }),
+      apply: (jobId: string, params?: ProposalCreateParams) =>
+        call<Proposal>('openhuman.tinyplace_jobs_apply', {
+          jobId,
+          coverLetter: params?.coverLetter ?? null,
+          bidAmount: params?.bidAmount ?? null,
+          estimatedDelivery: params?.estimatedDelivery ?? null,
+          pastWork: params?.pastWork ?? null,
+        }),
+      listProposals: (jobId: string, params?: ProposalQueryParams) =>
+        call<ProposalListResponse>('openhuman.tinyplace_jobs_list_proposals', {
+          jobId,
+          status: params?.status ?? null,
+          limit: params?.limit ?? null,
+          offset: params?.offset ?? null,
+        }),
+      getProposal: (jobId: string, proposalId: string) =>
+        call<Proposal>('openhuman.tinyplace_jobs_get_proposal', { jobId, proposalId }),
+      shortlistProposal: (jobId: string, proposalId: string) =>
+        call<Proposal>('openhuman.tinyplace_jobs_shortlist_proposal', { jobId, proposalId }),
+      withdrawProposal: (jobId: string, proposalId: string) =>
+        call<Proposal>('openhuman.tinyplace_jobs_withdraw_proposal', { jobId, proposalId }),
+      select: (jobId: string, proposalId: string, network?: string) =>
+        call<SelectCandidateResult>('openhuman.tinyplace_jobs_select', {
+          jobId,
+          proposalId,
+          network: network ?? null,
+        }),
+      openDispute: (jobId: string, reason: string) =>
+        call<JobPosting>('openhuman.tinyplace_jobs_open_dispute', { jobId, reason }),
+      adjudicateDispute: (jobId: string) =>
+        call<JobPosting>('openhuman.tinyplace_jobs_adjudicate_dispute', { jobId }),
     },
   };
 }

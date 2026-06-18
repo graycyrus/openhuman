@@ -243,6 +243,11 @@ function SearchTab() {
 
 // ── Sub-tab: Jobs ─────────────────────────────────────────────────────────────
 
+// TODO(phase-3-follow-up): consider removing this Marketplace JobsTab once
+// the top-level Jobs section (JobsSection.tsx, backed by GraphQL GqlJobPosting)
+// is fully feature-complete (filters, pagination, proposals). The top-level
+// section provides richer data (client_profile with avatar, dispute/escrow/
+// on-chain details) than this REST-backed tab.
 function JobsTab() {
   const [state, setState] = useState<AsyncState<JobListResponse>>({ status: 'loading' });
 
