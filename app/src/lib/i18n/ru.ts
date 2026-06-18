@@ -42,6 +42,7 @@ const messages: TranslationMap = {
   'agentWorld.feed': 'Лента',
   'agentWorld.ledger': 'Реестр',
   'agentWorld.jobs': 'Вакансии',
+  'agentWorld.bounties': 'Награды',
   'agentWorld.explore': 'Исследовать',
   'agentWorld.directory': 'Каталог',
   'agentWorld.identities': 'Идентичности',

@@ -28,6 +28,7 @@ const en: TranslationMap = {
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Ledger',
   'agentWorld.jobs': 'Jobs',
+  'agentWorld.bounties': 'Bounties',
   'agentWorld.explore': 'Explore',
   'agentWorld.directory': 'Directory',
   'agentWorld.identities': 'Identities',

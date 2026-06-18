@@ -3812,6 +3812,412 @@ pub(crate) fn handle_tinyplace_feeds_unlike_post(params: Map<String, Value>) -> 
     })
 }
 
+// ── Bounties section (Phase B) ────────────────────────────────────────────────
+
+/// BountyListResponse.bounties is a bare Vec<Bounty> — a null/missing field
+/// fails deserialization. Degrade to an empty list.
+pub(crate) fn bounties_list_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "bounties": [] }))
+    } else {
+        None
+    }
+}
+
+/// BountySubmissionsResponse.submissions is a bare Vec<BountySubmission>.
+pub(crate) fn bounties_submissions_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "submissions": [] }))
+    } else {
+        None
+    }
+}
+
+/// BountyCommentsResponse.comments is a bare Vec<BountyComment>.
+pub(crate) fn bounties_comments_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "comments": [] }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_bounties_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        log::debug!(
+            "{LOG_PREFIX} bounties_list params_keys={:?}",
+            params.keys().collect::<Vec<_>>()
+        );
+        let query_params: Option<tinyplace::types::BountyQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid bounties list params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        match client.bounties.list(query_params.as_ref()).await {
+            Ok(result) => to_value(result),
+            Err(e) => match bounties_list_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} bounties_list deserialization failed -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_get bounty_id={bounty_id}");
+        let client = global_state().client().await?;
+        let result = client.bounties.get(&bounty_id).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let title = req_str(&params, "title")?.trim().to_string();
+        if title.is_empty() {
+            return Err("missing required param 'title'".to_string());
+        }
+        let description = req_str(&params, "description")?.trim().to_string();
+        if description.is_empty() {
+            return Err("missing required param 'description'".to_string());
+        }
+        let amount = req_str(&params, "amount")?.trim().to_string();
+        if amount.is_empty() {
+            return Err("missing required param 'amount'".to_string());
+        }
+        let asset = get_opt_str(&params, "asset")
+            .filter(|s| !s.is_empty())
+            .unwrap_or("USDC")
+            .to_string();
+        let deadline = get_opt_str(&params, "deadline")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let duration_days = params.get("durationDays").and_then(Value::as_i64);
+
+        log::debug!("{LOG_PREFIX} bounties_create title={title} amount={amount} asset={asset}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: creator resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let creator = signer.agent_id();
+
+        let request = tinyplace::types::BountyCreateRequest {
+            creator: Some(creator.clone()),
+            creator_crypto_id: Some(creator),
+            title,
+            description,
+            amount,
+            asset: Some(asset),
+            deadline,
+            duration_days,
+            payment: None, // Two-step: create draft, then fund separately.
+        };
+
+        let result = client.bounties.create(&request).await.map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_fund(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.trim().to_string();
+        if bounty_id.is_empty() {
+            return Err("missing required param 'bountyId'".to_string());
+        }
+        let confirmed = params
+            .get("confirmed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        log::debug!("{LOG_PREFIX} bounties_fund bounty_id={bounty_id} confirmed={confirmed}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: creator resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let creator = signer.agent_id();
+
+        // Phase A: probe for the 402 challenge (or a free/already-funded bounty).
+        let challenge = match client.bounties.fund(&bounty_id, &creator, None).await {
+            Ok(bounty) => {
+                log::debug!("{LOG_PREFIX} bounties_fund no payment needed bounty_id={bounty_id}");
+                return to_value(serde_json::json!({ "bounty": bounty }));
+            }
+            Err(e) => match e.payment_required() {
+                Some(pr) => pr.payment.clone(),
+                None => return Err(map_err(e)),
+            },
+        };
+        log::debug!(
+            "{LOG_PREFIX} bounties_fund 402 challenge network={:?} asset={:?} amount={:?}",
+            challenge.network,
+            challenge.asset,
+            challenge.amount,
+        );
+
+        // Unconfirmed: surface the challenge + balance, spend nothing.
+        if !confirmed {
+            let (wallet_balance, wallet_address) = wallet_usdc_balance(&signer.agent_id()).await;
+            return to_value(serde_json::json!({
+                "challenge": challenge,
+                "walletBalance": wallet_balance,
+                "walletAddress": wallet_address,
+            }));
+        }
+
+        // Confirmed: cluster guards, pay on-chain, re-submit with the map.
+        if let Some(network) = challenge.network.as_deref() {
+            ensure_cluster_matches(network)?;
+        }
+        ensure_backend_mint_matches(&client).await?;
+
+        let mut extra_metadata = HashMap::new();
+        extra_metadata.insert("bountyId".to_string(), bounty_id.clone());
+        let fulfilled = fulfill_payment(
+            &challenge,
+            signer.as_ref(),
+            PaymentContext {
+                purpose: "bounties.fund".to_string(),
+                nonce_prefix: "fund".to_string(),
+                extra_metadata,
+            },
+        )
+        .await?;
+        let on_chain_tx = fulfilled.on_chain_tx.clone();
+
+        // Re-submit with the payment map, retrying while settlement confirms.
+        match settle_retry("bounties_fund", || {
+            client
+                .bounties
+                .fund(&bounty_id, &creator, Some(&fulfilled.payment_map))
+        })
+        .await
+        {
+            Ok(bounty) => to_value(serde_json::json!({
+                "bounty": bounty,
+                "payment": { "onChainTx": on_chain_tx },
+            })),
+            Err(SettleFailure::Hard(m)) => Err(format!(
+                "bounty funding failed after payment (onChainTx={on_chain_tx}): {m}"
+            )),
+            Err(SettleFailure::Exhausted(last)) => Err(format!(
+                "bounty funded but not confirmed in time (onChainTx={on_chain_tx}); \
+                 last error: {last}"
+            )),
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_cancel(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_cancel bounty_id={bounty_id}");
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: creator resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let creator = signer.agent_id();
+        let result = client
+            .bounties
+            .cancel(&bounty_id, &creator)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_submit(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        let url = req_str(&params, "url")?.trim().to_string();
+        if url.is_empty() {
+            return Err("missing required param 'url'".to_string());
+        }
+        let title = get_opt_str(&params, "title")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let note = get_opt_str(&params, "note")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        log::debug!("{LOG_PREFIX} bounties_submit bounty_id={bounty_id} url={url}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: submitter resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let submitter = signer.agent_id();
+
+        let request = tinyplace::types::BountySubmissionCreateRequest {
+            submitter: Some(submitter),
+            submitter_crypto_id: None,
+            url,
+            title,
+            note,
+        };
+        let result = client
+            .bounties
+            .submit(&bounty_id, &request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_list_submissions(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_list_submissions bounty_id={bounty_id}");
+        let query_params: Option<tinyplace::types::BountySubmissionQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid bounties list_submissions params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        match client
+            .bounties
+            .list_submissions(&bounty_id, query_params.as_ref())
+            .await
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match bounties_submissions_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} bounties_list_submissions degrade -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_comment(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        let body = req_str(&params, "body")?.trim().to_string();
+        if body.is_empty() {
+            return Err("missing required param 'body'".to_string());
+        }
+        log::debug!("{LOG_PREFIX} bounties_comment bounty_id={bounty_id}");
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: author resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let author = signer.agent_id();
+
+        let request = tinyplace::types::BountyCommentCreateRequest {
+            author: Some(author),
+            author_crypto_id: None,
+            body,
+        };
+        let result = client
+            .bounties
+            .comment(&bounty_id, &request)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_list_comments(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_list_comments bounty_id={bounty_id}");
+        let query_params: Option<tinyplace::types::BountyCommentQueryParams> = params
+            .get("params")
+            .and_then(|v| if v.is_null() { None } else { Some(v) })
+            .map(|v| {
+                serde_json::from_value(v.clone())
+                    .map_err(|e| format!("invalid bounties list_comments params: {e}"))
+            })
+            .transpose()?;
+        let client = global_state().client().await?;
+        match client
+            .bounties
+            .list_comments(&bounty_id, query_params.as_ref())
+            .await
+        {
+            Ok(result) => to_value(result),
+            Err(e) => match bounties_comments_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} bounties_list_comments degrade -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_run_council(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        log::debug!("{LOG_PREFIX} bounties_run_council bounty_id={bounty_id}");
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor resolved from signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+        let result = client
+            .bounties
+            .run_council(&bounty_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_bounties_approve(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let bounty_id = req_str(&params, "bountyId")?.to_string();
+        let submission_id = get_opt_str(&params, "submissionId").map(|s| s.to_string());
+        log::debug!(
+            "{LOG_PREFIX} bounties_approve bounty_id={bounty_id} \
+             submission_id={submission_id:?}"
+        );
+        let client = global_state().client().await?;
+        // NOTE: approve uses post_admin auth on the SDK side. The backend
+        // enforces the admin gate. If the caller is not an admin, the backend
+        // rejects with 403. The v1 UI hides this button entirely.
+        let result = client
+            .bounties
+            .approve(&bounty_id, submission_id.as_deref())
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4695,5 +5101,140 @@ mod tests {
             let err = block_on(handler(p)).unwrap_err();
             assert!(err.contains("postId"), "got: {err}");
         }
+    }
+
+    // ── Bounties handlers (Phase B) ───────────────────────────────────────────
+
+    /// Degrade helpers return empty results for Serialization errors, and
+    /// propagate non-serialization errors.
+    #[test]
+    fn bounties_degrade_helpers_return_empty_on_serialization() {
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(bounties_list_degrade(&ser_err).is_some());
+        assert!(bounties_submissions_degrade(&ser_err).is_some());
+        assert!(bounties_comments_degrade(&ser_err).is_some());
+
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(bounties_list_degrade(&other).is_none());
+        assert!(bounties_submissions_degrade(&other).is_none());
+        assert!(bounties_comments_degrade(&other).is_none());
+    }
+
+    /// bounties_create rejects blank title before any client work.
+    #[test]
+    fn bounties_create_rejects_blank_title() {
+        let mut params = Map::new();
+        params.insert("title".to_string(), Value::String("".to_string()));
+        params.insert("description".to_string(), Value::String("desc".to_string()));
+        params.insert("amount".to_string(), Value::String("100".to_string()));
+        let result = block_on(handle_tinyplace_bounties_create(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("title"),
+            "expected 'title' in error"
+        );
+    }
+
+    /// bounties_create rejects missing amount before any client work.
+    #[test]
+    fn bounties_create_rejects_missing_amount() {
+        let mut params = Map::new();
+        params.insert("title".to_string(), Value::String("test".to_string()));
+        params.insert("description".to_string(), Value::String("desc".to_string()));
+        let result = block_on(handle_tinyplace_bounties_create(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("amount"),
+            "expected 'amount' in error"
+        );
+    }
+
+    /// bounties_fund rejects blank bountyId before any client work.
+    #[test]
+    fn bounties_fund_rejects_blank_bounty_id() {
+        let mut params = Map::new();
+        params.insert("bountyId".to_string(), Value::String("  ".to_string()));
+        let result = block_on(handle_tinyplace_bounties_fund(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("bountyId"),
+            "expected 'bountyId' in error"
+        );
+    }
+
+    /// bounties_submit rejects blank url before any client work.
+    #[test]
+    fn bounties_submit_rejects_blank_url() {
+        let mut params = Map::new();
+        params.insert("bountyId".to_string(), Value::String("b1".to_string()));
+        params.insert("url".to_string(), Value::String("".to_string()));
+        let result = block_on(handle_tinyplace_bounties_submit(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("url"),
+            "expected 'url' in error"
+        );
+    }
+
+    /// bounties_comment rejects blank body before any client work.
+    #[test]
+    fn bounties_comment_rejects_blank_body() {
+        let mut params = Map::new();
+        params.insert("bountyId".to_string(), Value::String("b1".to_string()));
+        params.insert("body".to_string(), Value::String("   ".to_string()));
+        let result = block_on(handle_tinyplace_bounties_comment(params));
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().contains("body"),
+            "expected 'body' in error"
+        );
+    }
+
+    /// ANTI-SPOOF: bounties_create, bounties_cancel, bounties_submit, bounties_comment,
+    /// and bounties_run_council must NOT read actor/creator/submitter/author from params.
+    /// These handlers fail at param extraction or client init — never at an actor param.
+    #[test]
+    fn bounties_write_handlers_do_not_accept_actor_from_params() {
+        // bounties_create: fails on title before any actor check
+        let err = block_on(handle_tinyplace_bounties_create(Map::new())).unwrap_err();
+        assert!(err.contains("title"), "got: {err}");
+        assert!(
+            !err.contains("creator"),
+            "creator must not be a client param: {err}"
+        );
+
+        // bounties_cancel: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_cancel(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("creator"),
+            "creator must not be a client param: {err}"
+        );
+
+        // bounties_submit: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_submit(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("submitter"),
+            "submitter must not be a client param: {err}"
+        );
+
+        // bounties_comment: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_comment(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("author"),
+            "author must not be a client param: {err}"
+        );
+
+        // bounties_run_council: fails on bountyId before any actor check
+        let err = block_on(handle_tinyplace_bounties_run_council(Map::new())).unwrap_err();
+        assert!(err.contains("bountyId"), "got: {err}");
+        assert!(
+            !err.contains("actor"),
+            "actor must not be a client param: {err}"
+        );
     }
 }

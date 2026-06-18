@@ -918,6 +918,146 @@ export interface LikeResult {
   likeCount: number;
 }
 
+// ── Bounties types ──────────────────────────────────────────────────────────
+
+export interface BountyReward {
+  amount: string;
+  asset: string;
+  network?: string;
+}
+
+export interface BountyThumbnail {
+  url?: string;
+  alt?: string;
+  [key: string]: unknown;
+}
+
+export interface BountyCouncilVote {
+  model?: string;
+  winnerSubmissionId?: string;
+  reasoning?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface BountyCouncil {
+  status?: string;
+  ranAt?: string;
+  winnerSubmissionId?: string;
+  judgeModel?: string;
+  presided?: boolean;
+  reasoning?: string;
+  votes?: BountyCouncilVote[];
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface Bounty {
+  bountyId: string;
+  creator: string;
+  creatorCryptoId?: string;
+  title: string;
+  description: string;
+  reward: BountyReward;
+  status: string;
+  thumbnail?: BountyThumbnail;
+  escrowAddress?: string;
+  fundingTxSig?: string;
+  fundingLedgerTxId?: string;
+  submissionCount: number;
+  commentCount: number;
+  council?: BountyCouncil;
+  winnerSubmissionId?: string;
+  winnerAgent?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  payoutTxSig?: string;
+  payoutLedgerTxId?: string;
+  startAt?: string;
+  deadline?: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface BountySubmission {
+  submissionId: string;
+  bountyId: string;
+  submitter: string;
+  submitterCryptoId?: string;
+  url: string;
+  title?: string;
+  note?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+export interface BountyComment {
+  commentId: string;
+  bountyId: string;
+  author: string;
+  authorCryptoId?: string;
+  body: string;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export interface BountyCreateParams {
+  title: string;
+  description: string;
+  amount: string;
+  asset?: string;
+  deadline?: string;
+  durationDays?: number;
+}
+
+export interface BountyQueryParams {
+  creator?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface BountySubmissionQueryParams {
+  status?: string;
+  submitter?: string;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export interface BountyCommentQueryParams {
+  limit?: number;
+  offset?: number;
+  [key: string]: unknown;
+}
+
+export interface BountyListResponse {
+  bounties: Bounty[];
+  [key: string]: unknown;
+}
+
+export interface BountySubmissionsResponse {
+  submissions: BountySubmission[];
+  [key: string]: unknown;
+}
+
+export interface BountyCommentsResponse {
+  comments: BountyComment[];
+  [key: string]: unknown;
+}
+
+export type BountyStatus =
+  | 'draft'
+  | 'open'
+  | 'judging'
+  | 'review'
+  | 'awarded'
+  | 'refunded'
+  | 'cancelled';
+
 // ── GraphQL Ledger types ────────────────────────────────────────────────────
 
 export interface GqlLedgerReference {
@@ -1631,6 +1771,57 @@ export function createInvokeApiClient() {
       /** Unlike a post (idempotent, actor resolved from signer). */
       unlikePost: (handle: string, postId: string) =>
         call<LikeResult>('openhuman.tinyplace_feeds_unlike_post', { handle, postId }),
+    },
+    // ── Bounties section ────────────────────────────────────────────────────────
+    bounties: {
+      list: (params?: BountyQueryParams) =>
+        call<BountyListResponse>('openhuman.tinyplace_bounties_list', { params: params ?? null }),
+      get: (bountyId: string) => call<Bounty>('openhuman.tinyplace_bounties_get', { bountyId }),
+      create: (params: BountyCreateParams) =>
+        call<Bounty>('openhuman.tinyplace_bounties_create', {
+          title: params.title,
+          description: params.description,
+          amount: params.amount,
+          asset: params.asset ?? null,
+          deadline: params.deadline ?? null,
+          durationDays: params.durationDays ?? null,
+        }),
+      /** Fund a bounty via x402 confirm-before-spend. confirmed:false returns
+       *  the challenge (no spend); confirmed:true pays and funds. */
+      fund: (bountyId: string, opts?: { confirmed?: boolean }) =>
+        call<X402BuyResult>('openhuman.tinyplace_bounties_fund', {
+          bountyId,
+          confirmed: opts?.confirmed ?? false,
+        }),
+      cancel: (bountyId: string) =>
+        call<Bounty>('openhuman.tinyplace_bounties_cancel', { bountyId }),
+      submit: (bountyId: string, url: string, title?: string, note?: string) =>
+        call<BountySubmission>('openhuman.tinyplace_bounties_submit', {
+          bountyId,
+          url,
+          title: title ?? null,
+          note: note ?? null,
+        }),
+      listSubmissions: (bountyId: string, params?: BountySubmissionQueryParams) =>
+        call<BountySubmissionsResponse>('openhuman.tinyplace_bounties_list_submissions', {
+          bountyId,
+          params: params ?? null,
+        }),
+      comment: (bountyId: string, body: string) =>
+        call<BountyComment>('openhuman.tinyplace_bounties_comment', { bountyId, body }),
+      listComments: (bountyId: string, params?: BountyCommentQueryParams) =>
+        call<BountyCommentsResponse>('openhuman.tinyplace_bounties_list_comments', {
+          bountyId,
+          params: params ?? null,
+        }),
+      runCouncil: (bountyId: string) =>
+        call<Bounty>('openhuman.tinyplace_bounties_run_council', { bountyId }),
+      /** Admin-only. Not surfaced in v1 UI. */
+      approve: (bountyId: string, submissionId?: string) =>
+        call<Bounty>('openhuman.tinyplace_bounties_approve', {
+          bountyId,
+          submissionId: submissionId ?? null,
+        }),
     },
     // ── Feedback section ────────────────────────────────────────────────────────
     feedback: {

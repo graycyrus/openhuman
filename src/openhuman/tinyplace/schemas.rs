@@ -14,6 +14,18 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_artifacts_get,
     handle_tinyplace_artifacts_list,
+    // Bounties section (Phase B)
+    handle_tinyplace_bounties_approve,
+    handle_tinyplace_bounties_cancel,
+    handle_tinyplace_bounties_comment,
+    handle_tinyplace_bounties_create,
+    handle_tinyplace_bounties_fund,
+    handle_tinyplace_bounties_get,
+    handle_tinyplace_bounties_list,
+    handle_tinyplace_bounties_list_comments,
+    handle_tinyplace_bounties_list_submissions,
+    handle_tinyplace_bounties_run_council,
+    handle_tinyplace_bounties_submit,
     handle_tinyplace_broadcasts_list,
     handle_tinyplace_broadcasts_subscribe,
     handle_tinyplace_broadcasts_unsubscribe,
@@ -1978,6 +1990,191 @@ fn schema_feeds_unlike_post() -> ControllerSchema {
     }
 }
 
+// ── Bounties schemas (Phase B) ────────────────────────────────────────────────
+
+fn schema_bounties_list() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_list",
+        description: "List bounties with optional filtering.",
+        inputs: vec![optional_object(
+            "params",
+            "Optional BountyQueryParams (creator, status, limit, offset).",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "BountyListResponse { bounties: Bounty[] }.",
+        )],
+    }
+}
+
+fn schema_bounties_get() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_get",
+        description: "Fetch a single bounty by its ID.",
+        inputs: vec![required_string(
+            "bountyId",
+            "The bounty's unique identifier.",
+        )],
+        outputs: vec![json_output("result", "Bounty object.")],
+    }
+}
+
+fn schema_bounties_create() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_create",
+        description: "Create a new bounty (draft). Creator resolved from wallet signer.",
+        inputs: vec![
+            required_string("title", "Bounty title (non-blank)."),
+            required_string("description", "Bounty description (non-blank)."),
+            required_string(
+                "amount",
+                "Reward amount (human-decimal string, e.g. '5' for 5 USDC).",
+            ),
+            optional_string("asset", "Reward asset symbol (defaults to 'USDC')."),
+            optional_string("deadline", "Optional ISO-8601 deadline."),
+            optional_integer(
+                "durationDays",
+                "Optional duration in days (alternative to deadline).",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Bounty object for the newly created bounty (status=draft).",
+        )],
+    }
+}
+
+fn schema_bounties_fund() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_fund",
+        description: "Fund a bounty via x402 confirm-before-spend. confirmed=false returns the \
+             402 challenge + wallet balance (no spend); confirmed=true pays and funds.",
+        inputs: vec![
+            required_string("bountyId", "The bounty ID to fund."),
+            buy_confirmed_input(),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Either { bounty } (already funded), { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { bounty, payment: { onChainTx } } (paid).",
+        )],
+    }
+}
+
+fn schema_bounties_cancel() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_cancel",
+        description: "Cancel a bounty. Creator resolved from wallet signer.",
+        inputs: vec![required_string("bountyId", "The bounty ID to cancel.")],
+        outputs: vec![json_output("result", "Updated Bounty object.")],
+    }
+}
+
+fn schema_bounties_submit() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_submit",
+        description: "Submit work for a bounty. Submitter resolved from wallet signer.",
+        inputs: vec![
+            required_string("bountyId", "The bounty to submit work for."),
+            required_string("url", "URL of the submitted work (non-blank)."),
+            optional_string("title", "Optional title for the submission."),
+            optional_string("note", "Optional note for the submission."),
+        ],
+        outputs: vec![json_output("result", "BountySubmission object.")],
+    }
+}
+
+fn schema_bounties_list_submissions() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_list_submissions",
+        description: "List submissions for a bounty.",
+        inputs: vec![
+            required_string("bountyId", "The bounty whose submissions to list."),
+            optional_object(
+                "params",
+                "Optional BountySubmissionQueryParams (status, submitter, limit).",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "BountySubmissionsResponse { submissions: BountySubmission[] }.",
+        )],
+    }
+}
+
+fn schema_bounties_comment() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_comment",
+        description: "Add a comment to a bounty. Author resolved from wallet signer.",
+        inputs: vec![
+            required_string("bountyId", "The bounty to comment on."),
+            required_string("body", "Comment body text (non-blank)."),
+        ],
+        outputs: vec![json_output("result", "BountyComment object.")],
+    }
+}
+
+fn schema_bounties_list_comments() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_list_comments",
+        description: "List comments on a bounty.",
+        inputs: vec![
+            required_string("bountyId", "The bounty whose comments to list."),
+            optional_object(
+                "params",
+                "Optional BountyCommentQueryParams (limit, offset).",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "BountyCommentsResponse { comments: BountyComment[] }.",
+        )],
+    }
+}
+
+fn schema_bounties_run_council() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_run_council",
+        description:
+            "Run the AI council to judge bounty submissions. Actor resolved from wallet signer.",
+        inputs: vec![required_string(
+            "bountyId",
+            "The bounty to convene the council for.",
+        )],
+        outputs: vec![json_output("result", "Updated Bounty with council state.")],
+    }
+}
+
+fn schema_bounties_approve() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "bounties_approve",
+        description: "Approve a bounty winner and trigger payout. Admin-only (backend enforced). \
+             Not surfaced in v1 UI.",
+        inputs: vec![
+            required_string("bountyId", "The bounty to approve."),
+            optional_string(
+                "submissionId",
+                "Optional submission ID to approve as winner.",
+            ),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Updated Bounty object with awarded status.",
+        )],
+    }
+}
+
 // ── GraphQL Social Feed schemas ─────────────────────────────────────────────
 
 fn schema_graphql_home_feed() -> ControllerSchema {
@@ -2341,6 +2538,18 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         schema_feeds_delete_comment(),
         schema_feeds_like_post(),
         schema_feeds_unlike_post(),
+        // Bounties section (Phase B)
+        schema_bounties_list(),
+        schema_bounties_get(),
+        schema_bounties_create(),
+        schema_bounties_fund(),
+        schema_bounties_cancel(),
+        schema_bounties_submit(),
+        schema_bounties_list_submissions(),
+        schema_bounties_comment(),
+        schema_bounties_list_comments(),
+        schema_bounties_run_council(),
+        schema_bounties_approve(),
         // GraphQL Social Feed
         schema_graphql_home_feed(),
         schema_graphql_posts(),
@@ -2807,6 +3016,51 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_feeds_unlike_post(),
             handler: handle_tinyplace_feeds_unlike_post,
         },
+        // Bounties section (Phase B)
+        RegisteredController {
+            schema: schema_bounties_list(),
+            handler: handle_tinyplace_bounties_list,
+        },
+        RegisteredController {
+            schema: schema_bounties_get(),
+            handler: handle_tinyplace_bounties_get,
+        },
+        RegisteredController {
+            schema: schema_bounties_create(),
+            handler: handle_tinyplace_bounties_create,
+        },
+        RegisteredController {
+            schema: schema_bounties_fund(),
+            handler: handle_tinyplace_bounties_fund,
+        },
+        RegisteredController {
+            schema: schema_bounties_cancel(),
+            handler: handle_tinyplace_bounties_cancel,
+        },
+        RegisteredController {
+            schema: schema_bounties_submit(),
+            handler: handle_tinyplace_bounties_submit,
+        },
+        RegisteredController {
+            schema: schema_bounties_list_submissions(),
+            handler: handle_tinyplace_bounties_list_submissions,
+        },
+        RegisteredController {
+            schema: schema_bounties_comment(),
+            handler: handle_tinyplace_bounties_comment,
+        },
+        RegisteredController {
+            schema: schema_bounties_list_comments(),
+            handler: handle_tinyplace_bounties_list_comments,
+        },
+        RegisteredController {
+            schema: schema_bounties_run_council(),
+            handler: handle_tinyplace_bounties_run_council,
+        },
+        RegisteredController {
+            schema: schema_bounties_approve(),
+            handler: handle_tinyplace_bounties_approve,
+        },
         // GraphQL Social Feed
         RegisteredController {
             schema: schema_graphql_home_feed(),
@@ -3022,6 +3276,35 @@ mod tests {
             "openhuman.tinyplace_directory_reverse",
             "openhuman.tinyplace_directory_list_identities",
             "openhuman.tinyplace_directory_skills",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify all 11 Bounties handlers (Phase B) are registered with correct method names.
+    #[test]
+    fn bounties_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_bounties_list",
+            "openhuman.tinyplace_bounties_get",
+            "openhuman.tinyplace_bounties_create",
+            "openhuman.tinyplace_bounties_fund",
+            "openhuman.tinyplace_bounties_cancel",
+            "openhuman.tinyplace_bounties_submit",
+            "openhuman.tinyplace_bounties_list_submissions",
+            "openhuman.tinyplace_bounties_comment",
+            "openhuman.tinyplace_bounties_list_comments",
+            "openhuman.tinyplace_bounties_run_council",
+            "openhuman.tinyplace_bounties_approve",
         ];
         let registered: Vec<String> = all_tinyplace_registered_controllers()
             .into_iter()

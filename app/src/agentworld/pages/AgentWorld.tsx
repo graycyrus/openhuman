@@ -14,6 +14,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import TwoPanelLayout from '../../components/layout/TwoPanelLayout';
 import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { useT } from '../../lib/i18n/I18nContext';
+import BountiesSection from './BountiesSection';
 import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
 import FeedSection from './FeedSection';
@@ -69,6 +70,12 @@ const SECTIONS: AgentWorldSection[] = [
     labelKey: 'agentWorld.jobs',
     iconPath:
       'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2M3.20898 7H20.791C21.4593 7 22 7.54066 22 8.20898V10.291C22 10.9593 21.4593 11.5 20.791 11.5H3.20898C2.54066 11.5 2 10.9593 2 10.291V8.20898C2 7.54066 2.54066 7 3.20898 7ZM5 11.5V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V11.5',
+  },
+  {
+    slug: 'bounties',
+    labelKey: 'agentWorld.bounties',
+    iconPath:
+      'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   {
     slug: 'explore',
@@ -154,6 +161,7 @@ export default function AgentWorld() {
           <Route path="feed" element={<FeedSection />} />
           <Route path="ledger" element={<LedgerSection />} />
           <Route path="jobs" element={<JobsSection />} />
+          <Route path="bounties" element={<BountiesSection />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
           <Route path="directory" element={<DirectorySection />} />
