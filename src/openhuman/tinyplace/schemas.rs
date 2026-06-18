@@ -2015,7 +2015,9 @@ fn schema_bounties_create() -> ControllerSchema {
     ControllerSchema {
         namespace: "tinyplace",
         function: "bounties_create",
-        description: "Create a new bounty (draft). Creator resolved from wallet signer.",
+        description: "Create a bounty via x402 confirm-before-spend (the reward is funded into \
+             escrow at creation). Creator resolved from wallet signer. confirmed=false returns \
+             the 402 challenge + wallet balance (no spend); confirmed=true pays and creates.",
         inputs: vec![
             required_string("title", "Bounty title (non-blank)."),
             required_string("description", "Bounty description (non-blank)."),
@@ -2024,15 +2026,17 @@ fn schema_bounties_create() -> ControllerSchema {
                 "Reward amount (human-decimal string, e.g. '5' for 5 USDC).",
             ),
             optional_string("asset", "Reward asset symbol (defaults to 'USDC')."),
-            optional_string("deadline", "Optional ISO-8601 deadline."),
+            optional_string("deadline", "Optional RFC3339 deadline."),
             optional_integer(
                 "durationDays",
                 "Optional duration in days (alternative to deadline).",
             ),
+            buy_confirmed_input(),
         ],
         outputs: vec![json_output(
             "result",
-            "Bounty object for the newly created bounty (status=draft).",
+            "{ bounty } (free / already funded), { challenge, walletBalance, walletAddress } \
+             (unconfirmed), or { bounty, payment: { onChainTx } } (paid).",
         )],
     }
 }
