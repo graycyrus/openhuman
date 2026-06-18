@@ -11,8 +11,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import {
-  type AgentCard,
   type FollowStats,
+  type GqlAttestation,
+  type GqlProfile,
   type IdentityExport,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
@@ -33,13 +34,6 @@ interface OwnedIdentity {
 function truncateCryptoId(cryptoId: string): string {
   if (cryptoId.length <= 12) return cryptoId;
   return `${cryptoId.slice(0, 6)}…${cryptoId.slice(-4)}`;
-}
-
-function formatHandle(agent: AgentCard): string {
-  const name =
-    (agent['username'] as string | undefined) ?? (agent.name as string | undefined) ?? '';
-  // username may already include a leading '@' — strip it so we don't double up.
-  return `@${name.replace(/^@+/, '')}`;
 }
 
 function formatDate(iso: string): string {
@@ -63,13 +57,22 @@ function toLabel(value: unknown): string {
 
 // ── State type ─────────────────────────────────────────────────────────────────
 
+/**
+ * Profile data — either rich (from GqlProfile) or bare (fallback from directory.reverse).
+ * The 'graphql' source carries a full GqlProfile with bio, tags, attestations, etc.
+ * The 'directory' source carries a bare OwnedIdentity with username + registeredAt only.
+ */
+type ProfileData =
+  | { source: 'graphql'; profile: GqlProfile }
+  | { source: 'directory'; identity: OwnedIdentity };
+
 type ProfileState =
   | { status: 'loading' }
   | { status: 'wallet_locked' }
   | { status: 'no_handle'; cryptoId: string }
   | { status: 'payment_required'; challenge: unknown }
   | { status: 'error'; message: string }
-  | { status: 'ok'; identity: OwnedIdentity };
+  | { status: 'ok'; data: ProfileData };
 
 // ── Data hook ─────────────────────────────────────────────────────────────────
 
@@ -102,13 +105,44 @@ function useMyIdentity(): ProfileState {
         return;
       }
 
-      // 2. Reverse-lookup the handles registered to that wallet.
+      // 2. Try GraphQL profile lookup first (richer data, single round-trip).
+      try {
+        const profile = await apiClient.graphql.user(cryptoId);
+        if (cancelled) return;
+        if (profile) {
+          // GqlProfile.identities may be null — wallet has a profile but no registered handle.
+          // We still consider this "ok" because the profile exists.
+          setState({ status: 'ok', data: { source: 'graphql', profile } });
+          return;
+        }
+        // profile === null: no GqlProfile for this cryptoId. Fall through to
+        // directory.reverse for identity-only lookup (the user may have a
+        // registered handle but no published profile).
+      } catch (err: unknown) {
+        if (cancelled) return;
+        if (err instanceof PaymentRequiredError) {
+          setState({ status: 'payment_required', challenge: err.challenge });
+          return;
+        }
+        // GraphQL endpoint may not be available — fall through to REST fallback.
+        // Log but don't bail.
+        console.warn(
+          '[ProfilesSection] graphql.user failed, falling back to directory.reverse:',
+          err
+        );
+      }
+
+      // 3. Fallback: reverse-lookup handles registered to the wallet.
       try {
         const res = await apiClient.directory.reverse(cryptoId);
         const identities = (res.identities ?? []) as OwnedIdentity[];
         const mine = pickPrimary(identities);
         if (cancelled) return;
-        setState(mine ? { status: 'ok', identity: mine } : { status: 'no_handle', cryptoId });
+        setState(
+          mine
+            ? { status: 'ok', data: { source: 'directory', identity: mine } }
+            : { status: 'no_handle', cryptoId }
+        );
       } catch (err: unknown) {
         if (cancelled) return;
         if (err instanceof PaymentRequiredError) {
@@ -129,11 +163,44 @@ function useMyIdentity(): ProfileState {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function AgentProfileCard({ agent }: { agent: AgentCard }) {
+function AgentProfileCard({ data }: { data: ProfileData }) {
   const [followStats, setFollowStats] = useState<FollowStats | null>(null);
   const [exportData, setExportData] = useState<IdentityExport | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // ── Extract display fields from either data source ─────────────────────────
+  const isGraphql = data.source === 'graphql';
+  const profile = isGraphql ? data.profile : null;
+  const identity = isGraphql ? null : data.identity;
+
+  // Determine the display name / handle.
+  // GraphQL with a registered identity → @username.
+  // GraphQL without identities (null) → displayName (no @ prefix, not a handle).
+  // Directory fallback → @username from identity.
+  const primaryIdentityUsername = isGraphql ? (profile!.identities?.[0]?.username ?? null) : null;
+  const hasHandle = isGraphql ? primaryIdentityUsername !== null : (identity!.username ?? null) !== null;
+  const rawUsername = isGraphql
+    ? (primaryIdentityUsername ?? profile!.displayName)
+    : (identity!.username ?? '');
+  // Strip leading @ if present so we can re-add it uniformly when there IS a handle.
+  const usernameClean = rawUsername.replace(/^@+/, '');
+  // When graphql has no registered identity, displayName is shown as-is (not as a @handle).
+  const handle = hasHandle ? `@${usernameClean}` : usernameClean;
+
+  const cryptoId = isGraphql ? profile!.cryptoId : (identity!.cryptoId ?? '');
+  const bio = isGraphql ? profile!.bio : '';
+  const displayName = isGraphql ? profile!.displayName : '';
+  const avatarUrl = isGraphql ? (profile!.avatarUrl ?? '') : '';
+  const createdAt = isGraphql ? profile!.createdAt : (identity!.registeredAt ?? '');
+  const verified = isGraphql ? profile!.verified : false;
+  const rawSkills = isGraphql ? (profile!.tags ?? []) : [];
+  const skills = rawSkills.map(toLabel);
+  const attestations: GqlAttestation[] = isGraphql ? (profile!.attestations ?? []) : [];
+
+  const agentId = cryptoId;
+  const agentName = displayName || usernameClean || '?';
+  const initials = agentName.slice(0, 2).toUpperCase();
 
   const handleExport = useCallback(async () => {
     if (exportLoading) return;
@@ -145,7 +212,6 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
     setExportLoading(true);
     setExportError(null);
     try {
-      const handle = formatHandle(agent);
       const result = await apiClient.registry.export(handle);
       setExportData(result);
     } catch (err) {
@@ -153,13 +219,13 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
     } finally {
       setExportLoading(false);
     }
-  }, [exportLoading, exportData, agent]);
+  }, [exportLoading, exportData, handle]);
 
   useEffect(() => {
-    if (!agent.agentId) return;
+    if (!agentId) return;
     let cancelled = false;
     void apiClient.follows
-      .stats(agent.agentId)
+      .stats(agentId)
       .then(stats => {
         if (!cancelled) setFollowStats(stats);
       })
@@ -167,27 +233,31 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
     return () => {
       cancelled = true;
     };
-  }, [agent.agentId]);
-
-  const handle = formatHandle(agent);
-  const cryptoId = (agent['cryptoId'] as string | undefined) ?? '';
-  const bio = (agent.description as string | undefined) ?? '';
-  const createdAt = (agent['createdAt'] as string | undefined) ?? '';
-  const agentName = (agent.name as string | undefined) ?? handle.slice(1) ?? '?';
-  const initials = agentName.slice(0, 2).toUpperCase();
-
-  const rawSkills =
-    (agent['skills'] as unknown[] | undefined) ?? (agent['tags'] as unknown[] | undefined) ?? [];
-  const skills = rawSkills.map(toLabel);
+  }, [agentId]);
 
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-start gap-4">
-        <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
-          {initials}
-        </div>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={agentName}
+            className="h-14 w-14 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="bg-primary-600 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white">
+            {initials}
+          </div>
+        )}
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">{handle}</h3>
+          <h3 className="flex items-center gap-1 text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            {handle}
+            {verified && (
+              <span className="ml-1 text-xs text-blue-500" title="Verified">
+                &#10003;
+              </span>
+            )}
+          </h3>
           {cryptoId && (
             <p
               className="mt-0.5 font-mono text-xs text-stone-500 dark:text-neutral-400"
@@ -212,6 +282,23 @@ function AgentProfileCard({ agent }: { agent: AgentCard }) {
                 key={skill}
                 className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
                 {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {attestations.length > 0 && (
+        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-neutral-800">
+          <h4 className="mb-2 text-xs font-medium text-stone-900 dark:text-neutral-100">
+            Verified Accounts
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {attestations.map(a => (
+              <span
+                key={a.attestationId}
+                className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                {a.platform}: {a.handle}
               </span>
             ))}
           </div>
@@ -325,15 +412,9 @@ export default function ProfilesSection() {
       />
     );
   } else {
-    // Render the wallet's own identity. A bare handle (no published agent card)
-    // carries no bio/skills — only username + cryptoId + registration date.
-    const agent: AgentCard = {
-      agentId: state.identity.cryptoId ?? '',
-      username: state.identity.username,
-      cryptoId: state.identity.cryptoId,
-      createdAt: state.identity.registeredAt,
-    };
-    body = <AgentProfileCard agent={agent} />;
+    // Render the wallet's own profile with either rich GraphQL data or bare
+    // directory.reverse identity. AgentProfileCard handles both shapes internally.
+    body = <AgentProfileCard data={state.data} />;
   }
 
   return <PanelScaffold description="Your agent profile">{body}</PanelScaffold>;

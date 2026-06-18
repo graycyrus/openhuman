@@ -1421,3 +1421,110 @@ describe('signal.sendMessage and messages namespace', () => {
     });
   });
 });
+
+// ── GraphQL Profile + Identity methods ──────────────────────────────────────
+
+describe('graphql.profile', () => {
+  test('routes to the correct RPC method with username', async () => {
+    const mockProfile = { cryptoId: 'addr123', displayName: 'Alice', bio: '' };
+    mockCallCoreRpc.mockResolvedValueOnce(mockProfile);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.profile('alice');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_graphql_profile',
+      params: { username: 'alice' },
+    });
+    expect(result).toEqual(mockProfile);
+  });
+
+  test('propagates null when profile is not found', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce(null);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.profile('unknown');
+    expect(result).toBeNull();
+  });
+});
+
+describe('graphql.user', () => {
+  test('routes to the correct RPC method with cryptoId', async () => {
+    const mockProfile = { cryptoId: 'solana123', displayName: 'Bob', bio: '' };
+    mockCallCoreRpc.mockResolvedValueOnce(mockProfile);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.user('solana123');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_graphql_user',
+      params: { cryptoId: 'solana123' },
+    });
+    expect(result).toEqual(mockProfile);
+  });
+
+  test('propagates null when no profile exists for the address', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce(null);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.user('noaddr');
+    expect(result).toBeNull();
+  });
+});
+
+describe('graphql.identity', () => {
+  test('routes to the correct RPC method with username', async () => {
+    const mockIdentity = { username: 'alice', cryptoId: 'addr123', status: 'active' };
+    mockCallCoreRpc.mockResolvedValueOnce(mockIdentity);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.identity('alice');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_graphql_identity',
+      params: { username: 'alice' },
+    });
+    expect(result).toEqual(mockIdentity);
+  });
+
+  test('propagates null when identity is not found', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce(null);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.identity('noone');
+    expect(result).toBeNull();
+  });
+});
+
+describe('graphql.identities', () => {
+  test('routes to the correct RPC method with cryptoId', async () => {
+    const mockResult = { identities: [{ username: 'alice', cryptoId: 'addr123' }] };
+    mockCallCoreRpc.mockResolvedValueOnce(mockResult);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.identities('addr123');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_graphql_identities',
+      params: { cryptoId: 'addr123' },
+    });
+    expect(result).toEqual(mockResult);
+  });
+
+  test('returns empty identities array when wallet has no registered handles', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce({ identities: [] });
+    const client = createInvokeApiClient();
+    const result = await client.graphql.identities('emptyaddr');
+    expect(result).toEqual({ identities: [] });
+  });
+});
+
+describe('graphql.agentCard', () => {
+  test('routes to the correct RPC method with id', async () => {
+    const mockCard = { agentId: 'agent-1', name: 'MyAgent' };
+    mockCallCoreRpc.mockResolvedValueOnce(mockCard);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.agentCard('agent-1');
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.tinyplace_graphql_agent_card',
+      params: { id: 'agent-1' },
+    });
+    expect(result).toEqual(mockCard);
+  });
+
+  test('propagates null when agent card is not found', async () => {
+    mockCallCoreRpc.mockResolvedValueOnce(null);
+    const client = createInvokeApiClient();
+    const result = await client.graphql.agentCard('missing-id');
+    expect(result).toBeNull();
+  });
+});

@@ -3299,6 +3299,90 @@ pub(crate) fn handle_tinyplace_graphql_job(params: Map<String, Value>) -> Contro
     })
 }
 
+// ── GraphQL: Profile + Identity ───────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_profile(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_profile username={username}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.profile(&username).await.map_err(map_err)?;
+        // Returns Option<GqlProfile> — null means profile not found.
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_user(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_user crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.user(&crypto_id).await.map_err(map_err)?;
+        // Returns Option<GqlProfile> — null means no profile for this crypto_id.
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_identity(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let username = req_str(&params, "username")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_identity username={username}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.identity(&username).await.map_err(map_err)?;
+        // Returns Option<GqlIdentity> — null means identity not found.
+        to_value(result)
+    })
+}
+
+/// The backend may return `{"identities": null}` for a wallet with no handles.
+/// Degrade Serialization errors to an empty array; propagate everything else.
+pub(crate) fn graphql_identities_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!([]))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_identities(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let crypto_id = req_str(&params, "cryptoId")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_identities crypto_id={crypto_id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = match client.graphql.identities(&crypto_id).await {
+            Ok(identities) => identities,
+            Err(e) => match graphql_identities_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_identities deserialization failed -> empty: {e}"
+                    );
+                    // Wrap empty array in the RPC envelope shape for consistency.
+                    return to_value(serde_json::json!({ "identities": empty }));
+                }
+                None => return Err(map_err(e)),
+            },
+        };
+        // Wrap Vec<Identity> in a named key for consistent RPC shape.
+        to_value(serde_json::json!({ "identities": result }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_agent_card(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let id = req_str(&params, "id")?.to_string();
+        log::debug!("{LOG_PREFIX} graphql_agent_card id={id}");
+        let client = global_state().client().await?;
+        // GraphQLAuth::None — no signer required.
+        let result = client.graphql.agent_card(&id).await.map_err(map_err)?;
+        // Returns Option<AgentCard> — null means agent card not found.
+        to_value(result)
+    })
+}
+
 // ── Directory: find by encryption key (0D) ──────────────────────────────────
 
 /// Reverse-lookup: find the agent advertising a given encryption public key.

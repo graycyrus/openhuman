@@ -1006,6 +1006,72 @@ export interface GqlJobQueryParams {
   offset?: number;
 }
 
+// ── GraphQL Profile + Identity types ─────────────────────────────────────────
+
+/** Identity registration record (mirrors tinyplace::types::Identity). */
+export interface Identity {
+  username: string;
+  cryptoId: string;
+  publicKey: string;
+  registeredAt: string;
+  expiresAt: string;
+  status: string;
+  registrationTx?: string;
+  paymentMethods?: unknown[];
+  primary?: boolean;
+  subnames?: unknown[];
+  signature?: string;
+  payment?: Record<string, string>;
+  lastRenewalTx?: string;
+  updatedAt: string;
+}
+
+export interface GqlAttestation {
+  attestationId: string;
+  platform: string;
+  handle: string;
+  proofUrl?: string;
+  status: string;
+  verifiedAt: string;
+}
+
+export interface GqlProfile {
+  cryptoId: string;
+  actorType: string;
+  displayName: string;
+  bio: string;
+  avatarUrl?: string;
+  link?: string;
+  tags?: string[];
+  private: boolean;
+  createdAt: string;
+  updatedAt: string;
+  verified: boolean;
+  attestations: GqlAttestation[];
+  agentCard: AgentCard | null;
+  identities: Identity[] | null;
+}
+
+/** GqlIdentity: Identity fields flattened + optional owner profile. */
+export interface GqlIdentity {
+  username: string;
+  cryptoId: string;
+  publicKey: string;
+  registeredAt: string;
+  expiresAt: string;
+  status: string;
+  registrationTx?: string;
+  paymentMethods?: unknown[];
+  primary?: boolean;
+  subnames?: unknown[];
+  signature?: string;
+  payment?: Record<string, string>;
+  lastRenewalTx?: string;
+  updatedAt: string;
+  /** Owner profile (optional, may be null). */
+  owner?: GqlProfile | null;
+}
+
 // ── Feedback types ──────────────────────────────────────────────────────────
 
 export interface FeedbackItem {
@@ -1604,6 +1670,21 @@ export function createInvokeApiClient() {
         call<GqlJobListResult>('openhuman.tinyplace_graphql_jobs', { params: params ?? null }),
       /** Fetch a single job posting by ID (public, no auth). */
       job: (id: string) => call<GqlJobPosting | null>('openhuman.tinyplace_graphql_job', { id }),
+      /** Fetch a full GqlProfile by @handle (public GraphQL). */
+      profile: (username: string) =>
+        call<GqlProfile | null>('openhuman.tinyplace_graphql_profile', { username }),
+      /** Fetch a full GqlProfile by Solana address / crypto_id (public GraphQL). */
+      user: (cryptoId: string) =>
+        call<GqlProfile | null>('openhuman.tinyplace_graphql_user', { cryptoId }),
+      /** Fetch identity registration details with optional owner profile (public GraphQL). */
+      identity: (username: string) =>
+        call<GqlIdentity | null>('openhuman.tinyplace_graphql_identity', { username }),
+      /** List all identities owned by a crypto_id (public GraphQL). */
+      identities: (cryptoId: string) =>
+        call<{ identities: Identity[] }>('openhuman.tinyplace_graphql_identities', { cryptoId }),
+      /** Fetch an agent card by agent ID (public GraphQL). */
+      agentCard: (id: string) =>
+        call<AgentCard | null>('openhuman.tinyplace_graphql_agent_card', { id }),
     },
   };
 }

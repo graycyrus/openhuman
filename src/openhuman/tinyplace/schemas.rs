@@ -40,8 +40,12 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_follows_following,
     handle_tinyplace_follows_stats,
     handle_tinyplace_follows_unfollow,
+    // GraphQL Profile + Identity handlers
+    handle_tinyplace_graphql_agent_card,
     // GraphQL Social Feed handlers
     handle_tinyplace_graphql_home_feed,
+    handle_tinyplace_graphql_identities,
+    handle_tinyplace_graphql_identity,
     // GraphQL Jobs handlers
     handle_tinyplace_graphql_job,
     handle_tinyplace_graphql_jobs,
@@ -52,6 +56,8 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_graphql_post_comments,
     handle_tinyplace_graphql_post_likers,
     handle_tinyplace_graphql_posts,
+    handle_tinyplace_graphql_profile,
+    handle_tinyplace_graphql_user,
     handle_tinyplace_groups_create_invite,
     handle_tinyplace_groups_join,
     handle_tinyplace_groups_leave,
@@ -1867,6 +1873,74 @@ fn schema_graphql_job() -> ControllerSchema {
     }
 }
 
+fn schema_graphql_profile() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_profile",
+        description: "Fetch a full profile by @handle (public GraphQL). Returns GqlProfile \
+            with bio, avatar, tags, attestations, agent_card, identities in a single call.",
+        inputs: vec![required_string(
+            "username",
+            "The @handle to look up (with or without @).",
+        )],
+        outputs: vec![json_output("result", "GqlProfile or null if not found.")],
+    }
+}
+
+fn schema_graphql_user() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_user",
+        description: "Fetch a full profile by crypto_id / Solana address (public GraphQL). \
+            Same rich GqlProfile response as graphql_profile but keyed by address.",
+        inputs: vec![required_string(
+            "cryptoId",
+            "The Solana address / crypto_id to look up.",
+        )],
+        outputs: vec![json_output("result", "GqlProfile or null if not found.")],
+    }
+}
+
+fn schema_graphql_identity() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_identity",
+        description: "Fetch identity registration details with optional owner profile \
+            (public GraphQL).",
+        inputs: vec![required_string(
+            "username",
+            "The @handle whose identity record to fetch.",
+        )],
+        outputs: vec![json_output(
+            "result",
+            "GqlIdentity { identity, owner? } or null.",
+        )],
+    }
+}
+
+fn schema_graphql_identities() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_identities",
+        description: "List all identities owned by a crypto_id (public GraphQL).",
+        inputs: vec![required_string(
+            "cryptoId",
+            "The Solana address whose identities to list.",
+        )],
+        outputs: vec![json_output("result", "{ identities: Identity[] }.")],
+    }
+}
+
+fn schema_graphql_agent_card() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_agent_card",
+        description: "Fetch an agent card by agent ID (public GraphQL).",
+        inputs: vec![required_string("id", "The agent ID to look up.")],
+        outputs: vec![json_output("result", "AgentCard or null if not found.")],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1985,6 +2059,12 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // GraphQL Jobs
         schema_graphql_jobs(),
         schema_graphql_job(),
+        // GraphQL Profile + Identity
+        schema_graphql_profile(),
+        schema_graphql_user(),
+        schema_graphql_identity(),
+        schema_graphql_identities(),
+        schema_graphql_agent_card(),
     ]
 }
 
@@ -2406,6 +2486,27 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_graphql_job(),
             handler: handle_tinyplace_graphql_job,
         },
+        // GraphQL Profile + Identity
+        RegisteredController {
+            schema: schema_graphql_profile(),
+            handler: handle_tinyplace_graphql_profile,
+        },
+        RegisteredController {
+            schema: schema_graphql_user(),
+            handler: handle_tinyplace_graphql_user,
+        },
+        RegisteredController {
+            schema: schema_graphql_identity(),
+            handler: handle_tinyplace_graphql_identity,
+        },
+        RegisteredController {
+            schema: schema_graphql_identities(),
+            handler: handle_tinyplace_graphql_identities,
+        },
+        RegisteredController {
+            schema: schema_graphql_agent_card(),
+            handler: handle_tinyplace_graphql_agent_card,
+        },
     ]
 }
 
@@ -2491,6 +2592,29 @@ mod tests {
         let expected = [
             "openhuman.tinyplace_graphql_jobs",
             "openhuman.tinyplace_graphql_job",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
+            );
+        }
+    }
+
+    /// Verify the five GraphQL Profile + Identity handlers are registered with correct method names.
+    #[test]
+    fn graphql_profile_identity_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_profile",
+            "openhuman.tinyplace_graphql_user",
+            "openhuman.tinyplace_graphql_identity",
+            "openhuman.tinyplace_graphql_identities",
+            "openhuman.tinyplace_graphql_agent_card",
         ];
         let registered: Vec<String> = all_tinyplace_registered_controllers()
             .into_iter()
