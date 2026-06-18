@@ -30,6 +30,7 @@ import {
 import { useT } from '../lib/i18n/I18nContext';
 import { trackEvent } from '../services/analytics';
 import { applyOpenRouterFreeModels } from '../services/api/openrouterFreeModels';
+import { subagentApi } from '../services/api/subagentApi';
 import { threadApi } from '../services/api/threadApi';
 import { chatCancel, chatSend, useRustChat } from '../services/chatService';
 import { callCoreRpc } from '../services/coreRpcClient';
@@ -43,6 +44,7 @@ import {
   beginInferenceTurn,
   clearRuntimeForThread,
   fetchAndHydrateTurnState,
+  markSubagentCancelled,
   registerParallelRequest,
   setTaskBoardForThread,
   setToolTimelineForThread,
@@ -60,6 +62,7 @@ import {
   persistReaction,
   setSelectedThread,
   THREAD_NOT_FOUND_MESSAGE,
+  updateThreadTitle,
 } from '../store/threadSlice';
 import type { ConfirmationModal as ConfirmationModalType } from '../types/intelligence';
 import type { ThreadMessage } from '../types/thread';
@@ -305,6 +308,11 @@ const Conversations = ({
   );
   const rustChat = useRustChat();
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
+  // Inline thread-title rename in the conversation header.
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
+  const editTitleInputRef = useRef<HTMLInputElement>(null);
+  const ignoreNextTitleBlurRef = useRef(false);
 
   const {
     teamUsage,
@@ -430,6 +438,46 @@ const Conversations = ({
       console.warn('[chat] applyOpenRouterFreeModels failed', err);
       setOpenRouterStatus('error');
     }
+  };
+
+  const handleStartEditTitle = () => {
+    if (!selectedThreadId) return;
+    const thr = threads.find(t => t.id === selectedThreadId);
+    debug('[chat] thread rename: start thread=%s', selectedThreadId);
+    setEditTitleValue(thr?.title ?? '');
+    ignoreNextTitleBlurRef.current = true;
+    setEditingTitle(true);
+    const scheduleSelect = window.requestAnimationFrame ?? window.setTimeout;
+    scheduleSelect(() => {
+      editTitleInputRef.current?.select();
+      ignoreNextTitleBlurRef.current = false;
+    });
+  };
+
+  const handleCommitTitle = () => {
+    const trimmed = editTitleValue.trim();
+    setEditingTitle(false);
+    // Title length only — never log the title text itself (may carry PII).
+    if (!selectedThreadId || !trimmed) {
+      debug('[chat] thread rename: commit skipped thread=%s empty=%s', selectedThreadId, !trimmed);
+      return;
+    }
+    const currentTitle = threads.find(t => t.id === selectedThreadId)?.title?.trim();
+    if (trimmed === currentTitle) {
+      debug('[chat] thread rename: commit skipped thread=%s (unchanged)', selectedThreadId);
+      return;
+    }
+    debug('[chat] thread rename: commit thread=%s len=%d', selectedThreadId, trimmed.length);
+    void dispatch(updateThreadTitle({ threadId: selectedThreadId, title: trimmed }))
+      .unwrap()
+      .then(() => debug('[chat] thread rename: committed thread=%s', selectedThreadId))
+      .catch(err =>
+        debug(
+          '[chat] thread rename: failed thread=%s err=%s',
+          selectedThreadId,
+          err instanceof Error ? err.message : String(err)
+        )
+      );
   };
 
   const handleSelectAgentProfile = async (profileId: string) => {
@@ -2466,6 +2514,67 @@ const Conversations = ({
           </button>
         )}
 
+        {/* Thread title + inline rename (page variant). Hover the title to
+            reveal the edit affordance; Enter commits, Escape cancels. */}
+        {!isSidebar && selectedThreadId && (
+          <div className="mt-2 min-w-0">
+            {editingTitle ? (
+              <input
+                ref={editTitleInputRef}
+                value={editTitleValue}
+                onChange={e => setEditTitleValue(e.target.value)}
+                onKeyDown={e => {
+                  // Ignore the Enter that confirms an IME composition candidate
+                  // (CJK input) so it doesn't prematurely commit the rename.
+                  if (isImeCompositionKeyEvent(e)) return;
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCommitTitle();
+                  } else if (e.key === 'Escape') {
+                    setEditingTitle(false);
+                  }
+                }}
+                onBlur={() => {
+                  if (ignoreNextTitleBlurRef.current) {
+                    ignoreNextTitleBlurRef.current = false;
+                    return;
+                  }
+                  handleCommitTitle();
+                }}
+                aria-label={t('chat.editThreadTitle')}
+                className="h-6 w-full min-w-0 border-b border-primary-400 bg-transparent py-0 text-sm font-medium leading-none text-stone-700 outline-none dark:text-neutral-200"
+                autoFocus
+              />
+            ) : (
+              <div className="group/title flex min-w-0 items-center gap-1">
+                <h3 className="truncate text-sm font-medium text-stone-700 dark:text-neutral-200">
+                  {resolveThreadDisplayTitle(selectedThreadId)}
+                </h3>
+                <button
+                  type="button"
+                  data-analytics-id="chat-header-edit-thread-title"
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    handleStartEditTitle();
+                  }}
+                  onClick={handleStartEditTitle}
+                  aria-label={t('chat.editThreadTitle')}
+                  title={t('chat.editThreadTitle')}
+                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-stone-400 opacity-0 transition-all hover:bg-stone-100 hover:text-stone-600 group-hover/title:opacity-100 group-focus-within/title:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300">
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Model + token stats (left) and the quick/reasoning toggle + files
             chip (right) share one line. */}
         <div
@@ -2591,8 +2700,28 @@ const Conversations = ({
         }}
       />
       <SubagentDrawer
+        key={openSubagentTaskId ?? 'none'}
         subagent={openSubagentEntry?.subagent ?? null}
         status={openSubagentEntry?.status}
+        onCancel={
+          openSubagentEntry?.subagent && selectedThreadId
+            ? async () => {
+                const taskId = openSubagentEntry.subagent!.taskId;
+                const result = await subagentApi.cancel(taskId);
+                // Only flip the row when something was actually aborted — a
+                // cancelled=false result means the run already finished/unknown,
+                // and overwriting its real terminal state would hide it. No
+                // terminal socket event arrives for an aborted run, so the
+                // optimistic mark is what surfaces the cancellation (the notice
+                // itself reaches chat via the idle-gated delivery path).
+                if (result.cancelled) {
+                  dispatch(
+                    markSubagentCancelled({ threadId: selectedThreadId, taskId: result.taskId })
+                  );
+                }
+              }
+            : undefined
+        }
         onClose={() => setOpenSubagentTaskId(null)}
       />
       <AgentProcessSourcePanel
