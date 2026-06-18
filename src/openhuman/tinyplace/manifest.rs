@@ -3027,6 +3027,156 @@ pub(crate) fn build_default_agent_card(
     }
 }
 
+// ── GraphQL: Social Feed ─────────────────────────────────────────────────────
+
+pub(crate) fn handle_tinyplace_graphql_home_feed(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let offset = params.get("offset").and_then(Value::as_i64);
+        let include_self = params.get("includeSelf").and_then(Value::as_bool);
+        log::debug!(
+            "{LOG_PREFIX} graphql_home_feed limit={limit:?} offset={offset:?} include_self={include_self:?}"
+        );
+        let client = global_state().client().await?;
+        // home_feed uses GraphQLAuth::Agent — requires a configured signer.
+        let _signer = require_signer(client)?;
+        match client.graphql.home_feed(limit, offset, include_self).await {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_home_feed_degrade(&e) {
+                Some(empty) => {
+                    log::debug!(
+                        "{LOG_PREFIX} graphql_home_feed deserialization failed (likely empty feed) -> empty: {e}"
+                    );
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// The backend may return `{"items": null}` for an empty home feed, which
+/// fails the SDK's `items: Vec<GqlHomeFeedItem>` deserialization. Treat
+/// serialization failures as an empty feed; propagate every other error.
+pub(crate) fn graphql_home_feed_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "items": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_posts(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.to_string();
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let before = params.get("before").and_then(Value::as_i64);
+        let viewer = get_opt_str(&params, "viewer").map(|s| s.to_string());
+        log::debug!("{LOG_PREFIX} graphql_posts handle={handle} limit={limit:?} before={before:?}");
+        let sdk_params = tinyplace::api::graphql::PostGraphQLParams {
+            limit,
+            before,
+            viewer,
+        };
+        let client = global_state().client().await?;
+        match client.graphql.posts(&handle, Some(&sdk_params)).await {
+            Ok(result) => to_value(result),
+            Err(e) => match graphql_posts_degrade(&e) {
+                Some(empty) => {
+                    log::debug!("{LOG_PREFIX} graphql_posts deserialization failed -> empty: {e}");
+                    to_value(empty)
+                }
+                None => Err(map_err(e)),
+            },
+        }
+    })
+}
+
+/// Empty user feed may return `{"posts": null}`. Degrade like inbox_list.
+pub(crate) fn graphql_posts_degrade(e: &tinyplace::Error) -> Option<Value> {
+    if matches!(e, tinyplace::Error::Serialization(_)) {
+        Some(serde_json::json!({ "posts": [], "count": 0 }))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn handle_tinyplace_graphql_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.to_string();
+        let post_id = req_str(&params, "postId")?.to_string();
+        let viewer = get_opt_str(&params, "viewer").map(|s| s.to_string());
+        let comment_limit = params.get("commentLimit").and_then(Value::as_i64);
+        let comment_after = params.get("commentAfter").and_then(Value::as_i64);
+        let liker_limit = params.get("likerLimit").and_then(Value::as_i64);
+        let liker_offset = params.get("likerOffset").and_then(Value::as_i64);
+        log::debug!(
+            "{LOG_PREFIX} graphql_post handle={handle} post_id={post_id} comment_limit={comment_limit:?}"
+        );
+        let sdk_params = tinyplace::api::graphql::PostDetailGraphQLParams {
+            viewer,
+            comment_limit,
+            comment_after,
+            liker_limit,
+            liker_offset,
+        };
+        let client = global_state().client().await?;
+        let result = client
+            .graphql
+            .post(&handle, &post_id, Some(&sdk_params))
+            .await
+            .map_err(map_err)?;
+        // SDK returns Option<GqlPostDetail> — null means post not found.
+        to_value(result)
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_post_comments(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let post_id = req_str(&params, "postId")?.to_string();
+        let feed_id = get_opt_str(&params, "feedId").map(|s| s.to_string());
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let after = params.get("after").and_then(Value::as_i64);
+        log::debug!(
+            "{LOG_PREFIX} graphql_post_comments post_id={post_id} limit={limit:?} after={after:?}"
+        );
+        let sdk_params = tinyplace::api::graphql::CommentGraphQLParams {
+            feed_id,
+            limit,
+            after,
+        };
+        let client = global_state().client().await?;
+        let result = client
+            .graphql
+            .post_comments(&post_id, Some(&sdk_params))
+            .await
+            .map_err(map_err)?;
+        // Returns Vec<GqlComment> — wrap in an object for consistent RPC shape.
+        to_value(serde_json::json!({ "comments": result }))
+    })
+}
+
+pub(crate) fn handle_tinyplace_graphql_post_likers(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let post_id = req_str(&params, "postId")?.to_string();
+        let limit = params.get("limit").and_then(Value::as_i64);
+        let offset = params.get("offset").and_then(Value::as_i64);
+        log::debug!(
+            "{LOG_PREFIX} graphql_post_likers post_id={post_id} limit={limit:?} offset={offset:?}"
+        );
+        let sdk_params = tinyplace::api::graphql::PaginationGraphQLParams { limit, offset };
+        let client = global_state().client().await?;
+        let result = client
+            .graphql
+            .post_likers(&post_id, Some(&sdk_params))
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 // ── Directory: find by encryption key (0D) ──────────────────────────────────
 
 /// Reverse-lookup: find the agent advertising a given encryption public key.
@@ -3112,6 +3262,73 @@ mod tests {
         // explicit asset is honoured.
         p.insert("asset".to_string(), Value::String("SOL".into()));
         assert_eq!(price_from_params(&p).unwrap().asset, "SOL");
+    }
+
+    // ── GraphQL Feed handler param validation ────────────────────────────────
+
+    /// graphql_posts requires `handle`.
+    #[test]
+    fn graphql_posts_requires_handle() {
+        let err = block_on(handle_tinyplace_graphql_posts(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+    }
+
+    /// graphql_post requires `handle` and `postId`.
+    #[test]
+    fn graphql_post_requires_handle_and_post_id() {
+        let err = block_on(handle_tinyplace_graphql_post(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+
+        let mut p = Map::new();
+        p.insert("handle".to_string(), Value::String("alice".into()));
+        let err = block_on(handle_tinyplace_graphql_post(p)).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// graphql_post_comments requires `postId`.
+    #[test]
+    fn graphql_post_comments_requires_post_id() {
+        let err = block_on(handle_tinyplace_graphql_post_comments(Map::new())).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// graphql_post_likers requires `postId`.
+    #[test]
+    fn graphql_post_likers_requires_post_id() {
+        let err = block_on(handle_tinyplace_graphql_post_likers(Map::new())).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// graphql_home_feed has no required params — it should fail at
+    /// global_state/client initialization (no wallet in unit tests),
+    /// NOT at param extraction.
+    #[test]
+    fn graphql_home_feed_fails_at_client_not_params() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let err = rt
+            .block_on(handle_tinyplace_graphql_home_feed(Map::new()))
+            .unwrap_err();
+        assert!(!err.contains("missing required param"), "got: {err}");
+    }
+
+    /// Degrade helpers return empty results for Serialization errors, and
+    /// propagate non-serialization errors (InvalidArgument).
+    #[test]
+    fn graphql_degrade_helpers_return_empty_on_serialization() {
+        // Construct a real serde_json::Error by deserializing invalid JSON.
+        let raw_ser_err: serde_json::Error =
+            serde_json::from_str::<serde_json::Value>("{invalid json}").unwrap_err();
+        let ser_err = tinyplace::Error::Serialization(raw_ser_err);
+        assert!(graphql_home_feed_degrade(&ser_err).is_some());
+        assert!(graphql_posts_degrade(&ser_err).is_some());
+
+        // Non-serialization errors should NOT be degraded.
+        let other = tinyplace::Error::InvalidArgument("bad arg".into());
+        assert!(graphql_home_feed_degrade(&other).is_none());
+        assert!(graphql_posts_degrade(&other).is_none());
     }
 
     #[test]

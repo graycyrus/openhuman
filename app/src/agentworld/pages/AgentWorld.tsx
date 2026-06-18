@@ -16,6 +16,7 @@ import TwoPaneNav from '../../components/layout/TwoPaneNav';
 import { useT } from '../../lib/i18n/I18nContext';
 import DirectorySection from './DirectorySection';
 import ExploreSection from './ExploreSection';
+import FeedSection from './FeedSection';
 import IdentitiesSection from './IdentitiesSection';
 import MarketplaceSection from './MarketplaceSection';
 import MessagingSection from './MessagingSection';
@@ -40,6 +41,12 @@ const navIcon = (d: string) => (
 // Format: { slug: '<path-segment>', labelKey: 'agentWorld.<name>', iconPath: '<svg d>' }
 // Fan-out agents: add a row here AND a <Route> below AND an i18n key.
 const SECTIONS: AgentWorldSection[] = [
+  {
+    slug: 'feed',
+    labelKey: 'agentWorld.feed',
+    iconPath:
+      'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z',
+  },
   {
     slug: 'explore',
     labelKey: 'agentWorld.explore',
@@ -90,7 +97,7 @@ export default function AgentWorld() {
   // Derive the active slug from the current sub-path
   // e.g. /agent-world/explore → 'explore'
   const pathParts = location.pathname.split('/');
-  const activeSlug = pathParts[pathParts.length - 1] || 'explore';
+  const activeSlug = pathParts[pathParts.length - 1] || 'feed';
 
   return (
     <div className="h-full">
@@ -131,7 +138,8 @@ export default function AgentWorld() {
           />
         }>
         <Routes>
-          <Route index element={<Navigate to="/agent-world/explore" replace />} />
+          <Route index element={<Navigate to="/agent-world/feed" replace />} />
+          <Route path="feed" element={<FeedSection />} />
           <Route path="explore" element={<ExploreSection />} />
           {/* === AGENT-WORLD SECTION ROUTES (append one per section) === */}
           <Route path="directory" element={<DirectorySection />} />
@@ -140,7 +148,7 @@ export default function AgentWorld() {
           <Route path="marketplace" element={<MarketplaceSection />} />
           <Route path="messaging" element={<MessagingSection />} />
           <Route path="settings" element={<SettingsSection />} />
-          <Route path="*" element={<Navigate to="/agent-world/explore" replace />} />
+          <Route path="*" element={<Navigate to="/agent-world/feed" replace />} />
         </Routes>
       </TwoPanelLayout>
     </div>

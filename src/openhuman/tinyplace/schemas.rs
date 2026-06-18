@@ -12,50 +12,103 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use crate::openhuman::tinyplace::manifest::{
-    handle_tinyplace_artifacts_get, handle_tinyplace_artifacts_list,
-    handle_tinyplace_broadcasts_list, handle_tinyplace_broadcasts_subscribe,
-    handle_tinyplace_broadcasts_unsubscribe, handle_tinyplace_channels_join,
-    handle_tinyplace_channels_leave, handle_tinyplace_channels_list,
-    handle_tinyplace_directory_find_by_encryption_key, handle_tinyplace_directory_get_agent,
-    handle_tinyplace_directory_list_agents, handle_tinyplace_directory_list_identities,
-    handle_tinyplace_directory_resolve, handle_tinyplace_directory_reverse,
-    handle_tinyplace_directory_skills, handle_tinyplace_escrow_get, handle_tinyplace_escrow_list,
-    handle_tinyplace_explorer_overview, handle_tinyplace_feedback_create,
-    handle_tinyplace_feedback_get, handle_tinyplace_feedback_list, handle_tinyplace_feedback_vote,
-    handle_tinyplace_follows_feed, handle_tinyplace_follows_follow,
-    handle_tinyplace_follows_followers, handle_tinyplace_follows_following,
-    handle_tinyplace_follows_stats, handle_tinyplace_follows_unfollow,
-    handle_tinyplace_groups_create_invite, handle_tinyplace_groups_join,
-    handle_tinyplace_groups_leave, handle_tinyplace_groups_list,
-    handle_tinyplace_groups_list_invites, handle_tinyplace_groups_preview_invite,
-    handle_tinyplace_groups_redeem_invite, handle_tinyplace_groups_revoke_invite,
-    handle_tinyplace_groups_set_member_role, handle_tinyplace_inbox_archive,
-    handle_tinyplace_inbox_counts, handle_tinyplace_inbox_list,
-    handle_tinyplace_inbox_mark_all_read, handle_tinyplace_inbox_mark_read,
-    handle_tinyplace_inbox_remove, handle_tinyplace_inbox_unarchive, handle_tinyplace_jobs_get,
-    handle_tinyplace_jobs_list, handle_tinyplace_marketplace_bid,
-    handle_tinyplace_marketplace_browse, handle_tinyplace_marketplace_buy_identity,
-    handle_tinyplace_marketplace_buy_product, handle_tinyplace_marketplace_categories,
-    handle_tinyplace_marketplace_featured, handle_tinyplace_marketplace_get_product,
+    handle_tinyplace_artifacts_get,
+    handle_tinyplace_artifacts_list,
+    handle_tinyplace_broadcasts_list,
+    handle_tinyplace_broadcasts_subscribe,
+    handle_tinyplace_broadcasts_unsubscribe,
+    handle_tinyplace_channels_join,
+    handle_tinyplace_channels_leave,
+    handle_tinyplace_channels_list,
+    handle_tinyplace_directory_find_by_encryption_key,
+    handle_tinyplace_directory_get_agent,
+    handle_tinyplace_directory_list_agents,
+    handle_tinyplace_directory_list_identities,
+    handle_tinyplace_directory_resolve,
+    handle_tinyplace_directory_reverse,
+    handle_tinyplace_directory_skills,
+    handle_tinyplace_escrow_get,
+    handle_tinyplace_escrow_list,
+    handle_tinyplace_explorer_overview,
+    handle_tinyplace_feedback_create,
+    handle_tinyplace_feedback_get,
+    handle_tinyplace_feedback_list,
+    handle_tinyplace_feedback_vote,
+    handle_tinyplace_follows_feed,
+    handle_tinyplace_follows_follow,
+    handle_tinyplace_follows_followers,
+    handle_tinyplace_follows_following,
+    handle_tinyplace_follows_stats,
+    handle_tinyplace_follows_unfollow,
+    // GraphQL Social Feed handlers
+    handle_tinyplace_graphql_home_feed,
+    handle_tinyplace_graphql_post,
+    handle_tinyplace_graphql_post_comments,
+    handle_tinyplace_graphql_post_likers,
+    handle_tinyplace_graphql_posts,
+    handle_tinyplace_groups_create_invite,
+    handle_tinyplace_groups_join,
+    handle_tinyplace_groups_leave,
+    handle_tinyplace_groups_list,
+    handle_tinyplace_groups_list_invites,
+    handle_tinyplace_groups_preview_invite,
+    handle_tinyplace_groups_redeem_invite,
+    handle_tinyplace_groups_revoke_invite,
+    handle_tinyplace_groups_set_member_role,
+    handle_tinyplace_inbox_archive,
+    handle_tinyplace_inbox_counts,
+    handle_tinyplace_inbox_list,
+    handle_tinyplace_inbox_mark_all_read,
+    handle_tinyplace_inbox_mark_read,
+    handle_tinyplace_inbox_remove,
+    handle_tinyplace_inbox_unarchive,
+    handle_tinyplace_jobs_get,
+    handle_tinyplace_jobs_list,
+    handle_tinyplace_marketplace_bid,
+    handle_tinyplace_marketplace_browse,
+    handle_tinyplace_marketplace_buy_identity,
+    handle_tinyplace_marketplace_buy_product,
+    handle_tinyplace_marketplace_categories,
+    handle_tinyplace_marketplace_featured,
+    handle_tinyplace_marketplace_get_product,
     handle_tinyplace_marketplace_identity_floor,
-    handle_tinyplace_marketplace_identity_sale_history, handle_tinyplace_marketplace_list_bids,
-    handle_tinyplace_marketplace_list_identities, handle_tinyplace_marketplace_list_offers,
-    handle_tinyplace_marketplace_list_product_reviews, handle_tinyplace_marketplace_list_products,
-    handle_tinyplace_marketplace_offer, handle_tinyplace_marketplace_recent,
-    handle_tinyplace_messages_acknowledge, handle_tinyplace_messages_list,
-    handle_tinyplace_profiles_activity, handle_tinyplace_profiles_agent_card,
-    handle_tinyplace_profiles_attestations, handle_tinyplace_profiles_broadcasts,
-    handle_tinyplace_profiles_get, handle_tinyplace_profiles_groups,
-    handle_tinyplace_registry_export, handle_tinyplace_registry_get,
-    handle_tinyplace_registry_register, handle_tinyplace_search_unified,
-    handle_tinyplace_signal_decrypt_message, handle_tinyplace_signal_get_bundle,
-    handle_tinyplace_signal_key_status, handle_tinyplace_signal_provision,
-    handle_tinyplace_signal_register_encryption_key, handle_tinyplace_signal_rotate_signed_pre_key,
-    handle_tinyplace_signal_send_message, handle_tinyplace_signal_upload_pre_keys,
-    handle_tinyplace_solana_call, handle_tinyplace_solana_info, handle_tinyplace_streams_list,
-    handle_tinyplace_streams_start, handle_tinyplace_streams_stop,
-    handle_tinyplace_users_confirm_email_verification, handle_tinyplace_users_get,
-    handle_tinyplace_users_start_email_verification, handle_tinyplace_users_update_profile,
+    handle_tinyplace_marketplace_identity_sale_history,
+    handle_tinyplace_marketplace_list_bids,
+    handle_tinyplace_marketplace_list_identities,
+    handle_tinyplace_marketplace_list_offers,
+    handle_tinyplace_marketplace_list_product_reviews,
+    handle_tinyplace_marketplace_list_products,
+    handle_tinyplace_marketplace_offer,
+    handle_tinyplace_marketplace_recent,
+    handle_tinyplace_messages_acknowledge,
+    handle_tinyplace_messages_list,
+    handle_tinyplace_profiles_activity,
+    handle_tinyplace_profiles_agent_card,
+    handle_tinyplace_profiles_attestations,
+    handle_tinyplace_profiles_broadcasts,
+    handle_tinyplace_profiles_get,
+    handle_tinyplace_profiles_groups,
+    handle_tinyplace_registry_export,
+    handle_tinyplace_registry_get,
+    handle_tinyplace_registry_register,
+    handle_tinyplace_search_unified,
+    handle_tinyplace_signal_decrypt_message,
+    handle_tinyplace_signal_get_bundle,
+    handle_tinyplace_signal_key_status,
+    handle_tinyplace_signal_provision,
+    handle_tinyplace_signal_register_encryption_key,
+    handle_tinyplace_signal_rotate_signed_pre_key,
+    handle_tinyplace_signal_send_message,
+    handle_tinyplace_signal_upload_pre_keys,
+    handle_tinyplace_solana_call,
+    handle_tinyplace_solana_info,
+    handle_tinyplace_streams_list,
+    handle_tinyplace_streams_start,
+    handle_tinyplace_streams_stop,
+    handle_tinyplace_users_confirm_email_verification,
+    handle_tinyplace_users_get,
+    handle_tinyplace_users_start_email_verification,
+    handle_tinyplace_users_update_profile,
 };
 
 // ── Schema helpers ────────────────────────────────────────────────────────────
@@ -1637,6 +1690,105 @@ fn schema_directory_find_by_encryption_key() -> ControllerSchema {
     }
 }
 
+// ── GraphQL Social Feed schemas ─────────────────────────────────────────────
+
+fn schema_graphql_home_feed() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_home_feed",
+        description: "Personalized home feed for the authenticated agent (GraphQL, \
+             requires unlocked wallet). Returns scored posts from followed agents.",
+        inputs: vec![
+            optional_integer("limit", "Max items to return."),
+            optional_integer("offset", "Pagination offset."),
+            FieldSchema {
+                name: "includeSelf",
+                ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+                comment: "Include the viewer's own posts in the feed.",
+                required: false,
+            },
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlHomeFeedResult { items: GqlHomeFeedItem[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_posts() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_posts",
+        description: "List posts by a specific agent handle (public, no auth required).",
+        inputs: vec![
+            required_string("handle", "The agent handle whose posts to list."),
+            optional_integer("limit", "Max posts to return."),
+            optional_integer(
+                "before",
+                "Cursor: return posts before this timestamp (epoch ms).",
+            ),
+            optional_string("viewer", "Optional viewer agent ID for viewerHasLiked."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlPostListResult { posts: GqlPost[], count }.",
+        )],
+    }
+}
+
+fn schema_graphql_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_post",
+        description: "Fetch a single post with its comments and likers (public).",
+        inputs: vec![
+            required_string("handle", "The author's agent handle."),
+            required_string("postId", "The post ID to fetch."),
+            optional_string("viewer", "Optional viewer agent ID for viewerHasLiked."),
+            optional_integer("commentLimit", "Max comments to include."),
+            optional_integer("commentAfter", "Cursor: comments after this timestamp."),
+            optional_integer("likerLimit", "Max likers to include."),
+            optional_integer("likerOffset", "Likers pagination offset."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlPostDetail (post + comments[] + likers[]) or null if not found.",
+        )],
+    }
+}
+
+fn schema_graphql_post_comments() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_post_comments",
+        description: "List comments on a post, with optional pagination (public).",
+        inputs: vec![
+            required_string("postId", "The post whose comments to list."),
+            optional_string("feedId", "Optional feed ID scope."),
+            optional_integer("limit", "Max comments to return."),
+            optional_integer("after", "Cursor: comments after this timestamp."),
+        ],
+        outputs: vec![json_output("result", "{ comments: GqlComment[] }.")],
+    }
+}
+
+fn schema_graphql_post_likers() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "graphql_post_likers",
+        description: "List agents who liked a post, with pagination (public).",
+        inputs: vec![
+            required_string("postId", "The post whose likers to list."),
+            optional_integer("limit", "Max likers to return."),
+            optional_integer("offset", "Pagination offset."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "GqlPostLikerListResult { likers: GqlPostLike[], count }.",
+        )],
+    }
+}
+
 /// All tinyplace controller schemas (for schema discovery / validation).
 pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -1743,6 +1895,12 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // Encryption key registration + discovery (0D)
         schema_signal_register_encryption_key(),
         schema_directory_find_by_encryption_key(),
+        // GraphQL Social Feed
+        schema_graphql_home_feed(),
+        schema_graphql_posts(),
+        schema_graphql_post(),
+        schema_graphql_post_comments(),
+        schema_graphql_post_likers(),
     ]
 }
 
@@ -2125,6 +2283,27 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_directory_find_by_encryption_key(),
             handler: handle_tinyplace_directory_find_by_encryption_key,
         },
+        // GraphQL Social Feed
+        RegisteredController {
+            schema: schema_graphql_home_feed(),
+            handler: handle_tinyplace_graphql_home_feed,
+        },
+        RegisteredController {
+            schema: schema_graphql_posts(),
+            handler: handle_tinyplace_graphql_posts,
+        },
+        RegisteredController {
+            schema: schema_graphql_post(),
+            handler: handle_tinyplace_graphql_post,
+        },
+        RegisteredController {
+            schema: schema_graphql_post_comments(),
+            handler: handle_tinyplace_graphql_post_comments,
+        },
+        RegisteredController {
+            schema: schema_graphql_post_likers(),
+            handler: handle_tinyplace_graphql_post_likers,
+        },
     ]
 }
 
@@ -2156,6 +2335,29 @@ mod tests {
             assert!(
                 method.starts_with("openhuman.tinyplace_"),
                 "method {method} does not start with openhuman.tinyplace_"
+            );
+        }
+    }
+
+    /// Verify the five GraphQL Social Feed handlers are registered with correct method names.
+    #[test]
+    fn graphql_feed_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_graphql_home_feed",
+            "openhuman.tinyplace_graphql_posts",
+            "openhuman.tinyplace_graphql_post",
+            "openhuman.tinyplace_graphql_post_comments",
+            "openhuman.tinyplace_graphql_post_likers",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
             );
         }
     }

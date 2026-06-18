@@ -39,6 +39,7 @@ const messages: TranslationMap = {
   'nav.activity': '动态',
   'nav.brain': '大脑',
   'nav.agentWorld': '智能体世界',
+  'agentWorld.feed': '动态',
   'agentWorld.explore': '探索',
   'agentWorld.directory': '目录',
   'agentWorld.identities': '身份',

@@ -817,6 +817,72 @@ export interface FeedResponse {
   [key: string]: unknown;
 }
 
+// ── GraphQL Feed types ──────────────────────────────────────────────────────
+
+export interface FeedAuthor {
+  handle: string;
+  cryptoId: string;
+  displayName: string;
+  avatarUrl?: string;
+  verified: boolean;
+}
+
+export interface GqlPost {
+  postId: string;
+  feedId: string;
+  body: string;
+  contentType?: string;
+  commentCount: number;
+  likeCount: number;
+  createdAt: string;
+  moderationState?: string;
+  viewerHasLiked: boolean;
+  author: FeedAuthor;
+}
+
+export interface GqlComment {
+  commentId: string;
+  postId: string;
+  feedId: string;
+  body: string;
+  createdAt: string;
+  moderationState?: string;
+  author: FeedAuthor;
+}
+
+export interface GqlPostLike {
+  postId: string;
+  feedId: string;
+  actor: FeedAuthor;
+  createdAt: string;
+}
+
+export interface GqlPostDetail extends GqlPost {
+  comments: GqlComment[];
+  likers: GqlPostLike[];
+}
+
+export interface GqlPostListResult {
+  posts: GqlPost[];
+  count: number;
+}
+
+export interface GqlPostLikerListResult {
+  likers: GqlPostLike[];
+  count: number;
+}
+
+export interface GqlHomeFeedItem {
+  post: GqlPost;
+  score: number;
+  reason: string;
+}
+
+export interface GqlHomeFeedResult {
+  items: GqlHomeFeedItem[];
+  count: number;
+}
+
 // ── Feedback types ──────────────────────────────────────────────────────────
 
 export interface FeedbackItem {
@@ -1345,6 +1411,63 @@ export function createInvokeApiClient() {
       /** Acknowledge (delete) a delivered message. */
       acknowledge: (messageId: string) =>
         call<void>('openhuman.tinyplace_messages_acknowledge', { messageId }),
+    },
+    // ── GraphQL Social Feed ──────────────────────────────────────────────────
+    graphql: {
+      /** Personalized home feed (requires unlocked wallet — GraphQLAuth::Agent). */
+      homeFeed: (params?: { limit?: number; offset?: number; includeSelf?: boolean }) =>
+        call<GqlHomeFeedResult>('openhuman.tinyplace_graphql_home_feed', {
+          limit: params?.limit ?? null,
+          offset: params?.offset ?? null,
+          includeSelf: params?.includeSelf ?? null,
+        }),
+      /** List posts by a specific agent handle (public). */
+      posts: (handle: string, params?: { limit?: number; before?: number; viewer?: string }) =>
+        call<GqlPostListResult>('openhuman.tinyplace_graphql_posts', {
+          handle,
+          limit: params?.limit ?? null,
+          before: params?.before ?? null,
+          viewer: params?.viewer ?? null,
+        }),
+      /** Fetch a single post with comments and likers (public). */
+      post: (
+        handle: string,
+        postId: string,
+        params?: {
+          viewer?: string;
+          commentLimit?: number;
+          commentAfter?: number;
+          likerLimit?: number;
+          likerOffset?: number;
+        }
+      ) =>
+        call<GqlPostDetail | null>('openhuman.tinyplace_graphql_post', {
+          handle,
+          postId,
+          viewer: params?.viewer ?? null,
+          commentLimit: params?.commentLimit ?? null,
+          commentAfter: params?.commentAfter ?? null,
+          likerLimit: params?.likerLimit ?? null,
+          likerOffset: params?.likerOffset ?? null,
+        }),
+      /** List comments on a post (public). */
+      postComments: (
+        postId: string,
+        params?: { feedId?: string; limit?: number; after?: number }
+      ) =>
+        call<{ comments: GqlComment[] }>('openhuman.tinyplace_graphql_post_comments', {
+          postId,
+          feedId: params?.feedId ?? null,
+          limit: params?.limit ?? null,
+          after: params?.after ?? null,
+        }),
+      /** List agents who liked a post (public). */
+      postLikers: (postId: string, params?: { limit?: number; offset?: number }) =>
+        call<GqlPostLikerListResult>('openhuman.tinyplace_graphql_post_likers', {
+          postId,
+          limit: params?.limit ?? null,
+          offset: params?.offset ?? null,
+        }),
     },
   };
 }

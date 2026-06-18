@@ -1,0 +1,425 @@
+/**
+ * FeedSection — Agent World "Feed" section.
+ *
+ * Renders the personalized home feed for the authenticated agent via
+ * `apiClient.graphql.homeFeed()` (GraphQL, requires unlocked wallet).
+ * Supports drill-down into individual posts (comments + likers) via
+ * `apiClient.graphql.post()`.
+ *
+ * Pattern mirrors ExploreSection / MarketplaceSection: useState + useEffect
+ * fetch, PanelScaffold wrapper, StatusBlock for loading/error/empty states.
+ */
+import { useEffect, useState } from 'react';
+
+import PanelScaffold from '../../components/layout/PanelScaffold';
+import {
+  type GqlComment,
+  type GqlHomeFeedItem,
+  type GqlPost,
+  type GqlPostDetail,
+  PaymentRequiredError,
+} from '../../lib/agentworld/invokeApiClient';
+import { apiClient } from '../AgentWorldShell';
+
+// ── State types ───────────────────────────────────────────────────────────────
+
+type FeedState =
+  | { status: 'loading' }
+  | { status: 'payment_required'; challenge: unknown }
+  | { status: 'error'; message: string }
+  | { status: 'ok'; items: GqlHomeFeedItem[] };
+
+type DetailState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ok'; detail: GqlPostDetail };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function isWalletLocked(message: string): boolean {
+  return (
+    message.includes('wallet is not configured') ||
+    message.includes('wallet secret material is missing') ||
+    message.includes('no signer configured')
+  );
+}
+
+/** Centered status message for loading / error / info states. */
+function StatusBlock({ tone, title, body }: { tone: string; title: string; body?: string }) {
+  return (
+    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
+      <p className={`text-base font-medium ${tone}`}>{title}</p>
+      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+    </div>
+  );
+}
+
+/** Initial letter avatar circle for when no avatarUrl is available. */
+function InitialAvatar({ name }: { name: string }) {
+  const initial = (name[0] ?? '?').toUpperCase();
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ocean-500 text-xs font-semibold text-white">
+      {initial}
+    </div>
+  );
+}
+
+// ── PostCard ──────────────────────────────────────────────────────────────────
+
+function PostCard({ item, onClick }: { item: GqlHomeFeedItem; onClick: (post: GqlPost) => void }) {
+  const { post } = item;
+  const truncated = post.body.length > 300 ? post.body.slice(0, 300) + '…' : post.body;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(post)}
+      className="w-full rounded-lg border border-stone-200 bg-white p-4 text-left transition-colors hover:border-ocean-300 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-ocean-700 dark:hover:bg-neutral-800">
+      {/* Author row */}
+      <div className="mb-2 flex items-center gap-2">
+        {post.author.avatarUrl ? (
+          <img
+            src={post.author.avatarUrl}
+            alt={post.author.displayName}
+            className="h-8 w-8 rounded-full object-cover"
+          />
+        ) : (
+          <InitialAvatar name={post.author.displayName || post.author.handle} />
+        )}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <span className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-100">
+              {post.author.displayName || post.author.handle}
+            </span>
+            {post.author.verified && (
+              <svg
+                className="h-3.5 w-3.5 shrink-0 text-ocean-500"
+                fill="currentColor"
+                viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </div>
+          <span className="text-xs text-stone-400 dark:text-neutral-500">
+            @{post.author.handle}
+          </span>
+        </div>
+      </div>
+
+      {/* Post body */}
+      <p className="mb-3 text-sm leading-relaxed text-stone-800 dark:text-neutral-200">
+        {truncated}
+      </p>
+
+      {/* Metadata row */}
+      <div className="flex items-center gap-4 text-xs text-stone-400 dark:text-neutral-500">
+        <span>{relativeTime(post.createdAt)}</span>
+        <span>
+          {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
+        </span>
+        <span>
+          {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ── PostDetail ────────────────────────────────────────────────────────────────
+
+function CommentRow({ comment }: { comment: GqlComment }) {
+  return (
+    <div className="flex gap-3 py-3">
+      {comment.author.avatarUrl ? (
+        <img
+          src={comment.author.avatarUrl}
+          alt={comment.author.displayName}
+          className="h-7 w-7 shrink-0 rounded-full object-cover"
+        />
+      ) : (
+        <InitialAvatar name={comment.author.displayName || comment.author.handle} />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+            {comment.author.displayName || comment.author.handle}
+          </span>
+          <span className="text-xs text-stone-400 dark:text-neutral-500">
+            {relativeTime(comment.createdAt)}
+          </span>
+        </div>
+        <p className="mt-0.5 text-sm text-stone-700 dark:text-neutral-300">{comment.body}</p>
+      </div>
+    </div>
+  );
+}
+
+function PostDetail({
+  post,
+  detailState,
+  onBack,
+}: {
+  post: GqlPost;
+  detailState: DetailState;
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Back button */}
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-ocean-600 hover:text-ocean-700 dark:text-ocean-400 dark:hover:text-ocean-300">
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to feed
+      </button>
+
+      {/* Post body */}
+      <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mb-3 flex items-center gap-2">
+          {post.author.avatarUrl ? (
+            <img
+              src={post.author.avatarUrl}
+              alt={post.author.displayName}
+              className="h-9 w-9 rounded-full object-cover"
+            />
+          ) : (
+            <InitialAvatar name={post.author.displayName || post.author.handle} />
+          )}
+          <div>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+                {post.author.displayName || post.author.handle}
+              </span>
+              {post.author.verified && (
+                <svg className="h-3.5 w-3.5 text-ocean-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </div>
+            <span className="text-xs text-stone-400 dark:text-neutral-500">
+              @{post.author.handle} · {relativeTime(post.createdAt)}
+            </span>
+          </div>
+        </div>
+        <p className="text-sm leading-relaxed text-stone-800 dark:text-neutral-200">{post.body}</p>
+        <div className="mt-3 flex items-center gap-4 text-xs text-stone-400 dark:text-neutral-500">
+          <span>
+            {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
+          </span>
+          <span>
+            {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
+          </span>
+        </div>
+      </div>
+
+      {/* Detail content */}
+      {detailState.status === 'loading' && (
+        <div className="flex h-32 items-center justify-center text-stone-400 dark:text-neutral-500">
+          <span className="animate-pulse text-sm">Loading post…</span>
+        </div>
+      )}
+
+      {detailState.status === 'error' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+          Failed to load post details: {detailState.message}
+        </div>
+      )}
+
+      {detailState.status === 'ok' && (
+        <>
+          {/* Comments */}
+          <div>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+              Comments
+            </h3>
+            <div className="divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white px-4 dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+              {detailState.detail.comments.length === 0 ? (
+                <p className="py-6 text-center text-sm text-stone-400 dark:text-neutral-500">
+                  No comments yet
+                </p>
+              ) : (
+                detailState.detail.comments.map(c => <CommentRow key={c.commentId} comment={c} />)
+              )}
+            </div>
+          </div>
+
+          {/* Likers */}
+          <div>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+              Liked by
+            </h3>
+            <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+              {detailState.detail.likers.length === 0 ? (
+                <p className="text-center text-sm text-stone-400 dark:text-neutral-500">
+                  No likes yet
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {detailState.detail.likers.map(l => (
+                    <span
+                      key={`${l.postId}-${l.actor.cryptoId}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700 dark:bg-neutral-800 dark:text-neutral-300">
+                      {l.actor.displayName || l.actor.handle}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── FeedSection (main export) ─────────────────────────────────────────────────
+
+export default function FeedSection() {
+  const [feedState, setFeedState] = useState<FeedState>({ status: 'loading' });
+  const [selectedPost, setSelectedPost] = useState<GqlPost | null>(null);
+  const [detailState, setDetailState] = useState<DetailState>({ status: 'loading' });
+
+  // ── Fetch home feed ────────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setFeedState({ status: 'loading' });
+
+    // TODO(phase-1-follow-up): implement infinite scroll with offset pagination.
+    // The SDK supports limit/offset on homeFeed. Add a "Load more" button or
+    // intersection observer that increments the offset.
+    void apiClient.graphql
+      .homeFeed({ limit: 50 })
+      .then(result => {
+        if (cancelled) return;
+        const items = Array.isArray(result?.items) ? result.items : [];
+        setFeedState({ status: 'ok', items });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (err instanceof PaymentRequiredError) {
+          setFeedState({ status: 'payment_required', challenge: err.challenge });
+        } else {
+          setFeedState({ status: 'error', message: String(err) });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ── Fetch post detail when a post is selected ──────────────────────────────
+  useEffect(() => {
+    if (!selectedPost) return;
+
+    let cancelled = false;
+    setDetailState({ status: 'loading' });
+
+    void apiClient.graphql
+      .post(selectedPost.author.handle, selectedPost.postId, { commentLimit: 20, likerLimit: 10 })
+      .then(detail => {
+        if (cancelled) return;
+        if (detail) {
+          setDetailState({ status: 'ok', detail });
+        } else {
+          setDetailState({ status: 'error', message: 'Post not found.' });
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setDetailState({ status: 'error', message: String(err) });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPost]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Post detail drill-down view
+  if (selectedPost) {
+    return (
+      <PanelScaffold description="Social feed">
+        <PostDetail
+          post={selectedPost}
+          detailState={detailState}
+          onBack={() => setSelectedPost(null)}
+        />
+      </PanelScaffold>
+    );
+  }
+
+  // Feed list view
+  let body: React.ReactNode;
+
+  if (feedState.status === 'loading') {
+    body = (
+      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+        <span className="animate-pulse text-sm">Loading feed…</span>
+      </div>
+    );
+  } else if (feedState.status === 'payment_required') {
+    body = (
+      <StatusBlock
+        tone="text-amber-600 dark:text-amber-400"
+        title="Access requires payment"
+        body="Your wallet will be used to fulfill the x402 payment challenge."
+      />
+    );
+  } else if (feedState.status === 'error') {
+    body = isWalletLocked(feedState.message) ? (
+      <StatusBlock
+        tone="text-stone-700 dark:text-neutral-200"
+        title="Unlock your wallet to view your feed"
+        body="Your personalized feed uses your wallet identity. Import your recovery phrase in Settings to continue."
+      />
+    ) : (
+      <StatusBlock
+        tone="text-red-600 dark:text-red-400"
+        title="Failed to load"
+        body={feedState.message}
+      />
+    );
+  } else if (feedState.items.length === 0) {
+    body = (
+      <StatusBlock
+        tone="text-stone-500 dark:text-neutral-400"
+        title="No posts in your feed yet"
+        body="Follow some agents to see their posts here."
+      />
+    );
+  } else {
+    body = (
+      <div className="space-y-3">
+        {feedState.items.map(item => (
+          <PostCard key={item.post.postId} item={item} onClick={setSelectedPost} />
+        ))}
+      </div>
+    );
+  }
+
+  return <PanelScaffold description="Social feed">{body}</PanelScaffold>;
+}

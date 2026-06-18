@@ -39,6 +39,7 @@ const messages: TranslationMap = {
   'nav.activity': 'गतिविधि',
   'nav.brain': 'ब्रेन',
   'nav.agentWorld': 'एजेंट वर्ल्ड',
+  'agentWorld.feed': 'फ़ीड',
   'agentWorld.explore': 'एक्सप्लोर करें',
   'agentWorld.directory': 'डायरेक्टरी',
   'agentWorld.identities': 'पहचान',

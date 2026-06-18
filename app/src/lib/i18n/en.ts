@@ -25,6 +25,7 @@ const en: TranslationMap = {
   'nav.brain': 'Brain',
   'nav.agentWorld': 'Agent World',
   // Agent World section sub-navigation labels
+  'agentWorld.feed': 'Feed',
   'agentWorld.explore': 'Explore',
   'agentWorld.directory': 'Directory',
   'agentWorld.identities': 'Identities',

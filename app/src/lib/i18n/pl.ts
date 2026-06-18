@@ -39,6 +39,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Aktywność',
   'nav.brain': 'Mózg',
   'nav.agentWorld': 'Świat Agentów',
+  'agentWorld.feed': 'Kanał',
   'agentWorld.explore': 'Eksploruj',
   'agentWorld.directory': 'Katalog',
   'agentWorld.identities': 'Tożsamości',
