@@ -3591,6 +3591,232 @@ pub(crate) fn handle_tinyplace_directory_find_by_encryption_key(
     })
 }
 
+// ── Feeds write surface (Phase A) ─────────────────────────────────────────────
+
+/// Create a new post on a feed owned by the signer.
+/// `handle` identifies the target feed but the backend enforces that the signer
+/// owns it via `post_directory_auth_as`. Actor is NEVER accepted from params.
+pub(crate) fn handle_tinyplace_feeds_create_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let body = req_str(&params, "body")?.trim().to_string();
+        if body.is_empty() {
+            return Err("missing required param 'body'".to_string());
+        }
+        let content_type = get_opt_str(&params, "contentType")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_create_post handle={handle} body_len={}",
+            body.len()
+        );
+
+        let client = global_state().client().await?;
+        let _signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        // Signer is required (validates wallet is unlocked); handle ownership is
+        // enforced by the backend via `post_directory_auth_as(handle)`.
+
+        let post_create = tinyplace::types::PostCreate {
+            body,
+            content_type,
+            post_id: None,
+        };
+        let result = client
+            .feeds
+            .create_post(&handle, &post_create)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Delete a post from a feed owned by the signer.
+/// `handle` is accepted from the client but backend rejects if signer does not
+/// own the handle. Actor is NEVER accepted from params.
+pub(crate) fn handle_tinyplace_feeds_delete_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+
+        log::debug!("{LOG_PREFIX} feeds_delete_post handle={handle} post_id={post_id}");
+
+        let client = global_state().client().await?;
+        let _signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+
+        client
+            .feeds
+            .delete_post(&handle, &post_id)
+            .await
+            .map_err(map_err)?;
+        Ok(serde_json::json!({ "ok": true }))
+    })
+}
+
+/// Add a comment to a post. Author is resolved from the wallet signer — NEVER
+/// from client-supplied params.
+pub(crate) fn handle_tinyplace_feeds_add_comment(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+        let body = req_str(&params, "body")?.trim().to_string();
+        if body.is_empty() {
+            return Err("missing required param 'body'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: author is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let author = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_add_comment handle={handle} post_id={post_id} author={author}"
+        );
+
+        let comment_create = tinyplace::types::CommentCreate {
+            body,
+            comment_id: None,
+        };
+        let result = client
+            .feeds
+            .add_comment(&handle, &post_id, &author, &comment_create)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Delete a comment. Actor is resolved from the wallet signer — NEVER from
+/// client-supplied params.
+pub(crate) fn handle_tinyplace_feeds_delete_comment(
+    params: Map<String, Value>,
+) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+        let comment_id = req_str(&params, "commentId")?.trim().to_string();
+        if comment_id.is_empty() {
+            return Err("missing required param 'commentId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_delete_comment handle={handle} post_id={post_id} \
+             comment_id={comment_id} actor={actor}"
+        );
+
+        client
+            .feeds
+            .delete_comment(&handle, &post_id, &comment_id, &actor)
+            .await
+            .map_err(map_err)?;
+        Ok(serde_json::json!({ "ok": true }))
+    })
+}
+
+/// Like a post. Actor is resolved from the wallet signer — NEVER from params.
+/// Idempotent.
+pub(crate) fn handle_tinyplace_feeds_like_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        log::debug!("{LOG_PREFIX} feeds_like_post handle={handle} post_id={post_id} actor={actor}");
+
+        let result = client
+            .feeds
+            .like_post(&handle, &post_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
+/// Unlike a post. Actor is resolved from the wallet signer — NEVER from params.
+/// Idempotent.
+pub(crate) fn handle_tinyplace_feeds_unlike_post(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let handle = req_str(&params, "handle")?.trim().to_string();
+        if handle.is_empty() {
+            return Err("missing required param 'handle'".to_string());
+        }
+        let post_id = req_str(&params, "postId")?.trim().to_string();
+        if post_id.is_empty() {
+            return Err("missing required param 'postId'".to_string());
+        }
+
+        let client = global_state().client().await?;
+        // ANTI-SPOOF: actor is always the wallet signer, never from params.
+        let signer = client
+            .http()
+            .signer()
+            .ok_or("tiny.place signer unavailable; unlock your wallet")?;
+        let actor = signer.agent_id();
+
+        log::debug!(
+            "{LOG_PREFIX} feeds_unlike_post handle={handle} post_id={post_id} actor={actor}"
+        );
+
+        let result = client
+            .feeds
+            .unlike_post(&handle, &post_id, &actor)
+            .await
+            .map_err(map_err)?;
+        to_value(result)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4400,5 +4626,78 @@ mod tests {
             err.contains("jobId"),
             "jobs_adjudicate_dispute missing jobId: {err}"
         );
+    }
+
+    // ── Feeds write surface param validation (Phase A) ───────────────────────
+
+    /// feeds_create_post requires non-blank `handle` then non-blank `body`.
+    #[test]
+    fn feeds_create_post_requires_handle_and_body() {
+        // Missing handle
+        let err = block_on(handle_tinyplace_feeds_create_post(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+        // handle present, body missing
+        let mut p = Map::new();
+        p.insert("handle".into(), Value::String("alice".into()));
+        let err = block_on(handle_tinyplace_feeds_create_post(p)).unwrap_err();
+        assert!(err.contains("body"), "got: {err}");
+    }
+
+    /// feeds_delete_post requires non-blank `handle` then non-blank `postId`.
+    #[test]
+    fn feeds_delete_post_requires_handle_and_post_id() {
+        let err = block_on(handle_tinyplace_feeds_delete_post(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+        let mut p = Map::new();
+        p.insert("handle".into(), Value::String("alice".into()));
+        let err = block_on(handle_tinyplace_feeds_delete_post(p)).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+    }
+
+    /// feeds_add_comment requires `handle`, `postId`, then `body`.
+    #[test]
+    fn feeds_add_comment_requires_handle_post_id_and_body() {
+        let err = block_on(handle_tinyplace_feeds_add_comment(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+        let mut p = Map::new();
+        p.insert("handle".into(), Value::String("alice".into()));
+        let err = block_on(handle_tinyplace_feeds_add_comment(p)).unwrap_err();
+        assert!(err.contains("postId"), "got: {err}");
+        let mut p2 = Map::new();
+        p2.insert("handle".into(), Value::String("alice".into()));
+        p2.insert("postId".into(), Value::String("p1".into()));
+        let err = block_on(handle_tinyplace_feeds_add_comment(p2)).unwrap_err();
+        assert!(err.contains("body"), "got: {err}");
+    }
+
+    /// feeds_delete_comment requires `handle` at minimum.
+    #[test]
+    fn feeds_delete_comment_requires_params() {
+        let err = block_on(handle_tinyplace_feeds_delete_comment(Map::new())).unwrap_err();
+        assert!(err.contains("handle"), "got: {err}");
+    }
+
+    /// Both like and unlike handlers require `handle` then `postId`.
+    /// This test also verifies that the `actor` is NOT read from params:
+    /// both handlers fail at param extraction (before any client/network work),
+    /// and neither produces an error mentioning "actor".
+    #[test]
+    fn feeds_like_unlike_require_handle_and_post_id() {
+        for handler in [
+            handle_tinyplace_feeds_like_post as fn(Map<String, Value>) -> ControllerFuture,
+            handle_tinyplace_feeds_unlike_post,
+        ] {
+            let err = block_on(handler(Map::new())).unwrap_err();
+            assert!(err.contains("handle"), "got: {err}");
+            // actor is server-derived — must not appear in the error message
+            assert!(
+                !err.contains("actor"),
+                "actor must never come from params; got: {err}"
+            );
+            let mut p = Map::new();
+            p.insert("handle".into(), Value::String("alice".into()));
+            let err = block_on(handler(p)).unwrap_err();
+            assert!(err.contains("postId"), "got: {err}");
+        }
     }
 }

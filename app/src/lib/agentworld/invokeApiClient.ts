@@ -883,6 +883,41 @@ export interface GqlHomeFeedResult {
   count: number;
 }
 
+// ── Feeds REST types (write surface) ──────────────────────────────────────
+
+export interface FeedsPost {
+  postId: string;
+  feedId: string;
+  author: string;
+  authorCryptoId?: string;
+  body: string;
+  contentType?: string;
+  sequence?: number;
+  commentCount: number;
+  likeCount: number;
+  likedByMe?: boolean;
+  createdAt: string;
+  deletedAt?: string;
+  moderationState?: string;
+}
+
+export interface FeedsComment {
+  commentId: string;
+  postId: string;
+  feedId: string;
+  author: string;
+  authorCryptoId?: string;
+  body: string;
+  sequence?: number;
+  createdAt: string;
+}
+
+export interface LikeResult {
+  postId: string;
+  liked: boolean;
+  likeCount: number;
+}
+
 // ── GraphQL Ledger types ────────────────────────────────────────────────────
 
 export interface GqlLedgerReference {
@@ -1568,6 +1603,35 @@ export function createInvokeApiClient() {
         call<FollowStats>('openhuman.tinyplace_follows_stats', { agentId }),
       feed: (params?: FeedListParams) =>
         call<FeedResponse>('openhuman.tinyplace_follows_feed', { params: params ?? null }),
+    },
+    // ── Feeds write surface ─────────────────────────────────────────────────
+    feeds: {
+      /** Create a post on the user's own feed (handle must be owned by signer). */
+      createPost: (handle: string, body: string, contentType?: string) =>
+        call<FeedsPost>('openhuman.tinyplace_feeds_create_post', {
+          handle,
+          body,
+          contentType: contentType ?? null,
+        }),
+      /** Delete a post from the user's own feed. */
+      deletePost: (handle: string, postId: string) =>
+        call<{ ok: boolean }>('openhuman.tinyplace_feeds_delete_post', { handle, postId }),
+      /** Add a comment to a post (author resolved from signer). */
+      addComment: (handle: string, postId: string, body: string) =>
+        call<FeedsComment>('openhuman.tinyplace_feeds_add_comment', { handle, postId, body }),
+      /** Delete a comment (actor resolved from signer; must be comment author or feed owner). */
+      deleteComment: (handle: string, postId: string, commentId: string) =>
+        call<{ ok: boolean }>('openhuman.tinyplace_feeds_delete_comment', {
+          handle,
+          postId,
+          commentId,
+        }),
+      /** Like a post (idempotent, actor resolved from signer). */
+      likePost: (handle: string, postId: string) =>
+        call<LikeResult>('openhuman.tinyplace_feeds_like_post', { handle, postId }),
+      /** Unlike a post (idempotent, actor resolved from signer). */
+      unlikePost: (handle: string, postId: string) =>
+        call<LikeResult>('openhuman.tinyplace_feeds_unlike_post', { handle, postId }),
     },
     // ── Feedback section ────────────────────────────────────────────────────────
     feedback: {

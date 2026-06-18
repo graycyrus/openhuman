@@ -6,17 +6,25 @@
  * Supports drill-down into individual posts (comments + likers) via
  * `apiClient.graphql.post()`.
  *
+ * Phase A interactive features (wallet-gated):
+ * - Like / unlike toggle with optimistic update and server reconcile
+ * - Comment composer (adds comment, refetches detail via GraphQL)
+ * - New Post composer (ModalShell, refetches feed on success)
+ * - Delete post / delete comment (own content only, with window.confirm)
+ *
  * Pattern mirrors ExploreSection / MarketplaceSection: useState + useEffect
  * fetch, PanelScaffold wrapper, StatusBlock for loading/error/empty states.
  */
 import { useEffect, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
+import { ModalShell } from '../../components/ui/ModalShell';
 import {
   type GqlComment,
   type GqlHomeFeedItem,
   type GqlPost,
   type GqlPostDetail,
+  type LikeResult,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
 import { fetchWalletStatus } from '../../services/walletApi';
@@ -91,6 +99,147 @@ function useMyAgentId(): string | null {
   return agentId;
 }
 
+// ── useMyHandle ───────────────────────────────────────────────────────────────
+
+function useMyHandle(myAgentId: string | null): string | null {
+  const [handle, setHandle] = useState<string | null>(null);
+  useEffect(() => {
+    if (!myAgentId) return;
+    void apiClient.graphql
+      .user(myAgentId)
+      .then(profile => {
+        const username = profile?.identities?.[0]?.username;
+        if (username) setHandle(username);
+      })
+      .catch(() => {});
+  }, [myAgentId]);
+  return handle;
+}
+
+// ── CommentComposer ───────────────────────────────────────────────────────────
+
+function CommentComposer({
+  handle,
+  postId,
+  onCommentAdded,
+}: {
+  handle: string;
+  postId: string;
+  onCommentAdded: () => void;
+}) {
+  const [body, setBody] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!body.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await apiClient.feeds.addComment(handle, postId, body.trim());
+      setBody('');
+      onCommentAdded();
+    } catch (err) {
+      console.error('[FeedSection] add comment failed:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex gap-2 pt-2">
+      <input
+        type="text"
+        value={body}
+        onChange={e => setBody(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') void handleSubmit();
+        }}
+        placeholder="Write a comment..."
+        disabled={submitting}
+        className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
+                   placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none
+                   dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
+                   dark:focus:border-ocean-600 disabled:opacity-50"
+      />
+      <button
+        type="button"
+        onClick={() => void handleSubmit()}
+        disabled={!body.trim() || submitting}
+        className="rounded-lg bg-ocean-500 px-3 py-2 text-sm font-medium text-white
+                   hover:bg-ocean-600 disabled:opacity-50 dark:bg-ocean-600 dark:hover:bg-ocean-500">
+        {submitting ? 'Posting...' : 'Comment'}
+      </button>
+    </div>
+  );
+}
+
+// ── PostComposerModal ─────────────────────────────────────────────────────────
+
+function PostComposerModal({
+  myHandle,
+  onClose,
+  onPostCreated,
+}: {
+  myHandle: string;
+  onClose: () => void;
+  onPostCreated: () => void;
+}) {
+  const [body, setBody] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!body.trim() || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiClient.feeds.createPost(myHandle, body.trim());
+      onClose();
+      onPostCreated();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="New Post" titleId="new-post-modal-title" onClose={onClose}>
+      <div className="space-y-3">
+        <textarea
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          placeholder="What's on your mind?"
+          rows={4}
+          disabled={submitting}
+          className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm
+                     placeholder:text-stone-400 focus:border-ocean-400 focus:outline-none
+                     dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500
+                     dark:focus:border-ocean-600 disabled:opacity-50"
+        />
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium
+                       text-stone-700 hover:bg-stone-50 dark:border-neutral-600
+                       dark:text-neutral-300 dark:hover:bg-neutral-800">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={!body.trim() || submitting}
+            className="rounded-lg bg-ocean-500 px-4 py-2 text-sm font-medium text-white
+                       hover:bg-ocean-600 disabled:opacity-50 dark:bg-ocean-600 dark:hover:bg-ocean-500">
+            {submitting ? 'Posting...' : 'Post'}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
 function PostCard({
@@ -100,6 +249,9 @@ function PostCard({
   followState,
   followLoading,
   onToggleFollow,
+  likeState,
+  onToggleLike,
+  onDeletePost,
 }: {
   item: GqlHomeFeedItem;
   onClick: (post: GqlPost) => void;
@@ -107,6 +259,9 @@ function PostCard({
   followState: Record<string, boolean>;
   followLoading: Record<string, boolean>;
   onToggleFollow: (cryptoId: string) => void;
+  likeState: Record<string, { liked: boolean; count: number }>;
+  onToggleLike: (post: GqlPost) => void;
+  onDeletePost: (post: GqlPost) => void;
 }) {
   const { post } = item;
   const truncated = post.body.length > 300 ? post.body.slice(0, 300) + '…' : post.body;
@@ -161,6 +316,18 @@ function PostCard({
             {followState[item.post.author.cryptoId] ? 'Unfollow' : 'Follow'}
           </button>
         )}
+        {myAgentId && post.author.cryptoId === myAgentId && (
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              onDeletePost(post);
+            }}
+            className="ml-auto text-xs text-stone-400 hover:text-red-500 dark:text-neutral-500
+                       dark:hover:text-red-400">
+            Delete
+          </button>
+        )}
       </div>
 
       {/* Post body */}
@@ -174,9 +341,32 @@ function PostCard({
         <span>
           {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
         </span>
-        <span>
-          {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
-        </span>
+        {myAgentId ? (
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              onToggleLike(post);
+            }}
+            className={`flex items-center gap-1 ${
+              (likeState[post.postId]?.liked ?? post.viewerHasLiked)
+                ? 'text-red-500'
+                : 'text-stone-400 dark:text-neutral-500 hover:text-red-400'
+            }`}>
+            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {likeState[post.postId]?.count ?? post.likeCount}
+          </button>
+        ) : (
+          <span>
+            {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
+          </span>
+        )}
       </div>
     </button>
   );
@@ -184,7 +374,19 @@ function PostCard({
 
 // ── PostDetail ────────────────────────────────────────────────────────────────
 
-function CommentRow({ comment }: { comment: GqlComment }) {
+function CommentRow({
+  comment,
+  myAgentId,
+  handle,
+  postId,
+  onCommentDeleted,
+}: {
+  comment: GqlComment;
+  myAgentId: string | null;
+  handle: string;
+  postId: string;
+  onCommentDeleted: () => void;
+}) {
   return (
     <div className="flex gap-3 py-3">
       {comment.author.avatarUrl ? (
@@ -204,6 +406,22 @@ function CommentRow({ comment }: { comment: GqlComment }) {
           <span className="text-xs text-stone-400 dark:text-neutral-500">
             {relativeTime(comment.createdAt)}
           </span>
+          {myAgentId && comment.author.cryptoId === myAgentId && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Delete this comment?')) {
+                  void apiClient.feeds
+                    .deleteComment(handle, postId, comment.commentId)
+                    .then(() => onCommentDeleted())
+                    .catch(err => console.error('[FeedSection] delete comment failed:', err));
+                }
+              }}
+              className="text-xs text-stone-400 hover:text-red-500 dark:text-neutral-500
+                         dark:hover:text-red-400">
+              Delete
+            </button>
+          )}
         </div>
         <p className="mt-0.5 text-sm text-stone-700 dark:text-neutral-300">{comment.body}</p>
       </div>
@@ -214,12 +432,33 @@ function CommentRow({ comment }: { comment: GqlComment }) {
 function PostDetail({
   post,
   detailState,
+  setDetailState,
   onBack,
+  myAgentId,
+  likeState,
+  onToggleLike,
 }: {
   post: GqlPost;
   detailState: DetailState;
+  setDetailState: (s: DetailState) => void;
   onBack: () => void;
+  myAgentId: string | null;
+  likeState: Record<string, { liked: boolean; count: number }>;
+  onToggleLike: (post: GqlPost) => void;
 }) {
+  const refetchDetail = () => {
+    void apiClient.graphql
+      .post(post.author.handle, post.postId, {
+        commentLimit: 20,
+        likerLimit: 10,
+        viewer: myAgentId ?? undefined,
+      })
+      .then(detail => {
+        if (detail) setDetailState({ status: 'ok', detail });
+      })
+      .catch(err => console.error('[FeedSection] refetch detail failed:', err));
+  };
+
   return (
     <div className="space-y-4">
       {/* Back button */}
@@ -270,9 +509,29 @@ function PostDetail({
           <span>
             {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
           </span>
-          <span>
-            {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
-          </span>
+          {myAgentId ? (
+            <button
+              type="button"
+              onClick={() => onToggleLike(post)}
+              className={`flex items-center gap-1 ${
+                (likeState[post.postId]?.liked ?? post.viewerHasLiked)
+                  ? 'text-red-500'
+                  : 'text-stone-400 dark:text-neutral-500 hover:text-red-400'
+              }`}>
+              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              {likeState[post.postId]?.count ?? post.likeCount}
+            </button>
+          ) : (
+            <span>
+              {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
+            </span>
+          )}
         </div>
       </div>
 
@@ -302,14 +561,31 @@ function PostDetail({
                   No comments yet
                 </p>
               ) : (
-                detailState.detail.comments.map(c => <CommentRow key={c.commentId} comment={c} />)
+                detailState.detail.comments.map(c => (
+                  <CommentRow
+                    key={c.commentId}
+                    comment={c}
+                    myAgentId={myAgentId}
+                    handle={post.author.handle}
+                    postId={post.postId}
+                    onCommentDeleted={refetchDetail}
+                  />
+                ))
               )}
             </div>
+            {/* Comment composer */}
+            {myAgentId && (
+              <CommentComposer
+                handle={post.author.handle}
+                postId={post.postId}
+                onCommentAdded={refetchDetail}
+              />
+            )}
           </div>
 
           {/* Likers */}
           <div>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+            <h3 className="mb-1 text-xs font-semibond uppercase tracking-wider text-stone-500 dark:text-neutral-400">
               Liked by
             </h3>
             <div className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -344,17 +620,17 @@ export default function FeedSection() {
   const [detailState, setDetailState] = useState<DetailState>({ status: 'loading' });
   const [followState, setFollowState] = useState<Record<string, boolean>>({});
   const [followLoading, setFollowLoading] = useState<Record<string, boolean>>({});
+  const [likeState, setLikeState] = useState<Record<string, { liked: boolean; count: number }>>({});
+  const [showComposer, setShowComposer] = useState(false);
 
   const myAgentId = useMyAgentId();
+  const myHandle = useMyHandle(myAgentId);
 
   // ── Fetch home feed ────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setFeedState({ status: 'loading' });
 
-    // TODO(phase-1-follow-up): implement infinite scroll with offset pagination.
-    // The SDK supports limit/offset on homeFeed. Add a "Load more" button or
-    // intersection observer that increments the offset.
     void apiClient.graphql
       .homeFeed({ limit: 50 })
       .then(result => {
@@ -384,7 +660,11 @@ export default function FeedSection() {
     setDetailState({ status: 'loading' });
 
     void apiClient.graphql
-      .post(selectedPost.author.handle, selectedPost.postId, { commentLimit: 20, likerLimit: 10 })
+      .post(selectedPost.author.handle, selectedPost.postId, {
+        commentLimit: 20,
+        likerLimit: 10,
+        viewer: myAgentId ?? undefined,
+      })
       .then(detail => {
         if (cancelled) return;
         if (detail) {
@@ -401,7 +681,7 @@ export default function FeedSection() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPost]);
+  }, [selectedPost, myAgentId]);
 
   // ── Follow / Unfollow ──────────────────────────────────────────────────────
 
@@ -423,6 +703,59 @@ export default function FeedSection() {
     }
   };
 
+  // ── Like / Unlike ──────────────────────────────────────────────────────────
+
+  const handleToggleLike = async (post: GqlPost) => {
+    const current = likeState[post.postId] ?? { liked: post.viewerHasLiked, count: post.likeCount };
+    const willLike = !current.liked;
+
+    // Optimistic update
+    setLikeState(prev => ({
+      ...prev,
+      [post.postId]: { liked: willLike, count: current.count + (willLike ? 1 : -1) },
+    }));
+
+    try {
+      const result: LikeResult = willLike
+        ? await apiClient.feeds.likePost(post.author.handle, post.postId)
+        : await apiClient.feeds.unlikePost(post.author.handle, post.postId);
+
+      // Reconcile with authoritative server state
+      setLikeState(prev => ({
+        ...prev,
+        [post.postId]: { liked: result.liked, count: result.likeCount },
+      }));
+    } catch (err) {
+      // Rollback to pre-mutation state
+      setLikeState(prev => ({ ...prev, [post.postId]: current }));
+      console.error('[FeedSection] like/unlike failed:', err);
+    }
+  };
+
+  // ── Delete post ────────────────────────────────────────────────────────────
+
+  const handleDeletePost = (post: GqlPost) => {
+    if (!confirm('Delete this post?')) return;
+    void apiClient.feeds
+      .deletePost(post.author.handle, post.postId)
+      .then(() => {
+        void apiClient.graphql.homeFeed({ limit: 50 }).then(result => {
+          const items = Array.isArray(result?.items) ? result.items : [];
+          setFeedState({ status: 'ok', items });
+        });
+      })
+      .catch(err => console.error('[FeedSection] delete post failed:', err));
+  };
+
+  // ── Refetch feed ───────────────────────────────────────────────────────────
+
+  const refetchFeed = () => {
+    void apiClient.graphql.homeFeed({ limit: 50 }).then(result => {
+      const items = Array.isArray(result?.items) ? result.items : [];
+      setFeedState({ status: 'ok', items });
+    });
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   // Post detail drill-down view
@@ -432,7 +765,13 @@ export default function FeedSection() {
         <PostDetail
           post={selectedPost}
           detailState={detailState}
+          setDetailState={setDetailState}
           onBack={() => setSelectedPost(null)}
+          myAgentId={myAgentId}
+          likeState={likeState}
+          onToggleLike={post => {
+            void handleToggleLike(post);
+          }}
         />
       </PanelScaffold>
     );
@@ -491,11 +830,41 @@ export default function FeedSection() {
             onToggleFollow={cryptoId => {
               void handleToggleFollow(cryptoId);
             }}
+            likeState={likeState}
+            onToggleLike={post => {
+              void handleToggleLike(post);
+            }}
+            onDeletePost={handleDeletePost}
           />
         ))}
       </div>
     );
   }
 
-  return <PanelScaffold description="Social feed">{body}</PanelScaffold>;
+  return (
+    <PanelScaffold description="Social feed">
+      {myAgentId && myHandle && feedState.status === 'ok' && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowComposer(true)}
+            className="rounded-lg bg-ocean-500 px-4 py-2 text-sm font-medium text-white
+                       hover:bg-ocean-600 dark:bg-ocean-600 dark:hover:bg-ocean-500">
+            New Post
+          </button>
+        </div>
+      )}
+      {body}
+      {showComposer && myHandle && (
+        <PostComposerModal
+          myHandle={myHandle}
+          onClose={() => setShowComposer(false)}
+          onPostCreated={() => {
+            setShowComposer(false);
+            refetchFeed();
+          }}
+        />
+      )}
+    </PanelScaffold>
+  );
 }

@@ -34,6 +34,13 @@ use crate::openhuman::tinyplace::manifest::{
     handle_tinyplace_feedback_get,
     handle_tinyplace_feedback_list,
     handle_tinyplace_feedback_vote,
+    // Feeds write surface handlers (Phase A)
+    handle_tinyplace_feeds_add_comment,
+    handle_tinyplace_feeds_create_post,
+    handle_tinyplace_feeds_delete_comment,
+    handle_tinyplace_feeds_delete_post,
+    handle_tinyplace_feeds_like_post,
+    handle_tinyplace_feeds_unlike_post,
     handle_tinyplace_follows_feed,
     handle_tinyplace_follows_follow,
     handle_tinyplace_follows_followers,
@@ -1869,6 +1876,108 @@ fn schema_directory_find_by_encryption_key() -> ControllerSchema {
     }
 }
 
+// ── Feeds write schemas (Phase A) ──────────────────────────────────────────
+
+fn schema_feeds_create_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_create_post",
+        description: "Create a new post on the user's feed. Author resolved from wallet signer.",
+        inputs: vec![
+            required_string(
+                "handle",
+                "The @handle of the feed to post to (must be owned by signer).",
+            ),
+            required_string("body", "Post body text."),
+            optional_string("contentType", "Optional content type (e.g. 'text/plain')."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Post object for the newly created post.",
+        )],
+    }
+}
+
+fn schema_feeds_delete_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_delete_post",
+        description: "Delete a post from the user's feed. Owner resolved from wallet signer.",
+        inputs: vec![
+            required_string(
+                "handle",
+                "The @handle of the feed (must be owned by signer).",
+            ),
+            required_string("postId", "The post ID to delete."),
+        ],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_feeds_add_comment() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_add_comment",
+        description: "Add a comment to a post. Author resolved from wallet signer.",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID to comment on."),
+            required_string("body", "Comment body text."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "Comment object for the newly added comment.",
+        )],
+    }
+}
+
+fn schema_feeds_delete_comment() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_delete_comment",
+        description: "Delete a comment. Actor resolved from wallet signer \
+             (must be comment author or feed owner).",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID the comment belongs to."),
+            required_string("commentId", "The comment ID to delete."),
+        ],
+        outputs: vec![json_output("result", "{ ok: true } on success.")],
+    }
+}
+
+fn schema_feeds_like_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_like_post",
+        description: "Like a post (idempotent). Actor resolved from wallet signer.",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID to like."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "LikeResult { postId, liked, likeCount }.",
+        )],
+    }
+}
+
+fn schema_feeds_unlike_post() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "tinyplace",
+        function: "feeds_unlike_post",
+        description: "Unlike a post (idempotent). Actor resolved from wallet signer.",
+        inputs: vec![
+            required_string("handle", "The @handle of the feed containing the post."),
+            required_string("postId", "The post ID to unlike."),
+        ],
+        outputs: vec![json_output(
+            "result",
+            "LikeResult { postId, liked, likeCount }.",
+        )],
+    }
+}
+
 // ── GraphQL Social Feed schemas ─────────────────────────────────────────────
 
 fn schema_graphql_home_feed() -> ControllerSchema {
@@ -2225,6 +2334,13 @@ pub fn all_tinyplace_controller_schemas() -> Vec<ControllerSchema> {
         // Encryption key registration + discovery (0D)
         schema_signal_register_encryption_key(),
         schema_directory_find_by_encryption_key(),
+        // Feeds write surface (Phase A)
+        schema_feeds_create_post(),
+        schema_feeds_delete_post(),
+        schema_feeds_add_comment(),
+        schema_feeds_delete_comment(),
+        schema_feeds_like_post(),
+        schema_feeds_unlike_post(),
         // GraphQL Social Feed
         schema_graphql_home_feed(),
         schema_graphql_posts(),
@@ -2666,6 +2782,31 @@ pub fn all_tinyplace_registered_controllers() -> Vec<RegisteredController> {
             schema: schema_directory_find_by_encryption_key(),
             handler: handle_tinyplace_directory_find_by_encryption_key,
         },
+        // Feeds write surface (Phase A)
+        RegisteredController {
+            schema: schema_feeds_create_post(),
+            handler: handle_tinyplace_feeds_create_post,
+        },
+        RegisteredController {
+            schema: schema_feeds_delete_post(),
+            handler: handle_tinyplace_feeds_delete_post,
+        },
+        RegisteredController {
+            schema: schema_feeds_add_comment(),
+            handler: handle_tinyplace_feeds_add_comment,
+        },
+        RegisteredController {
+            schema: schema_feeds_delete_comment(),
+            handler: handle_tinyplace_feeds_delete_comment,
+        },
+        RegisteredController {
+            schema: schema_feeds_like_post(),
+            handler: handle_tinyplace_feeds_like_post,
+        },
+        RegisteredController {
+            schema: schema_feeds_unlike_post(),
+            handler: handle_tinyplace_feeds_unlike_post,
+        },
         // GraphQL Social Feed
         RegisteredController {
             schema: schema_graphql_home_feed(),
@@ -2757,6 +2898,30 @@ mod tests {
             assert!(
                 method.starts_with("openhuman.tinyplace_"),
                 "method {method} does not start with openhuman.tinyplace_"
+            );
+        }
+    }
+
+    /// Verify the six feeds write handlers (Phase A) are registered with correct method names.
+    #[test]
+    fn feeds_write_handlers_are_registered() {
+        use crate::core::all::rpc_method_name;
+        let expected = [
+            "openhuman.tinyplace_feeds_create_post",
+            "openhuman.tinyplace_feeds_delete_post",
+            "openhuman.tinyplace_feeds_add_comment",
+            "openhuman.tinyplace_feeds_delete_comment",
+            "openhuman.tinyplace_feeds_like_post",
+            "openhuman.tinyplace_feeds_unlike_post",
+        ];
+        let registered: Vec<String> = all_tinyplace_registered_controllers()
+            .into_iter()
+            .map(|c| rpc_method_name(&c.schema))
+            .collect();
+        for method in &expected {
+            assert!(
+                registered.contains(&method.to_string()),
+                "expected handler for {method} to be registered, found: {registered:?}"
             );
         }
     }
