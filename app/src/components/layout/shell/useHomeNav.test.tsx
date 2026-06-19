@@ -21,8 +21,21 @@ vi.mock('react-router-dom', async importOriginal => {
   };
 });
 
+interface MockThread {
+  id: string;
+  messageCount: number;
+}
+
+interface MockAction {
+  type?: string;
+}
+
+interface WrapperProps {
+  children: ReactNode;
+}
+
 const mockDispatch = vi.fn();
-let mockThreads: Array<{ id: string; messageCount: number }> = [];
+let mockThreads: MockThread[] = [];
 vi.mock('../../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (sel: (s: unknown) => unknown) => sel({ thread: { threads: mockThreads } }),
@@ -38,7 +51,7 @@ vi.mock('../../../store/threadSlice', () => ({
   setSelectedThread: vi.fn((id: string) => ({ type: 'thread/setSelectedThread', payload: id })),
 }));
 
-function wrapper({ children }: { children: ReactNode }) {
+function wrapper({ children }: WrapperProps) {
   return <MemoryRouter>{children}</MemoryRouter>;
 }
 
@@ -52,7 +65,7 @@ describe('useHomeNav', () => {
     mockPathname = '/home';
     mockThreads = [];
     // createNewThread dispatch yields a thunk-style promise with .unwrap().
-    mockDispatch.mockImplementation((action: { type?: string }) => {
+    mockDispatch.mockImplementation((action: MockAction) => {
       if (action?.type === 'thread/createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'fresh-thread' }) };
       }
@@ -118,7 +131,7 @@ describe('useHomeNav', () => {
   it('swallows a failed thread creation without throwing', async () => {
     mockPathname = '/chat';
     mockThreads = [{ id: 't-busy', messageCount: 2 }];
-    mockDispatch.mockImplementation((action: { type?: string }) => {
+    mockDispatch.mockImplementation((action: MockAction) => {
       if (action?.type === 'thread/createNewThread') {
         return { unwrap: () => Promise.reject(new Error('boom')) };
       }
