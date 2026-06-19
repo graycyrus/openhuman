@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { WalletStatus } from '../../../../services/walletApi';
 import { renderWithProviders } from '../../../../test/test-utils';
 import RecoveryPhrasePanel from '../RecoveryPhrasePanel';
 
@@ -10,17 +11,21 @@ const { mockGenerateMnemonicPhrase, mockFetchWalletStatus, mockPersistLocalWalle
     mockGenerateMnemonicPhrase: vi.fn(
       () => 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
     ),
-    mockFetchWalletStatus: vi.fn(async () => ({
-      configured: false,
-      onboardingCompleted: false,
-      consentGranted: false,
-      secretStored: false,
-      source: null,
-      mnemonicWordCount: null,
-      accounts: [],
-      updatedAtMs: null,
-    })),
-    mockPersistLocalWalletFromMnemonic: vi.fn(async () => undefined),
+    mockFetchWalletStatus: vi.fn(
+      async (): Promise<WalletStatus> => ({
+        configured: false,
+        onboardingCompleted: false,
+        consentGranted: false,
+        secretStored: false,
+        source: null,
+        mnemonicWordCount: null,
+        accounts: [],
+        updatedAtMs: null,
+      })
+    ),
+    mockPersistLocalWalletFromMnemonic: vi.fn(
+      async (_args: { force?: boolean; mnemonic?: string; source?: string }) => undefined
+    ),
   }));
 
 vi.mock('../../../../utils/cryptoKeys', async importOriginal => {
@@ -55,32 +60,32 @@ vi.mock('../../../../features/wallet/setupLocalWalletFromMnemonic', () => ({
 }));
 
 // Helper: configured wallet status
-const configuredWalletStatus = () => ({
+const configuredWalletStatus = (): WalletStatus => ({
   configured: true,
   onboardingCompleted: true,
   consentGranted: true,
   secretStored: true,
-  source: 'generated' as const,
+  source: 'generated',
   mnemonicWordCount: 12,
   accounts: [
-    { chain: 'evm' as const, address: '0xabc123', derivationPath: "m/44'/60'/0'/0/0" },
-    { chain: 'btc' as const, address: 'bc1qxyz', derivationPath: "m/84'/0'/0'/0/0" },
-    { chain: 'solana' as const, address: 'SolAbc', derivationPath: "m/44'/501'/0'/0'" },
-    { chain: 'tron' as const, address: 'TronAbc', derivationPath: "m/44'/195'/0'/0/0" },
+    { chain: 'evm', address: '0xabc123', derivationPath: "m/44'/60'/0'/0/0" },
+    { chain: 'btc', address: 'bc1qxyz', derivationPath: "m/84'/0'/0'/0/0" },
+    { chain: 'solana', address: 'SolAbc', derivationPath: "m/44'/501'/0'/0'" },
+    { chain: 'tron', address: 'TronAbc', derivationPath: "m/44'/195'/0'/0/0" },
   ],
   updatedAtMs: 1_700_000_000_000,
 });
 
 // Reset to unconfigured wallet between tests
-const noWalletStatus = () => ({
+const noWalletStatus = (): WalletStatus => ({
   configured: false,
   onboardingCompleted: false,
   consentGranted: false,
   secretStored: false,
-  source: null as null,
-  mnemonicWordCount: null as null,
-  accounts: [] as never[],
-  updatedAtMs: null as null,
+  source: null,
+  mnemonicWordCount: null,
+  accounts: [],
+  updatedAtMs: null,
 });
 
 describe('RecoveryPhrasePanel — trust-surface polish', () => {
