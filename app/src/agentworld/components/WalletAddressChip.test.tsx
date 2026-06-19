@@ -135,16 +135,36 @@ describe('WalletAddressChip', () => {
     );
   });
 
-  test('shows "Wallet not set up" when fetchWalletStatus rejects (locked)', async () => {
-    mockFetchWalletStatus.mockRejectedValue(new Error('wallet not configured'));
+  test('shows a retryable "Wallet unavailable" state when fetchWalletStatus rejects', async () => {
+    // A transient RPC/transport failure must NOT be reported as "not set up" —
+    // a configured wallet would otherwise be mislabelled until the route remounts.
+    mockFetchWalletStatus.mockRejectedValue(new Error('core rpc unavailable'));
 
     render(<WalletAddressChip />);
 
-    await screen.findByText(/wallet not set up/i);
+    await screen.findByText(/wallet unavailable/i);
 
     const chip = screen.getByTestId('wallet-address-chip');
     expect(chip).not.toHaveTextContent(SOLANA_ADDRESS);
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    // The error chip is itself a retry button — and it must NOT claim "not set up".
+    expect(screen.queryByText(/wallet not set up/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
+  test('error state recovers to ready after a successful retry', async () => {
+    // First fetch fails (transient), the retry click succeeds.
+    mockFetchWalletStatus
+      .mockRejectedValueOnce(new Error('core rpc unavailable'))
+      .mockResolvedValueOnce(makeStatus());
+
+    render(<WalletAddressChip />);
+
+    const retryBtn = await screen.findByRole('button', { name: /retry/i });
+    await userEvent.click(retryBtn);
+
+    // After the retry resolves, the truncated address is shown.
+    await screen.findByTitle(SOLANA_ADDRESS);
+    expect(screen.queryByText(/wallet unavailable/i)).not.toBeInTheDocument();
   });
 
   test('shows "Wallet not set up" when no solana account exists in accounts list', async () => {

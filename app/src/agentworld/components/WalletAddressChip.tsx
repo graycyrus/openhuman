@@ -88,7 +88,8 @@ const CheckIcon = () => (
 type ChipState =
   | { status: 'loading' }
   | { status: 'ready'; address: string }
-  | { status: 'locked' };
+  | { status: 'locked' }
+  | { status: 'error' };
 
 // ---------------------------------------------------------------------------
 // WalletAddressChip
@@ -99,31 +100,47 @@ export default function WalletAddressChip() {
   const [state, setState] = useState<ChipState>({ status: 'loading' });
   const [copied, setCopied] = useState(false);
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic request id so a slow/aborted fetch can't clobber a newer one
+  // (e.g. when the user taps "retry" while a prior request is still in flight).
+  const latestRequestIdRef = useRef(0);
 
-  // Fetch wallet status on mount; extract the Solana account address.
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const status = await fetchWalletStatus();
-        const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
-        if (cancelled) return;
-        if (solana?.address) {
-          setState({ status: 'ready', address: solana.address });
-        } else {
-          setState({ status: 'locked' });
-        }
-      } catch {
-        // wallet not configured / core rejects → locked state.
-        if (!cancelled) setState({ status: 'locked' });
+  // Fetch wallet status and resolve the chip state. Distinguishes the genuine
+  // "not set up" case (a successful wallet_status with no Solana account) from a
+  // transient RPC/transport failure — the latter must NOT masquerade as a locked
+  // wallet for a user who already has one configured.
+  const loadStatus = useCallback(async () => {
+    const requestId = ++latestRequestIdRef.current;
+    try {
+      const status = await fetchWalletStatus();
+      const solana = (status.accounts ?? []).find(a => a.chain === 'solana');
+      if (requestId !== latestRequestIdRef.current) return;
+      if (solana?.address) {
+        setState({ status: 'ready', address: solana.address });
+      } else {
+        // Successful response, but the wallet has no Solana account yet.
+        setState({ status: 'locked' });
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    } catch (err) {
+      if (requestId !== latestRequestIdRef.current) return;
+      // Core RPC unavailable / timeout / transport error — surface a retryable
+      // error state rather than mislabelling a configured wallet as "not set up".
+      const message = err instanceof Error ? err.message : String(err);
+      console.debug('[walletAddressChip] wallet_status fetch failed:', message);
+      setState({ status: 'error' });
+    }
   }, []);
+
+  // Fetch wallet status on mount.
+  useEffect(() => {
+    // loadStatus only calls setState after an awaited fetch (never synchronously),
+    // so it does not cause the cascading renders this rule guards against.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadStatus();
+    return () => {
+      // Invalidate any in-flight request so its resolution is ignored.
+      latestRequestIdRef.current += 1;
+    };
+  }, [loadStatus]);
 
   // Cleanup copy-reset timer on unmount.
   useEffect(
@@ -159,6 +176,26 @@ export default function WalletAddressChip() {
         <div className="h-3.5 w-3.5 rounded bg-stone-300 dark:bg-neutral-600 shrink-0" />
         <div className="h-3 w-24 rounded bg-stone-300 dark:bg-neutral-600" />
       </div>
+    );
+  }
+
+  // ── Error — transient RPC/transport failure, offer a retry ────────────────
+  if (state.status === 'error') {
+    return (
+      <button
+        type="button"
+        data-testid="wallet-address-chip"
+        onClick={() => {
+          // Show the loading skeleton again while the retry is in flight.
+          setState({ status: 'loading' });
+          void loadStatus();
+        }}
+        aria-label={t('agentWorld.walletRetry')}
+        title={t('agentWorld.walletRetry')}
+        className="flex items-center gap-1.5 text-stone-400 transition-colors hover:text-stone-600 dark:text-neutral-500 dark:hover:text-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-500">
+        <WalletIcon />
+        <span className="text-[11px] leading-none">{t('agentWorld.walletUnavailable')}</span>
+      </button>
     );
   }
 
