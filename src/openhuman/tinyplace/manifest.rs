@@ -3185,7 +3185,10 @@ pub(crate) fn handle_tinyplace_signal_send_message(params: Map<String, Value>) -
         // Field correspondence is verified in phase-signalsession-spec.md §4.
         // Use the resolved agent_id (not raw recipient) so the backend routes correctly.
         let envelope = tinyplace::types::MessageEnvelope {
-            id: String::new(),
+            // The backend requires a non-empty client-generated message id
+            // (POST /messages rejects an empty id with "message id, from, and to
+            // are required"). The SDK's send() only fills timestamp, not id.
+            id: uuid::Uuid::new_v4().to_string(),
             from: our_agent_id.clone(),
             to: agent_id.clone(),
             timestamp: String::new(),
