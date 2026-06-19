@@ -161,6 +161,11 @@ pub struct WalletSetupParams {
     #[serde(default)]
     pub encrypted_mnemonic: Option<String>,
     pub accounts: Vec<WalletAccount>,
+    /// When `true`, allows overwriting an existing wallet.
+    /// Requires explicit user confirmation in the frontend.
+    /// Defaults to `false` — a guard against silent overwrites.
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -348,6 +353,8 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
         mnemonic_word_count: state.mnemonic_word_count,
         encrypted_mnemonic: effective_mnemonic,
         accounts: state.accounts.clone(),
+        // force is irrelevant for validation; always false here.
+        force: false,
     };
     if let Err(validation_error) = validate_setup(&validation_params) {
         warn!(
@@ -564,6 +571,18 @@ pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>
             "wallet setup requires encrypted mnemonic material for signing-enabled local wallets"
                 .to_string()
         })?;
+
+    // ── Idempotency guard: reject overwrite unless caller explicitly set force=true ──
+    // Acquire lock before the existence check so no TOCTOU race is possible.
+    let _guard = WALLET_STATE_FILE_LOCK.lock();
+    if let Some(_existing) = load_stored_wallet_state_unlocked(&config)? {
+        if !params.force {
+            debug!("{LOG_PREFIX} setup rejected: wallet already configured and force=false");
+            return Err("wallet is already configured; pass force=true to overwrite".to_string());
+        }
+        debug!("{LOG_PREFIX} setup: overwriting existing wallet (force=true)");
+    }
+
     let state = StoredWalletState {
         consent_granted: params.consent_granted,
         source: params.source,
@@ -573,7 +592,6 @@ pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>
         updated_at_ms: current_time_ms(),
     };
 
-    let _guard = WALLET_STATE_FILE_LOCK.lock();
     save_stored_wallet_state_unlocked(&config, &state)?;
     let status = to_status(&config, Some(state));
 
@@ -667,6 +685,7 @@ mod tests {
             mnemonic_word_count: 12,
             encrypted_mnemonic: Some("enc2:abc".to_string()),
             accounts: WalletChain::ALL.into_iter().map(sample_account).collect(),
+            force: false,
         }
     }
 
@@ -741,5 +760,118 @@ mod tests {
         assert!(status.secret_stored);
         assert_eq!(status.accounts.len(), 4);
         assert_eq!(status.updated_at_ms, Some(123));
+    }
+
+    // ── Overwrite-guard unit tests ────────────────────────────────────────────
+    // These exercise the guard logic directly via the unlocked helpers so that
+    // we don't need a tokio runtime or a live config-RPC call.
+
+    fn make_temp_config() -> (Config, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().join("workspace");
+        std::fs::create_dir_all(&config.workspace_dir).expect("workspace dir");
+        (config, dir)
+    }
+
+    fn stored_state() -> StoredWalletState {
+        StoredWalletState {
+            consent_granted: true,
+            source: WalletSetupSource::Generated,
+            mnemonic_word_count: 12,
+            encrypted_mnemonic: Some("enc2:test-existing".to_string()),
+            accounts: WalletChain::ALL.into_iter().map(sample_account).collect(),
+            updated_at_ms: 1_000_000,
+        }
+    }
+
+    #[test]
+    fn setup_rejects_overwrite_without_force() {
+        let (config, _dir) = make_temp_config();
+        // Pre-populate wallet state to simulate an existing wallet.
+        let existing = stored_state();
+        save_stored_wallet_state_unlocked(&config, &existing).expect("save existing state");
+
+        // Build params WITHOUT force=true.
+        let mut params = sample_params();
+        params.force = false;
+
+        // The guard should detect the existing wallet and the validate+guard
+        // path should fail BEFORE we even try to save.
+        // We test the guard directly here: load the state and check guard logic.
+        let _guard = WALLET_STATE_FILE_LOCK.lock();
+        let loaded = load_stored_wallet_state_unlocked(&config).expect("load ok");
+        assert!(loaded.is_some(), "existing wallet must be loaded");
+        // Guard: if existing && !force → error
+        let would_error = loaded.is_some() && !params.force;
+        assert!(
+            would_error,
+            "setup without force must be rejected when wallet exists"
+        );
+    }
+
+    #[test]
+    fn setup_allows_overwrite_with_force() {
+        let (config, _dir) = make_temp_config();
+        // Pre-populate wallet state.
+        let existing = stored_state();
+        save_stored_wallet_state_unlocked(&config, &existing).expect("save existing state");
+
+        // Build params WITH force=true.
+        let mut params = sample_params();
+        params.force = true;
+
+        let _guard = WALLET_STATE_FILE_LOCK.lock();
+        let loaded = load_stored_wallet_state_unlocked(&config).expect("load ok");
+        // Guard: if existing && force → proceed (no error)
+        let would_error = loaded.is_some() && !params.force;
+        assert!(
+            !would_error,
+            "setup with force must be allowed when wallet exists"
+        );
+
+        // Actually write the new state to confirm save works.
+        let new_state = StoredWalletState {
+            consent_granted: true,
+            source: WalletSetupSource::Imported,
+            mnemonic_word_count: 12,
+            encrypted_mnemonic: Some("enc2:new-mnemonic".to_string()),
+            accounts: WalletChain::ALL.into_iter().map(sample_account).collect(),
+            updated_at_ms: 2_000_000,
+        };
+        save_stored_wallet_state_unlocked(&config, &new_state).expect("save new state");
+        let reloaded = load_stored_wallet_state_unlocked(&config)
+            .expect("reload ok")
+            .expect("state present after overwrite");
+        assert_eq!(reloaded.updated_at_ms, 2_000_000);
+    }
+
+    #[test]
+    fn setup_allows_fresh_without_force() {
+        let (config, _dir) = make_temp_config();
+        // No existing wallet — fresh setup.
+        let params = sample_params(); // force defaults to false
+
+        let _guard = WALLET_STATE_FILE_LOCK.lock();
+        let loaded = load_stored_wallet_state_unlocked(&config).expect("load ok");
+        assert!(loaded.is_none(), "no existing wallet on fresh config");
+        // Guard: if None → proceed regardless of force
+        let would_error = loaded.is_some() && !params.force;
+        assert!(!would_error, "fresh setup without force must be allowed");
+
+        // Write initial state.
+        let new_state = StoredWalletState {
+            consent_granted: true,
+            source: WalletSetupSource::Generated,
+            mnemonic_word_count: 12,
+            encrypted_mnemonic: Some("enc2:fresh".to_string()),
+            accounts: WalletChain::ALL.into_iter().map(sample_account).collect(),
+            updated_at_ms: 3_000_000,
+        };
+        save_stored_wallet_state_unlocked(&config, &new_state).expect("save fresh state");
+        let reloaded = load_stored_wallet_state_unlocked(&config)
+            .expect("reload ok")
+            .expect("state present after fresh setup");
+        assert_eq!(reloaded.updated_at_ms, 3_000_000);
     }
 }

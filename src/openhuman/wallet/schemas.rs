@@ -28,6 +28,10 @@ struct SetupWalletParams {
     mnemonic_word_count: u8,
     encrypted_mnemonic: String,
     accounts: Vec<WalletAccount>,
+    /// Explicit overwrite permission — must be `true` to replace an existing wallet.
+    /// Defaults to `false`; set by the frontend only after double-confirmation.
+    #[serde(default)]
+    force: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -157,6 +161,14 @@ pub fn wallet_schemas(function: &str) -> ControllerSchema {
                     "accounts",
                     "Exactly one derived account for each supported chain: EVM, BTC, Solana, and Tron.",
                 ),
+                FieldSchema {
+                    name: "force",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment:
+                        "Optional boolean. Must be true to overwrite an existing wallet. Defaults to false. \
+                         Only pass true after the user has explicitly confirmed wallet replacement.",
+                    required: false,
+                },
             ],
             outputs: vec![FieldSchema {
                 name: "result",
@@ -351,6 +363,7 @@ fn handle_setup(params: Map<String, Value>) -> ControllerFuture {
             mnemonic_word_count: payload.mnemonic_word_count,
             encrypted_mnemonic: Some(payload.encrypted_mnemonic),
             accounts: payload.accounts,
+            force: payload.force,
         })
         .await?
         .into_cli_compatible_json()
@@ -496,13 +509,20 @@ mod tests {
     #[test]
     fn setup_schema_requires_all_inputs() {
         let schema = wallet_schemas("setup");
-        assert_eq!(schema.inputs.len(), 5);
+        // 5 original fields + 1 optional `force` field = 6 total
+        assert_eq!(schema.inputs.len(), 6);
         let encrypted = schema
             .inputs
             .iter()
             .find(|field| field.name == "encryptedMnemonic")
             .expect("encryptedMnemonic input present");
         assert!(encrypted.required);
+        let force = schema
+            .inputs
+            .iter()
+            .find(|field| field.name == "force")
+            .expect("force input present");
+        assert!(!force.required, "force must be optional");
     }
 
     #[test]

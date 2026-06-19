@@ -46,6 +46,13 @@ export interface SetupWalletParams {
   mnemonicWordCount: number;
   encryptedMnemonic?: string;
   accounts: WalletAccount[];
+  /**
+   * Must be `true` to overwrite an existing wallet.
+   * Only pass after explicit double-confirmation by the user.
+   * Defaults to `false` — the backend rejects the call without it when a
+   * wallet already exists.
+   */
+  force?: boolean;
 }
 
 export const fetchWalletStatus = async (): Promise<WalletStatus> => {
