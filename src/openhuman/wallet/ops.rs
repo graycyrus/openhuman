@@ -342,10 +342,30 @@ fn load_stored_wallet_state_unlocked(config: &Config) -> Result<Option<StoredWal
 
     // ── Step 4: Validate (allows encrypted_mnemonic to be None when in keychain) ──
     // Build validation params treating keychain-held mnemonic as present.
+    // Re-probe the keychain here so that headless / CI environments where
+    // keychain_load_mnemonic returned None at the top of this function (e.g.
+    // because the keychain entry was written by a concurrent task and was not
+    // yet visible to the earlier read) get one more chance to find the secret.
     let effective_mnemonic = state.encrypted_mnemonic.clone().or_else(|| {
-        // Mnemonic was just wiped from state; re-probe keychain.
-        keychain_load_mnemonic(config)
+        let reprobe = keychain_load_mnemonic(config);
+        if reprobe.is_some() {
+            debug!(
+                "{LOG_PREFIX} load: re-probe found mnemonic in keychain \
+                 that was absent on initial probe; merging into state"
+            );
+        }
+        reprobe
     });
+
+    // Propagate whatever was found (initial probe, migration, or re-probe) back
+    // into `state` so that callers (reveal_recovery_phrase, secret_material)
+    // always receive a complete state when the mnemonic is accessible.
+    if state.encrypted_mnemonic.is_none() {
+        if let Some(ref m) = effective_mnemonic {
+            debug!("{LOG_PREFIX} load: setting encrypted_mnemonic from effective_mnemonic");
+            state.encrypted_mnemonic = Some(m.clone());
+        }
+    }
 
     let validation_params = WalletSetupParams {
         consent_granted: state.consent_granted,
@@ -647,16 +667,33 @@ pub async fn reveal_recovery_phrase() -> Result<RpcOutcome<RevealRecoveryPhraseR
             }
         };
 
-        state
+        // Primary path: mnemonic is in the state returned by load (either from
+        // the JSON field or merged in from the OS keychain by
+        // load_stored_wallet_state_unlocked).  Fallback: probe the keychain
+        // directly in case the mnemonic is stored there but was not merged into
+        // `state` (e.g. headless / CI keychain that was transiently unavailable
+        // during the initial probe inside load_stored_wallet_state_unlocked, or
+        // any environment where the mnemonic lives only in the keychain).
+        let enc_mnemonic_opt = state
             .encrypted_mnemonic
             .as_ref()
             .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty())
-            .ok_or_else(|| {
-                debug!("{LOG_PREFIX} reveal_recovery_phrase encrypted mnemonic missing from state");
-                "No recovery phrase is available to reveal. Set up or unlock your wallet first."
-                    .to_string()
-            })?
+            .or_else(|| {
+                debug!(
+                    "{LOG_PREFIX} reveal_recovery_phrase: mnemonic absent from state, \
+                     falling back to direct keychain probe"
+                );
+                keychain_load_mnemonic(&config)
+                    .map(|v| v.trim().to_string())
+                    .filter(|v| !v.is_empty())
+            });
+
+        enc_mnemonic_opt.ok_or_else(|| {
+            debug!("{LOG_PREFIX} reveal_recovery_phrase encrypted mnemonic missing from state");
+            "No recovery phrase is available to reveal. Set up or unlock your wallet first."
+                .to_string()
+        })?
         // _guard dropped here — before the decrypt await below
     };
 
