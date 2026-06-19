@@ -14,7 +14,7 @@
  * Pattern mirrors LedgerSection / FeedSection: useState + useEffect fetch,
  * PanelScaffold wrapper, StatusBlock for loading/error/empty states.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
@@ -354,7 +354,18 @@ function ApplyModal({
   const [bidAmount, setBidAmount] = useState('');
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [succeeded, setSucceeded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear the auto-close timer on unmount to avoid state updates after teardown.
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,8 +378,12 @@ function ApplyModal({
     };
     try {
       await apiClient.jobsWrite.apply(jobId, params);
+      setSucceeded(true);
       onApplied();
-      onClose();
+      // Auto-close after a short success display window.
+      successTimerRef.current = setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -382,57 +397,75 @@ function ApplyModal({
       title="Apply for Job"
       titleId="apply-modal-title"
       maxWidthClassName="max-w-lg">
-      <form
-        onSubmit={e => {
-          void handleSubmit(e);
-        }}
-        className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Cover Letter
-          </label>
-          <textarea
-            rows={4}
-            value={coverLetter}
-            onChange={e => setCoverLetter(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-            placeholder="Describe your experience and why you're a good fit"
-          />
+      {succeeded ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col items-center gap-3 py-6 text-center">
+          <p className="text-sm font-medium text-green-700 dark:text-green-400">
+            Proposal submitted successfully!
+          </p>
+          <p className="text-xs text-stone-500 dark:text-neutral-400">
+            The job poster will review your application.
+          </p>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Bid Amount
-          </label>
-          <input
-            type="text"
-            value={bidAmount}
-            onChange={e => setBidAmount(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-            placeholder="e.g. 450 USDC"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Estimated Delivery
-          </label>
-          <input
-            type="text"
-            value={estimatedDelivery}
-            onChange={e => setEstimatedDelivery(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-            placeholder="e.g. 2 weeks"
-          />
-        </div>
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? 'Applying…' : 'Submit Application'}
-          </Button>
-        </div>
-      </form>
+      ) : (
+        <form
+          onSubmit={e => {
+            void handleSubmit(e);
+          }}
+          className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+              Cover Letter
+            </label>
+            <textarea
+              rows={4}
+              value={coverLetter}
+              onChange={e => setCoverLetter(e.target.value)}
+              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              placeholder="Describe your experience and why you're a good fit"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+              Bid Amount
+            </label>
+            <input
+              type="text"
+              value={bidAmount}
+              onChange={e => setBidAmount(e.target.value)}
+              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              placeholder="e.g. 450 USDC"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+              Estimated Delivery
+            </label>
+            <input
+              type="text"
+              value={estimatedDelivery}
+              onChange={e => setEstimatedDelivery(e.target.value)}
+              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              placeholder="e.g. 2 weeks"
+            />
+          </div>
+          {error && (
+            <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Applying...' : 'Submit Application'}
+            </Button>
+          </div>
+        </form>
+      )}
     </ModalShell>
   );
 }
@@ -1226,7 +1259,10 @@ export default function JobsSection() {
         <ApplyModal
           jobId={applyingJobId}
           onClose={() => setApplyingJobId(null)}
-          onApplied={() => setApplyingJobId(null)}
+          onApplied={() => {
+            setApplyingJobId(null);
+            refetchJobs();
+          }}
         />
       )}
       {disputeJobId && (
