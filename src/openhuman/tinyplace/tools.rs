@@ -134,7 +134,7 @@ impl Tool for TinyplaceJobApplyTool {
         // Candidate is always from the signer — not from tool arguments.
         let candidate = signer.agent_id();
 
-        log::debug!("{LOG_PREFIX} tinyplace_job_apply candidate={candidate} job_id={job_id}");
+        log::debug!("{LOG_PREFIX} tinyplace_job_apply candidate_resolved=true job_id={job_id}");
 
         let request = ProposalCreateRequest {
             candidate,

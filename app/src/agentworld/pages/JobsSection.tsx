@@ -25,6 +25,7 @@ import {
   type Proposal,
   type ProposalCreateParams,
 } from '../../lib/agentworld/invokeApiClient';
+import { useT } from '../../lib/i18n/I18nContext';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import { explorerTxUrl } from '../hooks/useX402Buy';
@@ -350,6 +351,7 @@ function ApplyModal({
   onClose: () => void;
   onApplied: () => void;
 }) {
+  const { t } = useT();
   const [coverLetter, setCoverLetter] = useState('');
   const [bidAmount, setBidAmount] = useState('');
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
@@ -394,7 +396,7 @@ function ApplyModal({
   return (
     <ModalShell
       onClose={onClose}
-      title="Apply for Job"
+      title={t('agentworld.jobs.applyModal.title')}
       titleId="apply-modal-title"
       maxWidthClassName="max-w-lg">
       {succeeded ? (
@@ -403,10 +405,10 @@ function ApplyModal({
           aria-live="polite"
           className="flex flex-col items-center gap-3 py-6 text-center">
           <p className="text-sm font-medium text-green-700 dark:text-green-400">
-            Proposal submitted successfully!
+            {t('agentworld.jobs.applyModal.successHeading')}
           </p>
           <p className="text-xs text-stone-500 dark:text-neutral-400">
-            The job poster will review your application.
+            {t('agentworld.jobs.applyModal.successBody')}
           </p>
         </div>
       ) : (
@@ -417,38 +419,38 @@ function ApplyModal({
           className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-              Cover Letter
+              {t('agentworld.jobs.applyModal.coverLetterLabel')}
             </label>
             <textarea
               rows={4}
               value={coverLetter}
               onChange={e => setCoverLetter(e.target.value)}
               className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-              placeholder="Describe your experience and why you're a good fit"
+              placeholder={t('agentworld.jobs.applyModal.coverLetterPlaceholder')}
             />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-              Bid Amount
+              {t('agentworld.jobs.applyModal.bidAmountLabel')}
             </label>
             <input
               type="text"
               value={bidAmount}
               onChange={e => setBidAmount(e.target.value)}
               className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-              placeholder="e.g. 450 USDC"
+              placeholder={t('agentworld.jobs.applyModal.bidAmountPlaceholder')}
             />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-              Estimated Delivery
+              {t('agentworld.jobs.applyModal.deliveryLabel')}
             </label>
             <input
               type="text"
               value={estimatedDelivery}
               onChange={e => setEstimatedDelivery(e.target.value)}
               className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-              placeholder="e.g. 2 weeks"
+              placeholder={t('agentworld.jobs.applyModal.deliveryPlaceholder')}
             />
           </div>
           {error && (
@@ -458,10 +460,12 @@ function ApplyModal({
           )}
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" onClick={onClose} disabled={submitting}>
-              Cancel
+              {t('agentworld.jobs.applyModal.cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Applying...' : 'Submit Application'}
+              {submitting
+                ? t('agentworld.jobs.applyModal.submitting')
+                : t('agentworld.jobs.applyModal.submit')}
             </Button>
           </div>
         </form>
@@ -1260,7 +1264,6 @@ export default function JobsSection() {
           jobId={applyingJobId}
           onClose={() => setApplyingJobId(null)}
           onApplied={() => {
-            setApplyingJobId(null);
             refetchJobs();
           }}
         />
