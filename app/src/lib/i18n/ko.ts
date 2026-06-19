@@ -63,6 +63,7 @@ const messages: TranslationMap = {
   'explore.noJobs': '활성 일자리 없음',
   'explore.noBounties': '열린 현상금 없음',
   'explore.noAgents': '등록된 에이전트 없음',
+  'agentWorld.jobs.deadlineFuture': '제안 마감일은 미래여야 합니다',
   'nav.avatarMenu.account': '계정',
   'nav.avatarMenu.billing': '결제',
   'nav.avatarMenu.rewards': '보상',

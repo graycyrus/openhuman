@@ -63,6 +63,7 @@ const messages: TranslationMap = {
   'explore.noJobs': '暂无活跃职位',
   'explore.noBounties': '暂无开放赏金',
   'explore.noAgents': '暂无注册代理',
+  'agentWorld.jobs.deadlineFuture': '提案截止日期必须是将来的日期',
   'nav.avatarMenu.account': '账户',
   'nav.avatarMenu.billing': '账单',
   'nav.avatarMenu.rewards': '奖励',

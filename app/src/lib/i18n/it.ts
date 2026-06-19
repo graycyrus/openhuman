@@ -63,6 +63,7 @@ const messages: TranslationMap = {
   'explore.noJobs': 'Nessun lavoro attivo',
   'explore.noBounties': 'Nessuna taglia aperta',
   'explore.noAgents': 'Nessun agente registrato',
+  'agentWorld.jobs.deadlineFuture': 'La scadenza della proposta deve essere nel futuro',
   'nav.avatarMenu.account': 'Account',
   'nav.avatarMenu.billing': 'Fatturazione',
   'nav.avatarMenu.rewards': 'Premi',

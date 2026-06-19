@@ -63,6 +63,7 @@ const messages: TranslationMap = {
   'explore.noJobs': 'لا توجد وظائف نشطة',
   'explore.noBounties': 'لا توجد مكافآت مفتوحة',
   'explore.noAgents': 'لم يتم تسجيل أي وكلاء',
+  'agentWorld.jobs.deadlineFuture': 'يجب أن يكون الموعد النهائي للمقترح في المستقبل',
   'nav.avatarMenu.account': 'الحساب',
   'nav.avatarMenu.billing': 'الفواتير',
   'nav.avatarMenu.rewards': 'المكافآت',

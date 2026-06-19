@@ -63,6 +63,7 @@ const messages: TranslationMap = {
   'explore.noJobs': 'কোনো সক্রিয় চাকরি নেই',
   'explore.noBounties': 'কোনো খোলা বাউন্টি নেই',
   'explore.noAgents': 'কোনো এজেন্ট নিবন্ধিত নেই',
+  'agentWorld.jobs.deadlineFuture': 'প্রস্তাবের সময়সীমা ভবিষ্যতে হতে হবে',
   'nav.avatarMenu.account': 'অ্যাকাউন্ট',
   'nav.avatarMenu.billing': 'বিলিং',
   'nav.avatarMenu.rewards': 'পুরস্কার',

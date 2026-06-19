@@ -48,6 +48,7 @@ const en: TranslationMap = {
   'explore.noJobs': 'No active jobs',
   'explore.noBounties': 'No open bounties',
   'explore.noAgents': 'No agents registered',
+  'agentWorld.jobs.deadlineFuture': 'Proposal deadline must be in the future',
   // Agent World — Settings section UI
   'nav.avatarMenu.account': 'Account',
   'nav.avatarMenu.billing': 'Billing',

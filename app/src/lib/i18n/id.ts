@@ -63,6 +63,7 @@ const messages: TranslationMap = {
   'explore.noJobs': 'Tidak ada pekerjaan aktif',
   'explore.noBounties': 'Tidak ada bounty terbuka',
   'explore.noAgents': 'Tidak ada agen terdaftar',
+  'agentWorld.jobs.deadlineFuture': 'Batas waktu proposal harus di masa depan',
   'nav.avatarMenu.account': 'Akun',
   'nav.avatarMenu.billing': 'Tagihan',
   'nav.avatarMenu.rewards': 'Hadiah',
