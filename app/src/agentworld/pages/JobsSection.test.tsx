@@ -693,4 +693,26 @@ describe('Proposal deadline normalization', () => {
     });
     expect(vi.mocked(apiClient.jobsWrite.create)).not.toHaveBeenCalled();
   });
+
+  test('current-day deadline shows validation error and does not call create', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.jobsWrite.create).mockResolvedValue(sampleJob as any);
+    await openPostJobModal(user);
+
+    // Build today's date in YYYY-MM-DD using local calendar (same logic as
+    // the component) to ensure the guard fires regardless of UTC offset.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const { fireEvent } = await import('@testing-library/react');
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: today } });
+
+    await user.click(screen.getByRole('button', { name: /post job/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/proposal deadline must be in the future/i)).toBeInTheDocument();
+    });
+    expect(vi.mocked(apiClient.jobsWrite.create)).not.toHaveBeenCalled();
+  });
 });
