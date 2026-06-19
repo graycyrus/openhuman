@@ -56,6 +56,7 @@ const messages: TranslationMap = {
   'agentWorld.walletNotConfigured': 'ওয়ালেট সেট আপ হয়নি',
   'agentWorld.copyAddress': 'ঠিকানা কপি করুন',
   'agentWorld.addressCopied': 'কপি হয়েছে',
+  'agentWorld.jobs.deadlineFuture': 'প্রস্তাবের সময়সীমা ভবিষ্যতে হতে হবে',
   'nav.avatarMenu.account': 'অ্যাকাউন্ট',
   'nav.avatarMenu.billing': 'বিলিং',
   'nav.avatarMenu.rewards': 'পুরস্কার',

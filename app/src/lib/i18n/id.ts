@@ -56,6 +56,7 @@ const messages: TranslationMap = {
   'agentWorld.walletNotConfigured': 'Dompet belum diatur',
   'agentWorld.copyAddress': 'Salin alamat',
   'agentWorld.addressCopied': 'Disalin',
+  'agentWorld.jobs.deadlineFuture': 'Batas waktu proposal harus di masa depan',
   'nav.avatarMenu.account': 'Akun',
   'nav.avatarMenu.billing': 'Tagihan',
   'nav.avatarMenu.rewards': 'Hadiah',

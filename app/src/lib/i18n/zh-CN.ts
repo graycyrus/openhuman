@@ -56,6 +56,7 @@ const messages: TranslationMap = {
   'agentWorld.walletNotConfigured': '钱包未设置',
   'agentWorld.copyAddress': '复制地址',
   'agentWorld.addressCopied': '已复制',
+  'agentWorld.jobs.deadlineFuture': '提案截止日期必须是将来的日期',
   'nav.avatarMenu.account': '账户',
   'nav.avatarMenu.billing': '账单',
   'nav.avatarMenu.rewards': '奖励',

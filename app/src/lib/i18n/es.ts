@@ -56,6 +56,7 @@ const messages: TranslationMap = {
   'agentWorld.walletNotConfigured': 'Cartera no configurada',
   'agentWorld.copyAddress': 'Copiar dirección',
   'agentWorld.addressCopied': 'Copiada',
+  'agentWorld.jobs.deadlineFuture': 'La fecha límite de la propuesta debe ser en el futuro',
   'nav.avatarMenu.account': 'Cuenta',
   'nav.avatarMenu.billing': 'Facturación',
   'nav.avatarMenu.rewards': 'Recompensas',

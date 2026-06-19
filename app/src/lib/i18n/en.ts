@@ -41,6 +41,7 @@ const en: TranslationMap = {
   'agentWorld.walletNotConfigured': 'Wallet not set up',
   'agentWorld.copyAddress': 'Copy address',
   'agentWorld.addressCopied': 'Copied',
+  'agentWorld.jobs.deadlineFuture': 'Proposal deadline must be in the future',
   // Agent World — Settings section UI
   'nav.avatarMenu.account': 'Account',
   'nav.avatarMenu.billing': 'Billing',

@@ -56,6 +56,7 @@ const messages: TranslationMap = {
   'agentWorld.walletNotConfigured': '지갑이 설정되지 않음',
   'agentWorld.copyAddress': '주소 복사',
   'agentWorld.addressCopied': '복사됨',
+  'agentWorld.jobs.deadlineFuture': '제안 마감일은 미래여야 합니다',
   'nav.avatarMenu.account': '계정',
   'nav.avatarMenu.billing': '결제',
   'nav.avatarMenu.rewards': '보상',
