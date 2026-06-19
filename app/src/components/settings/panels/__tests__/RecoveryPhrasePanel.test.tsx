@@ -180,9 +180,7 @@ describe('RecoveryPhrasePanel — existing wallet → view mode (no regenerate)'
   it('shows view mode when wallet is already configured', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
     // "Your wallet is already set up." — the English translation of mnemonic.walletAlreadyConfigured
-    await waitFor(() =>
-      expect(screen.queryByText(/Your wallet is already set up/i)).toBeTruthy()
-    );
+    await waitFor(() => expect(screen.queryByText(/Your wallet is already set up/i)).toBeTruthy());
     // No mnemonic reveal button in view mode
     expect(screen.queryByLabelText(/Reveal recovery phrase/i)).toBeNull();
     // No consent checkbox in view mode
@@ -191,9 +189,7 @@ describe('RecoveryPhrasePanel — existing wallet → view mode (no regenerate)'
 
   it('does NOT call generateMnemonicPhrase when wallet exists', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() =>
-      expect(screen.queryByText(/Your wallet is already set up/i)).toBeTruthy()
-    );
+    await waitFor(() => expect(screen.queryByText(/Your wallet is already set up/i)).toBeTruthy());
     expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
   });
 

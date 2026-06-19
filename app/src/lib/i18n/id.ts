@@ -1575,7 +1575,7 @@ const messages: TranslationMap = {
   'mnemonic.somethingWentWrong': 'Terjadi kesalahan. Silakan coba lagi.',
   'mnemonic.walletAlreadyConfigured': 'Dompetmu sudah diatur.',
   'mnemonic.walletSource': 'Sumber',
-  'mnemonic.walletWordCount': 'Panjang frasa pemulihan',
+  'mnemonic.walletWordCount': 'Jumlah kata frasa pemulihan',
   'mnemonic.walletLastUpdated': 'Terakhir diperbarui',
   'mnemonic.replaceWallet': 'Ganti dompet',
   'mnemonic.replaceWalletWarning':

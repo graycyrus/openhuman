@@ -1536,7 +1536,7 @@ const messages: TranslationMap = {
   'mnemonic.somethingWentWrong': 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
   'mnemonic.walletAlreadyConfigured': 'محفظتك مضبوطة بالفعل.',
   'mnemonic.walletSource': 'المصدر',
-  'mnemonic.walletWordCount': 'طول عبارة الاسترداد',
+  'mnemonic.walletWordCount': 'عدد الكلمات',
   'mnemonic.walletLastUpdated': 'آخر تحديث',
   'mnemonic.replaceWallet': 'استبدال المحفظة',
   'mnemonic.replaceWalletWarning':
