@@ -1226,9 +1226,9 @@ function DmsPanel() {
         | { cryptoId?: string; [key: string]: unknown }
         | null
         | undefined;
-      const agent = resolved?.agent as { agentId?: string; [key: string]: unknown } | null;
+      const agent = resolved?.agent as { cryptoId?: string; [key: string]: unknown } | null;
 
-      const cryptoId = identity?.cryptoId ?? agent?.agentId;
+      const cryptoId = identity?.cryptoId ?? agent?.cryptoId;
       if (cryptoId) {
         setActivePeer(cryptoId);
       } else {

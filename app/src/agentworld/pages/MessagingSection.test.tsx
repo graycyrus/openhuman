@@ -325,6 +325,24 @@ describe('DMs panel (E2E enabled)', () => {
     expect(screen.queryByPlaceholderText(/Type a message/)).not.toBeInTheDocument();
   });
 
+  test('DmsPanel falls back to agent.cryptoId when identity is absent', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: undefined,
+      agent: { agentId: 'agent-99', cryptoId: 'fallback-crypto-id', name: 'Bob' },
+    });
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, 'bob.agent');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // DM view should open using the agent's cryptoId
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
   test('DmsPanel passes raw base58 wallet address without calling resolve', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
