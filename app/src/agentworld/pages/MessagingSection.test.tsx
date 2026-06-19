@@ -57,6 +57,17 @@ vi.mock('../AgentWorldShell', () => ({
           updatedAt: '2026-06-17T00:00:00Z',
         }),
     },
+    directory: {
+      resolve: vi
+        .fn()
+        .mockResolvedValue({ identity: { cryptoId: 'resolved-crypto-id' }, agent: null }),
+      getAgent: vi.fn().mockResolvedValue({ agentId: 'resolved-crypto-id' }),
+      listAgents: vi.fn().mockResolvedValue({ agents: [] }),
+      reverse: vi.fn().mockResolvedValue({ cryptoId: 'resolved-crypto-id', identities: [] }),
+      listIdentities: vi.fn().mockResolvedValue({ identities: [] }),
+      skills: vi.fn().mockResolvedValue({ agents: [] }),
+      findByEncryptionKey: vi.fn().mockResolvedValue(null),
+    },
     messages: {
       list: vi.fn().mockResolvedValue({ messages: [] }),
       acknowledge: vi.fn().mockResolvedValue(undefined),
@@ -155,7 +166,7 @@ describe('DMs panel (E2E enabled)', () => {
     await userEvent.click(dmsButton);
 
     // Should see the peer input, not the "coming soon" placeholder
-    expect(screen.getByPlaceholderText(/Recipient agent ID/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Recipient @handle/)).toBeInTheDocument();
     expect(screen.queryByTestId('dms-coming-soon')).not.toBeInTheDocument();
   });
 
@@ -168,11 +179,16 @@ describe('DMs panel (E2E enabled)', () => {
       encrypted: true,
     });
 
+    // directory.resolve returns 'resolved-crypto-id' by default (from mock)
+    vi.mocked(apiClient.directory.resolve).mockResolvedValue({
+      identity: { cryptoId: 'resolved-crypto-id' },
+    });
+
     render(<MessagingSection />);
     await user.click(screen.getByRole('button', { name: 'DMs' }));
 
-    // Enter peer ID and open DM
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    // Enter a handle (non-base58) — will be resolved to resolved-crypto-id
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer123');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -181,8 +197,9 @@ describe('DMs panel (E2E enabled)', () => {
     await user.type(composeInput, 'Hello encrypted world');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
+    // sendMessage is called with the RESOLVED crypto_id, not the raw input
     expect(vi.mocked(apiClient.signal.sendMessage)).toHaveBeenCalledWith({
-      recipient: 'peer123',
+      recipient: 'resolved-crypto-id',
       plaintext: 'Hello encrypted world',
     });
   });
@@ -193,7 +210,7 @@ describe('DMs panel (E2E enabled)', () => {
 
     render(<MessagingSection />);
     await user.click(screen.getByRole('button', { name: 'DMs' }));
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peerEmpty');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -209,7 +226,7 @@ describe('DMs panel (E2E enabled)', () => {
 
     render(<MessagingSection />);
     await user.click(screen.getByRole('button', { name: 'DMs' }));
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer456');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -222,11 +239,13 @@ describe('DMs panel (E2E enabled)', () => {
   });
 
   test('received messages are decrypted before display', async () => {
+    // directory.resolve returns 'resolved-crypto-id'; messages must use that id
+    // in the 'from' field to survive the peerId filter in useDirectMessages.
     vi.mocked(apiClient.messages.list).mockResolvedValue({
       messages: [
         {
           id: 'msg1',
-          from: 'peer789',
+          from: 'resolved-crypto-id',
           to: 'a',
           timestamp: '2026-06-17T00:00:00Z',
           deviceId: 1,
@@ -238,14 +257,14 @@ describe('DMs panel (E2E enabled)', () => {
     });
     vi.mocked(apiClient.signal.decryptMessage).mockResolvedValue({
       plaintext: 'Decrypted secret',
-      from: 'peer789',
+      from: 'resolved-crypto-id',
       messageId: 'msg1',
     });
 
     const user = userEvent.setup();
     render(<MessagingSection />);
     await user.click(screen.getByRole('button', { name: 'DMs' }));
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer789');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
@@ -261,11 +280,88 @@ describe('DMs panel (E2E enabled)', () => {
 
     render(<MessagingSection />);
     await user.click(screen.getByRole('button', { name: 'DMs' }));
-    const peerInput = screen.getByPlaceholderText(/Recipient agent ID/);
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
     await user.type(peerInput, 'peer999');
     await user.click(screen.getByRole('button', { name: 'Open DM' }));
 
     expect(await screen.findByText('Encrypted')).toBeInTheDocument();
+  });
+
+  test('DmsPanel resolves @handle to cryptoId before opening DM', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: { cryptoId: 'alice-crypto-id' },
+    });
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, '@alice');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // directory.resolve should be called with 'alice' (stripped @)
+    expect(vi.mocked(apiClient.directory.resolve)).toHaveBeenCalledWith('alice');
+    // The DM view should open (compose box appears)
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
+  test('DmsPanel shows error when directory.resolve returns no agent', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: undefined,
+      agent: undefined,
+    });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, '@unknown-user');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const err = await screen.findByTestId('dm-resolve-error');
+    expect(err).toHaveTextContent(/No agent found/);
+    // DM view should NOT be open
+    expect(screen.queryByPlaceholderText(/Type a message/)).not.toBeInTheDocument();
+  });
+
+  test('DmsPanel passes raw base58 wallet address without calling resolve', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    // A valid 44-char base58 string — should bypass resolution
+    await user.type(peerInput, '61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXY');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // directory.resolve must NOT be called for a raw base58 address
+    expect(vi.mocked(apiClient.directory.resolve)).not.toHaveBeenCalled();
+    // DM view should open directly
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+  });
+
+  test('DmsPanel shows error when directory.resolve throws', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockRejectedValueOnce(
+      new Error('directory service unavailable')
+    );
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, '@broken-handle');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const err = await screen.findByTestId('dm-resolve-error');
+    expect(err).toHaveTextContent('directory service unavailable');
+  });
+
+  test('renders DM compose UI with updated placeholder text', async () => {
+    render(<MessagingSection />);
+    await userEvent.click(screen.getByRole('button', { name: 'DMs' }));
+    expect(screen.getByPlaceholderText('Recipient @handle or wallet address')).toBeInTheDocument();
   });
 });
 

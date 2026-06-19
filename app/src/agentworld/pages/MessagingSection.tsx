@@ -1147,10 +1147,18 @@ function ActiveDmView({
   );
 }
 
+/** Quick heuristic matching Rust `looks_like_base58_pubkey`: 32–44 chars of
+ *  the Bitcoin base58 alphabet [1-9A-HJ-NP-Za-km-z]. */
+function looksLikeBase58Pubkey(s: string): boolean {
+  return s.length >= 32 && s.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(s);
+}
+
 function DmsPanel() {
   const [peerId, setPeerId] = useState('');
   const [activePeer, setActivePeer] = useState<string | null>(null);
   const [composeText, setComposeText] = useState('');
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
   if (!E2E_MESSAGING_ENABLED) {
     return (
@@ -1195,24 +1203,70 @@ function DmsPanel() {
     );
   }
 
+  const handleOpenDm = async () => {
+    const input = peerId.trim();
+    if (!input) return;
+
+    setResolving(true);
+    setResolveError(null);
+
+    try {
+      // If the input looks like a raw crypto_id (base58 wallet address) we can
+      // open the DM directly — no resolution round-trip needed. The Rust handler
+      // will do the same check and use it verbatim.
+      if (looksLikeBase58Pubkey(input)) {
+        setActivePeer(input);
+        return;
+      }
+
+      // Handle or bare name: resolve via directory first for immediate UX feedback.
+      const name = input.startsWith('@') ? input.slice(1) : input;
+      const resolved = await apiClient.directory.resolve(name);
+      const identity = resolved?.identity as
+        | { cryptoId?: string; [key: string]: unknown }
+        | null
+        | undefined;
+      const agent = resolved?.agent as { agentId?: string; [key: string]: unknown } | null;
+
+      const cryptoId = identity?.cryptoId ?? agent?.agentId;
+      if (cryptoId) {
+        setActivePeer(cryptoId);
+      } else {
+        setResolveError(`No agent found for "${input}"`);
+      }
+    } catch (err) {
+      setResolveError(String(err));
+    } finally {
+      setResolving(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
         <input
           type="text"
           value={peerId}
-          onChange={e => setPeerId(e.target.value)}
-          placeholder="Recipient agent ID (base58)"
+          onChange={e => {
+            setPeerId(e.target.value);
+            setResolveError(null);
+          }}
+          placeholder="Recipient @handle or wallet address"
           className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
         />
         <button
           type="button"
-          disabled={!peerId.trim()}
-          onClick={() => setActivePeer(peerId.trim())}
+          disabled={!peerId.trim() || resolving}
+          onClick={() => void handleOpenDm()}
           className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-          Open DM
+          {resolving ? 'Resolving...' : 'Open DM'}
         </button>
       </div>
+      {resolveError && (
+        <p data-testid="dm-resolve-error" className="text-xs text-red-500 dark:text-red-400">
+          {resolveError}
+        </p>
+      )}
     </div>
   );
 }
