@@ -202,6 +202,16 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     if (!title.trim() || !budgetAmount.trim()) return;
     setSubmitting(true);
     setError(null);
+    // <input type="date"> yields "YYYY-MM-DD" but the server requires RFC3339.
+    // Pin to end-of-day UTC, consistent with BountiesSection.
+    const deadlineIso = proposalDeadline.trim()
+      ? `${proposalDeadline.trim()}T23:59:59Z`
+      : undefined;
+    if (deadlineIso && new Date(deadlineIso).getTime() <= Date.now()) {
+      setError('Proposal deadline must be in the future');
+      setSubmitting(false);
+      return;
+    }
     const params: JobCreateParams = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -214,7 +224,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         : undefined,
       budgetAmount: budgetAmount.trim(),
       budgetAsset: budgetAsset.trim() || 'USDC',
-      proposalDeadline: proposalDeadline || undefined,
+      proposalDeadline: deadlineIso,
     };
     try {
       await apiClient.jobsWrite.create(params);
