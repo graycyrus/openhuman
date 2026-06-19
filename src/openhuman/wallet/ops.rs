@@ -170,7 +170,7 @@ pub struct WalletSetupParams {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-struct StoredWalletState {
+pub(super) struct StoredWalletState {
     pub consent_granted: bool,
     pub source: WalletSetupSource,
     pub mnemonic_word_count: u8,
@@ -775,6 +775,55 @@ pub(crate) async fn secret_material(chain: WalletChain) -> Result<WalletSecretMa
         encrypted_mnemonic,
         derivation_path,
     })
+}
+
+/// Write wallet state directly to disk WITHOUT keychain stripping.
+///
+/// This test helper is the antidote to the parallel-test global-keyring race:
+/// `save_stored_wallet_state_unlocked` tries to promote the encrypted mnemonic
+/// to the OS keychain (and strips it from JSON on success).  In a parallel
+/// `cargo test` run the global `BACKEND` `OnceLock` may have been initialized
+/// by an unrelated test to a temp directory that is later deleted, causing
+/// subsequent keychain reads to miss even though the mnemonic was "saved".
+///
+/// By writing the JSON directly we guarantee that `load_stored_wallet_state_unlocked`
+/// will always find `encrypted_mnemonic` in the JSON field — no keychain
+/// probe, no global state dependency.
+///
+/// Only available in `#[cfg(test)]`.  Production code must use
+/// `save_stored_wallet_state_unlocked` (which handles keychain promotion).
+#[cfg(test)]
+pub(super) fn write_wallet_state_direct_for_test(
+    config: &Config,
+    state: &StoredWalletState,
+) -> Result<(), String> {
+    use std::io::Write as _;
+    let path = wallet_state_path(config);
+    ensure_wallet_state_dir(&path)?;
+    // Serialize as-is — do NOT strip encrypted_mnemonic.
+    let payload = serde_json::to_string_pretty(state)
+        .map_err(|e| format!("failed to serialize wallet state: {e}"))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("failed to resolve parent dir for {}", path.display()))?;
+    let mut temp_file = NamedTempFile::new_in(parent)
+        .map_err(|e| format!("failed to create temp file in {}: {e}", parent.display()))?;
+    temp_file
+        .write_all(payload.as_bytes())
+        .map_err(|e| format!("failed to write wallet state: {e}"))?;
+    temp_file.persist(&path).map_err(|e| {
+        format!(
+            "failed to persist wallet state {}: {}",
+            path.display(),
+            e.error
+        )
+    })?;
+    log::debug!(
+        "[wallet][test] write_wallet_state_direct_for_test: wrote {} bytes to {}",
+        payload.len(),
+        path.display()
+    );
+    Ok(())
 }
 
 #[cfg(test)]
