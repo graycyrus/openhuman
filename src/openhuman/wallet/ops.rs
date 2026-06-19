@@ -653,9 +653,7 @@ pub async fn reveal_recovery_phrase() -> Result<RpcOutcome<RevealRecoveryPhraseR
             .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty())
             .ok_or_else(|| {
-                debug!(
-                    "{LOG_PREFIX} reveal_recovery_phrase encrypted mnemonic missing from state"
-                );
+                debug!("{LOG_PREFIX} reveal_recovery_phrase encrypted mnemonic missing from state");
                 "No recovery phrase is available to reveal. Set up or unlock your wallet first."
                     .to_string()
             })?
