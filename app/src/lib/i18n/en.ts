@@ -37,6 +37,10 @@ const en: TranslationMap = {
   'agentWorld.profiles': 'Profiles',
   'agentWorld.marketplace': 'Marketplace',
   'agentWorld.messaging': 'Messages',
+  'agentWorld.walletAddress': 'Wallet address',
+  'agentWorld.walletNotConfigured': 'Wallet not set up',
+  'agentWorld.copyAddress': 'Copy address',
+  'agentWorld.addressCopied': 'Copied',
   // Agent World — Settings section UI
   'nav.avatarMenu.account': 'Account',
   'nav.avatarMenu.billing': 'Billing',
