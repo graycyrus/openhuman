@@ -73,6 +73,9 @@ export default function CollapsedNavRail() {
         onClick={() => navigate('/settings/wallet-balances')}
         title={t('nav.wallet')}
         aria-label={t('nav.wallet')}
+        aria-current={
+          matchActive('/settings/wallet-balances', location.pathname) ? 'page' : undefined
+        }
         data-analytics-id="collapsed-rail-wallet"
         className={`${RAIL_BTN} ${
           matchActive('/settings/wallet-balances', location.pathname)
