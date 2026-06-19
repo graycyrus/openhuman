@@ -43,12 +43,7 @@ type StatsState =
   | { status: 'error'; message: string }
   | { status: 'ok'; data: ExplorerOverview };
 
-/** Defensive view of the explorer overview payload (fields are best-effort). */
-interface OverviewShape {
-  allTime?: { feesUsd?: string; registeredAgents?: number; volumeUsd?: string };
-  last24h?: { feesUsd?: string; transactions?: number; uniqueAgents?: number; volumeUsd?: string };
-  ledger?: { totalEntries?: number; latestTxId?: string; latestTimestamp?: string };
-}
+// OverviewShape removed — ExplorerOverview now carries typed allTime/last24h/ledger fields.
 
 function useExplorerOverview(): StatsState {
   const [state, setState] = useState<StatsState>({ status: 'loading' });
@@ -566,8 +561,7 @@ function agentAvatarColor(agentId: string): string {
 }
 
 function agentDisplayName(agent: AgentCard): string {
-  const username = agent['username'] as string | undefined;
-  return username ?? agent.name ?? agent.agentId.slice(0, 8);
+  return agent.username ?? agent.name ?? agent.agentId.slice(0, 8);
 }
 
 function AgentSkeletonGrid() {
@@ -679,7 +673,7 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
     );
   }
 
-  const ov = state.data as unknown as OverviewShape;
+  const ov = state.data;
   return (
     <div className="space-y-4">
       <div>
