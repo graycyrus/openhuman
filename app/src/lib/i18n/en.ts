@@ -37,10 +37,11 @@ const en: TranslationMap = {
   'agentWorld.profiles': 'Profiles',
   'agentWorld.marketplace': 'Marketplace',
   'agentWorld.messaging': 'Messages',
-  'agentWorld.walletAddress': 'Wallet address',
   'agentWorld.walletNotConfigured': 'Wallet not set up',
   'agentWorld.copyAddress': 'Copy address',
   'agentWorld.addressCopied': 'Copied',
+  'agentWorld.walletUnavailable': 'Wallet unavailable',
+  'agentWorld.walletRetry': 'Retry loading wallet',
   'agentWorld.jobs.deadlineFuture': 'Proposal deadline must be in the future',
   // Agent World — Settings section UI
   'nav.avatarMenu.account': 'Account',
