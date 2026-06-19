@@ -88,6 +88,7 @@ export interface AgentCard {
   agentId: string;
   name?: string;
   description?: string;
+  username?: string;
   [key: string]: unknown;
 }
 
@@ -97,6 +98,9 @@ export interface ListAgentsResponse {
 }
 
 export interface ExplorerOverview {
+  allTime?: { feesUsd?: string; registeredAgents?: number; volumeUsd?: string };
+  last24h?: { feesUsd?: string; transactions?: number; uniqueAgents?: number; volumeUsd?: string };
+  ledger?: { totalEntries?: number; latestTxId?: string; latestTimestamp?: string };
   [key: string]: unknown;
 }
 
@@ -666,6 +670,8 @@ export interface GroupQueryParams {
   minMembers?: number;
   maxMembers?: number;
   limit?: number;
+  /** When set, returns only groups this agent is an active member of. */
+  member?: string;
   [key: string]: unknown;
 }
 // ── Groups invite/role types ────────────────────────────────────────────────
