@@ -376,6 +376,66 @@ describe('DMs panel (E2E enabled)', () => {
     expect(err).toHaveTextContent('directory service unavailable');
   });
 
+  // ── Directory-card fallback tests ─────────────────────────────────────────
+  // The Rust handler now synthesises a ResolveResponse from the directory
+  // agent card when the registry 404s.  The frontend sees the same shape
+  // (agent.cryptoId present, identity absent) regardless of which code path
+  // resolved the name.
+
+  test('DmsPanel opens DM via directory-card agent when registry misses (synthesised response)', async () => {
+    // Simulate what the new Rust backend returns after directory-card fallback:
+    // identity is null but agent has a cryptoId.
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockResolvedValueOnce({
+      identity: null,
+      agent: {
+        agentId: 'dir-agent-99',
+        cryptoId: 'dir-crypto-id-99',
+        name: 'stevejobs',
+        username: 'stevejobs',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+    });
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, 'stevejobs');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    // directory.resolve must have been called (not bypassed as base58)
+    expect(vi.mocked(apiClient.directory.resolve)).toHaveBeenCalledWith('stevejobs');
+    // DM view should open using the directory card crypto_id
+    expect(await screen.findByPlaceholderText(/Type a message/)).toBeInTheDocument();
+    expect(screen.queryByTestId('dm-resolve-error')).not.toBeInTheDocument();
+  });
+
+  test('DmsPanel shows clear human-readable error when handle is unresolvable', async () => {
+    // Simulate the Rust backend returning a clear error string when neither
+    // the registry nor the directory have the handle.  The frontend catches
+    // the thrown error and shows it.
+    const user = userEvent.setup();
+    vi.mocked(apiClient.directory.resolve).mockRejectedValueOnce(
+      new Error(
+        'No agent found for "ghosthandle". Check the handle or paste their wallet address directly.'
+      )
+    );
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    const peerInput = screen.getByPlaceholderText(/Recipient @handle/);
+    await user.type(peerInput, 'ghosthandle');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const err = await screen.findByTestId('dm-resolve-error');
+    expect(err).toHaveTextContent('ghosthandle');
+    expect(err).not.toHaveTextContent('404');
+    // DM view must NOT open
+    expect(screen.queryByPlaceholderText(/Type a message/)).not.toBeInTheDocument();
+  });
+
   test('renders DM compose UI with updated placeholder text', async () => {
     render(<MessagingSection />);
     await userEvent.click(screen.getByRole('button', { name: 'DMs' }));
