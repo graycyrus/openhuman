@@ -204,6 +204,34 @@ describe('DMs panel (E2E enabled)', () => {
     });
   });
 
+  test('our own sent message stays visible after refresh (relay only echoes incoming)', async () => {
+    const user = userEvent.setup();
+    // The relay never returns our outgoing message, so refresh sees nothing.
+    vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });
+    vi.mocked(apiClient.signal.sendMessage).mockResolvedValue({
+      messageId: 'sent-1',
+      timestamp: '2026-06-17T00:00:00Z',
+      encrypted: true,
+    });
+    vi.mocked(apiClient.directory.resolve).mockResolvedValue({
+      identity: { cryptoId: 'resolved-crypto-id' },
+    });
+
+    render(<MessagingSection />);
+    await user.click(screen.getByRole('button', { name: 'DMs' }));
+    await user.type(screen.getByPlaceholderText(/Recipient @handle/), 'peer123');
+    await user.click(screen.getByRole('button', { name: 'Open DM' }));
+
+    const composeInput = await screen.findByPlaceholderText(/Type a message/);
+    await user.type(composeInput, 'Persisted hello');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    // The optimistic outgoing message must remain after send + the empty refresh.
+    expect(await screen.findByText('Persisted hello')).toBeInTheDocument();
+    // The input is cleared and the message is not wiped by the refresh.
+    expect(screen.getByText('Persisted hello')).toBeInTheDocument();
+  });
+
   test('shows an empty-state in an opened DM with no messages, alongside the compose box', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.messages.list).mockResolvedValue({ messages: [] });

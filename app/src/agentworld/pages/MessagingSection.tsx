@@ -984,6 +984,12 @@ interface DecryptedMessage {
   plaintext: string;
   timestamp: string;
   encrypted: true;
+  /**
+   * True for messages WE sent. The relay only returns incoming envelopes
+   * (and a sender can't decrypt their own outgoing ciphertext anyway), so we
+   * keep the plaintext locally and merge it into the thread on refresh.
+   */
+  outgoing?: boolean;
 }
 
 function useDirectMessages(peerId: string) {
@@ -1013,7 +1019,15 @@ function useDirectMessages(peerId: string) {
           log('failed to decrypt message %s: %s', env.id, String(decryptErr));
         }
       }
-      setMessages(decrypted);
+      // Merge fresh incoming with the outgoing messages we sent this session —
+      // the relay only echoes incoming, so replacing would wipe our own sent
+      // messages. De-dupe by messageId, keep chronological order.
+      setMessages(prev => {
+        const outgoing = prev.filter(m => m.outgoing);
+        const seen = new Set(decrypted.map(m => m.messageId));
+        const merged = [...decrypted, ...outgoing.filter(m => !seen.has(m.messageId))];
+        return merged.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      });
     } catch (err) {
       setError(String(err));
     } finally {
@@ -1026,7 +1040,20 @@ function useDirectMessages(peerId: string) {
       setSending(true);
       setError(null);
       try {
-        await apiClient.signal.sendMessage({ recipient: peerId, plaintext });
+        const result = await apiClient.signal.sendMessage({ recipient: peerId, plaintext });
+        // Optimistically show our own message: the relay won't return it and we
+        // can't decrypt our own ciphertext, so keep the plaintext locally.
+        const sentMessage: DecryptedMessage = {
+          messageId: result?.messageId ?? `local-${peerId}-${plaintext.length}-${Date.now()}`,
+          from: 'You',
+          plaintext,
+          timestamp: new Date().toISOString(),
+          encrypted: true,
+          outgoing: true,
+        };
+        setMessages(prev =>
+          [...prev, sentMessage].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+        );
         await refresh();
       } catch (err) {
         setError(String(err));
@@ -1114,7 +1141,11 @@ function ActiveDmView({
         {messages.map(msg => (
           <div
             key={msg.messageId}
-            className="rounded-lg bg-stone-100 dark:bg-neutral-800 px-3 py-2 text-sm">
+            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+              msg.outgoing
+                ? 'ml-auto bg-primary-500/15 dark:bg-primary-500/20'
+                : 'mr-auto bg-stone-100 dark:bg-neutral-800'
+            }`}>
             <p className="text-stone-900 dark:text-neutral-100">{msg.plaintext}</p>
             <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
               {msg.from} &middot; {msg.timestamp}
