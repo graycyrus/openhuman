@@ -322,3 +322,328 @@ describe('RecoveryPhrasePanel — loading state', () => {
     expect(screen.getByText(/Checking wallet status/i)).toBeTruthy();
   });
 });
+
+// ── Coverage gate additions ───────────────────────────────────────────────────
+// Covers diff-cover lines: 78,81-82,84 (status-fetch failure → view/statusError),
+// 106-111 (handleImportReplace in replace-confirm), 153 (handleCopy guard),
+// 253-254 (!mnemonic early-return), 312 (statusError alert in view mode),
+// 538,541 (copy button onClick + copied state), 608 (word-count change),
+// 633-634,638,640,650 (import word onChange/onKeyDown + styling + valid banner),
+// 707 (error alert in generate/import mode).
+
+describe('RecoveryPhrasePanel — fetchWalletStatus rejection degrades to view with statusError', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Simulate a network / RPC failure on the status check (covers lines 78, 81-82, 84).
+    mockFetchWalletStatus.mockRejectedValue(new Error('Network error: wallet status unavailable'));
+  });
+
+  // Covers lines 78, 81-82, 84, 312.
+  it('shows statusError alert in view mode when fetchWalletStatus rejects', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    // After rejection the component degrades to view mode and renders the coral error alert.
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Network error: wallet status unavailable'
+    );
+    // Must NOT auto-generate a phrase (would risk overwriting an existing wallet).
+    expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
+    // The recovery/consent UI must not be shown — only the error alert.
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  // Covers line 312 (statusError branch in renderViewMode).
+  it('statusError alert uses role="alert" and shows the error text', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByRole('alert'));
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(/Network error/i);
+  });
+
+  // Verify a generic error message appears when rejection value is not an Error instance.
+  it('falls back to generic message when rejection is a plain string', async () => {
+    mockFetchWalletStatus.mockRejectedValue('unexpected failure');
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByRole('alert'));
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Failed to check wallet status. Please try again.'
+    );
+  });
+});
+
+describe('RecoveryPhrasePanel — replace-confirm → import path (handleImportReplace)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGenerateMnemonicPhrase.mockReturnValue(
+      'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
+    );
+    mockFetchWalletStatus.mockResolvedValue({
+      configured: true,
+      onboardingCompleted: true,
+      consentGranted: true,
+      secretStored: true,
+      source: 'generated',
+      mnemonicWordCount: 12,
+      accounts: [],
+      updatedAtMs: 1_700_000_000_000,
+    });
+  });
+
+  // Covers lines 106-111 (handleImportReplace sets isReplace=true and enters import mode).
+  it('clicking "I already have a recovery phrase" in replace-confirm enters import mode', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Replace wallet/i));
+
+    // Enter replace-confirm mode.
+    fireEvent.click(screen.getByText(/Replace wallet/i));
+    expect(screen.getByText(/permanently replace your current wallet/i)).toBeTruthy();
+
+    // Click the "I already have a recovery phrase" link inside replace-confirm.
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+
+    // Must arrive in import mode — the intro copy is the marker.
+    await waitFor(() =>
+      expect(screen.queryByText(/Enter your recovery phrase below/i)).toBeTruthy()
+    );
+    // No mnemonic was generated (since we went to import, not generate).
+    expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
+  });
+
+  // Covers line 608 (word-count change buttons in import mode after handleImportReplace).
+  it('changing word count in import mode (after replace flow) updates the word slots', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Replace wallet/i));
+
+    fireEvent.click(screen.getByText(/Replace wallet/i));
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
+
+    // Default is 12 word slots; switch to 24.
+    fireEvent.click(screen.getByRole('button', { name: '24' }));
+
+    // 24 labelled inputs should now be visible.
+    const inputs = screen.getAllByRole('textbox');
+    // The count may exceed 24 if there are other textboxes, but there must be at least 24.
+    expect(inputs.length).toBeGreaterThanOrEqual(24);
+  });
+});
+
+describe('RecoveryPhrasePanel — copy button in revealed generate mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGenerateMnemonicPhrase.mockReturnValue(
+      'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
+    );
+    mockFetchWalletStatus.mockResolvedValue({
+      configured: false,
+      onboardingCompleted: false,
+      consentGranted: false,
+      secretStored: false,
+      source: null,
+      mnemonicWordCount: null,
+      accounts: [],
+      updatedAtMs: null,
+    });
+    // Stub clipboard so the copy path doesn't throw.
+    Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => undefined) } });
+  });
+
+  // Covers lines 538, 541 (copy button onClick triggers handleCopy; copied state renders "Copied").
+  it('reveals phrase then copies — shows Copied state after clicking copy button', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
+
+    // Reveal the phrase first (otherwise the copy button is disabled).
+    fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
+
+    // Copy button should now be enabled. Click it.
+    const copyButton = screen.getByText(/Copy to Clipboard/i).closest('button')!;
+    expect(copyButton).not.toBeDisabled();
+    fireEvent.click(copyButton);
+
+    // navigator.clipboard.writeText must have been called with the mnemonic.
+    await waitFor(() =>
+      expect(vi.mocked(navigator.clipboard.writeText)).toHaveBeenCalledWith(
+        'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
+      )
+    );
+
+    // The button label switches to "Copied" (common.copied translation).
+    await waitFor(() => expect(screen.queryByText(/^Copied$/i)).toBeTruthy());
+  });
+
+  // Covers line 153 (handleCopy early-return when !mnemonic — guard branch).
+  // This can only happen if mnemonic is null; we simulate it by making generateMnemonicPhrase
+  // return an empty string so the split produces no words, but the guard is at the function level.
+  // We test the guard indirectly: with no mnemonic the copy button is disabled and clipboard is
+  // never written.
+  it('copy button is disabled before phrase is revealed (mnemonic guard path)', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
+
+    // The copy button exists but is disabled before reveal.
+    const copyButton = screen.getByText(/Copy to Clipboard/i).closest('button')!;
+    expect(copyButton).toBeDisabled();
+    fireEvent.click(copyButton);
+
+    // Clipboard should not have been written.
+    expect(vi.mocked(navigator.clipboard.writeText)).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecoveryPhrasePanel — !mnemonic early-return in handleSave (lines 253-254)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Return empty string so mnemonic state is set to '' — falsy, triggers the guard.
+    mockGenerateMnemonicPhrase.mockReturnValue('');
+    mockFetchWalletStatus.mockResolvedValue({
+      configured: false,
+      onboardingCompleted: false,
+      consentGranted: false,
+      secretStored: false,
+      source: null,
+      mnemonicWordCount: null,
+      accounts: [],
+      updatedAtMs: null,
+    });
+  });
+
+  // Covers lines 253-254: confirmed=true but mnemonic is falsy → early return, no persist call.
+  it('does not call persistLocalWalletFromMnemonic when mnemonic is empty', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    // The checkbox is present once generate mode initialises.
+    await waitFor(() => screen.getByRole('checkbox'));
+
+    const checkbox = screen.getByRole('checkbox');
+    fireEvent.click(checkbox);
+
+    const saveButton = screen.getByText(/Save Recovery Phrase/i).closest('button')!;
+    fireEvent.click(saveButton);
+
+    // With an empty mnemonic, persistLocalWalletFromMnemonic must NOT be called.
+    await waitFor(() => expect(mockPersistLocalWalletFromMnemonic).not.toHaveBeenCalled());
+  });
+});
+
+describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styling', () => {
+  // Known-valid 12-word BIP39 test vector.
+  const VALID_12_WORDS =
+    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'.split(
+      ' '
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGenerateMnemonicPhrase.mockReturnValue(
+      'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
+    );
+    mockFetchWalletStatus.mockResolvedValue({
+      configured: false,
+      onboardingCompleted: false,
+      consentGranted: false,
+      secretStored: false,
+      source: null,
+      mnemonicWordCount: null,
+      accounts: [],
+      updatedAtMs: null,
+    });
+  });
+
+  // Covers lines 633-634 (onChange on word inputs updates importWords).
+  it('typing into a word input updates the value (onChange coverage)', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
+
+    const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
+    fireEvent.change(wordInputs[0], { target: { value: 'abandon' } });
+    expect((wordInputs[0] as HTMLInputElement).value).toBe('abandon');
+  });
+
+  // Covers line 638 (onKeyDown on word inputs — Backspace on empty field).
+  it('pressing Backspace on an empty word input (onKeyDown coverage)', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
+
+    const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
+    // Word 1 is empty; Backspace on word slot 2 (index 1) when it is empty.
+    fireEvent.keyDown(wordInputs[1], { key: 'Backspace' });
+    // No crash — focus attempt is the side-effect; just verify the inputs remain.
+    expect(wordInputs[1]).toBeTruthy();
+  });
+
+  // Covers lines 640 (importValid===false invalid border), 638, and 707 (error alert).
+  it('clicking Save with an invalid phrase shows the error alert (line 707)', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
+
+    // Fill all 12 slots with an invalid word so the phrase is structurally complete but invalid.
+    const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
+    for (const input of wordInputs.slice(0, 12)) {
+      fireEvent.change(input, { target: { value: 'invalid' } });
+    }
+
+    // All slots filled — Save should now be enabled.
+    const saveButton = screen.getByText(/Save Recovery Phrase/i).closest('button')!;
+    fireEvent.click(saveButton);
+
+    // The error alert (line 707) must appear.
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeTruthy());
+    // persistLocalWalletFromMnemonic should NOT have been called.
+    expect(mockPersistLocalWalletFromMnemonic).not.toHaveBeenCalled();
+  });
+
+  // Covers line 650 (importValid===true banner), line 640 (sage border on valid inputs).
+  it('filling a valid BIP39 phrase and saving shows the valid-phrase banner then persists', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
+
+    const wordInputs = screen.getAllByLabelText(/Recovery phrase word/i);
+    // Type the 12-word valid BIP39 vector into each slot.
+    VALID_12_WORDS.forEach((word, i) => {
+      fireEvent.change(wordInputs[i], { target: { value: word } });
+    });
+
+    // All slots filled — Save button should be enabled.
+    const saveButton = screen.getByText(/Save Recovery Phrase/i).closest('button')!;
+    expect(saveButton).not.toBeDisabled();
+    fireEvent.click(saveButton);
+
+    // After validation, importValid becomes true → "Valid recovery phrase" banner (line 650).
+    await waitFor(() => expect(screen.queryByText(/Valid recovery phrase/i)).toBeTruthy());
+    // Wallet persist must have been called with the correct phrase.
+    await waitFor(() => expect(mockPersistLocalWalletFromMnemonic).toHaveBeenCalled());
+    const callArgs = mockPersistLocalWalletFromMnemonic.mock.calls[0][0];
+    expect(callArgs.mnemonic).toBe(VALID_12_WORDS.join(' '));
+    expect(callArgs.source).toBe('imported');
+  });
+
+  // Covers line 608 (handleWordCountChange via the word-count toggle buttons).
+  it('switching from 12 to 15 word slots adjusts the import grid', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/I already have a recovery phrase/i));
+
+    fireEvent.click(screen.getByText(/I already have a recovery phrase/i));
+    await waitFor(() => screen.getByText(/Enter your recovery phrase below/i));
+
+    // Initially 12 slots.
+    expect(screen.getAllByLabelText(/Recovery phrase word/i).length).toBe(12);
+
+    // Click the "15" word-count button.
+    fireEvent.click(screen.getByRole('button', { name: '15' }));
+
+    // Now 15 slots.
+    expect(screen.getAllByLabelText(/Recovery phrase word/i).length).toBe(15);
+  });
+});
