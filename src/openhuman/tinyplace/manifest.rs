@@ -4956,9 +4956,11 @@ mod tests {
 
     #[test]
     fn base58_pubkey_heuristic_rejects_45_char_string() {
-        // 45 chars is too long for a 32-byte base58 pubkey
+        // 45 chars is too long for a 32-byte base58 pubkey (valid range is 32..=44)
+        let s = "61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXYZ12";
+        assert_eq!(s.len(), 45, "test fixture must be exactly 45 chars");
         assert!(
-            !looks_like_base58_pubkey("61KcG5aGLqpnJz2fXyzABCDEFGHJKLMNPQRSTUVWXYZ1"),
+            !looks_like_base58_pubkey(s),
             "45-char string must not match"
         );
     }
