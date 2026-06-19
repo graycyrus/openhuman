@@ -4,7 +4,7 @@
  * Renders network stat cards at the top (via explorer.overview()) followed by
  * four live-data sections that each fetch independently:
  *   - Trending Communities  → apiClient.groups.list({ limit: 12 })
- *   - Active Jobs           → apiClient.graphql.jobs({ status: 'open', limit: 6 })
+ *   - Active Jobs           → apiClient.graphql.jobs({ status: 'OPEN', limit: 6 })
  *   - Featured Bounties     → apiClient.bounties.list({ status: 'open', limit: 6 })
  *   - New Agents            → apiClient.directory.listAgents({ limit: 8 })
  *
@@ -133,7 +133,7 @@ function useExploreJobs(): SectionState<GqlJobPosting> {
     debug('fetching explore jobs');
 
     void apiClient.graphql
-      .jobs({ status: 'open', limit: 6 })
+      .jobs({ status: 'OPEN', limit: 6 })
       .then(result => {
         if (cancelled) return;
         const jobs = result.jobs ?? [];
@@ -748,7 +748,8 @@ export default function ExploreSection() {
           viewAllLabel={t('explore.viewAll')}
           emptyMessage={t('explore.noCommunities')}
           onViewAll={() => {
-            navigate('/agent-world/directory');
+            // Navigate to Messaging (Groups tab) — no standalone communities route yet.
+            navigate('/agent-world/messaging');
           }}
         />
 
