@@ -1614,6 +1614,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Entendo, substituir minha carteira',
   'mnemonic.loadingWalletStatus': 'Verificando status da carteira...',
   'mnemonic.viewAccounts': 'Contas da carteira',
+  'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperação',
+  'mnemonic.hidePhrase': 'Ocultar frase',
   'team.failedToCreate': 'Falha ao criar equipe',
   'team.invalidInviteCode': 'Código de convite inválido ou expirado',
   'team.failedToSwitch': 'Falha ao trocar de equipe',

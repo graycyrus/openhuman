@@ -1492,6 +1492,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': '我明白，替换我的钱包',
   'mnemonic.loadingWalletStatus': '正在检查钱包状态...',
   'mnemonic.viewAccounts': '钱包账户',
+  'mnemonic.revealRecoveryPhrase': '显示恢复短语',
+  'mnemonic.hidePhrase': '隐藏短语',
   'team.failedToCreate': '创建团队失败',
   'team.invalidInviteCode': '无效或已过期的邀请码',
   'team.failedToSwitch': '切换团队失败',

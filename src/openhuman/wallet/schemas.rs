@@ -68,6 +68,7 @@ pub fn all_wallet_controller_schemas() -> Vec<ControllerSchema> {
         wallet_schemas("tx_status"),
         wallet_schemas("tx_receipt"),
         wallet_schemas("lookup_tx"),
+        wallet_schemas("reveal_recovery_phrase"),
     ]
 }
 
@@ -120,6 +121,10 @@ pub fn all_wallet_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: wallet_schemas("lookup_tx"),
             handler: handle_lookup_tx,
+        },
+        RegisteredController {
+            schema: wallet_schemas("reveal_recovery_phrase"),
+            handler: handle_reveal_recovery_phrase,
         },
     ]
 }
@@ -330,6 +335,20 @@ pub fn wallet_schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "reveal_recovery_phrase" => ControllerSchema {
+            namespace: "wallet",
+            function: "reveal_recovery_phrase",
+            description: "Reveal the plaintext recovery phrase for an existing configured wallet. \
+                The phrase is decrypted in-core and returned only in the RPC response; \
+                it must be held in transient React state and never written to disk.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "{phrase: string, wordCount: number} — the decrypted BIP-39 mnemonic.",
+                required: true,
+            }],
+        },
         _ => ControllerSchema {
             namespace: "wallet",
             function: "unknown",
@@ -447,6 +466,14 @@ fn handle_lookup_tx(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_reveal_recovery_phrase(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        crate::openhuman::wallet::reveal_recovery_phrase()
+            .await?
+            .into_cli_compatible_json()
+    })
+}
+
 /// Shared input schema for the tx_status / tx_receipt / lookup_tx readers.
 fn tx_query_inputs() -> Vec<FieldSchema> {
     vec![
@@ -477,12 +504,12 @@ mod tests {
 
     #[test]
     fn all_schemas_lists_every_controller() {
-        assert_eq!(all_wallet_controller_schemas().len(), 12);
+        assert_eq!(all_wallet_controller_schemas().len(), 13);
     }
 
     #[test]
     fn all_controllers_lists_every_handler() {
-        assert_eq!(all_wallet_registered_controllers().len(), 12);
+        assert_eq!(all_wallet_registered_controllers().len(), 13);
     }
 
     #[test]

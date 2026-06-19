@@ -1596,6 +1596,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Rozumiem, zastąp mój portfel',
   'mnemonic.loadingWalletStatus': 'Sprawdzanie statusu portfela...',
   'mnemonic.viewAccounts': 'Konta portfela',
+  'mnemonic.revealRecoveryPhrase': 'Ujawnij frazę odzyskiwania',
+  'mnemonic.hidePhrase': 'Ukryj frazę',
   'team.failedToCreate': 'Nie udało się utworzyć zespołu',
   'team.invalidInviteCode': 'Nieprawidłowy lub wygasły kod zaproszenia',
   'team.failedToSwitch': 'Nie udało się przełączyć zespołu',

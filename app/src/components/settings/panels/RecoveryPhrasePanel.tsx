@@ -3,7 +3,11 @@ import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 're
 import { persistLocalWalletFromMnemonic } from '../../../features/wallet/setupLocalWalletFromMnemonic';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
-import { fetchWalletStatus, type WalletStatus } from '../../../services/walletApi';
+import {
+  fetchWalletStatus,
+  revealRecoveryPhrase,
+  type WalletStatus,
+} from '../../../services/walletApi';
 import {
   generateMnemonicPhrase,
   MNEMONIC_GENERATE_WORD_COUNT,
@@ -45,6 +49,13 @@ const RecoveryPhrasePanel = () => {
 
   // Replace-mode state: tracks that the user went through the replace flow
   const [isReplace, setIsReplace] = useState(false);
+
+  // View mode: reveal existing phrase
+  const [viewRevealed, setViewRevealed] = useState(false);
+  const [viewMnemonic, setViewMnemonic] = useState<string | null>(null);
+  const [viewRevealLoading, setViewRevealLoading] = useState(false);
+  const [viewRevealError, setViewRevealError] = useState<string | null>(null);
+  const [viewCopied, setViewCopied] = useState(false);
 
   // Import mode state
   const [selectedWordCount, setSelectedWordCount] = useState(IMPORT_SLOTS_INITIAL);
@@ -117,6 +128,30 @@ const RecoveryPhrasePanel = () => {
       return () => clearTimeout(timer);
     }
   }, [copied]);
+
+  useEffect(() => {
+    if (viewCopied) {
+      const timer = setTimeout(() => setViewCopied(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [viewCopied]);
+
+  // Security: clear plaintext phrase from state when unmounting.
+  useEffect(() => {
+    return () => {
+      setViewMnemonic(null);
+      setViewRevealed(false);
+    };
+  }, []);
+
+  // Clear phrase when navigating away from view mode.
+  useEffect(() => {
+    if (mode !== 'view') {
+      setViewMnemonic(null);
+      setViewRevealed(false);
+      setViewRevealError(null);
+    }
+  }, [mode]);
 
   const switchMode = useCallback((nextMode: 'generate' | 'import') => {
     setMode(nextMode);
@@ -275,6 +310,40 @@ const RecoveryPhrasePanel = () => {
     }
   };
 
+  const handleViewCopy = useCallback(async () => {
+    if (!viewMnemonic) return;
+    try {
+      await navigator.clipboard.writeText(viewMnemonic);
+      setViewCopied(true);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = viewMnemonic;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (ok) setViewCopied(true);
+    }
+  }, [viewMnemonic]);
+
+  const handleRevealExistingPhrase = useCallback(async () => {
+    setViewRevealLoading(true);
+    setViewRevealError(null);
+    setViewMnemonic(null);
+    setViewRevealed(false);
+    try {
+      const result = await revealRecoveryPhrase();
+      setViewMnemonic(result.phrase);
+      setViewRevealed(true);
+    } catch (e) {
+      setViewRevealError(e instanceof Error ? e.message : t('mnemonic.somethingWentWrong'));
+    } finally {
+      setViewRevealLoading(false);
+    }
+  }, [t]);
+
   const words = mnemonic ? mnemonic.split(' ') : [];
   const importWordCount = importWords.filter(w => w.trim()).length;
   const isImportComplete =
@@ -399,6 +468,170 @@ const RecoveryPhrasePanel = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Reveal existing recovery phrase */}
+          {viewMnemonic ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
+                <svg
+                  className="w-4 h-4 text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                  />
+                </svg>
+                <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                  {t('mnemonic.cannotRecover')}
+                </p>
+              </div>
+              <div className="bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 border border-neutral-200 dark:border-neutral-800 relative">
+                <div
+                  className="grid grid-cols-3 gap-2 transition-all duration-300"
+                  style={{
+                    filter: viewRevealed ? 'none' : 'blur(8px)',
+                    userSelect: viewRevealed ? 'auto' : 'none',
+                    pointerEvents: viewRevealed ? 'auto' : 'none',
+                  }}>
+                  {viewMnemonic.split(' ').map((word, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg px-3 py-2 text-sm border border-neutral-200 dark:border-neutral-800">
+                      <span className="text-neutral-500 dark:text-neutral-400 font-mono text-xs w-5 text-right">
+                        {index + 1}.
+                      </span>
+                      <span className="font-mono font-medium">{word}</span>
+                    </div>
+                  ))}
+                </div>
+                {!viewRevealed && (
+                  <button
+                    type="button"
+                    onClick={() => setViewRevealed(true)}
+                    aria-label={t('mnemonic.revealPhrase')}
+                    className="absolute inset-0 flex items-center justify-center cursor-pointer bg-transparent">
+                    <svg
+                      className="w-7 h-7 text-neutral-800 dark:text-white transition-opacity duration-200 hover:opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => void handleViewCopy()}
+                disabled={!viewRevealed}
+                className="w-full">
+                {viewCopied ? (
+                  <>
+                    <svg
+                      className="w-4 h-4 text-sage-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sage-400">{t('common.copied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span>{t('mnemonic.copyToClipboard')}</span>
+                  </>
+                )}
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMnemonic(null);
+                  setViewRevealed(false);
+                }}
+                className="w-full text-center text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors">
+                {t('mnemonic.hidePhrase')}
+              </button>
+            </div>
+          ) : (
+            <>
+              {viewRevealError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 p-3 rounded-xl bg-coral-50 dark:bg-coral-500/10 border border-coral-200 dark:border-coral-500/30">
+                  <svg
+                    className="w-4 h-4 text-coral-500 flex-shrink-0 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                    />
+                  </svg>
+                  <p className="text-xs text-coral-700 dark:text-coral-300 leading-relaxed">
+                    {viewRevealError}
+                  </p>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => void handleRevealExistingPhrase()}
+                disabled={viewRevealLoading}
+                className="w-full">
+                {viewRevealLoading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    <span>{t('mnemonic.loadingWalletStatus')}</span>
+                  </>
+                ) : (
+                  t('mnemonic.revealRecoveryPhrase')
+                )}
+              </Button>
+            </>
           )}
 
           {/* Replace wallet CTA */}

@@ -1621,6 +1621,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Je comprends, remplacer mon portefeuille',
   'mnemonic.loadingWalletStatus': 'Vérification du statut du portefeuille...',
   'mnemonic.viewAccounts': 'Voir les comptes du portefeuille',
+  'mnemonic.revealRecoveryPhrase': 'Révéler la phrase de récupération',
+  'mnemonic.hidePhrase': 'Masquer la phrase',
   'team.failedToCreate': "Échec de la création de l'équipe",
   'team.invalidInviteCode': "Code d'invitation invalide ou expiré",
   'team.failedToSwitch': "Échec du changement d'équipe",

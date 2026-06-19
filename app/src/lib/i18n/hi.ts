@@ -1574,6 +1574,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'मैं समझता/समझती हूँ, मेरा वॉलेट बदलें',
   'mnemonic.loadingWalletStatus': 'वॉलेट की स्थिति जाँची जा रही है...',
   'mnemonic.viewAccounts': 'वॉलेट खाते',
+  'mnemonic.revealRecoveryPhrase': 'रिकवरी वाक्यांश प्रकट करें',
+  'mnemonic.hidePhrase': 'वाक्यांश छुपाएं',
   'team.failedToCreate': 'टीम नहीं बन पाई',
   'team.invalidInviteCode': 'गलत या एक्सपायर्ड इनवाइट कोड',
   'team.failedToSwitch': 'टीम स्विच नहीं हो पाई',

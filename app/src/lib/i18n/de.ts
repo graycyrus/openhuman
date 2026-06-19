@@ -1620,6 +1620,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Ich verstehe, meine Wallet ersetzen',
   'mnemonic.loadingWalletStatus': 'Wallet-Status wird geprüft...',
   'mnemonic.viewAccounts': 'Wallet-Konten',
+  'mnemonic.revealRecoveryPhrase': 'Wiederherstellungsphrase anzeigen',
+  'mnemonic.hidePhrase': 'Phrase ausblenden',
   'team.failedToCreate': 'Team konnte nicht erstellt werden',
   'team.invalidInviteCode': 'Ungültiger oder abgelaufener Einladungscode',
   'team.failedToSwitch': 'Teamwechsel fehlgeschlagen',

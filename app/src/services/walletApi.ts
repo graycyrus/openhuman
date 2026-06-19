@@ -174,3 +174,21 @@ export const executePrepared = async (quoteId: string): Promise<ExecutionResult>
   });
   return response.result;
 };
+
+export interface RevealRecoveryPhraseResult {
+  phrase: string;
+  wordCount: number;
+}
+
+/**
+ * Reveal the plaintext recovery phrase for the currently configured wallet.
+ *
+ * The phrase is held only in transient React state — never written to disk.
+ * Calls openhuman.wallet_reveal_recovery_phrase on the Rust core.
+ */
+export const revealRecoveryPhrase = async (): Promise<RevealRecoveryPhraseResult> => {
+  const response = await callCoreRpc<{ result: RevealRecoveryPhraseResult }>({
+    method: 'openhuman.wallet_reveal_recovery_phrase',
+  });
+  return response.result;
+};

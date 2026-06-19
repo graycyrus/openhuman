@@ -1577,6 +1577,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'আমি বুঝতে পারছি, আমার ওয়ালেট প্রতিস্থাপন করুন',
   'mnemonic.loadingWalletStatus': 'ওয়ালেটের স্থিতি পরীক্ষা করা হচ্ছে...',
   'mnemonic.viewAccounts': 'ওয়ালেট অ্যাকাউন্ট',
+  'mnemonic.revealRecoveryPhrase': 'পুনরুদ্ধার বাক্যাংশ প্রকাশ করুন',
+  'mnemonic.hidePhrase': 'বাক্যাংশ লুকান',
   'team.failedToCreate': 'টিম তৈরি করতে ব্যর্থ',
   'team.invalidInviteCode': 'অবৈধ বা মেয়াদোত্তীর্ণ আমন্ত্রণ কোড',
   'team.failedToSwitch': 'টিম পরিবর্তন করতে ব্যর্থ',

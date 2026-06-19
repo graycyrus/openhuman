@@ -6,27 +6,35 @@ import { renderWithProviders } from '../../../../test/test-utils';
 import RecoveryPhrasePanel from '../RecoveryPhrasePanel';
 
 // Use vi.hoisted so the factory closures can reference these before module initialisation.
-const { mockGenerateMnemonicPhrase, mockFetchWalletStatus, mockPersistLocalWalletFromMnemonic } =
-  vi.hoisted(() => ({
-    mockGenerateMnemonicPhrase: vi.fn(
-      () => 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
-    ),
-    mockFetchWalletStatus: vi.fn(
-      async (): Promise<WalletStatus> => ({
-        configured: false,
-        onboardingCompleted: false,
-        consentGranted: false,
-        secretStored: false,
-        source: null,
-        mnemonicWordCount: null,
-        accounts: [],
-        updatedAtMs: null,
-      })
-    ),
-    mockPersistLocalWalletFromMnemonic: vi.fn(
-      async (_args: { force?: boolean; mnemonic?: string; source?: string }) => undefined
-    ),
-  }));
+const {
+  mockGenerateMnemonicPhrase,
+  mockFetchWalletStatus,
+  mockPersistLocalWalletFromMnemonic,
+  mockRevealRecoveryPhrase,
+} = vi.hoisted(() => ({
+  mockGenerateMnemonicPhrase: vi.fn(
+    () => 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
+  ),
+  mockFetchWalletStatus: vi.fn(
+    async (): Promise<WalletStatus> => ({
+      configured: false,
+      onboardingCompleted: false,
+      consentGranted: false,
+      secretStored: false,
+      source: null,
+      mnemonicWordCount: null,
+      accounts: [],
+      updatedAtMs: null,
+    })
+  ),
+  mockPersistLocalWalletFromMnemonic: vi.fn(
+    async (_args: { force?: boolean; mnemonic?: string; source?: string }) => undefined
+  ),
+  mockRevealRecoveryPhrase: vi.fn(async () => ({
+    phrase: 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12',
+    wordCount: 12,
+  })),
+}));
 
 vi.mock('../../../../utils/cryptoKeys', async importOriginal => {
   const original = await importOriginal<typeof import('../../../../utils/cryptoKeys')>();
@@ -53,6 +61,7 @@ vi.mock('../../../../services/walletApi', () => ({
     accounts: [],
     updatedAtMs: Date.now(),
   })),
+  revealRecoveryPhrase: mockRevealRecoveryPhrase,
 }));
 
 vi.mock('../../../../features/wallet/setupLocalWalletFromMnemonic', () => ({
@@ -645,5 +654,61 @@ describe('RecoveryPhrasePanel — import mode word inputs and valid/invalid styl
 
     // Now 15 slots.
     expect(screen.getAllByLabelText(/Recovery phrase word/i).length).toBe(15);
+  });
+});
+
+describe('RecoveryPhrasePanel — view mode: reveal existing recovery phrase', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetchWalletStatus.mockResolvedValue(configuredWalletStatus());
+    mockRevealRecoveryPhrase.mockResolvedValue({
+      phrase: 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12',
+      wordCount: 12,
+    });
+  });
+
+  it('shows "Reveal recovery phrase" button in view mode', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Your wallet is already set up/i));
+    expect(screen.getByText(/Reveal recovery phrase/i)).toBeTruthy();
+  });
+
+  it('clicking reveal button calls revealRecoveryPhrase and shows word grid', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
+    // After reveal, the hide button appears
+    await waitFor(() => expect(screen.queryByText(/Hide phrase/i)).toBeTruthy());
+    // The amber warning is shown
+    expect(screen.getByText(/can never be recovered if lost/i)).toBeTruthy();
+  });
+
+  it('shows error message when revealRecoveryPhrase rejects', async () => {
+    mockRevealRecoveryPhrase.mockRejectedValue(new Error('No recovery phrase available'));
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain('No recovery phrase available');
+  });
+
+  it('does NOT call generateMnemonicPhrase or persistLocalWalletFromMnemonic in view mode', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
+    expect(mockGenerateMnemonicPhrase).not.toHaveBeenCalled();
+    expect(mockPersistLocalWalletFromMnemonic).not.toHaveBeenCalled();
+  });
+
+  it('clicking Hide phrase hides the word grid', async () => {
+    renderWithProviders(<RecoveryPhrasePanel />);
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i).closest('button')!);
+    await waitFor(() => screen.getByText(/Hide phrase/i));
+    fireEvent.click(screen.getByText(/Hide phrase/i));
+    await waitFor(() => expect(screen.queryByText(/Hide phrase/i)).toBeNull());
+    expect(screen.getByText(/Reveal recovery phrase/i)).toBeTruthy();
   });
 });

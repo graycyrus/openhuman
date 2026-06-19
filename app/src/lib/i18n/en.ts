@@ -1934,6 +1934,8 @@ const en: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'I understand, replace my wallet',
   'mnemonic.loadingWalletStatus': 'Checking wallet status...',
   'mnemonic.viewAccounts': 'Wallet accounts',
+  'mnemonic.revealRecoveryPhrase': 'Reveal recovery phrase',
+  'mnemonic.hidePhrase': 'Hide phrase',
 
   // Team
   'team.failedToCreate': 'Failed to create team',

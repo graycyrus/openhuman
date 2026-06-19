@@ -1583,6 +1583,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Saya mengerti, ganti dompet saya',
   'mnemonic.loadingWalletStatus': 'Memeriksa status dompet...',
   'mnemonic.viewAccounts': 'Akun dompet',
+  'mnemonic.revealRecoveryPhrase': 'Tampilkan frasa pemulihan',
+  'mnemonic.hidePhrase': 'Sembunyikan frasa',
   'team.failedToCreate': 'Gagal membuat tim',
   'team.invalidInviteCode': 'Kode undangan tidak valid atau sudah kedaluwarsa',
   'team.failedToSwitch': 'Gagal berpindah tim',

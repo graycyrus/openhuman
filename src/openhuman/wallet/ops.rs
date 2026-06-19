@@ -609,6 +609,82 @@ pub async fn setup(params: WalletSetupParams) -> Result<RpcOutcome<WalletStatus>
     ))
 }
 
+/// Result returned by `reveal_recovery_phrase`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevealRecoveryPhraseResult {
+    pub phrase: String,
+    pub word_count: usize,
+}
+
+/// Decrypt and return the stored recovery phrase for the current wallet.
+///
+/// This is a read-only operation — it never writes to disk or the keychain.
+/// The plaintext phrase is returned only in the RPC response and must be kept
+/// in transient React state on the frontend; it must never be logged or persisted.
+pub async fn reveal_recovery_phrase() -> Result<RpcOutcome<RevealRecoveryPhraseResult>, String> {
+    debug!("{LOG_PREFIX} reveal_recovery_phrase ENTRY");
+
+    let config = config_rpc::load_config_with_timeout().await.map_err(|e| {
+        log::warn!("{LOG_PREFIX} reveal_recovery_phrase config load failed: {e}");
+        e
+    })?;
+
+    // Acquire the lock to load state, then drop it before any await point.
+    // parking_lot::MutexGuard is not Send, so it must not be held across awaits.
+    let ciphertext = {
+        let _guard = WALLET_STATE_FILE_LOCK.lock();
+        debug!("{LOG_PREFIX} reveal_recovery_phrase state lock acquired");
+
+        let state = match load_stored_wallet_state_unlocked(&config)? {
+            Some(s) => s,
+            None => {
+                debug!("{LOG_PREFIX} reveal_recovery_phrase no wallet state found");
+                return Err(
+                    "No recovery phrase is available to reveal. Set up or unlock your wallet first."
+                        .to_string(),
+                );
+            }
+        };
+
+        state
+            .encrypted_mnemonic
+            .as_ref()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                debug!(
+                    "{LOG_PREFIX} reveal_recovery_phrase encrypted mnemonic missing from state"
+                );
+                "No recovery phrase is available to reveal. Set up or unlock your wallet first."
+                    .to_string()
+            })?
+        // _guard dropped here — before the decrypt await below
+    };
+
+    debug!("{LOG_PREFIX} reveal_recovery_phrase decrypting mnemonic");
+
+    let phrase = crate::openhuman::credentials::ops::decrypt_secret(&config, &ciphertext)
+        .await
+        .map_err(|e| {
+            log::warn!("{LOG_PREFIX} reveal_recovery_phrase decrypt failed: {e}");
+            format!("Failed to decrypt recovery phrase: {e}")
+        })?
+        .value;
+
+    let word_count = phrase.split_whitespace().count();
+
+    debug!(
+        "{LOG_PREFIX} reveal_recovery_phrase OK word_count={}",
+        word_count
+    );
+
+    Ok(RpcOutcome::new(
+        RevealRecoveryPhraseResult { phrase, word_count },
+        vec!["recovery phrase revealed".to_string()],
+    ))
+}
+
 pub(crate) async fn secret_material(chain: WalletChain) -> Result<WalletSecretMaterial, String> {
     debug!(
         "{LOG_PREFIX} secret_material loading config chain={}",
@@ -873,5 +949,40 @@ mod tests {
             .expect("reload ok")
             .expect("state present after fresh setup");
         assert_eq!(reloaded.updated_at_ms, 3_000_000);
+    }
+
+    // ── reveal_recovery_phrase unit tests ────────────────────────────────────
+    // These use tokio::test and OPENHUMAN_WORKSPACE env var to wire up the full
+    // async path including config loading. The TEST_LOCK from test_support
+    // serialises all wallet tests that mutate env vars.
+
+    #[tokio::test]
+    async fn reveal_recovery_phrase_returns_error_when_no_wallet() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let _lock = crate::openhuman::wallet::test_support::TEST_LOCK.lock();
+        std::env::set_var("OPENHUMAN_WORKSPACE", temp.path());
+        let result = reveal_recovery_phrase().await;
+        let err = result.expect_err("should error when no wallet configured");
+        assert!(
+            err.contains("No recovery phrase is available"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn reveal_recovery_phrase_returns_phrase_for_existing_wallet() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let _lock = crate::openhuman::wallet::test_support::TEST_LOCK.lock();
+        crate::openhuman::wallet::test_support::setup_wallet_in(&temp)
+            .await
+            .expect("setup wallet");
+        let result = reveal_recovery_phrase()
+            .await
+            .expect("reveal should succeed");
+        assert_eq!(
+            result.value.phrase,
+            crate::openhuman::wallet::test_support::TEST_MNEMONIC
+        );
+        assert_eq!(result.value.word_count, 12);
     }
 }

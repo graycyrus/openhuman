@@ -1611,6 +1611,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Entiendo, reemplazar mi billetera',
   'mnemonic.loadingWalletStatus': 'Verificando estado de la billetera...',
   'mnemonic.viewAccounts': 'Cuentas de la billetera',
+  'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperación',
+  'mnemonic.hidePhrase': 'Ocultar frase',
   'team.failedToCreate': 'No se pudo crear el equipo',
   'team.invalidInviteCode': 'Código de invitación inválido o expirado',
   'team.failedToSwitch': 'No se pudo cambiar de equipo',

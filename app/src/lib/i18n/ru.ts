@@ -1591,6 +1591,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'Я понимаю, заменить мой кошелёк',
   'mnemonic.loadingWalletStatus': 'Проверка статуса кошелька...',
   'mnemonic.viewAccounts': 'Счета кошелька',
+  'mnemonic.revealRecoveryPhrase': 'Показать фразу восстановления',
+  'mnemonic.hidePhrase': 'Скрыть фразу',
   'team.failedToCreate': 'Не удалось создать команду',
   'team.invalidInviteCode': 'Неверный или устаревший код приглашения',
   'team.failedToSwitch': 'Не удалось переключить команду',

@@ -1562,6 +1562,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': '이해합니다. 지갑을 교체합니다',
   'mnemonic.loadingWalletStatus': '지갑 상태 확인 중...',
   'mnemonic.viewAccounts': '지갑 계정',
+  'mnemonic.revealRecoveryPhrase': '복구 구문 표시',
+  'mnemonic.hidePhrase': '구문 숨기기',
   'team.failedToCreate': '팀 생성에 실패했습니다',
   'team.invalidInviteCode': '유효하지 않거나 만료된 초대 코드입니다',
   'team.failedToSwitch': '팀 전환에 실패했습니다',

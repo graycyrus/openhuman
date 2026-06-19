@@ -1544,6 +1544,8 @@ const messages: TranslationMap = {
   'mnemonic.replaceWalletConfirm': 'أفهم، استبدل محفظتي',
   'mnemonic.loadingWalletStatus': 'جارٍ التحقق من حالة المحفظة...',
   'mnemonic.viewAccounts': 'حسابات المحفظة',
+  'mnemonic.revealRecoveryPhrase': 'الكشف عن عبارة الاسترداد',
+  'mnemonic.hidePhrase': 'إخفاء العبارة',
   'team.failedToCreate': 'فشل إنشاء الفريق',
   'team.invalidInviteCode': 'رمز دعوة غير صالح أو منتهي الصلاحية',
   'team.failedToSwitch': 'فشل تبديل الفريق',
