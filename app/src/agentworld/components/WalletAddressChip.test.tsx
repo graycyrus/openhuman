@@ -4,7 +4,7 @@
  *
  * All addresses are GENERIC placeholders (never real wallet addresses).
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -56,6 +56,8 @@ beforeEach(() => {
   // Reset mock implementation between tests so a never-resolving promise from
   // one test doesn't bleed into the next (vitest config has mockReset: false).
   mockFetchWalletStatus.mockReset();
+  // Clear clipboard call history so per-test assertions don't see stale calls.
+  clipboardWriteText.mockClear();
 
   Object.defineProperty(navigator, 'clipboard', {
     value: { writeText: clipboardWriteText },
@@ -121,18 +123,34 @@ describe('WalletAddressChip', () => {
   });
 
   test('copy button shows "Copied" feedback after click and reverts', async () => {
-    mockFetchWalletStatus.mockResolvedValue(makeStatus());
+    // Fake timers so we can fast-forward the 2s reset; shouldAdvanceTime keeps
+    // findBy/waitFor polling alive, and userEvent drives the same clock.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockFetchWalletStatus.mockResolvedValue(makeStatus());
 
-    render(<WalletAddressChip />);
-    await screen.findByTitle(SOLANA_ADDRESS);
+      render(<WalletAddressChip />);
+      await screen.findByTitle(SOLANA_ADDRESS);
 
-    const copyBtn = screen.getByRole('button', { name: /copy address/i });
-    await userEvent.click(copyBtn);
+      const copyBtn = screen.getByRole('button', { name: /copy address/i });
+      await user.click(copyBtn);
 
-    // After click the aria-label should flip to "Copied".
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /copied/i })).toBeInTheDocument()
-    );
+      // After click the aria-label should flip to "Copied".
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /copied/i })).toBeInTheDocument()
+      );
+
+      // After the 2s reset timer fires, it should revert to "Copy address".
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /copy address/i })).toBeInTheDocument()
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('shows a retryable "Wallet unavailable" state when fetchWalletStatus rejects', async () => {
