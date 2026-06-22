@@ -18,13 +18,16 @@
 
 use crate::openhuman::config::Config;
 use crate::openhuman::cron::{
-    add_agent_job_with_definition, dedup_named_jobs, list_jobs, remove_job, DeliveryConfig,
-    Schedule, SessionTarget,
+    add_agent_job_with_definition, dedup_named_jobs, list_jobs, pause_job, remove_job,
+    DeliveryConfig, Schedule, SessionTarget,
 };
 use anyhow::Result;
 
 /// Well-known job names used to detect whether seeding has already run.
 const MORNING_BRIEFING_JOB_NAME: &str = "morning_briefing";
+
+/// Well-known name of the opt-in autonomous tiny.place bounty worker job.
+const BOUNTY_WORKER_JOB_NAME: &str = "bounty_worker";
 
 /// Legacy name of the one-shot welcome cron job created by earlier
 /// builds of `seed_proactive_agents`. Kept as a constant (rather than
@@ -72,6 +75,13 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
         seed_morning_briefing(config)?;
     } else {
         tracing::debug!("[cron::seed] morning_briefing job already exists — skipping");
+    }
+
+    if !has(BOUNTY_WORKER_JOB_NAME) {
+        tracing::info!("[cron::seed] creating bounty_worker agent cron job (disabled — opt-in)");
+        seed_bounty_worker(config)?;
+    } else {
+        tracing::debug!("[cron::seed] bounty_worker job already exists — skipping");
     }
 
     Ok(())
@@ -148,6 +158,52 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
     Ok(())
 }
 
+/// Seed the autonomous tiny.place bounty worker as a recurring (hourly) agent
+/// job — created **disabled**.
+///
+/// This is opt-in: money on tiny.place is real x402/SPL spend, so the worker
+/// only runs once the user turns it on explicitly (the Settings toggle flips
+/// the job's `enabled` flag via `cron.update_job`). The worker is earn-only by
+/// construction — its `bounty_worker` agent definition holds no spend-capable
+/// tools, and cron turns bypass the approval gate, so the tool allowlist is the
+/// guardrail — but we still gate the whole loop behind an explicit opt-in.
+///
+/// Runs in an isolated session with `proactive` delivery so each cycle's report
+/// (which bounties it attempted, submission URLs/IDs) reaches the user's active
+/// channel via the channels module's `ProactiveMessageSubscriber`.
+fn seed_bounty_worker(config: &Config) -> Result<()> {
+    let schedule = Schedule::Every {
+        every_ms: 60 * 60 * 1000, // hourly
+    };
+
+    let prompt = concat!(
+        "Run your autonomous bounty loop. Confirm your identity, recall which ",
+        "bounties you've already attempted, discover open tiny.place bounties, ",
+        "skip the ones you've done, pick the top 1-2 that fit your skills, do ",
+        "the work, publish each deliverable to your feed, and submit it. You are ",
+        "earn-only: never spend, fund, post/fund a bounty, buy, or trade. Report ",
+        "what you attempted with the submission URLs and IDs."
+    );
+
+    let job = add_agent_job_with_definition(
+        config,
+        Some(BOUNTY_WORKER_JOB_NAME.to_string()),
+        schedule,
+        prompt,
+        SessionTarget::Isolated,
+        None,
+        Some(proactive_delivery()),
+        false, // recurring — do not delete after run
+        Some(BOUNTY_WORKER_JOB_NAME.to_string()),
+    )?;
+
+    // Opt-in: the job is created disabled. The user enables it explicitly via
+    // the Settings toggle (cron.update_job → enabled=true).
+    pause_job(config, &job.id)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,6 +238,44 @@ mod tests {
         assert!(d.channel.is_none());
         assert!(d.to.is_none());
         assert!(d.best_effort);
+    }
+
+    #[test]
+    fn seeds_bounty_worker_disabled_and_idempotent() {
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        seed_proactive_agents(&config).expect("first seed");
+        let jobs = list_jobs(&config).unwrap();
+        let worker: Vec<_> = jobs
+            .iter()
+            .filter(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+            .collect();
+        assert_eq!(
+            worker.len(),
+            1,
+            "exactly one bounty_worker job, got {worker:?}"
+        );
+        let worker = worker[0];
+        // Opt-in: must be created disabled.
+        assert!(
+            !worker.enabled,
+            "bounty_worker must be seeded disabled (opt-in)"
+        );
+        // Routed at the dedicated earn-only agent definition.
+        assert_eq!(worker.agent_id.as_deref(), Some(BOUNTY_WORKER_JOB_NAME));
+
+        // Idempotent: a second seed must not create a duplicate.
+        seed_proactive_agents(&config).expect("second seed");
+        let after = list_jobs(&config).unwrap();
+        assert_eq!(
+            after
+                .iter()
+                .filter(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+                .count(),
+            1,
+            "second seed must not duplicate the bounty_worker job"
+        );
     }
 
     #[test]

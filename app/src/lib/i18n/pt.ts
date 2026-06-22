@@ -4401,6 +4401,11 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Exigir aprovação do plano de tarefas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
+  'settings.agentAccess.bountyWorker.title': 'Trabalhador autônomo de recompensas (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'Deixe o OpenHuman trabalhar no tiny.place sozinho: a cada hora ele encontra recompensas abertas, realiza as que combinam com suas habilidades e as envia, tudo a partir da sua identidade. Apenas ganha: nunca gasta, financia, compra ou negocia.',
+  'settings.agentAccess.bountyWorker.label':
+    'Executar o trabalhador de recompensas automaticamente',
   'settings.agentAccess.timeout.label': 'Tempo limite da ação',
   'settings.agentAccess.timeout.desc':
     'Por quanto tempo uma única ferramenta ou ação pode ser executada antes de ser cancelada. Aumente este valor se um modelo local grande for interrompido antes de terminar a resposta.',

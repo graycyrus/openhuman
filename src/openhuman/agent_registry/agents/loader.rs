@@ -184,6 +184,11 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::morning_briefing::prompt::build,
     },
     BuiltinAgent {
+        id: "bounty_worker",
+        toml: include_str!("bounty_worker/agent.toml"),
+        prompt_fn: super::bounty_worker::prompt::build,
+    },
+    BuiltinAgent {
         id: "summarizer",
         toml: include_str!("summarizer/agent.toml"),
         prompt_fn: super::summarizer::prompt::build,
@@ -882,6 +887,51 @@ mod tests {
             def.disallowed_tools.iter().any(|t| t == "tinyplace_*"),
             "morning_briefing.disallowed_tools must contain `tinyplace_*` so \
              tiny.place routes through tinyplace_agent exclusively"
+        );
+    }
+
+    /// The bounty_worker runs autonomously via cron, which BYPASSES the approval
+    /// gate (`TrustedAutomation::Cron`). Its tool allowlist is therefore the only
+    /// thing keeping it earn-only — so this test is a hard safety invariant: the
+    /// worker must never hold a spend-capable or escape-hatch tool.
+    #[test]
+    fn bounty_worker_is_earn_only() {
+        let def = find("bounty_worker");
+        let ToolScope::Named(tools) = &def.tools else {
+            panic!("bounty_worker must use a Named (allowlist) tool scope, not Wildcard");
+        };
+
+        // Earning surface is present.
+        for required in [
+            "tinyplace_find_work",
+            "tinyplace_post",
+            "tinyplace_submit_work",
+            "tinyplace_register",
+            "memory_store",
+            "memory_recall",
+        ] {
+            assert!(
+                tools.iter().any(|t| t == required),
+                "bounty_worker must keep earn-only tool `{required}`"
+            );
+        }
+
+        // Spend / escape-hatch surface is absent from the allowlist...
+        for forbidden in ["tinyplace_post_bounty", "tinyplace_call"] {
+            assert!(
+                !tools.iter().any(|t| t == forbidden),
+                "bounty_worker must NOT list spend/escape-hatch tool `{forbidden}` \
+                 — cron bypasses the approval gate, so the allowlist is the guardrail"
+            );
+            // ...and pinned in disallowed_tools as defense-in-depth.
+            assert!(
+                def.disallowed_tools.iter().any(|t| t == forbidden),
+                "bounty_worker.disallowed_tools must pin `{forbidden}`"
+            );
+        }
+        assert!(
+            def.disallowed_tools.iter().any(|t| t == "marketplace_*"),
+            "bounty_worker.disallowed_tools must pin `marketplace_*`"
         );
     }
 

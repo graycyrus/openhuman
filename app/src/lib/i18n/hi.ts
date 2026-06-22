@@ -4334,6 +4334,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'कार्य योजना अनुमोदन की आवश्यकता',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'एक निर्धारित एजेंट से पहले रोकें एक एजेंट-लेखित कार्य संक्षिप्त निष्पादित करता है।',
+  'settings.agentAccess.bountyWorker.title': 'स्वायत्त बाउंटी वर्कर (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'OpenHuman को tiny.place पर स्वयं काम करने दें: हर घंटे यह खुली बाउंटी ढूँढता है, अपनी क्षमताओं के अनुरूप वाली पूरी करता है और सबमिट करता है — सब आपकी पहचान से। केवल कमाई: यह कभी खर्च, फंड, खरीद या व्यापार नहीं करता।',
+  'settings.agentAccess.bountyWorker.label': 'बाउंटी वर्कर स्वतः चलाएँ',
   'settings.agentAccess.timeout.label': 'क्रिया टाइमआउट',
   'settings.agentAccess.timeout.desc':
     'किसी एकल टूल या क्रिया को रद्द होने से पहले कितनी देर चलने दिया जाए। यदि कोई बड़ा लोकल मॉडल अपना उत्तर पूरा करने से पहले रुक जाता है तो इसे बढ़ाएँ।',

@@ -1,0 +1,62 @@
+id = "bounty_worker"
+display_name = "Bounty Worker"
+when_to_use = "Autonomous tiny.place bounty worker — runs on a schedule (no human in the loop) to discover open bounties, pick the ones that fit its skills, do the work, publish the deliverable to its own feed, and submit. Strictly earn-only: it never spends, funds, posts, buys, or trades. Used by the seeded `bounty_worker` cron job."
+temperature = 0.3
+max_iterations = 12
+iteration_policy = "extended"
+sandbox_mode = "none"
+
+# This worker carries its own loop instructions, voice, and the earn-only
+# guardrails in prompt.md — the injected identity / all-time memory blob /
+# skills catalog would only compete with that. It pulls the state it needs
+# itself (whoami, find_work, memory_recall) each run.
+omit_identity = true
+omit_memory_context = true
+omit_skills_catalog = true
+
+# Belt-and-suspenders. The `named` allowlist below already excludes every
+# paid / escape-hatch tool, but because cron turns BYPASS the approval gate
+# (TrustedAutomation::Cron) the tool allowlist is the ONLY thing keeping this
+# worker earn-only. Pin the exclusions explicitly so a future switch to a
+# wildcard scope can't silently hand it spend capability.
+disallowed_tools = [
+    "tinyplace_post_bounty",
+    "tinyplace_call",
+    "tinyplace_buy_*",
+    "marketplace_*",
+]
+
+[model]
+hint = "agentic"
+
+[tools]
+# EARN-ONLY surface. Every tool here is a free action (discover / read /
+# submit / publish-to-own-feed) plus memory + time grounding. Deliberately
+# OMITTED: tinyplace_post_bounty (escrows funds), tinyplace_call (raw escape
+# hatch — can reach any paid controller), and all marketplace/buy/trade tools.
+# Do not add a spend-capable tool here without revisiting the earn-only model.
+named = [
+    # ── Discover & read ──
+    "tinyplace_whoami",
+    "tinyplace_status",
+    "tinyplace_find_work",
+    "tinyplace_discover",
+    "tinyplace_search",
+    "tinyplace_feed",
+    "tinyplace_submissions",
+    "tinyplace_graphql",
+    "tinyplace_help",
+    # ── Identity (FREE handles only — see prompt rules) ──
+    "tinyplace_register",
+    # ── Do the work & submit (all free) ──
+    "tinyplace_post",
+    "tinyplace_submit_work",
+    "tinyplace_job_apply",
+    # ── Cross-run memory: dedupe attempts, remember what worked ──
+    "memory_store",
+    "memory_recall",
+    "memory_search",
+    # ── Deterministic time grounding for deadlines / recency ──
+    "current_time",
+    "resolve_time",
+]

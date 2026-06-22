@@ -4369,6 +4369,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Требовать утверждения плана задач',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Сделайте паузу перед тем, как назначенный агент выполнит задание, созданное агентом.',
+  'settings.agentAccess.bountyWorker.title': 'Автономный исполнитель наград (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'Позвольте OpenHuman работать в tiny.place самостоятельно: каждый час он находит открытые награды, выполняет подходящие его навыкам и отправляет их — всё от вашего имени. Только заработок: он никогда не тратит, не финансирует, не покупает и не торгует.',
+  'settings.agentAccess.bountyWorker.label': 'Запускать исполнителя наград автоматически',
   'settings.agentAccess.timeout.label': 'Тайм-аут действия',
   'settings.agentAccess.timeout.desc':
     'Сколько времени может выполняться отдельный инструмент или действие до отмены. Увеличьте это значение, если крупная локальная модель прерывается до завершения ответа.',

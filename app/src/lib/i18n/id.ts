@@ -4342,6 +4342,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Perlu persetujuan rencana tugas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Jeda sebelum agen yang ditugaskan mengeksekusi suatu tugas singkat.',
+  'settings.agentAccess.bountyWorker.title': 'Pekerja bounty otonom (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'Biarkan OpenHuman bekerja di tiny.place sendiri: setiap jam ia menemukan bounty terbuka, mengerjakan yang sesuai keahliannya, dan mengirimkannya — semua dari identitas Anda. Hanya menghasilkan: tidak pernah membelanjakan, mendanai, membeli, atau berdagang.',
+  'settings.agentAccess.bountyWorker.label': 'Jalankan pekerja bounty secara otomatis',
   'settings.agentAccess.timeout.label': 'Batas waktu tindakan',
   'settings.agentAccess.timeout.desc':
     'Berapa lama satu alat atau tindakan boleh berjalan sebelum dibatalkan. Tingkatkan nilai ini jika model lokal besar terhenti sebelum selesai merespons.',

@@ -11,6 +11,7 @@ import {
   type TrustedAccess,
   type TrustedRoot,
 } from '../../../utils/tauriCommands';
+import { openhumanCronList, openhumanCronUpdate } from '../../../utils/tauriCommands/cron';
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
 import SettingsBackButton from '../components/SettingsBackButton';
@@ -54,6 +55,13 @@ const AgentAccessPanel = () => {
   const [newRootPath, setNewRootPath] = useState('');
   const [newRootAccess, setNewRootAccess] = useState<TrustedAccess>('read');
 
+  // Tiny.place autonomous bounty worker — a seeded, *disabled* cron job the user
+  // opts into here. It's not an autonomy field: we resolve its id by name from
+  // the cron list and flip its `enabled` flag via cron_update. The section only
+  // renders once the job is found (id known).
+  const [bountyWorkerJobId, setBountyWorkerJobId] = useState<string | null>(null);
+  const [bountyWorkerEnabled, setBountyWorkerEnabled] = useState(false);
+
   // Action timeout (the tool/action wall-clock limit, issue #3100). Held as the
   // raw input string so the field can be edited freely; validated on save.
   const [timeoutInput, setTimeoutInput] = useState('');
@@ -92,6 +100,20 @@ const AgentAccessPanel = () => {
       } catch (e) {
         if (!cancelled)
           setError(e instanceof Error ? e.message : t('settings.agentAccess.loadError'));
+      }
+      try {
+        // Resolve the seeded bounty_worker cron job by name so the toggle below
+        // can flip its enabled flag. Non-fatal: the section just stays hidden if
+        // the job isn't present or the list call fails.
+        const cronResp = await openhumanCronList();
+        if (cancelled) return;
+        const worker = cronResp.result.find(j => j.name === 'bounty_worker');
+        if (worker) {
+          setBountyWorkerJobId(worker.id);
+          setBountyWorkerEnabled(worker.enabled);
+        }
+      } catch {
+        // Non-fatal — bounty-worker toggle stays hidden.
       }
       try {
         const agentResp = await openhumanGetAgentSettings();
@@ -166,6 +188,22 @@ const AgentAccessPanel = () => {
   const toggleTaskPlanApproval = (next: boolean) => {
     setRequireTaskPlanApproval(next);
     void persist({ workspaceOnly, requireTaskPlanApproval: next, trustedRoots });
+  };
+
+  // The bounty worker is a cron job, not an autonomy field — flip its `enabled`
+  // flag directly via cron_update. Optimistic, with revert on failure.
+  const toggleBountyWorker = async (next: boolean) => {
+    if (!bountyWorkerJobId || !isTauri()) return;
+    setBountyWorkerEnabled(next);
+    setError(null);
+    setSavedNote(null);
+    try {
+      await openhumanCronUpdate(bountyWorkerJobId, { enabled: next });
+      setSavedNote(t('settings.agentAccess.saved'));
+    } catch (e) {
+      setBountyWorkerEnabled(!next);
+      setError(e instanceof Error ? e.message : t('settings.agentAccess.saveError'));
+    }
   };
 
   const addRoot = () => {
@@ -283,6 +321,28 @@ const AgentAccessPanel = () => {
                 }
               />
             </SettingsSection>
+
+            {/* Tiny.place autonomous bounty worker (opt-in). Only shown once the
+                seeded cron job is found, so users without it never see a dead
+                toggle. */}
+            {bountyWorkerJobId && (
+              <SettingsSection
+                title={t('settings.agentAccess.bountyWorker.title')}
+                description={t('settings.agentAccess.bountyWorker.desc')}>
+                <SettingsRow
+                  htmlFor="switch-bounty-worker"
+                  label={t('settings.agentAccess.bountyWorker.label')}
+                  control={
+                    <SettingsSwitch
+                      id="switch-bounty-worker"
+                      checked={bountyWorkerEnabled}
+                      onCheckedChange={next => void toggleBountyWorker(next)}
+                      aria-label={t('settings.agentAccess.bountyWorker.label')}
+                    />
+                  }
+                />
+              </SettingsSection>
+            )}
 
             {/* Action timeout */}
             <SettingsSection

@@ -4119,6 +4119,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': '要求批准任务计划',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     '在指定智能体执行由智能体编写的任务简报前暂停。',
+  'settings.agentAccess.bountyWorker.title': '自主悬赏工作者（tiny.place）',
+  'settings.agentAccess.bountyWorker.desc':
+    '让 OpenHuman 自行在 tiny.place 上工作：每小时查找开放的悬赏，完成符合其技能的任务并提交，全部以你的身份进行。仅赚取：绝不花费、注资、购买或交易。',
+  'settings.agentAccess.bountyWorker.label': '自动运行悬赏工作者',
   'settings.agentAccess.timeout.label': '操作超时',
   'settings.agentAccess.timeout.desc':
     '单个工具或操作在被取消前可运行的时长。如果大型本地模型在完成响应前被中断，请增大此值。',

@@ -4928,6 +4928,10 @@ const en: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'Require task plan approval',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pause before an assigned agent executes an agent-authored task brief.',
+  'settings.agentAccess.bountyWorker.title': 'Autonomous bounty worker (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'Let OpenHuman work tiny.place on its own: each hour it finds open bounties, does the ones that fit its skills, and submits — all from your identity. Earn-only: it never spends, funds, buys, or trades.',
+  'settings.agentAccess.bountyWorker.label': 'Run the bounty worker automatically',
   'settings.agentAccess.timeout.label': 'Action timeout',
   'settings.agentAccess.timeout.desc':
     'How long a single tool or action may run before it is cancelled. Increase this if a large local model is interrupted before it finishes responding.',

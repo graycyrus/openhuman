@@ -4424,6 +4424,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': "Exiger l'approbation du plan de tâche",
   'settings.agentAccess.requireTaskPlanApproval.desc':
     "Pause avant qu'un agent assigné n'exécute un briefing de tâche rédigé par un agent.",
+  'settings.agentAccess.bountyWorker.title': 'Travailleur autonome de primes (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'Laissez OpenHuman travailler sur tiny.place tout seul : chaque heure, il trouve des primes ouvertes, réalise celles qui correspondent à ses compétences et les soumet, le tout depuis votre identité. Gain uniquement : il ne dépense, ne finance, n’achète ni n’échange jamais.',
+  'settings.agentAccess.bountyWorker.label': 'Exécuter le travailleur de primes automatiquement',
   'settings.agentAccess.timeout.label': "Délai d'expiration de l'action",
   'settings.agentAccess.timeout.desc':
     "Durée pendant laquelle un seul outil ou une seule action peut s'exécuter avant d'être annulé. Augmentez cette valeur si un grand modèle local est interrompu avant d'avoir terminé sa réponse.",

@@ -4399,6 +4399,10 @@ const messages: TranslationMap = {
     "Richiedere l'approvazione del piano di lavoro",
   'settings.agentAccess.requireTaskPlanApproval.desc':
     "Pausa prima che un agente assegnato esegua un brief del compito scritto dall'agente.",
+  'settings.agentAccess.bountyWorker.title': 'Lavoratore autonomo di taglie (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'Lascia che OpenHuman lavori su tiny.place da solo: ogni ora trova taglie aperte, svolge quelle adatte alle sue competenze e le invia, tutto dalla tua identità. Solo guadagno: non spende, finanzia, compra né scambia mai.',
+  'settings.agentAccess.bountyWorker.label': 'Esegui automaticamente il lavoratore di taglie',
   'settings.agentAccess.timeout.label': "Timeout dell'azione",
   'settings.agentAccess.timeout.desc':
     'Per quanto tempo un singolo strumento o azione può essere eseguito prima di essere annullato. Aumenta questo valore se un modello locale di grandi dimensioni viene interrotto prima di completare la risposta.',

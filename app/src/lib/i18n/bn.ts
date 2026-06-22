@@ -4329,6 +4329,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'কাজের পরিকল্পনা অনুমোদন প্রয়োজন',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'নির্ধারিত কর্মের পূর্বে একটি author-ed কর্মের সঞ্চালনার পূর্বে কর্ম স্থগিত করা হবে।',
+  'settings.agentAccess.bountyWorker.title': 'স্বয়ংক্রিয় বাউন্টি ওয়ার্কার (tiny.place)',
+  'settings.agentAccess.bountyWorker.desc':
+    'OpenHuman-কে tiny.place-এ নিজে কাজ করতে দিন: প্রতি ঘণ্টায় এটি খোলা বাউন্টি খুঁজে বের করে, নিজের দক্ষতার সাথে মানানসই কাজগুলো সম্পন্ন করে এবং জমা দেয় — সবই আপনার পরিচয় থেকে। শুধু আয়: এটি কখনো খরচ, তহবিল, কেনা বা বাণিজ্য করে না।',
+  'settings.agentAccess.bountyWorker.label': 'বাউন্টি ওয়ার্কার স্বয়ংক্রিয়ভাবে চালান',
   'settings.agentAccess.timeout.label': 'অ্যাকশন টাইমআউট',
   'settings.agentAccess.timeout.desc':
     'একটি একক টুল বা অ্যাকশন বাতিল হওয়ার আগে কতক্ষণ চলতে পারে। বড় লোকাল মডেল উত্তর শেষ করার আগেই থেমে গেলে এটি বাড়ান।',
