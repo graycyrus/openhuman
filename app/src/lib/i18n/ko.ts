@@ -4291,7 +4291,7 @@ const messages: TranslationMap = {
     '할당된 에이전트가 에이전트가 작성한 작업 브리프를 실행하기 전에 일시 중지합니다.',
   'settings.agentAccess.bountyWorker.title': '자율 현상금 작업자 (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'OpenHuman이 tiny.place에서 스스로 일하게 하세요: 매시간 열린 현상금을 찾아 자신의 능력에 맞는 작업을 수행하고 제출합니다. 모두 당신의 신원으로 진행됩니다. 수익 전용: 절대 지출, 자금 제공, 구매, 거래를 하지 않습니다.',
+    'OpenHuman이 tiny.place에서 스스로 일하게 하세요: 매시간 열린 현상금을 찾아 자신의 능력에 맞는 작업을 수행하고 제출합니다. 모두 당신의 신원으로 진행됩니다. 감독 없이 작동하며 비용을 지출할 수 있으니 테스트 중에는 devnet을 사용하세요. 기본값은 꺼짐입니다.',
   'settings.agentAccess.bountyWorker.label': '현상금 작업자 자동 실행',
   'settings.agentAccess.timeout.label': '작업 제한 시간',
   'settings.agentAccess.timeout.desc':

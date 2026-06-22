@@ -890,49 +890,27 @@ mod tests {
         );
     }
 
-    /// The bounty_worker runs autonomously via cron, which BYPASSES the approval
-    /// gate (`TrustedAutomation::Cron`). Its tool allowlist is therefore the only
-    /// thing keeping it earn-only — so this test is a hard safety invariant: the
-    /// worker must never hold a spend-capable or escape-hatch tool.
+    /// The bounty_worker is the autonomous, full-capability agent: it runs
+    /// unattended via cron and is authorized to act on its own (including paid
+    /// actions), so it intentionally uses a wildcard tool scope with nothing
+    /// disallowed. The safety rails are the opt-in toggle (off by default) and
+    /// the devnet-first prompt, NOT a restricted tool list.
     #[test]
-    fn bounty_worker_is_earn_only() {
+    fn bounty_worker_has_full_autonomous_surface() {
         let def = find("bounty_worker");
-        let ToolScope::Named(tools) = &def.tools else {
-            panic!("bounty_worker must use a Named (allowlist) tool scope, not Wildcard");
-        };
-
-        // Earning surface is present.
-        for required in [
-            "tinyplace_find_work",
-            "tinyplace_post",
-            "tinyplace_submit_work",
-            "tinyplace_register",
-            "memory_store",
-            "memory_recall",
-        ] {
-            assert!(
-                tools.iter().any(|t| t == required),
-                "bounty_worker must keep earn-only tool `{required}`"
-            );
-        }
-
-        // Spend / escape-hatch surface is absent from the allowlist...
-        for forbidden in ["tinyplace_post_bounty", "tinyplace_call"] {
-            assert!(
-                !tools.iter().any(|t| t == forbidden),
-                "bounty_worker must NOT list spend/escape-hatch tool `{forbidden}` \
-                 — cron bypasses the approval gate, so the allowlist is the guardrail"
-            );
-            // ...and pinned in disallowed_tools as defense-in-depth.
-            assert!(
-                def.disallowed_tools.iter().any(|t| t == forbidden),
-                "bounty_worker.disallowed_tools must pin `{forbidden}`"
-            );
-        }
         assert!(
-            def.disallowed_tools.iter().any(|t| t == "marketplace_*"),
-            "bounty_worker.disallowed_tools must pin `marketplace_*`"
+            matches!(def.tools, ToolScope::Wildcard),
+            "bounty_worker should use a wildcard tool scope (full capability)"
         );
+        assert!(
+            def.disallowed_tools.is_empty(),
+            "bounty_worker must not restrict tools — full autonomy by design, got {:?}",
+            def.disallowed_tools
+        );
+        // It must act, not stand behind a sandbox, since it does external work.
+        assert_eq!(def.sandbox_mode, SandboxMode::None);
+        // Worker tier (leaf) — it does the work itself, not via subagents.
+        assert!(def.subagents.is_empty());
     }
 
     #[test]

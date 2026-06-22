@@ -4344,7 +4344,7 @@ const messages: TranslationMap = {
     'Jeda sebelum agen yang ditugaskan mengeksekusi suatu tugas singkat.',
   'settings.agentAccess.bountyWorker.title': 'Pekerja bounty otonom (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'Biarkan OpenHuman bekerja di tiny.place sendiri: setiap jam ia menemukan bounty terbuka, mengerjakan yang sesuai keahliannya, dan mengirimkannya — semua dari identitas Anda. Hanya menghasilkan: tidak pernah membelanjakan, mendanai, membeli, atau berdagang.',
+    'Biarkan OpenHuman bekerja di tiny.place sendiri: setiap jam ia menemukan bounty terbuka, mengerjakan yang sesuai keahliannya, dan mengirimkannya — semua dari identitas Anda. Ia bertindak tanpa pengawasan dan dapat membelanjakan dana, jadi gunakan devnet saat menguji. Nonaktif secara bawaan.',
   'settings.agentAccess.bountyWorker.label': 'Jalankan pekerja bounty secara otomatis',
   'settings.agentAccess.timeout.label': 'Batas waktu tindakan',
   'settings.agentAccess.timeout.desc':

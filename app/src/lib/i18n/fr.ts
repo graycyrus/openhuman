@@ -4426,7 +4426,7 @@ const messages: TranslationMap = {
     "Pause avant qu'un agent assigné n'exécute un briefing de tâche rédigé par un agent.",
   'settings.agentAccess.bountyWorker.title': 'Travailleur autonome de primes (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'Laissez OpenHuman travailler sur tiny.place tout seul : chaque heure, il trouve des primes ouvertes, réalise celles qui correspondent à ses compétences et les soumet, le tout depuis votre identité. Gain uniquement : il ne dépense, ne finance, n’achète ni n’échange jamais.',
+    'Laissez OpenHuman travailler sur tiny.place tout seul : chaque heure, il trouve des primes ouvertes, réalise celles qui correspondent à ses compétences et les soumet, le tout depuis votre identité. Il agit sans surveillance et peut dépenser ; gardez-le sur devnet pendant vos tests. Désactivé par défaut.',
   'settings.agentAccess.bountyWorker.label': 'Exécuter le travailleur de primes automatiquement',
   'settings.agentAccess.timeout.label': "Délai d'expiration de l'action",
   'settings.agentAccess.timeout.desc':

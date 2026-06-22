@@ -4930,7 +4930,7 @@ const en: TranslationMap = {
     'Pause before an assigned agent executes an agent-authored task brief.',
   'settings.agentAccess.bountyWorker.title': 'Autonomous bounty worker (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'Let OpenHuman work tiny.place on its own: each hour it finds open bounties, does the ones that fit its skills, and submits — all from your identity. Earn-only: it never spends, funds, buys, or trades.',
+    'Let OpenHuman work tiny.place on its own: each hour it finds open bounties, does the ones that fit its skills, and submits — all from your identity. It acts unattended and can spend, so keep it on devnet while testing. Off by default.',
   'settings.agentAccess.bountyWorker.label': 'Run the bounty worker automatically',
   'settings.agentAccess.timeout.label': 'Action timeout',
   'settings.agentAccess.timeout.desc':

@@ -4444,7 +4444,7 @@ const messages: TranslationMap = {
     'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
   'settings.agentAccess.bountyWorker.title': 'Autonomer Bounty-Worker (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'Lass OpenHuman tiny.place eigenständig bearbeiten: Jede Stunde findet es offene Bounties, erledigt die passenden und reicht sie ein – alles über deine Identität. Nur Verdienen: Es gibt nie Geld aus, finanziert, kauft oder handelt.',
+    'Lass OpenHuman tiny.place eigenständig bearbeiten: Jede Stunde findet es offene Bounties, erledigt die passenden und reicht sie ein – alles über deine Identität. Es handelt unbeaufsichtigt und kann Geld ausgeben; nutze beim Testen devnet. Standardmäßig aus.',
   'settings.agentAccess.bountyWorker.label': 'Bounty-Worker automatisch ausführen',
   'settings.agentAccess.timeout.label': 'Aktions-Timeout',
   'settings.agentAccess.timeout.desc':

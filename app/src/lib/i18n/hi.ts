@@ -4336,7 +4336,7 @@ const messages: TranslationMap = {
     'एक निर्धारित एजेंट से पहले रोकें एक एजेंट-लेखित कार्य संक्षिप्त निष्पादित करता है।',
   'settings.agentAccess.bountyWorker.title': 'स्वायत्त बाउंटी वर्कर (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'OpenHuman को tiny.place पर स्वयं काम करने दें: हर घंटे यह खुली बाउंटी ढूँढता है, अपनी क्षमताओं के अनुरूप वाली पूरी करता है और सबमिट करता है — सब आपकी पहचान से। केवल कमाई: यह कभी खर्च, फंड, खरीद या व्यापार नहीं करता।',
+    'OpenHuman को tiny.place पर स्वयं काम करने दें: हर घंटे यह खुली बाउंटी ढूँढता है, अपनी क्षमताओं के अनुरूप वाली पूरी करता है और सबमिट करता है — सब आपकी पहचान से। यह बिना निगरानी के काम करता है और खर्च कर सकता है, इसलिए परीक्षण के दौरान इसे devnet पर रखें। डिफ़ॉल्ट रूप से बंद।',
   'settings.agentAccess.bountyWorker.label': 'बाउंटी वर्कर स्वतः चलाएँ',
   'settings.agentAccess.timeout.label': 'क्रिया टाइमआउट',
   'settings.agentAccess.timeout.desc':

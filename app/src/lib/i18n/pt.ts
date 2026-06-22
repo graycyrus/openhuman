@@ -4403,7 +4403,7 @@ const messages: TranslationMap = {
     'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
   'settings.agentAccess.bountyWorker.title': 'Trabalhador autônomo de recompensas (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'Deixe o OpenHuman trabalhar no tiny.place sozinho: a cada hora ele encontra recompensas abertas, realiza as que combinam com suas habilidades e as envia, tudo a partir da sua identidade. Apenas ganha: nunca gasta, financia, compra ou negocia.',
+    'Deixe o OpenHuman trabalhar no tiny.place sozinho: a cada hora ele encontra recompensas abertas, realiza as que combinam com suas habilidades e as envia, tudo a partir da sua identidade. Ele age sem supervisão e pode gastar, então mantenha-o na devnet durante os testes. Desativado por padrão.',
   'settings.agentAccess.bountyWorker.label':
     'Executar o trabalhador de recompensas automaticamente',
   'settings.agentAccess.timeout.label': 'Tempo limite da ação',

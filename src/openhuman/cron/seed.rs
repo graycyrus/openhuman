@@ -161,16 +161,18 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
 /// Seed the autonomous tiny.place bounty worker as a recurring (hourly) agent
 /// job — created **disabled**.
 ///
-/// This is opt-in: money on tiny.place is real x402/SPL spend, so the worker
-/// only runs once the user turns it on explicitly (the Settings toggle flips
-/// the job's `enabled` flag via `cron.update_job`). The worker is earn-only by
-/// construction — its `bounty_worker` agent definition holds no spend-capable
-/// tools, and cron turns bypass the approval gate, so the tool allowlist is the
-/// guardrail — but we still gate the whole loop behind an explicit opt-in.
+/// This is opt-in for a reason: the worker is the full-capability `bounty_worker`
+/// agent (wildcard tools) and runs unattended via cron, which bypasses the
+/// approval gate — so it can take paid/irreversible actions on its own, and
+/// money on tiny.place is real x402/SPL spend. The safety rails are therefore
+/// (1) this opt-in toggle, off by default until the user enables it via the
+/// Settings switch (cron.update_job → enabled=true), and (2) the devnet-first,
+/// be-prudent guidance baked into the agent's prompt.
 ///
 /// Runs in an isolated session with `proactive` delivery so each cycle's report
-/// (which bounties it attempted, submission URLs/IDs) reaches the user's active
-/// channel via the channels module's `ProactiveMessageSubscriber`.
+/// (which bounties it attempted, submission URLs/IDs, anything it funded)
+/// reaches the user's active channel via the channels module's
+/// `ProactiveMessageSubscriber`.
 fn seed_bounty_worker(config: &Config) -> Result<()> {
     let schedule = Schedule::Every {
         every_ms: 60 * 60 * 1000, // hourly
@@ -180,9 +182,9 @@ fn seed_bounty_worker(config: &Config) -> Result<()> {
         "Run your autonomous bounty loop. Confirm your identity, recall which ",
         "bounties you've already attempted, discover open tiny.place bounties, ",
         "skip the ones you've done, pick the top 1-2 that fit your skills, do ",
-        "the work, publish each deliverable to your feed, and submit it. You are ",
-        "earn-only: never spend, fund, post/fund a bounty, buy, or trade. Report ",
-        "what you attempted with the submission URLs and IDs."
+        "the work, publish each deliverable to your feed, and submit it. You may ",
+        "take paid actions when worthwhile — be prudent with funds and prefer ",
+        "devnet. Report what you attempted with the submission URLs and IDs."
     );
 
     let job = add_agent_job_with_definition(

@@ -4399,7 +4399,7 @@ const messages: TranslationMap = {
     'Wstrzymaj, zanim przypisany agent wykona opis zadania utworzony przez agenta.',
   'settings.agentAccess.bountyWorker.title': 'Autonomiczny wykonawca nagród (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'Pozwól OpenHuman samodzielnie działać na tiny.place: co godzinę znajduje otwarte nagrody, wykonuje te pasujące do jego umiejętności i je przesyła — wszystko z Twojej tożsamości. Tylko zarabia: nigdy nie wydaje, nie finansuje, nie kupuje ani nie handluje.',
+    'Pozwól OpenHuman samodzielnie działać na tiny.place: co godzinę znajduje otwarte nagrody, wykonuje te pasujące do jego umiejętności i je przesyła — wszystko z Twojej tożsamości. Działa bez nadzoru i może wydawać środki, więc podczas testów używaj devnet. Domyślnie wyłączone.',
   'settings.agentAccess.bountyWorker.label': 'Automatycznie uruchamiaj wykonawcę nagród',
   'settings.agentAccess.timeout.label': 'Limit czasu akcji',
   'settings.agentAccess.timeout.desc':

@@ -4121,7 +4121,7 @@ const messages: TranslationMap = {
     '在指定智能体执行由智能体编写的任务简报前暂停。',
   'settings.agentAccess.bountyWorker.title': '自主悬赏工作者（tiny.place）',
   'settings.agentAccess.bountyWorker.desc':
-    '让 OpenHuman 自行在 tiny.place 上工作：每小时查找开放的悬赏，完成符合其技能的任务并提交，全部以你的身份进行。仅赚取：绝不花费、注资、购买或交易。',
+    '让 OpenHuman 自行在 tiny.place 上工作：每小时查找开放的悬赏，完成符合其技能的任务并提交，全部以你的身份进行。它在无人监督下运行且可以花费资金，测试时请使用 devnet。默认关闭。',
   'settings.agentAccess.bountyWorker.label': '自动运行悬赏工作者',
   'settings.agentAccess.timeout.label': '操作超时',
   'settings.agentAccess.timeout.desc':

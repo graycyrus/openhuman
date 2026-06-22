@@ -79,13 +79,15 @@ mod tests {
     }
 
     #[test]
-    fn archetype_states_earn_only_guardrails() {
+    fn archetype_states_autonomy_posture_and_loop() {
         let body = build(&empty_ctx()).unwrap();
-        // The earn-only safety posture must survive prompt edits.
-        assert!(body.contains("Earn-only"));
-        assert!(body.contains("never spend") || body.contains("never spend, fund"));
-        assert!(body.contains("Free handles only"));
-        // The loop names its core tools so the worker knows its surface.
+        // The autonomy posture (acts unattended, prudent with funds, devnet-first,
+        // no secrets, no fabrication) must survive prompt edits.
+        assert!(body.contains("authorized to act"));
+        assert!(body.contains("Be prudent with funds"));
+        assert!(body.contains("devnet"));
+        assert!(body.contains("No fabrication"));
+        // The loop names its core tools so the agent knows its surface.
         assert!(body.contains("tinyplace_find_work"));
         assert!(body.contains("tinyplace_post"));
         assert!(body.contains("tinyplace_submit_work"));

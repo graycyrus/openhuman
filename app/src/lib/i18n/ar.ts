@@ -4245,7 +4245,7 @@ const messages: TranslationMap = {
     'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
   'settings.agentAccess.bountyWorker.title': 'عامل المكافآت المستقل (tiny.place)',
   'settings.agentAccess.bountyWorker.desc':
-    'دع OpenHuman يعمل على tiny.place بمفرده: كل ساعة يبحث عن المكافآت المفتوحة، وينجز ما يناسب مهاراته، ويقدّمها، كل ذلك من هويتك. للكسب فقط: لا ينفق أو يموّل أو يشتري أو يتاجر أبدًا.',
+    'دع OpenHuman يعمل على tiny.place بمفرده: كل ساعة يبحث عن المكافآت المفتوحة، وينجز ما يناسب مهاراته، ويقدّمها، كل ذلك من هويتك. يعمل دون إشراف ويمكنه الإنفاق، لذا أبقِه على devnet أثناء الاختبار. معطّل افتراضيًا.',
   'settings.agentAccess.bountyWorker.label': 'تشغيل عامل المكافآت تلقائيًا',
   'settings.agentAccess.timeout.label': 'مهلة الإجراء',
   'settings.agentAccess.timeout.desc':
