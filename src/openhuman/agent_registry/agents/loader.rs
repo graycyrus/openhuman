@@ -184,11 +184,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::morning_briefing::prompt::build,
     },
     BuiltinAgent {
-        id: "bounty_worker",
-        toml: include_str!("bounty_worker/agent.toml"),
-        prompt_fn: super::bounty_worker::prompt::build,
-    },
-    BuiltinAgent {
         id: "summarizer",
         toml: include_str!("summarizer/agent.toml"),
         prompt_fn: super::summarizer::prompt::build,
@@ -888,29 +883,6 @@ mod tests {
             "morning_briefing.disallowed_tools must contain `tinyplace_*` so \
              tiny.place routes through tinyplace_agent exclusively"
         );
-    }
-
-    /// The bounty_worker is the autonomous, full-capability agent: it runs
-    /// unattended via cron and is authorized to act on its own (including paid
-    /// actions), so it intentionally uses a wildcard tool scope with nothing
-    /// disallowed. The safety rails are the opt-in toggle (off by default) and
-    /// the devnet-first prompt, NOT a restricted tool list.
-    #[test]
-    fn bounty_worker_has_full_autonomous_surface() {
-        let def = find("bounty_worker");
-        assert!(
-            matches!(def.tools, ToolScope::Wildcard),
-            "bounty_worker should use a wildcard tool scope (full capability)"
-        );
-        assert!(
-            def.disallowed_tools.is_empty(),
-            "bounty_worker must not restrict tools — full autonomy by design, got {:?}",
-            def.disallowed_tools
-        );
-        // It must act, not stand behind a sandbox, since it does external work.
-        assert_eq!(def.sandbox_mode, SandboxMode::None);
-        // Worker tier (leaf) — it does the work itself, not via subagents.
-        assert!(def.subagents.is_empty());
     }
 
     #[test]

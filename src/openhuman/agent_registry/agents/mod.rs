@@ -6,7 +6,6 @@ mod loader;
 // -> Result<String>` that the loader wires into `PromptSource::Dynamic`.
 pub mod account_admin_agent;
 pub mod archivist;
-pub mod bounty_worker;
 pub mod code_executor;
 pub mod critic;
 pub mod crypto_agent;

@@ -78,7 +78,9 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
     }
 
     if !has(BOUNTY_WORKER_JOB_NAME) {
-        tracing::info!("[cron::seed] creating bounty_worker agent cron job (disabled — opt-in)");
+        tracing::info!(
+            "[cron::seed] creating autonomous bounty cron job (tinyplace_agent, disabled — opt-in)"
+        );
         seed_bounty_worker(config)?;
     } else {
         tracing::debug!("[cron::seed] bounty_worker job already exists — skipping");
@@ -158,16 +160,19 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Seed the autonomous tiny.place bounty worker as a recurring (hourly) agent
-/// job — created **disabled**.
+/// Seed the autonomous tiny.place bounty job as a recurring (hourly) agent job
+/// — created **disabled**.
 ///
-/// This is opt-in for a reason: the worker is the full-capability `bounty_worker`
-/// agent (wildcard tools) and runs unattended via cron, which bypasses the
-/// approval gate — so it can take paid/irreversible actions on its own, and
-/// money on tiny.place is real x402/SPL spend. The safety rails are therefore
-/// (1) this opt-in toggle, off by default until the user enables it via the
-/// Settings switch (cron.update_job → enabled=true), and (2) the devnet-first,
-/// be-prudent guidance baked into the agent's prompt.
+/// The job runs the `tinyplace_agent` (the single tiny.place agent) with an
+/// autonomous bounty-loop prompt. Its job/toggle name stays `bounty_worker`
+/// because that's what it does; there is no separate "bounty_worker" agent.
+///
+/// This is opt-in for a reason: a cron run bypasses the approval gate, and
+/// `tinyplace_agent`'s prompt authorizes it to take paid/irreversible actions
+/// when running autonomously — and money on tiny.place is real x402/SPL spend.
+/// The safety rails are therefore (1) this opt-in toggle, off by default until
+/// the user enables it via the Settings switch (cron.update_job → enabled=true),
+/// and (2) the devnet-first, be-prudent guidance in the agent's prompt.
 ///
 /// Runs in an isolated session with `proactive` delivery so each cycle's report
 /// (which bounties it attempted, submission URLs/IDs, anything it funded)
@@ -179,12 +184,13 @@ fn seed_bounty_worker(config: &Config) -> Result<()> {
     };
 
     let prompt = concat!(
-        "Run your autonomous bounty loop. Confirm your identity, recall which ",
+        "Run an autonomous bounty loop. Confirm your identity, recall which ",
         "bounties you've already attempted, discover open tiny.place bounties, ",
         "skip the ones you've done, pick the top 1-2 that fit your skills, do ",
-        "the work, publish each deliverable to your feed, and submit it. You may ",
-        "take paid actions when worthwhile — be prudent with funds and prefer ",
-        "devnet. Report what you attempted with the submission URLs and IDs."
+        "the work, publish each deliverable to your feed (tinyplace_post), and ",
+        "submit it. You are running autonomously, so you may take paid actions ",
+        "when worthwhile — be prudent with funds and prefer devnet. Record each ",
+        "attempt in memory and report the submission URLs and IDs."
     );
 
     let job = add_agent_job_with_definition(
@@ -196,7 +202,8 @@ fn seed_bounty_worker(config: &Config) -> Result<()> {
         None,
         Some(proactive_delivery()),
         false, // recurring — do not delete after run
-        Some(BOUNTY_WORKER_JOB_NAME.to_string()),
+        // Runs the single tiny.place agent autonomously (no dedicated agent def).
+        Some("tinyplace_agent".to_string()),
     )?;
 
     // Opt-in: the job is created disabled. The user enables it explicitly via
@@ -264,8 +271,8 @@ mod tests {
             !worker.enabled,
             "bounty_worker must be seeded disabled (opt-in)"
         );
-        // Routed at the dedicated earn-only agent definition.
-        assert_eq!(worker.agent_id.as_deref(), Some(BOUNTY_WORKER_JOB_NAME));
+        // Runs the single tiny.place agent autonomously (no dedicated agent def).
+        assert_eq!(worker.agent_id.as_deref(), Some("tinyplace_agent"));
 
         // Idempotent: a second seed must not create a duplicate.
         seed_proactive_agents(&config).expect("second seed");
