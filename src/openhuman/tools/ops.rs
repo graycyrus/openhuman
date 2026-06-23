@@ -167,13 +167,12 @@ pub fn all_tools_with_runtime(
         // `agent::harness::subagent_runner` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
         Box::new(SpawnAsyncSubagentTool::new()),
-        // Steer a running async sub-agent mid-flight and collect its result:
-        // `steer_subagent { task_id, message }` injects into the child's
-        // run-queue (drained at its next iteration boundary), `wait_subagent
-        // { task_id }` blocks for the final output. See
-        // `agent_orchestration::running_subagents`.
+        // Steer/list/close reusable async sub-agents and collect results by
+        // durable `subagent_session_id` (preferred) or transient `task_id`.
+        Box::new(ListSubagentsTool::new()),
         Box::new(SteerSubagentTool::new()),
         Box::new(WaitSubagentTool::new()),
+        Box::new(CloseSubagentTool::new()),
         Box::new(ContinueSubagentTool::new()),
         Box::new(SpawnParallelAgentsTool::new()),
         Box::new(DelegateToPersonalityTool::new()),
@@ -198,6 +197,10 @@ pub fn all_tools_with_runtime(
         Box::new(RunWorkflowTool::new().with_skill_allowlist(skill_allowlist.cloned())),
         Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),
+        // Reversibility for native tool-output compaction (Stage 1a): when a
+        // large result is compacted with a `retrieve_tool_output("<hash>")`
+        // marker, this hands the original back from the CCR store on demand.
+        Box::new(RetrieveToolOutputTool::new()),
         // Deterministic time-expression → timestamp resolver. `current_time`
         // only returns *now*, leaving the model to do epoch arithmetic by hand
         // (a real incident had an agent compute "24h ago" ~10 months off, then
@@ -246,8 +249,6 @@ pub fn all_tools_with_runtime(
         // can explain an empty/stalled wiki + the fix.
         Box::new(MemoryDoctorTool::new(config.clone())),
         Box::new(MemoryQueryTool),
-        Box::new(MemoryQueryWalkTool),
-        Box::new(SmartMemoryWalkTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
         Box::new(MemoryVectorSearchTool),
@@ -515,11 +516,6 @@ pub fn all_tools_with_runtime(
         Box::new(WorkspaceUpdatePersonaTool::new(config.clone())),
         Box::new(WorkspaceResetPersonaTool::new(config.clone())),
         Box::new(WorkspaceInitTool),
-        // tiny.place agent tools — submit proposals on behalf of the user.
-        // Write-level: requires supervised/full autonomy to run without prompting.
-        // Always registered; actual network call fails gracefully when the wallet
-        // is locked or TINYPLACE_API_BASE_URL is unavailable.
-        Box::new(TinyplaceJobApplyTool),
     ];
 
     log::debug!(
@@ -530,6 +526,20 @@ pub fn all_tools_with_runtime(
     // Subconscious scratchpad tools — persistent working memory across ticks.
     tools.extend(crate::openhuman::subconscious::scratchpad::tools::all_scratchpad_tools());
 
+    // Subconscious user-facing handoff — notify_user proactive delivery.
+    tools.extend(crate::openhuman::subconscious::user_thread::all_user_thread_tools());
+
+    // tiny.place agent surface. These wrap the internal tiny.place controllers
+    // so the dedicated tinyplace subagent can register identities, inspect
+    // inbox/DM state, trade marketplace assets, manage groups, and work jobs
+    // through the same validation/client paths as JSON-RPC.
+    let tinyplace_tools = crate::openhuman::tinyplace::tools::all_tinyplace_agent_tools();
+    log::debug!(
+        "[tools::ops][tinyplace] registering tinyplace agent tools count={}",
+        tinyplace_tools.len()
+    );
+    tools.extend(tinyplace_tools);
+
     // Presentation generation (#2778). Native-Rust engine (ppt-rs
     // backed) as of the #2780-follow-up rust-engine refactor — no
     // managed Python venv, no first-call install latency. Always
@@ -538,6 +548,25 @@ pub fn all_tools_with_runtime(
         root_config.workspace_dir.clone(),
         security.clone(),
     )));
+
+    // Long-term goals list tools. Used primarily by the background
+    // `goals_agent` (which filters to these via its `[tools] named`
+    // allowlist); also available to the main agent for explicit edits.
+    {
+        let goals_dir = root_config.workspace_dir.clone();
+        tools.push(Box::new(
+            crate::openhuman::memory_goals::GoalsListTool::new(goals_dir.clone()),
+        ));
+        tools.push(Box::new(crate::openhuman::memory_goals::GoalsAddTool::new(
+            goals_dir.clone(),
+        )));
+        tools.push(Box::new(
+            crate::openhuman::memory_goals::GoalsEditTool::new(goals_dir.clone()),
+        ));
+        tools.push(Box::new(
+            crate::openhuman::memory_goals::GoalsDeleteTool::new(goals_dir),
+        ));
+    }
 
     if browser_config.enabled {
         // Unified web-access allowlist (merge fetch + browser firewalls): the

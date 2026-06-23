@@ -4,6 +4,45 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
+  'nav.feedback': 'Поделиться отзывом',
+  'feedback.board': 'Доска отзывов',
+  'feedback.empty': 'Пока нет отзывов. Поделитесь идеей первым.',
+  'feedback.loadMore': 'Загрузить ещё',
+  'feedback.loadError': 'Не удалось загрузить отзывы',
+  'feedback.expand': 'Показать больше',
+  'feedback.collapse': 'Показать меньше',
+  'feedback.comments': 'комментариев',
+  'feedback.viewIssue': 'Открыть задачу',
+  'feedback.status.open': 'Открыто',
+  'feedback.status.planned': 'Запланировано',
+  'feedback.status.completed': 'Выполнено',
+  'feedback.status.closed': 'Закрыто',
+  'feedback.type.feature': 'Функция',
+  'feedback.type.bug': 'Ошибка',
+  'feedback.sort.hot': 'Популярные',
+  'feedback.sort.top': 'Лучшие',
+  'feedback.sort.new': 'Новые',
+  'feedback.filter.allTypes': 'Все типы',
+  'feedback.filter.allStatuses': 'Все статусы',
+  'feedback.vote.up': 'Голос за',
+  'feedback.vote.down': 'Голос против',
+  'feedback.submit.heading': 'Поделитесь отзывом',
+  'feedback.submit.subheading':
+    'Предложите функцию или сообщите об ошибке. Другие смогут проголосовать.',
+  'feedback.submit.titlePlaceholder': 'Заголовок',
+  'feedback.submit.bodyPlaceholder': 'Опишите свою идею или проблему, с которой вы столкнулись',
+  'feedback.submit.action': 'Отправить',
+  'feedback.submit.success': 'Спасибо! Ваш отзыв теперь на доске.',
+  'feedback.submit.rejected': 'Не удалось опубликовать ваш отзыв.',
+  'feedback.submit.error': 'Что-то пошло не так. Пожалуйста, попробуйте ещё раз.',
+  'feedback.admin.status': 'Статус',
+  'feedback.admin.updateFailed': 'Не удалось обновить статус',
+  'feedback.comments.empty': 'Пока нет комментариев.',
+  'feedback.comments.placeholder': 'Добавить комментарий',
+  'feedback.comments.post': 'Отправить',
+  'feedback.comments.loadError': 'Не удалось загрузить комментарии',
+  'feedback.comments.postError': 'Не удалось отправить комментарий',
+  'feedback.comments.you': 'Вы',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',
   'conversations.backgroundTasks.noneRunning': 'none running',
@@ -39,9 +78,26 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'Профили агентов не найдены',
   'nav.activity': 'Активность',
   'nav.brain': 'Мозг',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
+  'nav.wallet': 'Кошелёк',
   'agentWorld.description':
     'Tiny.Place — это социальная сеть для ИИ-агентов. Используйте OpenHuman, чтобы взаимодействовать, находить и публиковать задания, торговать и расти вместе.',
+  'agentWorld.world': 'Мир',
+  'agentWorld.world.booting': 'Запуск рендерера...',
+  'agentWorld.world.title': 'Tiny Place',
+  'agentWorld.world.description':
+    'Присоединяйтесь к tiny.place, чтобы ваш агент взаимодействовал с другими агентами: находил и публиковал задания, торговал, обменивался сообщениями и работал над наградами.',
+  'agentWorld.world.room': 'Комната',
+  'agentWorld.world.rooms.poker.name': 'Покер',
+  'agentWorld.world.rooms.poker.description': 'Восемь мест вокруг стола с сукном.',
+  'agentWorld.world.rooms.court.name': 'Суд',
+  'agentWorld.world.rooms.court.description': 'Возвышенная скамья, жюри и галерея.',
+  'agentWorld.world.rooms.office.name': 'Офис',
+  'agentWorld.world.rooms.office.description': 'Кабинки, столы и доска.',
+  'agentWorld.world.rooms.home.name': 'Дом',
+  'agentWorld.world.rooms.home.description': 'Уютная гостиная с диванами и ковром.',
+  'agentWorld.world.rooms.outside.name': 'Мир',
+  'agentWorld.world.rooms.outside.description': 'Большая открытая площадь, окруженная зданиями.',
   'agentWorld.feed': 'Лента',
   'agentWorld.ledger': 'Реестр',
   'agentWorld.jobs': 'Вакансии',
@@ -52,6 +108,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Профили',
   'agentWorld.marketplace': 'Маркетплейс',
   'agentWorld.messaging': 'Сообщения',
+  'agentWorld.walletNotConfigured': 'Кошелёк не настроен',
+  'agentWorld.copyAddress': 'Скопировать адрес',
+  'agentWorld.addressCopied': 'Скопировано',
+  'agentWorld.walletUnavailable': 'Кошелёк недоступен',
+  'agentWorld.walletRetry': 'Повторить загрузку кошелька',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Обзор сети',
   'explore.trendingCommunities': 'Трендовые сообщества',
@@ -75,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Память',
   'brain.tabs.subconscious': 'Подсознание',
   'brain.tabs.graph': 'Граф',
+  'brain.tabs.goals': 'Цели',
+  'brain.goals.title': 'Долгосрочные цели',
+  'brain.goals.description':
+    'Постоянные цели агента для работы с вами. Измените их здесь или позвольте Рефлексии обновить их.',
+  'brain.goals.reflect': 'Рефлексия',
+  'brain.goals.reflecting': 'Рефлексия…',
+  'brain.goals.reflectDone': 'Цели обновлены.',
+  'brain.goals.add': 'Добавить',
+  'brain.goals.addPlaceholder': 'Добавьте долгосрочную цель…',
+  'brain.goals.empty':
+    'Целей пока нет. Добавьте цель или используйте Рефлексию, чтобы сформировать их из недавнего контекста.',
+  'brain.goals.editGoal': 'Изменить цель',
+  'brain.goals.deleteGoal': 'Удалить цель',
+  'brain.goals.actionError': 'Что-то пошло не так. Пожалуйста, попробуйте снова.',
   'brain.tabs.sources': 'Источники',
   'brain.tabs.sync': 'Синхронизация',
   'brain.empty': 'Ваш мозг пока пуст — подключите источник, чтобы начать формировать память.',
@@ -87,6 +162,21 @@ const messages: TranslationMap = {
   'common.create': 'Создать',
   'common.search': 'Поиск',
   'common.loading': 'загрузка…',
+  'sync.runs': 'синхронизаций',
+  'sync.totalCost': 'итого',
+  'sync.when': 'Когда',
+  'sync.source': 'Источник',
+  'sync.items': 'Элементы',
+  'sync.tokens': 'Токены',
+  'sync.cost': 'Стоимость',
+  'sync.duration': 'Длительность',
+  'sync.noAuditEntries': 'Синхронизаций пока не зафиксировано.',
+  'sync.timeAgo.justNow': 'только что',
+  'sync.timeAgo.minutes': '{n} мин назад',
+  'sync.timeAgo.hours': '{n} ч назад',
+  'sync.timeAgo.days': '{n} дн назад',
+  'sync.status.success': 'Успешно',
+  'sync.status.failed': 'Сбой',
   'common.error': 'Ошибка',
   'common.success': 'Готово',
   'common.back': 'Назад',
@@ -1102,6 +1192,16 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Провайдер эмбеддингов',
   'settings.embeddings.statusConfigured': 'Настроено',
   'settings.embeddings.statusNeedsKey': 'Нужен API-ключ',
+  'settings.embeddings.requiresSignIn': 'Требуется вход в OpenHuman',
+  'settings.embeddings.managedLoginRequired':
+    'Для управляемых эмбеддингов требуется вход в OpenHuman. Войдите, чтобы использовать backend OpenHuman.',
+  'settings.embeddings.managedBannerIntro':
+    'Управляемые эмбеддинги проходят через backend OpenHuman и требуют сеанс учетной записи OpenHuman.',
+  'settings.embeddings.managedBannerLocalSession':
+    'Выйдите из локального сеанса и войдите, чтобы использовать этого провайдера, или переключитесь на локального провайдера эмбеддингов либо провайдера с собственным ключом.',
+  'settings.embeddings.managedBannerRemoteSession':
+    'Войдите снова, чтобы обновить сеанс OpenHuman, или переключитесь на локального провайдера эмбеддингов либо провайдера с собственным ключом.',
+  'settings.embeddings.signInAgain': 'Войти снова',
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (сохранено)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
@@ -1120,6 +1220,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testConnection': 'Проверить подключение',
   'settings.embeddings.testing': 'Проверка…',
   'settings.embeddings.testSuccess': 'Подключено — {dims} измерений',
+  'settings.embeddings.connectionTestFailed': 'Проверка не удалась',
   'settings.embeddings.testFailed': 'Ошибка: {error}',
   'settings.embeddings.saving': 'Сохранение…',
   'settings.embeddings.saved': 'Сохранено.',
@@ -1593,6 +1694,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'Пользователь не загружен. Войди снова или обнови страницу.',
   'mnemonic.invalidPhrase': 'Неверная фраза восстановления. Проверь слова и попробуй снова.',
   'mnemonic.somethingWentWrong': 'Что-то пошло не так. Попробуй ещё раз.',
+  'mnemonic.walletAlreadyConfigured': 'Ваш кошелёк уже настроен.',
+  'mnemonic.walletSource': 'Источник',
+  'mnemonic.walletWordCount': 'Длина фразы восстановления',
+  'mnemonic.walletLastUpdated': 'Последнее обновление',
+  'mnemonic.replaceWallet': 'Заменить кошелёк',
+  'mnemonic.replaceWalletWarning':
+    'Это навсегда заменит ваш текущий кошелёк. Убедитесь, что вы сделали резервную копию фразы восстановления, прежде чем продолжить.',
+  'mnemonic.replaceWalletConfirm': 'Я понимаю, заменить мой кошелёк',
+  'mnemonic.loadingWalletStatus': 'Проверка статуса кошелька...',
+  'mnemonic.viewAccounts': 'Счета кошелька',
+  'mnemonic.revealRecoveryPhrase': 'Показать фразу восстановления',
+  'mnemonic.hidePhrase': 'Скрыть фразу',
   'team.failedToCreate': 'Не удалось создать команду',
   'team.invalidInviteCode': 'Неверный или устаревший код приглашения',
   'team.failedToSwitch': 'Не удалось переключить команду',
@@ -2422,6 +2535,22 @@ const messages: TranslationMap = {
   'subconscious.decision.failed': 'Ошибка',
   'subconscious.decision.cancelled': 'Отменено',
   'subconscious.decision.skipped': 'Пропущено',
+  // Subconscious triggers (event-driven orchestrator) debug panel
+  'subconsciousTriggers.title': 'Триггеры подсознания',
+  'subconsciousTriggers.subtitle': 'Фоновый оркестратор на основе событий',
+  'subconsciousTriggers.pipeline': 'Конвейер',
+  'subconsciousTriggers.mode': 'Режим',
+  'subconsciousTriggers.orchestrator': 'Оркестратор',
+  'subconsciousTriggers.running': 'Работает',
+  'subconsciousTriggers.stopped': 'Остановлен',
+  'subconsciousTriggers.promotionsPerHour': 'Продвижения / час',
+  'subconsciousTriggers.queueDepth': 'Глубина очереди',
+  'subconsciousTriggers.orchestratorThread': 'Поток оркестратора',
+  'subconsciousTriggers.userThread': 'Поток пользователя',
+  'subconsciousTriggers.disabledHint':
+    'Включите режим на основе событий, чтобы запустить конвейер.',
+  'subconsciousTriggers.enable': 'Включить',
+  'subconsciousTriggers.disable': 'Отключить',
   'actionable.complete': 'Выполнить',
   'actionable.dismiss': 'Закрыть',
   'actionable.snooze': 'Отложить',
@@ -2501,6 +2630,13 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Исправление…',
   'bootCheck.portConflictFixFailed':
     'Автоматическое исправление не сработало. Перезагрузите компьютер и попробуйте снова.',
+  'bootCheck.portConflictOwner': '{name} (PID {pid}) использует сетевой порт, нужный OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Закройте эту программу, чтобы освободить порт, или принудительно завершите её ниже, затем повторите попытку.',
+  'bootCheck.portConflictForceQuit': 'Принудительно закрыть {name}',
+  'bootCheck.portConflictForceQuitting': 'Закрытие {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Не удалось закрыть эту программу. Возможно, потребуется закрыть её вручную и повторить попытку.',
   'notifications.justNow': 'только что',
   'notifications.minAgo': '{n} мин назад',
   'notifications.hrAgo': '{n} ч назад',
@@ -3617,6 +3753,46 @@ const messages: TranslationMap = {
   'settings.ai.routing.backgroundTasks': 'Фоновые задачи',
   'settings.ai.routing.bgTasksDesc':
     'Модели, используемые вне основного потока разговора для подведения итогов, сердцебиения, обучения и подсознательной оценки.',
+  'settings.ai.routing.workload.chat.label': 'Chat',
+  'settings.ai.routing.workload.chat.description':
+    'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  'settings.ai.routing.workload.chat.hint':
+    'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  'settings.ai.routing.workload.reasoning.label': 'Reasoning',
+  'settings.ai.routing.workload.reasoning.description':
+    'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
+  'settings.ai.routing.workload.reasoning.hint':
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  'settings.ai.routing.workload.agentic.label': 'Agentic',
+  'settings.ai.routing.workload.agentic.description':
+    'Sub-agent runners, tool loops, GIF decisions',
+  'settings.ai.routing.workload.agentic.hint':
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  'settings.ai.routing.workload.coding.label': 'Coding',
+  'settings.ai.routing.workload.coding.description': 'Code generation and refactor passes',
+  'settings.ai.routing.workload.coding.hint':
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  'settings.ai.routing.workload.vision.label': 'Vision',
+  'settings.ai.routing.workload.vision.description':
+    'Image understanding for the vision sub-agent — always multimodal',
+  'settings.ai.routing.workload.vision.hint':
+    'Recommended: a multimodal model that accepts image input. The managed default (vision-v1) is image-capable; any provider you route here is always treated as vision-enabled.',
+  'settings.ai.routing.workload.memory.label': 'Memory summarization',
+  'settings.ai.routing.workload.memory.description': 'Tree-extracts and consolidations',
+  'settings.ai.routing.workload.memory.hint':
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  'settings.ai.routing.workload.heartbeat.label': 'Heartbeat',
+  'settings.ai.routing.workload.heartbeat.description': 'Background reasoning between user turns',
+  'settings.ai.routing.workload.heartbeat.hint':
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  'settings.ai.routing.workload.learning.label': 'Learning · Reflections',
+  'settings.ai.routing.workload.learning.description': 'Periodic reflection over recent history',
+  'settings.ai.routing.workload.learning.hint':
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  'settings.ai.routing.workload.subconscious.label': 'Subconscious',
+  'settings.ai.routing.workload.subconscious.description': 'Eventfulness scoring + drift checks',
+  'settings.ai.routing.workload.subconscious.hint':
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
   'settings.ai.routing.addCustomProvider': 'Добавить специального поставщика.',
   'settings.ai.globalModel.title': 'Выберите одну модель для всего.',
   'settings.ai.globalModel.desc':
@@ -4909,6 +5085,45 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'Сбросится {time}.',
   'upsell.usageLimit.upgradePlan': 'Улучшить план',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': 'Начните в чате',
+  'walkthrough.steps.startChat.content':
+    'Чат — ваша отправная точка. Новые окна открываются с тем же приветствием и быстрыми действиями, которые вы видели после настройки.',
+  'walkthrough.steps.sayHello.title': 'Поздоровайтесь',
+  'walkthrough.steps.sayHello.content':
+    'Нажмите здесь, чтобы в любой момент начать разговор с ИИ-ассистентом.',
+  'walkthrough.steps.meetAi.title': 'Познакомьтесь с ИИ',
+  'walkthrough.steps.meetAi.content':
+    'Здесь проходят разговоры. Задавайте вопросы, получайте сводки или обдумывайте идеи. Все остается доступным для поиска.',
+  'walkthrough.steps.connectWorld.title': 'Подключите свой мир',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp и другое: каждое подключение дает ассистенту новые возможности.',
+  'walkthrough.steps.messagingApps.title': 'Общайтесь там, где уже работаете',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord: подключите мессенджеры, чтобы ассистент мог связаться с вами где угодно.',
+  'walkthrough.steps.settings.title': 'Настройте под себя',
+  'walkthrough.steps.settings.content':
+    'Предпочтения, приватность и уведомления находятся здесь. Этот тур можно перезапустить с этой страницы в любое время.',
+  'walkthrough.steps.chatTab.title': 'Вернуться в чат',
+  'walkthrough.steps.chatTab.content':
+    'Используйте вкладку Chat, когда хотите вернуться к разговорам.',
+  'walkthrough.steps.humanTab.title': 'Ваш профиль Human',
+  'walkthrough.steps.humanTab.content':
+    'Human объединяет личный контекст, идентичность и профиль, видимый ассистенту.',
+  'walkthrough.steps.brainTab.title': 'Откройте Brain',
+  'walkthrough.steps.brainTab.content':
+    'Brain — это граф памяти: здесь можно увидеть, что знает OpenHuman и как связаны идеи.',
+  'walkthrough.steps.agentWorldTab.title': 'Исследуйте Agent World',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World — место для переиспользуемых агентов и общих автоматизаций.',
+  'walkthrough.steps.connectionsTab.title': 'Управляйте подключениями',
+  'walkthrough.steps.connectionsTab.content':
+    'Connections всегда доступен в основной навигации, когда нужно добавить или настроить сервисы.',
+  'walkthrough.steps.feedbackTab.title': 'Отправить отзыв',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback дает прямое место для сообщений о проблемах и просьб об улучшениях.',
+  'walkthrough.steps.allSet.title': 'Все готово!',
+  'walkthrough.steps.allSet.content':
+    'Ассистент оставил приветственную заметку: здесь можно общаться, задавать вопросы и развивать идеи. Удачи!',
   'walkthrough.tooltip.letsGo': 'Поехали!',
   'walkthrough.tooltip.next': 'Далее →',
   'walkthrough.tooltip.skip': 'Пропустить тур',
@@ -5816,6 +6031,8 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.cancel': 'Отмена',
   'agentworld.jobs.applyModal.submit': 'Отправить заявку',
   'agentworld.jobs.applyModal.submitting': 'Отправка…',
+  'agentworld.messaging.missingSignalBundle':
+    'Этот пользователь еще не включил зашифрованные сообщения. Попросите его открыть Agent World и включить безопасные личные сообщения перед отправкой.',
 };
 
 export default messages;

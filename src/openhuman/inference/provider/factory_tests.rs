@@ -1843,11 +1843,28 @@ fn byok_fallback_skips_mlx_and_local_openai() {
 }
 
 #[test]
+fn byok_fallback_skips_omlx() {
+    let mut config = Config::default();
+    config.chat_provider = Some("omlx:llama3".to_string());
+
+    assert!(
+        resolve_byok_fallback_provider_string(&config).is_none(),
+        "OMLX is a local provider and must not be treated as a BYOK cloud fallback"
+    );
+    assert_eq!(
+        provider_for_role("coding", &config),
+        "openhuman",
+        "unset coding must not inherit chat OMLX as a BYOK fallback"
+    );
+}
+
+#[test]
 fn local_provider_string_detection() {
     use crate::openhuman::inference::local::profile::is_local_provider_string;
     assert!(is_local_provider_string("ollama:phi3"));
     assert!(is_local_provider_string("lmstudio:model"));
     assert!(is_local_provider_string("mlx:llama"));
+    assert!(is_local_provider_string("omlx:llama"));
     assert!(is_local_provider_string("local-openai:qwen2"));
     assert!(!is_local_provider_string("openai:gpt-4o"));
     assert!(!is_local_provider_string("openhuman"));
@@ -1926,4 +1943,206 @@ fn resolve_model_for_hint_handles_unknown_hint_passthrough() {
     let config = Config::default();
     let result = resolve_model_for_hint("hint:unknown_tier", &config);
     assert_eq!(result, "hint:unknown_tier");
+}
+
+#[test]
+fn omlx_provider_builds_with_bearer_key() {
+    let mut config = crate::openhuman::config::Config::default();
+    config.local_ai.api_key = Some("sk-omlx-test".to_string());
+    config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
+    let (_provider, model) =
+        super::make_omlx_provider("my-model", None, &config).expect("omlx provider builds");
+    assert_eq!(model, "my-model");
+}
+
+#[test]
+fn omlx_dispatch_empty_model_errors() {
+    // Covers the empty-model bail! arms in create_chat_provider_from_string
+    // and create_local_chat_provider_from_string for the "omlx:" prefix.
+    let config = crate::openhuman::config::Config::default();
+
+    let err = create_chat_provider_from_string("chat", "omlx:", &config)
+        .err()
+        .expect("omlx: with empty model must fail");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("empty model") || msg.contains("omlx:<model"),
+        "expected empty-model diagnostic, got: {msg}"
+    );
+
+    let err_local = create_local_chat_provider_from_string("omlx:", &config)
+        .err()
+        .expect("omlx: with empty model must fail via local dispatch");
+    let msg_local = err_local.to_string();
+    assert!(
+        msg_local.contains("empty model") || msg_local.contains("omlx:<model"),
+        "expected empty-model diagnostic from local dispatch, got: {msg_local}"
+    );
+}
+
+#[test]
+fn omlx_provider_builds_without_key_uses_no_auth() {
+    // Covers the no-api_key warn branch in make_omlx_provider — must not panic,
+    // must return Ok with the correct model name.
+    let mut config = crate::openhuman::config::Config::default();
+    config.local_ai.api_key = None;
+    config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
+    let (_provider, model) =
+        super::make_omlx_provider("m", None, &config).expect("omlx provider builds without key");
+    assert_eq!(model, "m");
+}
+
+#[test]
+fn omlx_dispatch_success_builds_provider() {
+    // Covers the success arms (non-empty model -> make_omlx_provider) in both
+    // create_chat_provider_from_string and create_local_chat_provider_from_string.
+    let mut config = crate::openhuman::config::Config::default();
+    config.local_ai.api_key = Some("sk-omlx-test".to_string());
+    config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
+
+    let (_p, model) = create_chat_provider_from_string("chat", "omlx:my-model", &config)
+        .expect("omlx:<model> builds via public factory");
+    assert_eq!(model, "my-model");
+
+    let (_p_local, model_local) = create_local_chat_provider_from_string("omlx:my-model", &config)
+        .expect("omlx:<model> builds via local dispatch");
+    assert_eq!(model_local, "my-model");
+}
+
+// ── #3767: managed-credits gate bypass (gate-only, per-tier) ───────────────
+//
+// Routing is NOT changed by this fix — selecting a BYO provider already routes
+// inference correctly. The gate is evaluated PER TIER so the UI checks whichever
+// tier the user actually selected: the chat header's "Quick" mode runs on the
+// `chat` tier and "Reasoning" mode on the `reasoning` tier. `role_bypasses_
+// managed_credits(role)` is true when that role runs on the user's own funding
+// (a BYO cloud key, a local runtime, or claude-code) with usable credentials.
+// Tiers that stay managed and run anyway surface the per-call 402 error.
+
+/// Store a usable provider key under the new-style `provider:<slug>` profile so
+/// `lookup_key_for_slug` resolves it.
+fn store_byo_key(config: &Config, slug: &str, token: &str) {
+    let auth = AuthService::from_config(config);
+    auth.store_provider_token(
+        &format!("provider:{slug}"),
+        "default",
+        token,
+        Default::default(),
+        true,
+    )
+    .expect("store provider token");
+}
+
+#[test]
+fn byo_chat_tier_with_key_bypasses() {
+    let tmp = TempDir::new().expect("tempdir");
+    // Quick mode runs on `chat`; routed to the user's own OpenAI provider + key.
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+    store_byo_key(&config, "openai", "sk-byo-test");
+
+    assert!(role_bypasses_managed_credits("chat", &config));
+}
+
+#[test]
+fn byo_reasoning_tier_with_key_bypasses() {
+    let tmp = TempDir::new().expect("tempdir");
+    // Reasoning mode runs on `reasoning`; routed to the user's own provider + key.
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+    config.reasoning_provider = Some("openai:gpt-4o".to_string());
+    store_byo_key(&config, "openai", "sk-byo-test");
+
+    assert!(role_bypasses_managed_credits("reasoning", &config));
+}
+
+#[test]
+fn per_tier_diverges_chat_byo_reasoning_managed() {
+    let tmp = TempDir::new().expect("tempdir");
+    // The crux of the per-tier check: chat on BYOK, reasoning explicitly managed.
+    // Quick mode (chat) bypasses; Reasoning mode (reasoning) stays gated.
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+    config.reasoning_provider = Some("openhuman".to_string());
+    store_byo_key(&config, "openai", "sk-byo-test");
+
+    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("reasoning", &config));
+}
+
+#[test]
+fn local_tier_bypasses_without_any_key() {
+    // A tier on a local on-device runtime → bypass, no cloud key needed.
+    let mut config = Config::default();
+    config.chat_provider = Some("ollama:qwen3:8b".to_string());
+    assert!(role_bypasses_managed_credits("chat", &config));
+}
+
+#[test]
+fn managed_chat_with_byo_agentic_stays_gated() {
+    let tmp = TempDir::new().expect("tempdir");
+    // chat explicitly managed; only tool-use (agentic) is BYOK. The chat tier
+    // still bills managed credits → chat role stays gated. (agentic itself is a
+    // BYO route, but it is not a chat-mode tier and surfaces errors per-call.)
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+    config.chat_provider = Some("openhuman".to_string());
+    config.reasoning_provider = Some("openhuman".to_string());
+    config.agentic_provider = Some("openai:gpt-4o".to_string());
+    store_byo_key(&config, "openai", "sk-byo-test");
+
+    assert!(!role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("reasoning", &config));
+}
+
+#[test]
+fn managed_chat_with_byo_vision_stays_gated() {
+    let tmp = TempDir::new().expect("tempdir");
+    // Vision on BYOK but the chat-mode tiers stay managed → chat/reasoning gated.
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+    config.chat_provider = Some("openhuman".to_string());
+    config.reasoning_provider = Some("openhuman".to_string());
+    config.vision_provider = Some("openai:gpt-4o".to_string());
+    store_byo_key(&config, "openai", "sk-byo-test");
+
+    assert!(!role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("reasoning", &config));
+}
+
+#[test]
+fn no_byo_provider_stays_gated() {
+    let tmp = TempDir::new().expect("tempdir");
+    // OpenAI entry exists but every tier is left on the managed default and no
+    // key is stored → chat-mode tiers managed → must NOT bypass.
+    let config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+
+    assert_eq!(provider_for_role("chat", &config), "openhuman");
+    assert!(!role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("reasoning", &config));
+}
+
+#[test]
+fn default_config_with_no_key_stays_gated() {
+    // No BYO provider at all → both chat-mode tiers gated.
+    let config = Config::default();
+    assert!(!role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("reasoning", &config));
+}
+
+#[test]
+fn byo_route_without_usable_key_stays_gated() {
+    let tmp = TempDir::new().expect("tempdir");
+    // chat tier points at a BYO slug with NO stored key — the route would fail
+    // with an auth error, not bill managed credits, but we must not bypass for a
+    // route that cannot run on the user's dime (#3767: "BYO key present but
+    // invalid/unverified → still gated").
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+
+    // The explicit route is still honored verbatim by provider_for_role…
+    assert_eq!(provider_for_role("chat", &config), "openai:gpt-4o");
+    // …but with no usable key the gate stays on.
+    assert!(!role_bypasses_managed_credits("chat", &config));
+
+    // Once a key is stored, the route becomes a genuine bypass.
+    store_byo_key(&config, "openai", "sk-byo-test");
+    assert!(role_bypasses_managed_credits("chat", &config));
 }

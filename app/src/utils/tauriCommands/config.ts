@@ -168,6 +168,12 @@ export interface LocalAiSettingsUpdate {
   opt_in_confirmed?: boolean | null;
   provider?: string | null;
   base_url?: string | null;
+  /**
+   * Bearer credential for OpenAI-compatible local runtimes that require a key
+   * (e.g. OMLX). Stored in `config.local_ai.api_key` and sent as a Bearer token
+   * on inference. Keyless runtimes (Ollama / LM Studio) omit this.
+   */
+  api_key?: string | null;
   model_id?: string | null;
   chat_model_id?: string | null;
   usage_embeddings?: boolean | null;
@@ -238,6 +244,15 @@ export interface ClientConfig {
   model_registry: ModelRegistryEntry[];
   /** Id of the `cloud_providers` entry resolved by the `"cloud"` sentinel. */
   primary_cloud: string | null;
+  /**
+   * #3767: authoritative, core-side per-tier flags — for each chat-mode tier
+   * (`chat` = Quick mode, `reasoning` = Reasoning mode), true when that tier runs
+   * on a non-managed provider the user funds themselves (a usable BYO key, local
+   * runtime, or claude-code). The UI checks whichever tier the user has selected;
+   * when true the "buy credits" prompt is suppressed for that mode. Optional for
+   * back-compat with older snapshots.
+   */
+  credits_bypass?: { chat?: boolean; reasoning?: boolean };
   /** Per-workload provider strings (e.g. `"cloud"`, `"ollama:llama3.1:8b"`, `"openai:gpt-4o"`). */
   chat_provider: string | null;
   reasoning_provider: string | null;

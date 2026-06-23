@@ -4,6 +4,44 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
+  'nav.feedback': 'Bagikan masukan',
+  'feedback.board': 'Papan masukan',
+  'feedback.empty': 'Belum ada masukan. Jadilah yang pertama membagikan ide.',
+  'feedback.loadMore': 'Muat lebih banyak',
+  'feedback.loadError': 'Gagal memuat masukan',
+  'feedback.expand': 'Tampilkan lebih banyak',
+  'feedback.collapse': 'Tampilkan lebih sedikit',
+  'feedback.comments': 'komentar',
+  'feedback.viewIssue': 'Lihat isu',
+  'feedback.status.open': 'Terbuka',
+  'feedback.status.planned': 'Direncanakan',
+  'feedback.status.completed': 'Selesai',
+  'feedback.status.closed': 'Ditutup',
+  'feedback.type.feature': 'Fitur',
+  'feedback.type.bug': 'Bug',
+  'feedback.sort.hot': 'Populer',
+  'feedback.sort.top': 'Teratas',
+  'feedback.sort.new': 'Terbaru',
+  'feedback.filter.allTypes': 'Semua tipe',
+  'feedback.filter.allStatuses': 'Semua status',
+  'feedback.vote.up': 'Dukung',
+  'feedback.vote.down': 'Tolak',
+  'feedback.submit.heading': 'Bagikan masukan',
+  'feedback.submit.subheading': 'Sarankan fitur atau laporkan bug. Orang lain bisa memberi suara.',
+  'feedback.submit.titlePlaceholder': 'Judul',
+  'feedback.submit.bodyPlaceholder': 'Jelaskan ide Anda atau masalah yang Anda alami',
+  'feedback.submit.action': 'Kirim',
+  'feedback.submit.success': 'Terima kasih! Masukan Anda kini ada di papan.',
+  'feedback.submit.rejected': 'Masukan Anda tidak dapat dipublikasikan.',
+  'feedback.submit.error': 'Terjadi kesalahan. Silakan coba lagi.',
+  'feedback.admin.status': 'Status',
+  'feedback.admin.updateFailed': 'Gagal memperbarui status',
+  'feedback.comments.empty': 'Belum ada komentar.',
+  'feedback.comments.placeholder': 'Tambahkan komentar',
+  'feedback.comments.post': 'Kirim',
+  'feedback.comments.loadError': 'Gagal memuat komentar',
+  'feedback.comments.postError': 'Gagal mengirim komentar',
+  'feedback.comments.you': 'Anda',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',
   'conversations.backgroundTasks.noneRunning': 'none running',
@@ -39,9 +77,26 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'Profil agen tidak ditemukan',
   'nav.activity': 'Aktivitas',
   'nav.brain': 'Otak',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
+  'nav.wallet': 'Dompet',
   'agentWorld.description':
     'Tiny.Place adalah jejaring sosial untuk agen AI. Gunakan OpenHuman untuk berinteraksi, menemukan dan memasang pekerjaan, berdagang, serta tumbuh bersama.',
+  'agentWorld.world': 'Dunia',
+  'agentWorld.world.booting': 'Memulai perender...',
+  'agentWorld.world.title': 'Tiny Place',
+  'agentWorld.world.description':
+    'Bergabunglah dengan tiny.place agar agen Anda dapat berkoordinasi dengan agen lain: menemukan dan memposting pekerjaan, berdagang, berkirim pesan, dan bekerja sama dalam bounty.',
+  'agentWorld.world.room': 'Ruang',
+  'agentWorld.world.rooms.poker.name': 'Poker',
+  'agentWorld.world.rooms.poker.description': 'Delapan kursi mengelilingi meja felt.',
+  'agentWorld.world.rooms.court.name': 'Pengadilan',
+  'agentWorld.world.rooms.court.description': 'Bangku tinggi, kotak juri, dan galeri.',
+  'agentWorld.world.rooms.office.name': 'Kantor',
+  'agentWorld.world.rooms.office.description': 'Kubikel, meja, dan papan tulis.',
+  'agentWorld.world.rooms.home.name': 'Rumah',
+  'agentWorld.world.rooms.home.description': 'Lounge nyaman dengan sofa dan karpet.',
+  'agentWorld.world.rooms.outside.name': 'Dunia',
+  'agentWorld.world.rooms.outside.description': 'Plaza terbuka besar yang dikelilingi gedung.',
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Buku Besar',
   'agentWorld.jobs': 'Pekerjaan',
@@ -52,6 +107,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Profil',
   'agentWorld.marketplace': 'Pasar',
   'agentWorld.messaging': 'Pesan',
+  'agentWorld.walletNotConfigured': 'Dompet belum diatur',
+  'agentWorld.copyAddress': 'Salin alamat',
+  'agentWorld.addressCopied': 'Disalin',
+  'agentWorld.walletUnavailable': 'Dompet tidak tersedia',
+  'agentWorld.walletRetry': 'Coba muat dompet lagi',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Ikhtisar Jaringan',
   'explore.trendingCommunities': 'Komunitas Trending',
@@ -75,6 +135,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'Memori',
   'brain.tabs.subconscious': 'Alam Bawah Sadar',
   'brain.tabs.graph': 'Grafik',
+  'brain.tabs.goals': 'Tujuan',
+  'brain.goals.title': 'Tujuan jangka panjang',
+  'brain.goals.description':
+    'Tujuan tetap agen untuk bekerja dengan Anda. Edit di sini atau biarkan Refleksi memperbaruinya.',
+  'brain.goals.reflect': 'Refleksi',
+  'brain.goals.reflecting': 'Merefleksikan…',
+  'brain.goals.reflectDone': 'Tujuan diperbarui.',
+  'brain.goals.add': 'Tambah',
+  'brain.goals.addPlaceholder': 'Tambahkan tujuan jangka panjang…',
+  'brain.goals.empty':
+    'Belum ada tujuan. Tambahkan satu, atau gunakan Refleksi untuk mengisinya dari konteks terbaru.',
+  'brain.goals.editGoal': 'Edit tujuan',
+  'brain.goals.deleteGoal': 'Hapus tujuan',
+  'brain.goals.actionError': 'Terjadi kesalahan. Silakan coba lagi.',
   'brain.tabs.sources': 'Sumber',
   'brain.tabs.sync': 'Sinkronisasi',
   'brain.empty': 'Otak Anda masih kosong — hubungkan sumber untuk mulai membangun memori.',
@@ -87,6 +161,21 @@ const messages: TranslationMap = {
   'common.create': 'Buat',
   'common.search': 'Cari',
   'common.loading': 'memuat…',
+  'sync.runs': 'sinkronisasi',
+  'sync.totalCost': 'total',
+  'sync.when': 'Kapan',
+  'sync.source': 'Sumber',
+  'sync.items': 'Item',
+  'sync.tokens': 'Token',
+  'sync.cost': 'Biaya',
+  'sync.duration': 'Durasi',
+  'sync.noAuditEntries': 'Belum ada sinkronisasi yang tercatat.',
+  'sync.timeAgo.justNow': 'baru saja',
+  'sync.timeAgo.minutes': '{n} mnt lalu',
+  'sync.timeAgo.hours': '{n} jam lalu',
+  'sync.timeAgo.days': '{n} hr lalu',
+  'sync.status.success': 'Berhasil',
+  'sync.status.failed': 'Gagal',
   'common.error': 'Kesalahan',
   'common.success': 'Berhasil',
   'common.back': 'Kembali',
@@ -1094,6 +1183,16 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Penyedia embedding',
   'settings.embeddings.statusConfigured': 'Dikonfigurasi',
   'settings.embeddings.statusNeedsKey': 'Perlu kunci API',
+  'settings.embeddings.requiresSignIn': 'Memerlukan masuk OpenHuman',
+  'settings.embeddings.managedLoginRequired':
+    'Embedding terkelola memerlukan masuk OpenHuman. Masuk untuk menggunakan backend OpenHuman.',
+  'settings.embeddings.managedBannerIntro':
+    'Embedding terkelola dirutekan melalui backend OpenHuman dan memerlukan sesi akun OpenHuman.',
+  'settings.embeddings.managedBannerLocalSession':
+    'Keluar dari sesi lokal dan masuk untuk menggunakan penyedia ini, atau beralih ke penyedia embedding lokal atau bawa-kunci-sendiri.',
+  'settings.embeddings.managedBannerRemoteSession':
+    'Masuk lagi untuk menyegarkan sesi OpenHuman Anda, atau beralih ke penyedia embedding lokal atau bawa-kunci-sendiri.',
+  'settings.embeddings.signInAgain': 'Masuk lagi',
   'settings.embeddings.apiKeyLabel': 'Kunci API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (disimpan)',
   'settings.embeddings.placeholderKey': 'Tempel kunci API Anda…',
@@ -1111,6 +1210,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testConnection': 'Uji koneksi',
   'settings.embeddings.testing': 'Menguji…',
   'settings.embeddings.testSuccess': 'Terhubung — {dims} dimensi',
+  'settings.embeddings.connectionTestFailed': 'Pengujian gagal',
   'settings.embeddings.testFailed': 'Gagal: {error}',
   'settings.embeddings.saving': 'Menyimpan…',
   'settings.embeddings.saved': 'Tersimpan.',
@@ -1585,6 +1685,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'Pengguna belum dimuat. Silakan masuk lagi atau segarkan halaman.',
   'mnemonic.invalidPhrase': 'Frasa pemulihan tidak valid. Periksa kata-kata Anda dan coba lagi.',
   'mnemonic.somethingWentWrong': 'Terjadi kesalahan. Silakan coba lagi.',
+  'mnemonic.walletAlreadyConfigured': 'Dompetmu sudah diatur.',
+  'mnemonic.walletSource': 'Sumber',
+  'mnemonic.walletWordCount': 'Jumlah kata frasa pemulihan',
+  'mnemonic.walletLastUpdated': 'Terakhir diperbarui',
+  'mnemonic.replaceWallet': 'Ganti dompet',
+  'mnemonic.replaceWalletWarning':
+    'Ini akan mengganti dompetmu saat ini secara permanen. Pastikan kamu telah mencadangkan frasa pemulihan sebelum melanjutkan.',
+  'mnemonic.replaceWalletConfirm': 'Saya mengerti, ganti dompet saya',
+  'mnemonic.loadingWalletStatus': 'Memeriksa status dompet...',
+  'mnemonic.viewAccounts': 'Akun dompet',
+  'mnemonic.revealRecoveryPhrase': 'Tampilkan frasa pemulihan',
+  'mnemonic.hidePhrase': 'Sembunyikan frasa',
   'team.failedToCreate': 'Gagal membuat tim',
   'team.invalidInviteCode': 'Kode undangan tidak valid atau sudah kedaluwarsa',
   'team.failedToSwitch': 'Gagal berpindah tim',
@@ -2405,6 +2517,21 @@ const messages: TranslationMap = {
   'subconscious.decision.failed': 'Gagal',
   'subconscious.decision.cancelled': 'Dibatalkan',
   'subconscious.decision.skipped': 'Dilewati',
+  // Subconscious triggers (event-driven orchestrator) debug panel
+  'subconsciousTriggers.title': 'Pemicu Bawah Sadar',
+  'subconsciousTriggers.subtitle': 'Orkestrator latar belakang berbasis peristiwa',
+  'subconsciousTriggers.pipeline': 'Alur',
+  'subconsciousTriggers.mode': 'Mode',
+  'subconsciousTriggers.orchestrator': 'Orkestrator',
+  'subconsciousTriggers.running': 'Berjalan',
+  'subconsciousTriggers.stopped': 'Berhenti',
+  'subconsciousTriggers.promotionsPerHour': 'Promosi / jam',
+  'subconsciousTriggers.queueDepth': 'Kedalaman antrean',
+  'subconsciousTriggers.orchestratorThread': 'Utas orkestrator',
+  'subconsciousTriggers.userThread': 'Utas pengguna',
+  'subconsciousTriggers.disabledHint': 'Aktifkan mode berbasis peristiwa untuk mengaktifkan alur.',
+  'subconsciousTriggers.enable': 'Aktifkan',
+  'subconsciousTriggers.disable': 'Nonaktifkan',
   'actionable.complete': 'Selesai',
   'actionable.dismiss': 'Abaikan',
   'actionable.snooze': 'Tunda',
@@ -2484,6 +2611,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Memperbaiki…',
   'bootCheck.portConflictFixFailed':
     'Perbaikan otomatis tidak berhasil. Silakan restart komputer Anda dan coba lagi.',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) sedang menggunakan port jaringan yang dibutuhkan OpenHuman.',
+  'bootCheck.portConflictGuidance':
+    'Tutup program tersebut untuk membebaskan port, atau paksa tutup di bawah, lalu coba lagi.',
+  'bootCheck.portConflictForceQuit': 'Paksa tutup {name}',
+  'bootCheck.portConflictForceQuitting': 'Menutup {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Tidak dapat menutup program tersebut. Anda mungkin perlu menutupnya secara manual, lalu coba lagi.',
   'notifications.justNow': 'baru saja',
   'notifications.minAgo': '{n}m lalu',
   'notifications.hrAgo': '{n}j lalu',
@@ -3594,6 +3729,46 @@ const messages: TranslationMap = {
   'settings.ai.routing.backgroundTasks': 'Tugas Latar Belakang',
   'settings.ai.routing.bgTasksDesc':
     'Model digunakan di luar aliran percakapan utama untuk summarisasi, detak jantung, pembelajaran, dan evaluasi bawah sadar.',
+  'settings.ai.routing.workload.chat.label': 'Chat',
+  'settings.ai.routing.workload.chat.description':
+    'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  'settings.ai.routing.workload.chat.hint':
+    'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  'settings.ai.routing.workload.reasoning.label': 'Reasoning',
+  'settings.ai.routing.workload.reasoning.description':
+    'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
+  'settings.ai.routing.workload.reasoning.hint':
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  'settings.ai.routing.workload.agentic.label': 'Agentic',
+  'settings.ai.routing.workload.agentic.description':
+    'Sub-agent runners, tool loops, GIF decisions',
+  'settings.ai.routing.workload.agentic.hint':
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  'settings.ai.routing.workload.coding.label': 'Coding',
+  'settings.ai.routing.workload.coding.description': 'Code generation and refactor passes',
+  'settings.ai.routing.workload.coding.hint':
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  'settings.ai.routing.workload.vision.label': 'Vision',
+  'settings.ai.routing.workload.vision.description':
+    'Image understanding for the vision sub-agent — always multimodal',
+  'settings.ai.routing.workload.vision.hint':
+    'Recommended: a multimodal model that accepts image input. The managed default (vision-v1) is image-capable; any provider you route here is always treated as vision-enabled.',
+  'settings.ai.routing.workload.memory.label': 'Memory summarization',
+  'settings.ai.routing.workload.memory.description': 'Tree-extracts and consolidations',
+  'settings.ai.routing.workload.memory.hint':
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  'settings.ai.routing.workload.heartbeat.label': 'Heartbeat',
+  'settings.ai.routing.workload.heartbeat.description': 'Background reasoning between user turns',
+  'settings.ai.routing.workload.heartbeat.hint':
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  'settings.ai.routing.workload.learning.label': 'Learning · Reflections',
+  'settings.ai.routing.workload.learning.description': 'Periodic reflection over recent history',
+  'settings.ai.routing.workload.learning.hint':
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  'settings.ai.routing.workload.subconscious.label': 'Subconscious',
+  'settings.ai.routing.workload.subconscious.description': 'Eventfulness scoring + drift checks',
+  'settings.ai.routing.workload.subconscious.hint':
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
   'settings.ai.routing.addCustomProvider': 'Tambahkan Penyedia Khusus',
   'settings.ai.globalModel.title': 'Pilih satu model untuk semuanya',
   'settings.ai.globalModel.desc':
@@ -4880,6 +5055,45 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'Akan direset {time}.',
   'upsell.usageLimit.upgradePlan': 'Upgrade paket',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': 'Mulai di chat',
+  'walkthrough.steps.startChat.content':
+    'Chat adalah titik awal Anda. Jendela baru terbuka dengan sapaan dan tindakan cepat yang sama seperti setelah penyiapan.',
+  'walkthrough.steps.sayHello.title': 'Sapa dulu',
+  'walkthrough.steps.sayHello.content':
+    'Ketuk di sini untuk memulai percakapan dengan asisten AI kapan saja.',
+  'walkthrough.steps.meetAi.title': 'Kenali AI Anda',
+  'walkthrough.steps.meetAi.content':
+    'Di sinilah percakapan berlangsung. Ajukan pertanyaan, minta ringkasan, atau susun ide. Semuanya tetap bisa dicari.',
+  'walkthrough.steps.connectWorld.title': 'Hubungkan dunia Anda',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp, dan lainnya: setiap koneksi memberi asisten Anda kemampuan baru.',
+  'walkthrough.steps.messagingApps.title': 'Chat di tempat Anda biasa berada',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord: hubungkan aplikasi pesan agar asisten dapat menjangkau Anda di mana saja.',
+  'walkthrough.steps.settings.title': 'Sesuaikan sendiri',
+  'walkthrough.steps.settings.content':
+    'Preferensi, privasi, dan notifikasi ada di sini. Anda dapat memulai ulang tur ini dari halaman ini kapan saja.',
+  'walkthrough.steps.chatTab.title': 'Kembali ke chat',
+  'walkthrough.steps.chatTab.content':
+    'Gunakan tab Chat kapan pun Anda ingin kembali ke percakapan.',
+  'walkthrough.steps.humanTab.title': 'Kenali profil Human Anda',
+  'walkthrough.steps.humanTab.content':
+    'Human menyatukan konteks pribadi, identitas, dan profil yang dilihat asisten.',
+  'walkthrough.steps.brainTab.title': 'Buka Brain Anda',
+  'walkthrough.steps.brainTab.content':
+    'Brain adalah grafik memori: tempat melihat apa yang diketahui OpenHuman dan bagaimana ide saling terhubung.',
+  'walkthrough.steps.agentWorldTab.title': 'Jelajahi Agent World',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World adalah tempat agen yang dapat digunakan ulang dan automasi bersama.',
+  'walkthrough.steps.connectionsTab.title': 'Kelola koneksi',
+  'walkthrough.steps.connectionsTab.content':
+    'Connections selalu tersedia di navigasi utama saat Anda ingin menambah atau menyesuaikan layanan.',
+  'walkthrough.steps.feedbackTab.title': 'Kirim masukan',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback memberi tempat langsung untuk melaporkan masalah atau meminta peningkatan.',
+  'walkthrough.steps.allSet.title': 'Semua siap!',
+  'walkthrough.steps.allSet.content':
+    'Asisten meninggalkan catatan sambutan: ini ruang Anda untuk chat, bertanya, atau menyusun ide. Selamat mencoba!',
   'walkthrough.tooltip.letsGo': 'Ayo mulai!',
   'walkthrough.tooltip.next': 'Berikutnya →',
   'walkthrough.tooltip.skip': 'Lewati tur',
@@ -5771,6 +5985,8 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.cancel': 'Batal',
   'agentworld.jobs.applyModal.submit': 'Kirim Lamaran',
   'agentworld.jobs.applyModal.submitting': 'Melamar…',
+  'agentworld.messaging.missingSignalBundle':
+    'Pengguna ini belum mengaktifkan pesan terenkripsi. Minta mereka membuka Agent World dan mengaktifkan DM aman sebelum Anda mengirim pesan.',
 };
 
 export default messages;

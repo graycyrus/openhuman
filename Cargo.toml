@@ -1,6 +1,6 @@
 [package]
 name = "openhuman"
-version = "0.57.46"
+version = "0.57.53"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
 autobins = false
@@ -26,6 +26,10 @@ name = "inference-probe"
 path = "src/bin/inference_probe.rs"
 
 [[bin]]
+name = "harness-subagent-audit"
+path = "src/bin/harness_subagent_audit.rs"
+
+[[bin]]
 name = "test-mcp-stub"
 path = "src/bin/test_mcp_stub.rs"
 
@@ -35,7 +39,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 # tiny.place A2A social network SDK — published on crates.io (tinyhumansai/tiny.place)
-tinyplace = "0.6.0"
+tinyplace = "1.0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
@@ -55,6 +59,7 @@ tokio = { version = "1", features = ["full", "sync"] }
 once_cell = "1.19"
 parking_lot = "0.12"
 log = "0.4"
+libc = "0.2"
 nu-ansi-term = "0.46"
 env_logger = "0.11"
 base64 = "0.22"

@@ -4,6 +4,45 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
+  'nav.feedback': 'মতামত দিন',
+  'feedback.board': 'মতামত বোর্ড',
+  'feedback.empty': 'এখনও কোনো মতামত নেই। প্রথম হয়ে একটি আইডিয়া শেয়ার করুন।',
+  'feedback.loadMore': 'আরও দেখুন',
+  'feedback.loadError': 'মতামত লোড করা যায়নি',
+  'feedback.expand': 'আরও দেখান',
+  'feedback.collapse': 'কম দেখান',
+  'feedback.comments': 'মন্তব্য',
+  'feedback.viewIssue': 'ইস্যু দেখুন',
+  'feedback.status.open': 'খোলা',
+  'feedback.status.planned': 'পরিকল্পিত',
+  'feedback.status.completed': 'সম্পন্ন',
+  'feedback.status.closed': 'বন্ধ',
+  'feedback.type.feature': 'ফিচার',
+  'feedback.type.bug': 'ত্রুটি',
+  'feedback.sort.hot': 'জনপ্রিয়',
+  'feedback.sort.top': 'শীর্ষ',
+  'feedback.sort.new': 'নতুন',
+  'feedback.filter.allTypes': 'সব ধরন',
+  'feedback.filter.allStatuses': 'সব স্ট্যাটাস',
+  'feedback.vote.up': 'আপভোট',
+  'feedback.vote.down': 'ডাউনভোট',
+  'feedback.submit.heading': 'মতামত দিন',
+  'feedback.submit.subheading':
+    'একটি ফিচারের প্রস্তাব দিন বা কোনো ত্রুটি জানান। অন্যরা এতে ভোট দিতে পারবেন।',
+  'feedback.submit.titlePlaceholder': 'শিরোনাম',
+  'feedback.submit.bodyPlaceholder': 'আপনার আইডিয়া বা যে সমস্যায় পড়েছেন তা বর্ণনা করুন',
+  'feedback.submit.action': 'জমা দিন',
+  'feedback.submit.success': 'ধন্যবাদ! আপনার মতামত এখন বোর্ডে রয়েছে।',
+  'feedback.submit.rejected': 'আপনার মতামত প্রকাশ করা যায়নি।',
+  'feedback.submit.error': 'কিছু একটা সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'feedback.admin.status': 'স্ট্যাটাস',
+  'feedback.admin.updateFailed': 'স্ট্যাটাস আপডেট করা যায়নি',
+  'feedback.comments.empty': 'এখনও কোনো মন্তব্য নেই।',
+  'feedback.comments.placeholder': 'একটি মন্তব্য যোগ করুন',
+  'feedback.comments.post': 'পোস্ট করুন',
+  'feedback.comments.loadError': 'মন্তব্য লোড করা যায়নি',
+  'feedback.comments.postError': 'মন্তব্য পোস্ট করা যায়নি',
+  'feedback.comments.you': 'আপনি',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',
   'conversations.backgroundTasks.noneRunning': 'none running',
@@ -39,9 +78,26 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'কোনো এজেন্ট প্রোফাইল পাওয়া যায়নি',
   'nav.activity': 'কার্যকলাপ',
   'nav.brain': 'ব্রেইন',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
+  'nav.wallet': 'ওয়ালেট',
   'agentWorld.description':
     'Tiny.Place হলো এআই এজেন্টদের জন্য একটি সোশ্যাল নেটওয়ার্ক। যোগাযোগ করতে, কাজ খুঁজতে ও পোস্ট করতে, লেনদেন করতে এবং একসাথে বেড়ে উঠতে OpenHuman ব্যবহার করুন।',
+  'agentWorld.world': 'বিশ্ব',
+  'agentWorld.world.booting': 'রেন্ডারার চালু হচ্ছে...',
+  'agentWorld.world.title': 'Tiny Place',
+  'agentWorld.world.description':
+    'tiny.place-এ যোগ দিন যাতে আপনার এজেন্ট অন্য এজেন্টদের সাথে সমন্বয় করতে পারে — কাজ খুঁজে পাওয়া ও পোস্ট করা, লেনদেন, বার্তা পাঠানো এবং বাউন্টিতে একসাথে কাজ করা।',
+  'agentWorld.world.room': 'রুম',
+  'agentWorld.world.rooms.poker.name': 'পোকার',
+  'agentWorld.world.rooms.poker.description': 'ফেল্ট টেবিলের চারপাশে আটটি আসন।',
+  'agentWorld.world.rooms.court.name': 'আদালত',
+  'agentWorld.world.rooms.court.description': 'উঁচু বেঞ্চ, জুরি বক্স এবং গ্যালারি।',
+  'agentWorld.world.rooms.office.name': 'অফিস',
+  'agentWorld.world.rooms.office.description': 'কিউবিকল, ডেস্ক এবং হোয়াইটবোর্ড।',
+  'agentWorld.world.rooms.home.name': 'বাড়ি',
+  'agentWorld.world.rooms.home.description': 'সোফা ও কার্পেটসহ আরামদায়ক লাউঞ্জ।',
+  'agentWorld.world.rooms.outside.name': 'বিশ্ব',
+  'agentWorld.world.rooms.outside.description': 'ভবনঘেরা বড় খোলা প্লাজা।',
   'agentWorld.feed': 'ফিড',
   'agentWorld.ledger': 'লেজার',
   'agentWorld.jobs': 'চাকরি',
@@ -52,6 +108,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'প্রোফাইল',
   'agentWorld.marketplace': 'মার্কেটপ্লেস',
   'agentWorld.messaging': 'বার্তা',
+  'agentWorld.walletNotConfigured': 'ওয়ালেট সেট আপ হয়নি',
+  'agentWorld.copyAddress': 'ঠিকানা কপি করুন',
+  'agentWorld.addressCopied': 'কপি হয়েছে',
+  'agentWorld.walletUnavailable': 'ওয়ালেট অনুপলব্ধ',
+  'agentWorld.walletRetry': 'ওয়ালেট পুনরায় লোড করুন',
   // Agent World — Explore section live data
   'explore.networkOverview': 'নেটওয়ার্ক ওভারভিউ',
   'explore.trendingCommunities': 'ট্রেন্ডিং কমিউনিটি',
@@ -75,6 +136,20 @@ const messages: TranslationMap = {
   'brain.tabs.memory': 'স্মৃতি',
   'brain.tabs.subconscious': 'অবচেতন',
   'brain.tabs.graph': 'গ্রাফ',
+  'brain.tabs.goals': 'লক্ষ্য',
+  'brain.goals.title': 'দীর্ঘমেয়াদী লক্ষ্য',
+  'brain.goals.description':
+    'আপনার সঙ্গে কাজ করার জন্য এজেন্টের স্থায়ী লক্ষ্য। এখানে সম্পাদনা করুন বা রিফ্লেক্ট দিয়ে আপডেট করতে দিন।',
+  'brain.goals.reflect': 'রিফ্লেক্ট',
+  'brain.goals.reflecting': 'রিফ্লেক্ট করা হচ্ছে…',
+  'brain.goals.reflectDone': 'লক্ষ্য আপডেট হয়েছে।',
+  'brain.goals.add': 'যোগ করুন',
+  'brain.goals.addPlaceholder': 'একটি দীর্ঘমেয়াদী লক্ষ্য যোগ করুন…',
+  'brain.goals.empty':
+    'এখনও কোনো লক্ষ্য নেই। একটি যোগ করুন, অথবা সাম্প্রতিক প্রসঙ্গ থেকে পূরণ করতে রিফ্লেক্ট ব্যবহার করুন।',
+  'brain.goals.editGoal': 'লক্ষ্য সম্পাদনা করুন',
+  'brain.goals.deleteGoal': 'লক্ষ্য মুছুন',
+  'brain.goals.actionError': 'কিছু ভুল হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'brain.tabs.sources': 'উৎস',
   'brain.tabs.sync': 'সিঙ্ক',
   'brain.empty': 'আপনার ব্রেইন এখন খালি — মেমরি তৈরি শুরু করতে একটি উৎস সংযুক্ত করুন।',
@@ -87,6 +162,21 @@ const messages: TranslationMap = {
   'common.create': 'তৈরি করুন',
   'common.search': 'খুঁজুন',
   'common.loading': 'লোড হচ্ছে…',
+  'sync.runs': 'সিঙ্ক রান',
+  'sync.totalCost': 'মোট',
+  'sync.when': 'কখন',
+  'sync.source': 'উৎস',
+  'sync.items': 'আইটেম',
+  'sync.tokens': 'টোকেন',
+  'sync.cost': 'খরচ',
+  'sync.duration': 'সময়কাল',
+  'sync.noAuditEntries': 'এখনও কোনো সিঙ্ক রান রেকর্ড করা হয়নি।',
+  'sync.timeAgo.justNow': 'এইমাত্র',
+  'sync.timeAgo.minutes': '{n} মি. আগে',
+  'sync.timeAgo.hours': '{n} ঘ. আগে',
+  'sync.timeAgo.days': '{n} দি. আগে',
+  'sync.status.success': 'সফল',
+  'sync.status.failed': 'ব্যর্থ',
   'common.error': 'ত্রুটি',
   'common.success': 'সফল',
   'common.back': 'পেছনে',
@@ -1087,6 +1177,16 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'এমবেডিং প্রদানকারী',
   'settings.embeddings.statusConfigured': 'কনফিগার করা হয়েছে',
   'settings.embeddings.statusNeedsKey': 'API কী প্রয়োজন',
+  'settings.embeddings.requiresSignIn': 'OpenHuman-এ সাইন-ইন প্রয়োজন',
+  'settings.embeddings.managedLoginRequired':
+    'ম্যানেজড এমবেডিংসের জন্য OpenHuman সাইন-ইন প্রয়োজন। OpenHuman ব্যাকএন্ড ব্যবহার করতে সাইন ইন করুন।',
+  'settings.embeddings.managedBannerIntro':
+    'ম্যানেজড এমবেডিংস OpenHuman ব্যাকএন্ডের মাধ্যমে চলে এবং একটি OpenHuman অ্যাকাউন্ট সেশন প্রয়োজন।',
+  'settings.embeddings.managedBannerLocalSession':
+    'এই প্রোভাইডার ব্যবহার করতে স্থানীয় সেশন থেকে বেরিয়ে সাইন ইন করুন, অথবা স্থানীয়/নিজস্ব-কী এমবেডিং প্রোভাইডারে যান।',
+  'settings.embeddings.managedBannerRemoteSession':
+    'OpenHuman সেশন রিফ্রেশ করতে আবার সাইন ইন করুন, অথবা স্থানীয়/নিজস্ব-কী এমবেডিং প্রোভাইডারে যান।',
+  'settings.embeddings.signInAgain': 'আবার সাইন ইন করুন',
   'settings.embeddings.apiKeyLabel': '{provider} API কী',
   'settings.embeddings.placeholderStored': '•••••••• (সঞ্চিত)',
   'settings.embeddings.placeholderKey': 'আপনার API কী পেস্ট করুন…',
@@ -1104,6 +1204,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testConnection': 'সংযোগ পরীক্ষা',
   'settings.embeddings.testing': 'পরীক্ষা হচ্ছে…',
   'settings.embeddings.testSuccess': 'সংযুক্ত — {dims} মাত্রা',
+  'settings.embeddings.connectionTestFailed': 'পরীক্ষা ব্যর্থ হয়েছে',
   'settings.embeddings.testFailed': 'ব্যর্থ: {error}',
   'settings.embeddings.saving': 'সংরক্ষণ হচ্ছে…',
   'settings.embeddings.saved': 'সংরক্ষিত।',
@@ -1579,6 +1680,18 @@ const messages: TranslationMap = {
     'ব্যবহারকারী লোড হয়নি। দয়া করে আবার সাইন ইন করুন বা পেজ রিফ্রেশ করুন।',
   'mnemonic.invalidPhrase': 'অবৈধ রিকভারি ফ্রেজ। আপনার শব্দগুলো পরীক্ষা করে আবার চেষ্টা করুন।',
   'mnemonic.somethingWentWrong': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
+  'mnemonic.walletAlreadyConfigured': 'আপনার ওয়ালেট ইতিমধ্যে সেট আপ করা আছে।',
+  'mnemonic.walletSource': 'উৎস',
+  'mnemonic.walletWordCount': 'রিকভারি ফ্রেজের দৈর্ঘ্য',
+  'mnemonic.walletLastUpdated': 'সর্বশেষ আপডেট',
+  'mnemonic.replaceWallet': 'ওয়ালেট প্রতিস্থাপন করুন',
+  'mnemonic.replaceWalletWarning':
+    'এটি আপনার বর্তমান ওয়ালেটকে স্থায়ীভাবে প্রতিস্থাপন করবে। এগিয়ে যাওয়ার আগে নিশ্চিত করুন যে আপনি আপনার রিকভারি ফ্রেজ ব্যাকআপ করেছেন।',
+  'mnemonic.replaceWalletConfirm': 'আমি বুঝতে পারছি, আমার ওয়ালেট প্রতিস্থাপন করুন',
+  'mnemonic.loadingWalletStatus': 'ওয়ালেটের স্থিতি পরীক্ষা করা হচ্ছে...',
+  'mnemonic.viewAccounts': 'ওয়ালেট অ্যাকাউন্ট',
+  'mnemonic.revealRecoveryPhrase': 'পুনরুদ্ধার বাক্যাংশ প্রকাশ করুন',
+  'mnemonic.hidePhrase': 'বাক্যাংশ লুকান',
   'team.failedToCreate': 'টিম তৈরি করতে ব্যর্থ',
   'team.invalidInviteCode': 'অবৈধ বা মেয়াদোত্তীর্ণ আমন্ত্রণ কোড',
   'team.failedToSwitch': 'টিম পরিবর্তন করতে ব্যর্থ',
@@ -2404,6 +2517,21 @@ const messages: TranslationMap = {
   'subconscious.decision.failed': 'ব্যর্থ',
   'subconscious.decision.cancelled': 'বাতিল',
   'subconscious.decision.skipped': 'এড়িয়ে গেছে',
+  // Subconscious triggers (event-driven orchestrator) debug panel
+  'subconsciousTriggers.title': 'সাবকনশাস ট্রিগার',
+  'subconsciousTriggers.subtitle': 'ইভেন্ট-চালিত ব্যাকগ্রাউন্ড অর্কেস্ট্রেটর',
+  'subconsciousTriggers.pipeline': 'পাইপলাইন',
+  'subconsciousTriggers.mode': 'মোড',
+  'subconsciousTriggers.orchestrator': 'অর্কেস্ট্রেটর',
+  'subconsciousTriggers.running': 'চলছে',
+  'subconsciousTriggers.stopped': 'বন্ধ',
+  'subconsciousTriggers.promotionsPerHour': 'প্রমোশন / ঘণ্টা',
+  'subconsciousTriggers.queueDepth': 'সারির গভীরতা',
+  'subconsciousTriggers.orchestratorThread': 'অর্কেস্ট্রেটর থ্রেড',
+  'subconsciousTriggers.userThread': 'ব্যবহারকারী থ্রেড',
+  'subconsciousTriggers.disabledHint': 'পাইপলাইন সক্রিয় করতে ইভেন্ট-চালিত মোড সক্ষম করুন।',
+  'subconsciousTriggers.enable': 'সক্ষম করুন',
+  'subconsciousTriggers.disable': 'নিষ্ক্রিয় করুন',
   'actionable.complete': 'সম্পন্ন',
   'actionable.dismiss': 'বাদ দিন',
   'actionable.snooze': 'স্নুজ',
@@ -2483,6 +2611,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'ঠিক করা হচ্ছে…',
   'bootCheck.portConflictFixFailed':
     'স্বয়ংক্রিয় সংশোধন কাজ করেনি। অনুগ্রহ করে আপনার কম্পিউটার পুনরায় চালু করুন এবং আবার চেষ্টা করুন।',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) OpenHuman-এর প্রয়োজনীয় নেটওয়ার্ক পোর্টটি ব্যবহার করছে।',
+  'bootCheck.portConflictGuidance':
+    'পোর্টটি মুক্ত করতে ওই প্রোগ্রামটি বন্ধ করুন, অথবা নিচে থেকে জোর করে বন্ধ করুন, তারপর আবার চেষ্টা করুন।',
+  'bootCheck.portConflictForceQuit': '{name} জোর করে বন্ধ করুন',
+  'bootCheck.portConflictForceQuitting': '{name} বন্ধ করা হচ্ছে…',
+  'bootCheck.portConflictForceQuitFailed':
+    'প্রোগ্রামটি বন্ধ করা যায়নি। আপনাকে সম্ভবত এটি ম্যানুয়ালি বন্ধ করে আবার চেষ্টা করতে হবে।',
   'notifications.justNow': 'এইমাত্র',
   'notifications.minAgo': '{n} মিনিট আগে',
   'notifications.hrAgo': '{n} ঘণ্টা আগে',
@@ -3584,6 +3720,46 @@ const messages: TranslationMap = {
   'settings.ai.routing.backgroundTasks': 'ব্যাকগ্রাউন্ড টাস্ক',
   'settings.ai.routing.bgTasksDesc':
     'তুলনা, হার্টবিট, শিক্ষা এবং অবচেতনের মূল্যায়নের মূল কথোপকথনের বাইরে যে মডেলগুলো ব্যবহার করা হয়েছে সেগুলো ব্যবহার করা হয়েছে।',
+  'settings.ai.routing.workload.chat.label': 'Chat',
+  'settings.ai.routing.workload.chat.description':
+    'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  'settings.ai.routing.workload.chat.hint':
+    'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  'settings.ai.routing.workload.reasoning.label': 'Reasoning',
+  'settings.ai.routing.workload.reasoning.description':
+    'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
+  'settings.ai.routing.workload.reasoning.hint':
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  'settings.ai.routing.workload.agentic.label': 'Agentic',
+  'settings.ai.routing.workload.agentic.description':
+    'Sub-agent runners, tool loops, GIF decisions',
+  'settings.ai.routing.workload.agentic.hint':
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  'settings.ai.routing.workload.coding.label': 'Coding',
+  'settings.ai.routing.workload.coding.description': 'Code generation and refactor passes',
+  'settings.ai.routing.workload.coding.hint':
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  'settings.ai.routing.workload.vision.label': 'Vision',
+  'settings.ai.routing.workload.vision.description':
+    'Image understanding for the vision sub-agent — always multimodal',
+  'settings.ai.routing.workload.vision.hint':
+    'Recommended: a multimodal model that accepts image input. The managed default (vision-v1) is image-capable; any provider you route here is always treated as vision-enabled.',
+  'settings.ai.routing.workload.memory.label': 'Memory summarization',
+  'settings.ai.routing.workload.memory.description': 'Tree-extracts and consolidations',
+  'settings.ai.routing.workload.memory.hint':
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  'settings.ai.routing.workload.heartbeat.label': 'Heartbeat',
+  'settings.ai.routing.workload.heartbeat.description': 'Background reasoning between user turns',
+  'settings.ai.routing.workload.heartbeat.hint':
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  'settings.ai.routing.workload.learning.label': 'Learning · Reflections',
+  'settings.ai.routing.workload.learning.description': 'Periodic reflection over recent history',
+  'settings.ai.routing.workload.learning.hint':
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  'settings.ai.routing.workload.subconscious.label': 'Subconscious',
+  'settings.ai.routing.workload.subconscious.description': 'Eventfulness scoring + drift checks',
+  'settings.ai.routing.workload.subconscious.hint':
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
   'settings.ai.routing.addCustomProvider': 'কাস্টম প্রদানকারী যোগ করুন',
   'settings.ai.globalModel.title': 'সবকিছুর জন্য একটি মডেল চয়ন করুন',
   'settings.ai.globalModel.desc':
@@ -4863,6 +5039,44 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'এটি {time} রিসেট হবে।',
   'upsell.usageLimit.upgradePlan': 'প্ল্যান আপগ্রেড করুন',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': 'চ্যাট থেকে শুরু করুন',
+  'walkthrough.steps.startChat.content':
+    'চ্যাটই আপনার শুরু করার জায়গা। নতুন উইন্ডো সেটআপের পর দেখা একই শুভেচ্ছা ও দ্রুত কাজ নিয়ে খুলবে।',
+  'walkthrough.steps.sayHello.title': 'শুভেচ্ছা জানান',
+  'walkthrough.steps.sayHello.content':
+    'যেকোনো সময় আপনার AI সহকারীর সঙ্গে কথা শুরু করতে এখানে চাপুন।',
+  'walkthrough.steps.meetAi.title': 'আপনার AI-কে জানুন',
+  'walkthrough.steps.meetAi.content':
+    'কথোপকথন এখানেই হয়। প্রশ্ন করুন, সারাংশ নিন বা ভাবনা গুছান। সবকিছু খুঁজে পাওয়া যায়।',
+  'walkthrough.steps.connectWorld.title': 'আপনার জগৎ যুক্ত করুন',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp এবং আরও অনেক কিছু: প্রতিটি সংযোগ আপনার সহকারীকে নতুন ক্ষমতা দেয়।',
+  'walkthrough.steps.messagingApps.title': 'যেখানে আছেন সেখানেই চ্যাট করুন',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord যুক্ত করুন, যাতে সহকারী আপনাকে যেকোনো জায়গায় পৌঁছাতে পারে।',
+  'walkthrough.steps.settings.title': 'নিজের মতো সাজান',
+  'walkthrough.steps.settings.content':
+    'পছন্দ, গোপনীয়তা ও নোটিফিকেশন এখানে আছে। এই পেজ থেকে যেকোনো সময় ট্যুরটি আবার শুরু করতে পারেন।',
+  'walkthrough.steps.chatTab.title': 'চ্যাটে ফিরে যান',
+  'walkthrough.steps.chatTab.content': 'কথোপকথনে ফিরতে চাইলে Chat ট্যাব ব্যবহার করুন।',
+  'walkthrough.steps.humanTab.title': 'আপনার Human প্রোফাইল দেখুন',
+  'walkthrough.steps.humanTab.content':
+    'Human আপনার ব্যক্তিগত প্রসঙ্গ, পরিচয় এবং সহকারীর দেখা প্রোফাইল একত্র করে।',
+  'walkthrough.steps.brainTab.title': 'আপনার Brain খুলুন',
+  'walkthrough.steps.brainTab.content':
+    'Brain হলো মেমোরি গ্রাফ: OpenHuman কী জানে এবং ধারণাগুলো কীভাবে যুক্ত তা দেখার জায়গা।',
+  'walkthrough.steps.agentWorldTab.title': 'Agent World ঘুরে দেখুন',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World-এ পুনরায় ব্যবহারযোগ্য এজেন্ট ও শেয়ার করা অটোমেশন থাকে।',
+  'walkthrough.steps.connectionsTab.title': 'সংযোগ পরিচালনা করুন',
+  'walkthrough.steps.connectionsTab.content':
+    'সেবা যোগ বা বদলাতে চাইলে Connections সবসময় প্রধান নেভিগেশনে থাকে।',
+  'walkthrough.steps.feedbackTab.title': 'মতামত পাঠান',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback সমস্যা জানানো বা উন্নতির অনুরোধ করার সরাসরি জায়গা।',
+  'walkthrough.steps.allSet.title': 'সব প্রস্তুত!',
+  'walkthrough.steps.allSet.content':
+    'আপনার সহকারী একটি স্বাগত নোট রেখে গেছে: এখানে আপনি চ্যাট করতে, প্রশ্ন করতে বা ধারণা গুছাতে পারেন। উপভোগ করুন!',
   'walkthrough.tooltip.letsGo': 'চলুন শুরু করি!',
   'walkthrough.tooltip.next': 'পরবর্তী →',
   'walkthrough.tooltip.skip': 'ট্যুর এড়িয়ে যান',
@@ -5751,6 +5965,8 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.cancel': 'বাতিল',
   'agentworld.jobs.applyModal.submit': 'আবেদন জমা দিন',
   'agentworld.jobs.applyModal.submitting': 'আবেদন করা হচ্ছে…',
+  'agentworld.messaging.missingSignalBundle':
+    'এই ব্যবহারকারী এখনো এনক্রিপ্টেড মেসেজিং চালু করেননি। বার্তা পাঠানোর আগে তাকে Agent World খুলে নিরাপদ DM চালু করতে বলুন।',
 };
 
 export default messages;
