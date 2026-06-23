@@ -49,7 +49,11 @@ export default function CollapsedNavRail() {
   };
 
   const homeActive = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-  const settingsActive = matchActive('/settings', location.pathname);
+  // Settings defers to the more-specific Wallet rail item so the wallet sub-page
+  // doesn't light up both icons at once.
+  const settingsActive =
+    matchActive('/settings', location.pathname) &&
+    !matchActive('/settings/wallet-balances', location.pathname);
 
   return (
     <nav className="flex flex-col items-center gap-0.5" aria-label={t('nav.home')}>
