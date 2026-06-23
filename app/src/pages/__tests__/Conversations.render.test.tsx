@@ -1897,6 +1897,65 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
     });
     expect(await screen.findByTestId('agent-task-insights')).toBeInTheDocument();
   });
+
+  it('keeps a settled source opener when hidden and no agent message exists (cancelled first turn)', async () => {
+    // A cancelled first turn records timeline steps but never persists an agent
+    // message, so the hoisted "View full agent process Source" button does not
+    // render. With the timeline hidden, the fallback opener must keep those
+    // steps reachable.
+    const thread = makeThread({ id: 'cancelled-first-turn', title: 'Cancelled' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Start then stop.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+        theme: {
+          mode: 'system',
+          tabBarLabels: 'hover',
+          fontSize: 'medium',
+          hideAgentInsights: true,
+        },
+      });
+    });
+
+    await screen.findByText('Start then stop.');
+    // Settled (no in-flight turn) timeline with steps but no agent message.
+    await act(async () => {
+      store!.dispatch(
+        setToolTimelineForThread({
+          threadId: thread.id,
+          entries: [{ id: 'tl-1', name: 'web_fetch', round: 1, status: 'cancelled' }],
+        })
+      );
+    });
+
+    // No verbose timeline, and the hoisted opener is absent (no agent message)…
+    expect(screen.queryByTestId('agent-task-insights')).toBeNull();
+    expect(screen.queryByTestId('view-process-source')).toBeNull();
+    // …so the fallback opener carries access to the recorded steps.
+    const fallback = await screen.findByTestId('agent-process-source-fallback');
+    await act(async () => {
+      fireEvent.click(fallback);
+    });
+    expect(await screen.findByTestId('agent-task-insights')).toBeInTheDocument();
+  });
 });
 
 describe('Conversations — open-session resume (View work)', () => {

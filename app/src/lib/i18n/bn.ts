@@ -4591,7 +4591,7 @@ const messages: TranslationMap = {
   'settings.appearance.assistantTextMode': 'অ্যাসিস্ট্যান্টের উত্তর টেক্সট হিসেবে',
   'settings.appearance.hideAgentInsights': 'এজেন্টের চিন্তা লুকান',
   'settings.appearance.hideAgentInsightsDesc':
-    'চ্যাটে এজেন্টের ধাপে ধাপে লাইভ টাইমলাইন সংকুচিত করুন। একটি ব্লিঙ্কিং ”প্রসেসিং“ লিঙ্ক এখনও আপনাকে সম্পূর্ণ প্রক্রিয়া খুলতে দেয়।',
+    'চ্যাটে এজেন্টের ধাপে ধাপে লাইভ টাইমলাইন সংকুচিত করুন। একটি ব্লিঙ্কিং "প্রসেসিং" লিঙ্ক এখনও আপনাকে সম্পূর্ণ প্রক্রিয়া খুলতে দেয়।',
   'settings.appearance.assistantTextModeDesc':
     'আপনার বার্তাগুলি বাবলে রেখে অ্যাসিস্ট্যান্টের উত্তর ফ্রেমহীন টেক্সট হিসেবে দেখান।',
   'settings.mascot.active': 'সক্রিয়',

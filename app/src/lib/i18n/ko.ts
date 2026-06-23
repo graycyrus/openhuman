@@ -4547,7 +4547,7 @@ const messages: TranslationMap = {
   'settings.appearance.assistantTextMode': '어시스턴트 답변을 텍스트로 표시',
   'settings.appearance.hideAgentInsights': '에이전트 사고 숨기기',
   'settings.appearance.hideAgentInsightsDesc':
-    '채팅에서 에이전트의 단계별 실시간 타임라인을 접습니다. 깜박이는 ”처리 중“ 링크로 전체 과정을 열 수 있습니다.',
+    '채팅에서 에이전트의 단계별 실시간 타임라인을 접습니다. 깜박이는 "처리 중" 링크로 전체 과정을 열 수 있습니다.',
   'settings.appearance.assistantTextModeDesc':
     '사용자 메시지는 말풍선으로 유지하고 어시스턴트 답변은 프레임 없는 텍스트로 표시합니다.',
   'settings.mascot.active': '활성',

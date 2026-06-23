@@ -4604,7 +4604,7 @@ const messages: TranslationMap = {
   'settings.appearance.assistantTextMode': 'Respons asisten sebagai teks',
   'settings.appearance.hideAgentInsights': 'Sembunyikan proses berpikir agen',
   'settings.appearance.hideAgentInsightsDesc':
-    'Ciutkan lini masa langkah demi langkah agen secara langsung di obrolan. Tautan ”Memproses“ yang berkedip tetap memungkinkan Anda membuka proses lengkapnya.',
+    'Ciutkan lini masa langkah demi langkah agen secara langsung di obrolan. Tautan "Memproses" yang berkedip tetap memungkinkan Anda membuka proses lengkapnya.',
   'settings.appearance.assistantTextModeDesc':
     'Tampilkan balasan asisten sebagai teks tanpa bingkai, sementara pesan Anda tetap dalam gelembung.',
   'settings.mascot.active': 'Aktif',

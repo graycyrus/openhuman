@@ -2253,6 +2253,20 @@ const Conversations = ({
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
                     <span>{t('conversations.agentTaskInsights.processing')} →</span>
                   </button>
+                ) : !shouldRenderTimelineBeforeLatestAgentMessage ? (
+                  // Settled, but the hoisted "View full agent process Source"
+                  // opener below won't render because no agent message exists
+                  // for this turn (e.g. a cancelled first turn — onError skips
+                  // the agent message for `error_type === 'cancelled'`). Without
+                  // this fallback the recorded steps would be unreachable while
+                  // hidden, so surface our own opener whenever entries remain.
+                  <button
+                    type="button"
+                    onClick={() => setShowProcessSource(true)}
+                    data-testid="agent-process-source-fallback"
+                    className="px-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+                    {t('conversations.agentTaskInsights.viewProcessSource')} →
+                  </button>
                 ) : null
               ) : (
                 <ToolTimelineBlock
