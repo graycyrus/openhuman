@@ -4,6 +4,45 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
+  'nav.feedback': 'फ़ीडबैक साझा करें',
+  'feedback.board': 'फ़ीडबैक बोर्ड',
+  'feedback.empty': 'अभी तक कोई फ़ीडबैक नहीं है। कोई विचार साझा करने वाले पहले व्यक्ति बनें।',
+  'feedback.loadMore': 'और लोड करें',
+  'feedback.loadError': 'फ़ीडबैक लोड नहीं हो सका',
+  'feedback.expand': 'और दिखाएँ',
+  'feedback.collapse': 'कम दिखाएँ',
+  'feedback.comments': 'टिप्पणियाँ',
+  'feedback.viewIssue': 'इश्यू देखें',
+  'feedback.status.open': 'खुला',
+  'feedback.status.planned': 'नियोजित',
+  'feedback.status.completed': 'पूर्ण',
+  'feedback.status.closed': 'बंद',
+  'feedback.type.feature': 'फ़ीचर',
+  'feedback.type.bug': 'बग',
+  'feedback.sort.hot': 'लोकप्रिय',
+  'feedback.sort.top': 'शीर्ष',
+  'feedback.sort.new': 'नया',
+  'feedback.filter.allTypes': 'सभी प्रकार',
+  'feedback.filter.allStatuses': 'सभी स्थितियाँ',
+  'feedback.vote.up': 'अपवोट करें',
+  'feedback.vote.down': 'डाउनवोट करें',
+  'feedback.submit.heading': 'फ़ीडबैक साझा करें',
+  'feedback.submit.subheading':
+    'कोई फ़ीचर सुझाएँ या बग की रिपोर्ट करें। अन्य लोग इस पर वोट कर सकते हैं।',
+  'feedback.submit.titlePlaceholder': 'शीर्षक',
+  'feedback.submit.bodyPlaceholder': 'अपने विचार या आपको आई समस्या का वर्णन करें',
+  'feedback.submit.action': 'सबमिट करें',
+  'feedback.submit.success': 'धन्यवाद! आपका फ़ीडबैक अब बोर्ड पर है।',
+  'feedback.submit.rejected': 'आपका फ़ीडबैक प्रकाशित नहीं किया जा सका।',
+  'feedback.submit.error': 'कुछ गड़बड़ हो गई। कृपया दोबारा प्रयास करें।',
+  'feedback.admin.status': 'स्थिति',
+  'feedback.admin.updateFailed': 'स्थिति अपडेट नहीं हो सकी',
+  'feedback.comments.empty': 'अभी तक कोई टिप्पणी नहीं।',
+  'feedback.comments.placeholder': 'टिप्पणी जोड़ें',
+  'feedback.comments.post': 'पोस्ट करें',
+  'feedback.comments.loadError': 'टिप्पणियाँ लोड नहीं हो सकीं',
+  'feedback.comments.postError': 'टिप्पणी पोस्ट नहीं हो सकी',
+  'feedback.comments.you': 'आप',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',
   'conversations.backgroundTasks.noneRunning': 'none running',
@@ -39,9 +78,26 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'कोई एजेंट प्रोफाइल नहीं मिला',
   'nav.activity': 'गतिविधि',
   'nav.brain': 'ब्रेन',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
+  'nav.wallet': 'वॉलेट',
   'agentWorld.description':
     'Tiny.Place एआई एजेंट्स के लिए एक सोशल नेटवर्क है। बातचीत करने, काम खोजने और पोस्ट करने, व्यापार करने और साथ मिलकर आगे बढ़ने के लिए OpenHuman का उपयोग करें।',
+  'agentWorld.world': 'दुनिया',
+  'agentWorld.world.booting': 'रेंडरर शुरू हो रहा है...',
+  'agentWorld.world.title': 'Tiny Place',
+  'agentWorld.world.description':
+    'tiny.place से जुड़ें ताकि आपका एजेंट दूसरे एजेंट्स के साथ तालमेल कर सके — काम ढूँढना और पोस्ट करना, व्यापार करना, संदेश भेजना और बाउंटी पर मिलकर काम करना।',
+  'agentWorld.world.room': 'कमरा',
+  'agentWorld.world.rooms.poker.name': 'पोकर',
+  'agentWorld.world.rooms.poker.description': 'फेल्ट टेबल के चारों ओर आठ सीटें।',
+  'agentWorld.world.rooms.court.name': 'अदालत',
+  'agentWorld.world.rooms.court.description': 'ऊंचा बेंच, जूरी बॉक्स और गैलरी।',
+  'agentWorld.world.rooms.office.name': 'ऑफिस',
+  'agentWorld.world.rooms.office.description': 'क्यूबिकल, डेस्क और व्हाइटबोर्ड।',
+  'agentWorld.world.rooms.home.name': 'घर',
+  'agentWorld.world.rooms.home.description': 'सोफों और गलीचे वाला आरामदायक लाउंज।',
+  'agentWorld.world.rooms.outside.name': 'दुनिया',
+  'agentWorld.world.rooms.outside.description': 'इमारतों से घिरा बड़ा खुला प्लाजा।',
   'agentWorld.feed': 'फ़ीड',
   'agentWorld.ledger': 'खाता बही',
   'agentWorld.jobs': 'कार्य',
@@ -52,6 +108,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'प्रोफ़ाइल',
   'agentWorld.marketplace': 'मार्केटप्लेस',
   'agentWorld.messaging': 'संदेश',
+  'agentWorld.walletNotConfigured': 'वॉलेट सेट नहीं है',
+  'agentWorld.copyAddress': 'पता कॉपी करें',
+  'agentWorld.addressCopied': 'कॉपी हो गया',
+  'agentWorld.walletUnavailable': 'वॉलेट उपलब्ध नहीं',
+  'agentWorld.walletRetry': 'वॉलेट फिर से लोड करें',
   // Agent World — Explore section live data
   'explore.networkOverview': 'नेटवर्क अवलोकन',
   'explore.trendingCommunities': 'ट्रेंडिंग समुदाय',
@@ -87,6 +148,21 @@ const messages: TranslationMap = {
   'common.create': 'बनाएं',
   'common.search': 'सर्च करें',
   'common.loading': 'लोड हो रहा है…',
+  'sync.runs': 'सिंक रन',
+  'sync.totalCost': 'कुल',
+  'sync.when': 'कब',
+  'sync.source': 'स्रोत',
+  'sync.items': 'आइटम',
+  'sync.tokens': 'टोकन',
+  'sync.cost': 'लागत',
+  'sync.duration': 'अवधि',
+  'sync.noAuditEntries': 'अभी तक कोई सिंक रन दर्ज नहीं हुआ।',
+  'sync.timeAgo.justNow': 'अभी',
+  'sync.timeAgo.minutes': '{n} मि. पहले',
+  'sync.timeAgo.hours': '{n} घं. पहले',
+  'sync.timeAgo.days': '{n} दि. पहले',
+  'sync.status.success': 'सफल',
+  'sync.status.failed': 'विफल',
   'common.error': 'एरर',
   'common.success': 'सफल',
   'common.back': 'वापस',
@@ -1085,6 +1161,16 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'एम्बेडिंग प्रदाता',
   'settings.embeddings.statusConfigured': 'कॉन्फ़िगर किया गया',
   'settings.embeddings.statusNeedsKey': 'API कुंजी चाहिए',
+  'settings.embeddings.requiresSignIn': 'OpenHuman साइन-इन आवश्यक',
+  'settings.embeddings.managedLoginRequired':
+    'प्रबंधित एम्बेडिंग के लिए OpenHuman साइन-इन आवश्यक है। OpenHuman बैकएंड का उपयोग करने के लिए साइन इन करें।',
+  'settings.embeddings.managedBannerIntro':
+    'प्रबंधित एम्बेडिंग OpenHuman बैकएंड से होकर चलते हैं और OpenHuman खाता सत्र की आवश्यकता होती है।',
+  'settings.embeddings.managedBannerLocalSession':
+    'इस प्रदाता का उपयोग करने के लिए स्थानीय सत्र से बाहर निकलें और साइन इन करें, या स्थानीय/अपनी-कुंजी वाले एम्बेडिंग प्रदाता पर स्विच करें।',
+  'settings.embeddings.managedBannerRemoteSession':
+    'अपने OpenHuman सत्र को रीफ़्रेश करने के लिए फिर से साइन इन करें, या स्थानीय/अपनी-कुंजी वाले एम्बेडिंग प्रदाता पर स्विच करें।',
+  'settings.embeddings.signInAgain': 'फिर से साइन इन करें',
   'settings.embeddings.apiKeyLabel': '{provider} API कुंजी',
   'settings.embeddings.placeholderStored': '•••••••• (संग्रहीत)',
   'settings.embeddings.placeholderKey': 'अपनी API कुंजी पेस्ट करें…',
@@ -1103,6 +1189,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testConnection': 'कनेक्शन परीक्षण',
   'settings.embeddings.testing': 'परीक्षण हो रहा है…',
   'settings.embeddings.testSuccess': 'कनेक्ट — {dims} आयाम',
+  'settings.embeddings.connectionTestFailed': 'परीक्षण विफल',
   'settings.embeddings.testFailed': 'विफल: {error}',
   'settings.embeddings.saving': 'सहेजा जा रहा है…',
   'settings.embeddings.saved': 'सहेजा गया।',
@@ -1576,6 +1663,18 @@ const messages: TranslationMap = {
   'mnemonic.userNotLoaded': 'यूज़र लोड नहीं हुआ। दोबारा साइन इन करें या पेज रिफ्रेश करें।',
   'mnemonic.invalidPhrase': 'गलत रिकवरी फ्रेज़। अपने शब्द चेक करके दोबारा कोशिश करें।',
   'mnemonic.somethingWentWrong': 'कुछ गड़बड़ हो गई। दोबारा कोशिश करें।',
+  'mnemonic.walletAlreadyConfigured': 'आपका वॉलेट पहले से सेट अप है।',
+  'mnemonic.walletSource': 'स्रोत',
+  'mnemonic.walletWordCount': 'रिकवरी फ्रेज़ की लंबाई',
+  'mnemonic.walletLastUpdated': 'अंतिम अपडेट',
+  'mnemonic.replaceWallet': 'वॉलेट बदलें',
+  'mnemonic.replaceWalletWarning':
+    'यह आपके मौजूदा वॉलेट को स्थायी रूप से बदल देगा। आगे बढ़ने से पहले सुनिश्चित करें कि आपने अपनी रिकवरी फ्रेज़ का बैकअप ले लिया है।',
+  'mnemonic.replaceWalletConfirm': 'मैं समझता/समझती हूँ, मेरा वॉलेट बदलें',
+  'mnemonic.loadingWalletStatus': 'वॉलेट की स्थिति जाँची जा रही है...',
+  'mnemonic.viewAccounts': 'वॉलेट खाते',
+  'mnemonic.revealRecoveryPhrase': 'रिकवरी वाक्यांश प्रकट करें',
+  'mnemonic.hidePhrase': 'वाक्यांश छुपाएं',
   'team.failedToCreate': 'टीम नहीं बन पाई',
   'team.invalidInviteCode': 'गलत या एक्सपायर्ड इनवाइट कोड',
   'team.failedToSwitch': 'टीम स्विच नहीं हो पाई',
@@ -2400,6 +2499,21 @@ const messages: TranslationMap = {
   'subconscious.decision.failed': 'विफल',
   'subconscious.decision.cancelled': 'रद्द हुआ',
   'subconscious.decision.skipped': 'स्किप हुआ',
+  // Subconscious triggers (event-driven orchestrator) debug panel
+  'subconsciousTriggers.title': 'अवचेतन ट्रिगर',
+  'subconsciousTriggers.subtitle': 'इवेंट-संचालित बैकग्राउंड ऑर्केस्ट्रेटर',
+  'subconsciousTriggers.pipeline': 'पाइपलाइन',
+  'subconsciousTriggers.mode': 'मोड',
+  'subconsciousTriggers.orchestrator': 'ऑर्केस्ट्रेटर',
+  'subconsciousTriggers.running': 'चल रहा है',
+  'subconsciousTriggers.stopped': 'रुका हुआ',
+  'subconsciousTriggers.promotionsPerHour': 'प्रमोशन / घंटा',
+  'subconsciousTriggers.queueDepth': 'क़तार की गहराई',
+  'subconsciousTriggers.orchestratorThread': 'ऑर्केस्ट्रेटर थ्रेड',
+  'subconsciousTriggers.userThread': 'उपयोगकर्ता थ्रेड',
+  'subconsciousTriggers.disabledHint': 'पाइपलाइन सक्रिय करने के लिए इवेंट-संचालित मोड सक्षम करें।',
+  'subconsciousTriggers.enable': 'सक्षम करें',
+  'subconsciousTriggers.disable': 'अक्षम करें',
   'actionable.complete': 'पूरा करें',
   'actionable.dismiss': 'हटाएं',
   'actionable.snooze': 'स्नूज़ करें',
@@ -2479,6 +2593,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'ठीक हो रहा है…',
   'bootCheck.portConflictFixFailed':
     'स्वचालित सुधार काम नहीं आया। कृपया अपना कंप्यूटर पुनः आरंभ करें और पुनः प्रयास करें।',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) उस नेटवर्क पोर्ट का उपयोग कर रहा है जिसकी OpenHuman को ज़रूरत है।',
+  'bootCheck.portConflictGuidance':
+    'पोर्ट खाली करने के लिए उस प्रोग्राम को बंद करें, या नीचे से उसे ज़बरदस्ती बंद करें, फिर पुनः प्रयास करें।',
+  'bootCheck.portConflictForceQuit': '{name} को ज़बरदस्ती बंद करें',
+  'bootCheck.portConflictForceQuitting': '{name} बंद हो रहा है…',
+  'bootCheck.portConflictForceQuitFailed':
+    'वह प्रोग्राम बंद नहीं किया जा सका। आपको इसे मैन्युअल रूप से बंद करके पुनः प्रयास करना पड़ सकता है।',
   'notifications.justNow': 'अभी-अभी',
   'notifications.minAgo': '{n}मि. पहले',
   'notifications.hrAgo': '{n}घं. पहले',
@@ -3587,6 +3709,46 @@ const messages: TranslationMap = {
   'settings.ai.routing.backgroundTasks': 'पृष्ठभूमि कार्य',
   'settings.ai.routing.bgTasksDesc':
     'मॉडल संक्षेपण, दिल की धड़कन, सीखने और अवचेतन मूल्यांकन के लिए मुख्य बातचीत प्रवाह के बाहर इस्तेमाल किया।',
+  'settings.ai.routing.workload.chat.label': 'Chat',
+  'settings.ai.routing.workload.chat.description':
+    'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  'settings.ai.routing.workload.chat.hint':
+    'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  'settings.ai.routing.workload.reasoning.label': 'Reasoning',
+  'settings.ai.routing.workload.reasoning.description':
+    'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
+  'settings.ai.routing.workload.reasoning.hint':
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  'settings.ai.routing.workload.agentic.label': 'Agentic',
+  'settings.ai.routing.workload.agentic.description':
+    'Sub-agent runners, tool loops, GIF decisions',
+  'settings.ai.routing.workload.agentic.hint':
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  'settings.ai.routing.workload.coding.label': 'Coding',
+  'settings.ai.routing.workload.coding.description': 'Code generation and refactor passes',
+  'settings.ai.routing.workload.coding.hint':
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  'settings.ai.routing.workload.vision.label': 'Vision',
+  'settings.ai.routing.workload.vision.description':
+    'Image understanding for the vision sub-agent — always multimodal',
+  'settings.ai.routing.workload.vision.hint':
+    'Recommended: a multimodal model that accepts image input. The managed default (vision-v1) is image-capable; any provider you route here is always treated as vision-enabled.',
+  'settings.ai.routing.workload.memory.label': 'Memory summarization',
+  'settings.ai.routing.workload.memory.description': 'Tree-extracts and consolidations',
+  'settings.ai.routing.workload.memory.hint':
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  'settings.ai.routing.workload.heartbeat.label': 'Heartbeat',
+  'settings.ai.routing.workload.heartbeat.description': 'Background reasoning between user turns',
+  'settings.ai.routing.workload.heartbeat.hint':
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  'settings.ai.routing.workload.learning.label': 'Learning · Reflections',
+  'settings.ai.routing.workload.learning.description': 'Periodic reflection over recent history',
+  'settings.ai.routing.workload.learning.hint':
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  'settings.ai.routing.workload.subconscious.label': 'Subconscious',
+  'settings.ai.routing.workload.subconscious.description': 'Eventfulness scoring + drift checks',
+  'settings.ai.routing.workload.subconscious.hint':
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
   'settings.ai.routing.addCustomProvider': 'कस्टम प्रदाता जोड़ें',
   'settings.ai.globalModel.title': 'हर चीज़ के लिए एक मॉडल चुनें',
   'settings.ai.globalModel.desc':
@@ -4864,6 +5026,44 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'यह {time} रीसेट होती है।',
   'upsell.usageLimit.upgradePlan': 'प्लान अपग्रेड करें',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': 'चैट से शुरू करें',
+  'walkthrough.steps.startChat.content':
+    'चैट आपका शुरुआती स्थान है। नई विंडो उसी स्वागत संदेश और तेज़ कार्रवाइयों के साथ खुलती हैं जो आपने सेटअप के बाद देखीं।',
+  'walkthrough.steps.sayHello.title': 'नमस्ते कहें',
+  'walkthrough.steps.sayHello.content':
+    'कभी भी अपने AI सहायक से बातचीत शुरू करने के लिए यहां टैप करें।',
+  'walkthrough.steps.meetAi.title': 'अपने AI से मिलें',
+  'walkthrough.steps.meetAi.content':
+    'बातचीत यहीं होती है। सवाल पूछें, सारांश लें या विचार करें। सब कुछ खोजने योग्य रहता है।',
+  'walkthrough.steps.connectWorld.title': 'अपनी दुनिया जोड़ें',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp और बहुत कुछ: हर कनेक्शन आपके सहायक को नई क्षमताएं देता है।',
+  'walkthrough.steps.messagingApps.title': 'जहां आप पहले से हैं वहीं चैट करें',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord जोड़ें ताकि आपका सहायक आपको कहीं भी पहुंच सके।',
+  'walkthrough.steps.settings.title': 'इसे अपना बनाएं',
+  'walkthrough.steps.settings.content':
+    'पसंद, गोपनीयता और सूचनाएं यहां हैं। आप इस पेज से यह टूर कभी भी फिर शुरू कर सकते हैं।',
+  'walkthrough.steps.chatTab.title': 'चैट पर वापस जाएं',
+  'walkthrough.steps.chatTab.content': 'जब भी बातचीत पर लौटना हो, Chat टैब का उपयोग करें।',
+  'walkthrough.steps.humanTab.title': 'अपनी Human प्रोफ़ाइल देखें',
+  'walkthrough.steps.humanTab.content':
+    'Human आपका निजी संदर्भ, पहचान और सहायक को दिखने वाली प्रोफ़ाइल एक साथ रखता है।',
+  'walkthrough.steps.brainTab.title': 'अपना Brain खोलें',
+  'walkthrough.steps.brainTab.content':
+    'Brain मेमोरी ग्राफ है: यहां देखें कि OpenHuman क्या जानता है और विचार कैसे जुड़े हैं।',
+  'walkthrough.steps.agentWorldTab.title': 'Agent World देखें',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World में पुन: उपयोग योग्य एजेंट और साझा ऑटोमेशन रहते हैं।',
+  'walkthrough.steps.connectionsTab.title': 'कनेक्शन प्रबंधित करें',
+  'walkthrough.steps.connectionsTab.content':
+    'सेवाएं जोड़ने या बदलने के लिए Connections हमेशा मुख्य नेविगेशन में उपलब्ध है।',
+  'walkthrough.steps.feedbackTab.title': 'फ़ीडबैक भेजें',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback समस्याएं बताने या सुधार मांगने की सीधी जगह है।',
+  'walkthrough.steps.allSet.title': 'सब तैयार है!',
+  'walkthrough.steps.allSet.content':
+    'आपके सहायक ने स्वागत नोट छोड़ा है: यहां आप चैट कर सकते हैं, सवाल पूछ सकते हैं या विचार कर सकते हैं। आनंद लें!',
   'walkthrough.tooltip.letsGo': 'चलिए शुरू करें!',
   'walkthrough.tooltip.next': 'अगला →',
   'walkthrough.tooltip.skip': 'टूर छोड़ें',
@@ -5751,6 +5951,8 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.cancel': 'रद्द करें',
   'agentworld.jobs.applyModal.submit': 'आवेदन सबमिट करें',
   'agentworld.jobs.applyModal.submitting': 'आवेदन हो रहा है…',
+  'agentworld.messaging.missingSignalBundle':
+    'इस उपयोगकर्ता ने अभी तक एन्क्रिप्टेड मैसेजिंग चालू नहीं की है। संदेश भेजने से पहले उनसे Agent World खोलकर सुरक्षित DM चालू करने को कहें।',
 };
 
 export default messages;

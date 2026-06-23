@@ -4,6 +4,45 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
+  'nav.feedback': 'Enviar feedback',
+  'feedback.board': 'Quadro de feedback',
+  'feedback.empty': 'Ainda não há feedback. Seja o primeiro a compartilhar uma ideia.',
+  'feedback.loadMore': 'Carregar mais',
+  'feedback.loadError': 'Falha ao carregar o feedback',
+  'feedback.expand': 'Mostrar mais',
+  'feedback.collapse': 'Mostrar menos',
+  'feedback.comments': 'comentários',
+  'feedback.viewIssue': 'Ver issue',
+  'feedback.status.open': 'Aberto',
+  'feedback.status.planned': 'Planejado',
+  'feedback.status.completed': 'Concluído',
+  'feedback.status.closed': 'Fechado',
+  'feedback.type.feature': 'Recurso',
+  'feedback.type.bug': 'Bug',
+  'feedback.sort.hot': 'Em alta',
+  'feedback.sort.top': 'Mais votados',
+  'feedback.sort.new': 'Recentes',
+  'feedback.filter.allTypes': 'Todos os tipos',
+  'feedback.filter.allStatuses': 'Todos os status',
+  'feedback.vote.up': 'Votar a favor',
+  'feedback.vote.down': 'Votar contra',
+  'feedback.submit.heading': 'Compartilhe seu feedback',
+  'feedback.submit.subheading':
+    'Sugira um recurso ou relate um bug. Outras pessoas podem votar nele.',
+  'feedback.submit.titlePlaceholder': 'Título',
+  'feedback.submit.bodyPlaceholder': 'Descreva sua ideia ou o problema que você encontrou',
+  'feedback.submit.action': 'Enviar',
+  'feedback.submit.success': 'Obrigado! Seu feedback já está no quadro.',
+  'feedback.submit.rejected': 'Não foi possível publicar seu feedback.',
+  'feedback.submit.error': 'Algo deu errado. Tente novamente.',
+  'feedback.admin.status': 'Status',
+  'feedback.admin.updateFailed': 'Falha ao atualizar o status',
+  'feedback.comments.empty': 'Ainda não há comentários.',
+  'feedback.comments.placeholder': 'Adicionar um comentário',
+  'feedback.comments.post': 'Publicar',
+  'feedback.comments.loadError': 'Falha ao carregar os comentários',
+  'feedback.comments.postError': 'Falha ao publicar o comentário',
+  'feedback.comments.you': 'Você',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',
   'conversations.backgroundTasks.noneRunning': 'none running',
@@ -39,9 +78,26 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': 'Nenhum perfil de agente encontrado',
   'nav.activity': 'Atividade',
   'nav.brain': 'Cérebro',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
+  'nav.wallet': 'Carteira',
   'agentWorld.description':
     'Tiny.Place é uma rede social para agentes de IA. Use o OpenHuman para interagir, encontrar e publicar trabalhos, negociar e crescer juntos.',
+  'agentWorld.world': 'Mundo',
+  'agentWorld.world.booting': 'Iniciando renderizador...',
+  'agentWorld.world.title': 'Tiny Place',
+  'agentWorld.world.description':
+    'Junte-se ao tiny.place para que seu agente coordene com outros agentes: encontrar e publicar trabalhos, negociar, enviar mensagens e colaborar em recompensas.',
+  'agentWorld.world.room': 'Sala',
+  'agentWorld.world.rooms.poker.name': 'Pôquer',
+  'agentWorld.world.rooms.poker.description': 'Oito assentos ao redor de uma mesa de feltro.',
+  'agentWorld.world.rooms.court.name': 'Tribunal',
+  'agentWorld.world.rooms.court.description': 'Bancada elevada, júri e galeria.',
+  'agentWorld.world.rooms.office.name': 'Escritório',
+  'agentWorld.world.rooms.office.description': 'Baias, mesas e um quadro branco.',
+  'agentWorld.world.rooms.home.name': 'Casa',
+  'agentWorld.world.rooms.home.description': 'Uma sala aconchegante com sofás e tapete.',
+  'agentWorld.world.rooms.outside.name': 'Mundo',
+  'agentWorld.world.rooms.outside.description': 'Uma grande praça aberta cercada por edifícios.',
   'agentWorld.feed': 'Feed',
   'agentWorld.ledger': 'Livro-razão',
   'agentWorld.jobs': 'Trabalhos',
@@ -52,6 +108,11 @@ const messages: TranslationMap = {
   'agentWorld.profiles': 'Perfis',
   'agentWorld.marketplace': 'Mercado',
   'agentWorld.messaging': 'Mensagens',
+  'agentWorld.walletNotConfigured': 'Carteira não configurada',
+  'agentWorld.copyAddress': 'Copiar endereço',
+  'agentWorld.addressCopied': 'Copiado',
+  'agentWorld.walletUnavailable': 'Carteira indisponível',
+  'agentWorld.walletRetry': 'Tentar carregar a carteira novamente',
   // Agent World — Explore section live data
   'explore.networkOverview': 'Visão geral da rede',
   'explore.trendingCommunities': 'Comunidades em alta',
@@ -88,6 +149,21 @@ const messages: TranslationMap = {
   'common.create': 'Criar',
   'common.search': 'Pesquisar',
   'common.loading': 'carregando…',
+  'sync.runs': 'sincronizações',
+  'sync.totalCost': 'total',
+  'sync.when': 'Quando',
+  'sync.source': 'Origem',
+  'sync.items': 'Itens',
+  'sync.tokens': 'Tokens',
+  'sync.cost': 'Custo',
+  'sync.duration': 'Duração',
+  'sync.noAuditEntries': 'Nenhuma sincronização registrada ainda.',
+  'sync.timeAgo.justNow': 'agora mesmo',
+  'sync.timeAgo.minutes': 'há {n} min',
+  'sync.timeAgo.hours': 'há {n} h',
+  'sync.timeAgo.days': 'há {n} d',
+  'sync.status.success': 'Sucesso',
+  'sync.status.failed': 'Falhou',
   'common.error': 'Erro',
   'common.success': 'Sucesso',
   'common.back': 'Voltar',
@@ -1117,6 +1193,16 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': 'Provedor de embeddings',
   'settings.embeddings.statusConfigured': 'Configurado',
   'settings.embeddings.statusNeedsKey': 'Precisa de chave API',
+  'settings.embeddings.requiresSignIn': 'Requer login no OpenHuman',
+  'settings.embeddings.managedLoginRequired':
+    'Embeddings gerenciados requerem login no OpenHuman. Faça login para usar o backend do OpenHuman.',
+  'settings.embeddings.managedBannerIntro':
+    'Embeddings gerenciados passam pelo backend do OpenHuman e exigem uma sessão de conta OpenHuman.',
+  'settings.embeddings.managedBannerLocalSession':
+    'Saia da sessão local e faça login para usar este provedor, ou mude para um provedor de embeddings local ou com sua própria chave.',
+  'settings.embeddings.managedBannerRemoteSession':
+    'Faça login novamente para atualizar sua sessão OpenHuman, ou mude para um provedor de embeddings local ou com sua própria chave.',
+  'settings.embeddings.signInAgain': 'Entrar novamente',
   'settings.embeddings.apiKeyLabel': 'Chave API {provider}',
   'settings.embeddings.placeholderStored': '•••••••• (armazenado)',
   'settings.embeddings.placeholderKey': 'Cole sua chave API…',
@@ -1135,6 +1221,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testConnection': 'Testar conexão',
   'settings.embeddings.testing': 'Testando…',
   'settings.embeddings.testSuccess': 'Conectado — {dims} dimensões',
+  'settings.embeddings.connectionTestFailed': 'Teste falhou',
   'settings.embeddings.testFailed': 'Falhou: {error}',
   'settings.embeddings.saving': 'Salvando…',
   'settings.embeddings.saved': 'Salvo.',
@@ -1616,6 +1703,18 @@ const messages: TranslationMap = {
   'mnemonic.invalidPhrase':
     'Frase de recuperação inválida. Verifique as palavras e tente novamente.',
   'mnemonic.somethingWentWrong': 'Algo deu errado. Por favor, tente novamente.',
+  'mnemonic.walletAlreadyConfigured': 'Sua carteira já está configurada.',
+  'mnemonic.walletSource': 'Fonte',
+  'mnemonic.walletWordCount': 'Comprimento da frase de recuperação',
+  'mnemonic.walletLastUpdated': 'Última atualização',
+  'mnemonic.replaceWallet': 'Substituir carteira',
+  'mnemonic.replaceWalletWarning':
+    'Isso substituirá permanentemente sua carteira atual. Certifique-se de ter feito backup da sua frase de recuperação antes de prosseguir.',
+  'mnemonic.replaceWalletConfirm': 'Entendo, substituir minha carteira',
+  'mnemonic.loadingWalletStatus': 'Verificando status da carteira...',
+  'mnemonic.viewAccounts': 'Contas da carteira',
+  'mnemonic.revealRecoveryPhrase': 'Revelar frase de recuperação',
+  'mnemonic.hidePhrase': 'Ocultar frase',
   'team.failedToCreate': 'Falha ao criar equipe',
   'team.invalidInviteCode': 'Código de convite inválido ou expirado',
   'team.failedToSwitch': 'Falha ao trocar de equipe',
@@ -2448,6 +2547,21 @@ const messages: TranslationMap = {
   'subconscious.decision.failed': 'Falhou',
   'subconscious.decision.cancelled': 'Cancelado',
   'subconscious.decision.skipped': 'Pulado',
+  // Subconscious triggers (event-driven orchestrator) debug panel
+  'subconsciousTriggers.title': 'Gatilhos do subconsciente',
+  'subconsciousTriggers.subtitle': 'Orquestrador em segundo plano baseado em eventos',
+  'subconsciousTriggers.pipeline': 'Pipeline',
+  'subconsciousTriggers.mode': 'Modo',
+  'subconsciousTriggers.orchestrator': 'Orquestrador',
+  'subconsciousTriggers.running': 'Em execução',
+  'subconsciousTriggers.stopped': 'Parado',
+  'subconsciousTriggers.promotionsPerHour': 'Promoções / hora',
+  'subconsciousTriggers.queueDepth': 'Profundidade da fila',
+  'subconsciousTriggers.orchestratorThread': 'Thread do orquestrador',
+  'subconsciousTriggers.userThread': 'Thread do usuário',
+  'subconsciousTriggers.disabledHint': 'Ative o modo baseado em eventos para iniciar o pipeline.',
+  'subconsciousTriggers.enable': 'Ativar',
+  'subconsciousTriggers.disable': 'Desativar',
   'actionable.complete': 'Concluir',
   'actionable.dismiss': 'Dispensar',
   'actionable.snooze': 'Adiar',
@@ -2528,6 +2642,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': 'Corrigindo…',
   'bootCheck.portConflictFixFailed':
     'A correção automática não funcionou. Reinicie o computador e tente novamente.',
+  'bootCheck.portConflictOwner':
+    '{name} (PID {pid}) está usando a porta de rede que o OpenHuman precisa.',
+  'bootCheck.portConflictGuidance':
+    'Feche esse programa para liberar a porta, ou force o encerramento abaixo e tente novamente.',
+  'bootCheck.portConflictForceQuit': 'Forçar encerramento de {name}',
+  'bootCheck.portConflictForceQuitting': 'Encerrando {name}…',
+  'bootCheck.portConflictForceQuitFailed':
+    'Não foi possível encerrar esse programa. Talvez seja necessário fechá-lo manualmente e tentar novamente.',
   'notifications.justNow': 'agora mesmo',
   'notifications.minAgo': '{n}min atrás',
   'notifications.hrAgo': '{n}h atrás',
@@ -3642,6 +3764,46 @@ const messages: TranslationMap = {
   'settings.ai.routing.backgroundTasks': 'Tarefas de segundo plano',
   'settings.ai.routing.bgTasksDesc':
     'Modelos usados fora do fluxo principal de conversa para resumir, monitoramento, aprendizado e avaliação subconsciente.',
+  'settings.ai.routing.workload.chat.label': 'Chat',
+  'settings.ai.routing.workload.chat.description':
+    'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  'settings.ai.routing.workload.chat.hint':
+    'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  'settings.ai.routing.workload.reasoning.label': 'Reasoning',
+  'settings.ai.routing.workload.reasoning.description':
+    'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
+  'settings.ai.routing.workload.reasoning.hint':
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  'settings.ai.routing.workload.agentic.label': 'Agentic',
+  'settings.ai.routing.workload.agentic.description':
+    'Sub-agent runners, tool loops, GIF decisions',
+  'settings.ai.routing.workload.agentic.hint':
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  'settings.ai.routing.workload.coding.label': 'Coding',
+  'settings.ai.routing.workload.coding.description': 'Code generation and refactor passes',
+  'settings.ai.routing.workload.coding.hint':
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  'settings.ai.routing.workload.vision.label': 'Vision',
+  'settings.ai.routing.workload.vision.description':
+    'Image understanding for the vision sub-agent — always multimodal',
+  'settings.ai.routing.workload.vision.hint':
+    'Recommended: a multimodal model that accepts image input. The managed default (vision-v1) is image-capable; any provider you route here is always treated as vision-enabled.',
+  'settings.ai.routing.workload.memory.label': 'Memory summarization',
+  'settings.ai.routing.workload.memory.description': 'Tree-extracts and consolidations',
+  'settings.ai.routing.workload.memory.hint':
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  'settings.ai.routing.workload.heartbeat.label': 'Heartbeat',
+  'settings.ai.routing.workload.heartbeat.description': 'Background reasoning between user turns',
+  'settings.ai.routing.workload.heartbeat.hint':
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  'settings.ai.routing.workload.learning.label': 'Learning · Reflections',
+  'settings.ai.routing.workload.learning.description': 'Periodic reflection over recent history',
+  'settings.ai.routing.workload.learning.hint':
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  'settings.ai.routing.workload.subconscious.label': 'Subconscious',
+  'settings.ai.routing.workload.subconscious.description': 'Eventfulness scoring + drift checks',
+  'settings.ai.routing.workload.subconscious.hint':
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
   'settings.ai.routing.addCustomProvider': 'Adicionar provedor personalizado',
   'settings.ai.globalModel.title': 'Escolha um modelo para tudo',
   'settings.ai.globalModel.desc':
@@ -4944,6 +5106,44 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': 'Será redefinido {time}.',
   'upsell.usageLimit.upgradePlan': 'Fazer upgrade do plano',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': 'Comece no chat',
+  'walkthrough.steps.startChat.content':
+    'O chat é seu ponto de partida. Novas janelas abrem com a mesma saudação e ações rápidas vistas na configuração.',
+  'walkthrough.steps.sayHello.title': 'Diga olá',
+  'walkthrough.steps.sayHello.content':
+    'Toque aqui para iniciar uma conversa com seu assistente de IA quando quiser.',
+  'walkthrough.steps.meetAi.title': 'Conheça sua IA',
+  'walkthrough.steps.meetAi.content':
+    'É aqui que as conversas acontecem. Faça perguntas, peça resumos ou desenvolva ideias. Tudo continua pesquisável.',
+  'walkthrough.steps.connectWorld.title': 'Conecte seu mundo',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp e mais: cada conexão dá novos poderes ao seu assistente.',
+  'walkthrough.steps.messagingApps.title': 'Converse onde você já está',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord: conecte seus apps de mensagens para que seu assistente alcance você em qualquer lugar.',
+  'walkthrough.steps.settings.title': 'Deixe do seu jeito',
+  'walkthrough.steps.settings.content':
+    'Preferências, privacidade e notificações ficam aqui. Você pode reiniciar este tour por esta página a qualquer momento.',
+  'walkthrough.steps.chatTab.title': 'Volte ao chat',
+  'walkthrough.steps.chatTab.content': 'Use a aba Chat sempre que quiser retornar às conversas.',
+  'walkthrough.steps.humanTab.title': 'Conheça seu perfil humano',
+  'walkthrough.steps.humanTab.content':
+    'Human reúne seu contexto pessoal, identidade e perfil visível ao assistente.',
+  'walkthrough.steps.brainTab.title': 'Abra seu Brain',
+  'walkthrough.steps.brainTab.content':
+    'Brain é o grafo de memória: o lugar para ver o que o OpenHuman sabe e como as ideias se conectam.',
+  'walkthrough.steps.agentWorldTab.title': 'Explore o Agent World',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World é onde ficam agentes reutilizáveis e automações compartilhadas.',
+  'walkthrough.steps.connectionsTab.title': 'Gerencie conexões',
+  'walkthrough.steps.connectionsTab.content':
+    'Connections está sempre na navegação principal quando você quiser adicionar ou ajustar serviços.',
+  'walkthrough.steps.feedbackTab.title': 'Enviar feedback',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback oferece um lugar direto para relatar problemas ou pedir melhorias.',
+  'walkthrough.steps.allSet.title': 'Tudo pronto!',
+  'walkthrough.steps.allSet.content':
+    'Seu assistente deixou uma nota de boas-vindas: este é seu espaço para conversar, perguntar ou explorar ideias. Divirta-se!',
   'walkthrough.tooltip.letsGo': 'Vamos lá!',
   'walkthrough.tooltip.next': 'Próximo →',
   'walkthrough.tooltip.skip': 'Pular tour',
@@ -5852,6 +6052,8 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.cancel': 'Cancelar',
   'agentworld.jobs.applyModal.submit': 'Enviar candidatura',
   'agentworld.jobs.applyModal.submitting': 'A enviar…',
+  'agentworld.messaging.missingSignalBundle':
+    'Este utilizador ainda não ativou as mensagens encriptadas. Peça-lhe para abrir o Agent World e ativar DMs seguras antes de enviar uma mensagem.',
 };
 
 export default messages;

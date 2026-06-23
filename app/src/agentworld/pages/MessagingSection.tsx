@@ -27,6 +27,7 @@ import {
   PaymentRequiredError,
   type SignalKeyStatus,
 } from '../../lib/agentworld/invokeApiClient';
+import { useT } from '../../lib/i18n/I18nContext';
 import { fetchWalletStatus } from '../../services/walletApi';
 import { apiClient } from '../AgentWorldShell';
 import { useTinyplaceStream } from '../hooks/useTinyplaceStream';
@@ -44,7 +45,7 @@ const E2E_MESSAGING_ENABLED = true;
 
 // ── Tab definition ────────────────────────────────────────────────────────────
 
-const TABS = ['channels', 'groups', 'broadcasts', 'inbox', 'dms'] as const;
+export const TABS = ['channels', 'groups', 'broadcasts', 'inbox', 'dms'] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -1041,9 +1042,29 @@ interface DecryptedMessage {
   plaintext: string;
   timestamp: string;
   encrypted: true;
+  /**
+   * True for messages WE sent. The relay only returns incoming envelopes
+   * (and a sender can't decrypt their own outgoing ciphertext anyway), so we
+   * keep the plaintext locally and merge it into the thread on refresh.
+   */
+  outgoing?: boolean;
 }
 
-function useDirectMessages(peerId: string) {
+function formatDirectMessageError(err: unknown, missingBundleMessage: string): string {
+  const message = String(err);
+  const rawBundle404 = /http\s*404/i.test(message) && /\/keys\/[^/\s]+\/bundle\b/i.test(message);
+  const mappedMissingBundle =
+    /recipient/i.test(message) &&
+    /not\s+set\s+up/i.test(message) &&
+    /encrypted\s+messaging/i.test(message);
+  if (rawBundle404 || mappedMissingBundle) {
+    log('[agentworld:dm] recipient key bundle missing');
+    return missingBundleMessage;
+  }
+  return message;
+}
+
+function useDirectMessages(peerId: string, missingBundleMessage: string) {
   const [messages, setMessages] = useState<DecryptedMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1070,28 +1091,49 @@ function useDirectMessages(peerId: string) {
           log('failed to decrypt message %s: %s', env.id, String(decryptErr));
         }
       }
-      setMessages(decrypted);
+      // Merge fresh incoming with the outgoing messages we sent this session —
+      // the relay only echoes incoming, so replacing would wipe our own sent
+      // messages. De-dupe by messageId, keep chronological order.
+      setMessages(prev => {
+        const outgoing = prev.filter(m => m.outgoing);
+        const seen = new Set(decrypted.map(m => m.messageId));
+        const merged = [...decrypted, ...outgoing.filter(m => !seen.has(m.messageId))];
+        return merged.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      });
     } catch (err) {
-      setError(String(err));
+      setError(formatDirectMessageError(err, missingBundleMessage));
     } finally {
       setLoading(false);
     }
-  }, [peerId]);
+  }, [missingBundleMessage, peerId]);
 
   const send = useCallback(
     async (plaintext: string) => {
       setSending(true);
       setError(null);
       try {
-        await apiClient.signal.sendMessage({ recipient: peerId, plaintext });
+        const result = await apiClient.signal.sendMessage({ recipient: peerId, plaintext });
+        // Optimistically show our own message: the relay won't return it and we
+        // can't decrypt our own ciphertext, so keep the plaintext locally.
+        const sentMessage: DecryptedMessage = {
+          messageId: result?.messageId ?? `local-${peerId}-${plaintext.length}-${Date.now()}`,
+          from: 'You',
+          plaintext,
+          timestamp: new Date().toISOString(),
+          encrypted: true,
+          outgoing: true,
+        };
+        setMessages(prev =>
+          [...prev, sentMessage].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+        );
         await refresh();
       } catch (err) {
-        setError(String(err));
+        setError(formatDirectMessageError(err, missingBundleMessage));
       } finally {
         setSending(false);
       }
     },
-    [peerId, refresh]
+    [missingBundleMessage, peerId, refresh]
   );
 
   useEffect(() => {
@@ -1112,7 +1154,15 @@ function ActiveDmView({
   composeText: string;
   setComposeText: (v: string) => void;
 }) {
-  const { messages, loading, error, sending, send } = useDirectMessages(peerId);
+  const { t } = useT();
+  const missingBundleMessage = t(
+    'agentworld.messaging.missingSignalBundle',
+    "This user hasn't enabled encrypted messaging yet. Ask them to open Agent World and enable secure DMs before sending a message."
+  );
+  const { messages, loading, error, sending, send } = useDirectMessages(
+    peerId,
+    missingBundleMessage
+  );
 
   const handleSend = useCallback(async () => {
     if (!composeText.trim()) return;
@@ -1171,7 +1221,11 @@ function ActiveDmView({
         {messages.map(msg => (
           <div
             key={msg.messageId}
-            className="rounded-lg bg-stone-100 dark:bg-neutral-800 px-3 py-2 text-sm">
+            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+              msg.outgoing
+                ? 'ml-auto bg-primary-500/15 dark:bg-primary-500/20'
+                : 'mr-auto bg-stone-100 dark:bg-neutral-800'
+            }`}>
             <p className="text-stone-900 dark:text-neutral-100">{msg.plaintext}</p>
             <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
               {msg.from} &middot; {msg.timestamp}
@@ -1204,10 +1258,18 @@ function ActiveDmView({
   );
 }
 
+/** Quick heuristic matching Rust `looks_like_base58_pubkey`: 32–44 chars of
+ *  the Bitcoin base58 alphabet [1-9A-HJ-NP-Za-km-z]. */
+function looksLikeBase58Pubkey(s: string): boolean {
+  return s.length >= 32 && s.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(s);
+}
+
 function DmsPanel() {
   const [peerId, setPeerId] = useState('');
   const [activePeer, setActivePeer] = useState<string | null>(null);
   const [composeText, setComposeText] = useState('');
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
   if (!E2E_MESSAGING_ENABLED) {
     return (
@@ -1252,53 +1314,117 @@ function DmsPanel() {
     );
   }
 
+  const handleOpenDm = async () => {
+    const input = peerId.trim();
+    if (!input) return;
+
+    setResolving(true);
+    setResolveError(null);
+
+    try {
+      // If the input looks like a raw crypto_id (base58 wallet address) we can
+      // open the DM directly — no resolution round-trip needed. The Rust handler
+      // will do the same check and use it verbatim.
+      if (looksLikeBase58Pubkey(input)) {
+        setActivePeer(input);
+        return;
+      }
+
+      // Handle or bare name: resolve via directory first for immediate UX feedback.
+      const name = input.startsWith('@') ? input.slice(1) : input;
+      const resolved = await apiClient.directory.resolve(name);
+      const identity = resolved?.identity as
+        | { cryptoId?: string; [key: string]: unknown }
+        | null
+        | undefined;
+      const agent = resolved?.agent as { cryptoId?: string; [key: string]: unknown } | null;
+
+      const cryptoId = identity?.cryptoId ?? agent?.cryptoId;
+      if (cryptoId) {
+        setActivePeer(cryptoId);
+      } else {
+        setResolveError(`No agent found for "${input}"`);
+      }
+    } catch (err) {
+      setResolveError(String(err));
+    } finally {
+      setResolving(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
         <input
           type="text"
           value={peerId}
-          onChange={e => setPeerId(e.target.value)}
-          placeholder="Recipient agent ID (base58)"
+          onChange={e => {
+            setPeerId(e.target.value);
+            setResolveError(null);
+          }}
+          placeholder="Recipient @handle or wallet address"
           className="flex-1 rounded border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400"
         />
         <button
           type="button"
-          disabled={!peerId.trim()}
-          onClick={() => setActivePeer(peerId.trim())}
+          disabled={!peerId.trim() || resolving}
+          onClick={() => void handleOpenDm()}
           className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-          Open DM
+          {resolving ? 'Resolving...' : 'Open DM'}
         </button>
       </div>
+      {resolveError && (
+        <p data-testid="dm-resolve-error" className="text-xs text-red-500 dark:text-red-400">
+          {resolveError}
+        </p>
+      )}
     </div>
   );
 }
 
 // ── Messaging section root ────────────────────────────────────────────────────
 
-export default function MessagingSection() {
-  const [activeTab, setActiveTab] = useState<Tab>('channels');
+// Messaging is currently focused on DMs only. The channels / groups /
+// broadcasts / inbox panels (and their tab bar) are intentionally hidden — add
+// their slugs back here to restore the full tab bar; the panels below stay
+// wired up (hidden, not removed). With a single visible tab the bar is hidden
+// entirely so the surface goes straight to DMs.
+const VISIBLE_TABS: readonly Tab[] = ['dms'];
+
+interface MessagingSectionProps {
+  /**
+   * Which tabs to surface. Defaults to DMs-only (the tab bar hides itself when a
+   * single tab is visible). Overridable so the hidden panels stay testable.
+   */
+  tabs?: readonly Tab[];
+}
+
+export default function MessagingSection({ tabs = VISIBLE_TABS }: MessagingSectionProps = {}) {
+  const [activeTab, setActiveTab] = useState<Tab>(tabs[0]);
+  const showTabBar = tabs.length > 1;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab chips */}
-      <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            data-active={activeTab === tab}
-            className={[
-              'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
-              activeTab === tab
-                ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-            ].join(' ')}>
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </div>
+      {/* Tab chips — only shown when more than one tab is enabled. */}
+      {showTabBar && (
+        <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
+          {tabs.map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              data-active={activeTab === tab}
+              className={[
+                'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                activeTab === tab
+                  ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                  : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
+              ].join(' ')}>
+              {TAB_LABELS[tab]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Signal key status — always visible when wallet is connected */}
       <SignalKeyStatusCard />
