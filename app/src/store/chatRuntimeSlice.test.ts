@@ -1,15 +1,28 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { describe, expect, it } from 'vitest';
 
-import type { PersistedTurnState } from '../types/turnState';
+import type { AgentRun, AgentRunStatus, PersistedTurnState } from '../types/turnState';
 import chatRuntimeReducer, {
   clearAllChatRuntime,
   clearQueueStatusForThread,
   clearRuntimeForThread,
+  hydrateRuntimeFromRunLedger,
   hydrateRuntimeFromSnapshot,
   type QueueStatus,
   setQueueStatusForThread,
 } from './chatRuntimeSlice';
+
+function makeRun(id: string, status: AgentRunStatus): AgentRun {
+  return {
+    id,
+    kind: 'subagent',
+    status,
+    agentId: 'tinyplace_agent',
+    metadata: { displayName: 'Tinyplace Agent' },
+    startedAt: '2026-06-23T00:00:00Z',
+    updatedAt: '2026-06-23T00:00:00Z',
+  };
+}
 
 function makeInterruptedSnapshot(
   threadId: string,
@@ -146,6 +159,29 @@ describe('chatRuntimeSlice queue status', () => {
     expect(timeline[1].subagent?.status).toBe('completed');
     expect(timeline[2].status).toBe('error');
     expect(timeline[2].subagent?.status).toBe('failed');
+  });
+
+  it('renders interrupted run-ledger rows as muted (cancelled), reserving error for failed', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateRuntimeFromRunLedger({
+        threadId: 't1',
+        runs: [
+          makeRun('sub-interrupted', 'interrupted'),
+          makeRun('sub-failed', 'failed'),
+          makeRun('sub-completed', 'completed'),
+        ],
+      })
+    );
+    const byId = Object.fromEntries(
+      store.getState().chatRuntime.toolTimelineByThread['t1'].map(e => [e.id, e.status])
+    );
+    // Orphaned (interrupted) background runs are terminal but NOT user-facing
+    // errors — muted, not alarming red.
+    expect(byId['subagent:sub-interrupted']).toBe('cancelled');
+    // A genuine failure still surfaces as an error.
+    expect(byId['subagent:sub-failed']).toBe('error');
+    expect(byId['subagent:sub-completed']).toBe('success');
   });
 
   it('isolates queue status across threads', () => {

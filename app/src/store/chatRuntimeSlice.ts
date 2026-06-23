@@ -432,8 +432,12 @@ function timelineStatusFromRun(status: AgentRun['status']): ToolTimelineEntrySta
     case 'cancelled':
       return 'cancelled';
     case 'failed':
-    case 'interrupted':
       return 'error';
+    case 'interrupted':
+      // Orphaned by a process exit (e.g. a detached subagent the core lost track
+      // of and settled on next boot) — terminal, but not a user-facing error.
+      // Render muted/static like `cancelled`, not alarming red.
+      return 'cancelled';
     case 'awaiting_user':
     case 'paused':
       return 'awaiting_user';
