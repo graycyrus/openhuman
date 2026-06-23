@@ -49,6 +49,7 @@ export default function CollapsedNavRail() {
   };
 
   const homeActive = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const settingsActive = matchActive('/settings', location.pathname);
 
   return (
     <nav className="flex flex-col items-center gap-0.5" aria-label={t('nav.home')}>
@@ -94,6 +95,23 @@ export default function CollapsedNavRail() {
           </button>
         );
       })}
+
+      {/* Settings — reached via the header gear when expanded, which is hidden
+          in the collapsed rail, so it gets its own icon here. */}
+      <button
+        type="button"
+        onClick={() => navigate('/settings')}
+        title={t('nav.settings')}
+        aria-label={t('nav.settings')}
+        aria-current={settingsActive ? 'page' : undefined}
+        data-analytics-id="collapsed-rail-settings"
+        className={`${RAIL_BTN} ${
+          settingsActive
+            ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+            : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+        }`}>
+        <NavIcon id="settings" className="h-4 w-4" />
+      </button>
     </nav>
   );
 }

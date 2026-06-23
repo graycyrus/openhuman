@@ -62,4 +62,20 @@ describe('CollapsedNavRail', () => {
       'page'
     );
   });
+
+  it('renders a Settings icon that navigates to /settings', () => {
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/home'] });
+    const settings = screen.getByRole('button', { name: 'nav.settings' });
+    expect(settings).toBeInTheDocument();
+    fireEvent.click(settings);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings');
+  });
+
+  it('marks Settings active on /settings routes', () => {
+    renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/settings/general'] });
+    expect(screen.getByRole('button', { name: 'nav.settings' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
 });
