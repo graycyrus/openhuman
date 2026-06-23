@@ -242,4 +242,61 @@ describe('SubagentDrawer', () => {
     // Case-robust: the label may be rendered as "Cancelled" or "cancelled".
     expect(screen.getByTestId('subagent-drawer').textContent?.toLowerCase()).toContain('cancelled');
   });
+
+  it('expands a tool call to reveal its input args and output', async () => {
+    const transcript: SubagentTranscriptItem[] = [
+      {
+        kind: 'tool',
+        iteration: 1,
+        callId: 'c1',
+        toolName: 'web_search',
+        status: 'success',
+        elapsedMs: 1200,
+        args: { query: 'Q3 revenue drivers' },
+        result: 'Found 3 results about revenue.',
+      },
+    ];
+    render(
+      <SubagentDrawer subagent={activity({ transcript })} status="success" onClose={() => {}} />
+    );
+
+    // Collapsed by default — neither input nor output is rendered yet.
+    expect(screen.queryByTestId('subagent-tool-call-input')).toBeNull();
+    expect(screen.queryByTestId('subagent-tool-call-output')).toBeNull();
+
+    await userEvent.click(screen.getByTestId('subagent-tool-call-toggle'));
+
+    expect(screen.getByTestId('subagent-tool-call-input').textContent).toContain(
+      'Q3 revenue drivers'
+    );
+    expect(screen.getByTestId('subagent-tool-call-output').textContent).toContain(
+      'Found 3 results about revenue.'
+    );
+  });
+
+  it('shows the no-output placeholder when the tool returned an empty result', async () => {
+    const transcript: SubagentTranscriptItem[] = [
+      { kind: 'tool', iteration: 1, callId: 'c1', toolName: 'noop', status: 'success', result: '' },
+    ];
+    render(
+      <SubagentDrawer subagent={activity({ transcript })} status="success" onClose={() => {}} />
+    );
+    await userEvent.click(screen.getByTestId('subagent-tool-call-toggle'));
+    expect(screen.getByTestId('subagent-tool-call-output').textContent?.toLowerCase()).toContain(
+      'no output'
+    );
+  });
+
+  it('does not offer expansion for a tool call with no captured args or result', () => {
+    const transcript: SubagentTranscriptItem[] = [
+      { kind: 'tool', iteration: 1, callId: 'c1', toolName: 'web_search', status: 'success' },
+    ];
+    render(
+      <SubagentDrawer subagent={activity({ transcript })} status="success" onClose={() => {}} />
+    );
+    const toggle = screen.getByTestId('subagent-tool-call-toggle') as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    expect(screen.queryByTestId('subagent-tool-call-input')).toBeNull();
+    expect(screen.queryByTestId('subagent-tool-call-output')).toBeNull();
+  });
 });

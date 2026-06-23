@@ -640,6 +640,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 toolName: event.tool_name,
                 status: 'running',
                 iteration: event.subagent?.child_iteration,
+                args: event.args,
               },
             ],
           },
@@ -654,6 +655,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             callId: event.tool_call_id,
             toolName: event.tool_name,
             iteration: event.subagent?.child_iteration,
+            args: event.args,
           })
         );
       },
@@ -675,6 +677,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           status: event.success ? 'success' : 'error',
           elapsedMs: event.subagent?.elapsed_ms ?? updatedCalls[callIdx].elapsedMs,
           outputChars: event.subagent?.output_chars ?? updatedCalls[callIdx].outputChars,
+          result: event.output ?? updatedCalls[callIdx].result,
         };
         const next = [...existing];
         next[idx] = { ...entry, subagent: { ...entry.subagent, toolCalls: updatedCalls } };
@@ -687,6 +690,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             success: event.success,
             elapsedMs: event.subagent?.elapsed_ms,
             outputChars: event.subagent?.output_chars,
+            result: event.output,
           })
         );
       },

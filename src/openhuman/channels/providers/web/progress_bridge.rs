@@ -659,6 +659,7 @@ pub(crate) fn spawn_progress_bridge(
                     task_id,
                     call_id,
                     tool_name,
+                    arguments,
                     iteration,
                 } => {
                     let count = child_tool_counts.entry(task_id.clone()).or_insert(0);
@@ -691,6 +692,14 @@ pub(crate) fn spawn_progress_bridge(
                         request_id: request_id.clone(),
                         tool_name: Some(tool_name),
                         skill_id: Some(task_id.clone()),
+                        // The child's tool arguments, so the UI can show what
+                        // the sub-agent actually did (issue: subagent drawer
+                        // detail). Skipped from the wire when `null`.
+                        args: if arguments.is_null() {
+                            None
+                        } else {
+                            Some(arguments)
+                        },
                         round: Some(round),
                         tool_call_id: Some(call_id),
                         subagent: Some(SubagentProgressDetail {
@@ -709,6 +718,7 @@ pub(crate) fn spawn_progress_bridge(
                     tool_name,
                     success,
                     output_chars,
+                    output,
                     elapsed_ms,
                     iteration,
                 } => {
@@ -738,10 +748,10 @@ pub(crate) fn spawn_progress_bridge(
                         success: Some(success),
                         round: Some(round),
                         tool_call_id: Some(call_id),
-                        output: Some(
-                            json!({"output_chars": output_chars, "elapsed_ms": elapsed_ms})
-                                .to_string(),
-                        ),
+                        // The child's actual tool output, so the drawer can show
+                        // *what came back* (not just a char count). `output_chars`
+                        // + `elapsed_ms` still ride along in `subagent` below.
+                        output: Some(output),
                         subagent: Some(SubagentProgressDetail {
                             child_iteration: Some(iteration),
                             agent_id: Some(agent_id),
