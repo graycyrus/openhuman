@@ -2788,6 +2788,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Wieder verbinden…',
   'app.errorFallback.componentStack': 'Komponentenstapel',
+  'app.errorFallback.contactSupport': 'Support kontaktieren',
+  'app.errorFallback.copyEventId': 'Kopieren',
+  'app.errorFallback.eventIdCopied': 'Kopiert',
+  'app.errorFallback.eventIdLabel': 'Fehler-ID',
+  'app.errorFallback.revealLogs': 'Protokolle anzeigen',
   'app.errorFallback.downloadLatest': 'Neueste herunterladen',
   'app.errorFallback.heading': 'Überschrift',
   'app.errorFallback.hint': 'Hinweis',
@@ -3792,6 +3797,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Speicher-Worker-Umfragen',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Verwaltet',
+  'settings.ai.routing.managedAlwaysOn': 'Immer aktiv',
+  'settings.ai.routing.managedHint':
+    'Verwaltet ist immer als Fallback verfügbar. Um dein eigenes Modell zu verwenden, wähle unten einen Routing-Modus.',
   'settings.ai.routing.managedDesc':
     'OpenHuman führt alle Inferenzen in der Cloud aus, wählt das beste Modell für die Aufgabe aus, optimiert die Kosten und behält die sichersten Routing-Standards bei.',
   'settings.ai.routing.managedMsg':
@@ -6140,6 +6148,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Wird eingereicht…',
   'agentworld.messaging.missingSignalBundle':
     'Dieser Benutzer hat verschlüsselte Nachrichten noch nicht aktiviert. Bitte ihn, Agent World zu öffnen und sichere DMs zu aktivieren, bevor du eine Nachricht sendest.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Aktion erforderlich',
+  'userErrors.dismiss': 'Verwerfen',
+  'userErrors.action.openBilling': 'Abrechnung öffnen',
+  'userErrors.action.openProviderSettings': 'Anbietereinstellungen',
+  'userErrors.budgetExceeded.title': 'Verwaltetes Budget erreicht',
+  'userErrors.budgetExceeded.body':
+    'Dein verwaltetes KI-Budget ist aufgebraucht. Füge Budget hinzu oder ändere deinen Tarif.',
+  'userErrors.insufficientCredits.title': 'Anbieter-Guthaben erforderlich',
+  'userErrors.insufficientCredits.body':
+    'Deinem KI-Anbieter ist das Guthaben ausgegangen. Lade es auf oder aktualisiere den Schlüssel.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

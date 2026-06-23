@@ -2595,6 +2595,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': '离线',
   'app.connectionIndicator.reconnecting': '重新连接中…',
   'app.errorFallback.componentStack': '组件堆栈',
+  'app.errorFallback.contactSupport': '联系支持',
+  'app.errorFallback.copyEventId': '复制',
+  'app.errorFallback.eventIdCopied': '已复制',
+  'app.errorFallback.eventIdLabel': '错误 ID',
+  'app.errorFallback.revealLogs': '显示日志',
   'app.errorFallback.downloadLatest': '下载最新版本',
   'app.errorFallback.heading': '出现错误',
   'app.errorFallback.hint': '提示',
@@ -3521,6 +3526,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': '内存工作者民意调查',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': '托管',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman 会在云端运行所有推理，为任务选择最佳模型，优化成本，并保持最安全的路由默认值。',
   'settings.ai.routing.managedMsg':
@@ -5674,6 +5682,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': '申请中…',
   'agentworld.messaging.missingSignalBundle':
     '此用户尚未启用加密消息。发送消息前，请让对方打开 Agent World 并启用安全私信。',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': '需要操作',
+  'userErrors.dismiss': '忽略',
+  'userErrors.action.openBilling': '打开账单',
+  'userErrors.action.openProviderSettings': '提供商设置',
+  'userErrors.budgetExceeded.title': '托管预算已用尽',
+  'userErrors.budgetExceeded.body': '托管 AI 预算已用尽，请增加预算或更改套餐。',
+  'userErrors.insufficientCredits.title': '需要提供商额度',
+  'userErrors.insufficientCredits.body': '提供商额度已用完，请充值或更新 API 密钥。',
+  'userErrors.scope.chat': '聊天',
 };
 
 export default messages;

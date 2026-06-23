@@ -2786,6 +2786,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Hors ligne',
   'app.connectionIndicator.reconnecting': 'Reconnexion…',
   'app.errorFallback.componentStack': 'Pile de composants',
+  'app.errorFallback.contactSupport': 'Contacter le support',
+  'app.errorFallback.copyEventId': 'Copier',
+  'app.errorFallback.eventIdCopied': 'Copié',
+  'app.errorFallback.eventIdLabel': "ID d'erreur",
+  'app.errorFallback.revealLogs': 'Afficher les journaux',
   'app.errorFallback.downloadLatest': 'Télécharger la dernière version',
   'app.errorFallback.heading': 'Titre',
   'app.errorFallback.hint': 'Indice',
@@ -3782,6 +3787,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Sondages de mémoire',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Géré',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman exécutera toutes les inférences dans le cloud, choisira le meilleur modèle pour la tâche, optimisera les coûts et conservera les paramètres de routage les plus sûrs par défaut.',
   'settings.ai.routing.managedMsg':
@@ -6118,6 +6126,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Envoi en cours…',
   'agentworld.messaging.missingSignalBundle':
     "Cet utilisateur n'a pas encore activé la messagerie chiffrée. Demandez-lui d'ouvrir Agent World et d'activer les messages privés sécurisés avant d'envoyer un message.",
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Action requise',
+  'userErrors.dismiss': 'Ignorer',
+  'userErrors.action.openBilling': 'Ouvrir la facturation',
+  'userErrors.action.openProviderSettings': 'Paramètres du fournisseur',
+  'userErrors.budgetExceeded.title': 'Budget géré atteint',
+  'userErrors.budgetExceeded.body':
+    'Votre budget IA géré est épuisé. Ajoutez du budget ou changez de forfait.',
+  'userErrors.insufficientCredits.title': 'Crédits du fournisseur requis',
+  'userErrors.insufficientCredits.body':
+    "Votre fournisseur IA n'a plus de crédits. Rechargez-le ou mettez à jour sa clé API.",
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

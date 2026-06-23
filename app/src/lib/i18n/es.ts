@@ -2774,6 +2774,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Sin conexión',
   'app.connectionIndicator.reconnecting': 'Reconectando…',
   'app.errorFallback.componentStack': 'Pila de componentes',
+  'app.errorFallback.contactSupport': 'Contactar con soporte',
+  'app.errorFallback.copyEventId': 'Copiar',
+  'app.errorFallback.eventIdCopied': 'Copiado',
+  'app.errorFallback.eventIdLabel': 'ID de error',
+  'app.errorFallback.revealLogs': 'Mostrar registros',
   'app.errorFallback.downloadLatest': 'Descargar la última versión',
   'app.errorFallback.heading': 'Encabezado',
   'app.errorFallback.hint': 'Sugerencia',
@@ -3768,6 +3773,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Encuestas de trabajadores de la memoria',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Gestionado',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman ejecutará toda la inferencia en la nube, elegirá el mejor modelo para la tarea, optimizará para el costo y mantendrá los valores predeterminados de enrutamiento más seguros.',
   'settings.ai.routing.managedMsg':
@@ -6101,6 +6109,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Enviando…',
   'agentworld.messaging.missingSignalBundle':
     'Este usuario aún no ha activado la mensajería cifrada. Pídele que abra Agent World y active los DM seguros antes de enviarle un mensaje.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Acción necesaria',
+  'userErrors.dismiss': 'Descartar',
+  'userErrors.action.openBilling': 'Abrir facturación',
+  'userErrors.action.openProviderSettings': 'Configuración del proveedor',
+  'userErrors.budgetExceeded.title': 'Presupuesto gestionado agotado',
+  'userErrors.budgetExceeded.body':
+    'Tu presupuesto de IA gestionado se ha agotado. Añade presupuesto o cambia de plan.',
+  'userErrors.insufficientCredits.title': 'Se requieren créditos del proveedor',
+  'userErrors.insufficientCredits.body':
+    'Tu proveedor de IA se quedó sin créditos. Recárgalo o actualiza su clave de API.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

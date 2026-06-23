@@ -2746,6 +2746,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Офлайн',
   'app.connectionIndicator.reconnecting': 'Переподключение…',
   'app.errorFallback.componentStack': 'Стек компонентов',
+  'app.errorFallback.contactSupport': 'Связаться с поддержкой',
+  'app.errorFallback.copyEventId': 'Копировать',
+  'app.errorFallback.eventIdCopied': 'Скопировано',
+  'app.errorFallback.eventIdLabel': 'Идентификатор ошибки',
+  'app.errorFallback.revealLogs': 'Показать журналы',
   'app.errorFallback.downloadLatest': 'Скачать последнюю версию',
   'app.errorFallback.heading': 'Заголовок',
   'app.errorFallback.hint': 'Подсказка',
@@ -3736,6 +3741,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Опросы работников памяти',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Управляемый',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman выполнит все логические выводы в облаке, выберет лучшую модель для задачи, оптимизирует затраты и сохранит самые безопасные настройки маршрутизации по умолчанию.',
   'settings.ai.routing.managedMsg':
@@ -6041,6 +6049,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Отправка…',
   'agentworld.messaging.missingSignalBundle':
     'Этот пользователь еще не включил зашифрованные сообщения. Попросите его открыть Agent World и включить безопасные личные сообщения перед отправкой.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Требуется действие',
+  'userErrors.dismiss': 'Отклонить',
+  'userErrors.action.openBilling': 'Открыть оплату',
+  'userErrors.action.openProviderSettings': 'Настройки провайдера',
+  'userErrors.budgetExceeded.title': 'Управляемый бюджет исчерпан',
+  'userErrors.budgetExceeded.body': 'Управляемый бюджет ИИ исчерпан. Измените план.',
+  'userErrors.insufficientCredits.title': 'Требуются кредиты провайдера',
+  'userErrors.insufficientCredits.body': 'У провайдера закончились кредиты. Пополните их.',
+  'userErrors.scope.chat': 'Чат',
 };
 
 export default messages;

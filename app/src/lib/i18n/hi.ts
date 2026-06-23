@@ -2724,6 +2724,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'ऑफलाइन',
   'app.connectionIndicator.reconnecting': 'पुनः कनेक्ट हो रहा है…',
   'app.errorFallback.componentStack': 'कम्पोनेंट स्टैक',
+  'app.errorFallback.contactSupport': 'सहायता से संपर्क करें',
+  'app.errorFallback.copyEventId': 'कॉपी करें',
+  'app.errorFallback.eventIdCopied': 'कॉपी हो गया',
+  'app.errorFallback.eventIdLabel': 'त्रुटि आईडी',
+  'app.errorFallback.revealLogs': 'लॉग दिखाएं',
   'app.errorFallback.downloadLatest': 'लेटेस्ट डाउनलोड करें',
   'app.errorFallback.heading': 'शीर्षक',
   'app.errorFallback.hint': 'संकेत',
@@ -3709,6 +3714,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'स्मृति कार्यकर्ता सर्वेक्षण',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'प्रबंधित',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman बादल में सभी अनुमान चला जाएगा, कार्य के लिए सबसे अच्छा मॉडल चुनें, लागत के लिए अनुकूलन करें और सबसे सुरक्षित रूटिंग डिफ़ॉल्ट रखें।',
   'settings.ai.routing.managedMsg':
@@ -5978,6 +5986,18 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'आवेदन हो रहा है…',
   'agentworld.messaging.missingSignalBundle':
     'इस उपयोगकर्ता ने अभी तक एन्क्रिप्टेड मैसेजिंग चालू नहीं की है। संदेश भेजने से पहले उनसे Agent World खोलकर सुरक्षित DM चालू करने को कहें।',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'कार्रवाई आवश्यक',
+  'userErrors.dismiss': 'खारिज करें',
+  'userErrors.action.openBilling': 'बिलिंग खोलें',
+  'userErrors.action.openProviderSettings': 'प्रदाता सेटिंग्स',
+  'userErrors.budgetExceeded.title': 'प्रबंधित बजट समाप्त',
+  'userErrors.budgetExceeded.body': 'प्रबंधित AI बजट समाप्त। बजट जोड़ें या प्लान बदलें।',
+  'userErrors.insufficientCredits.title': 'प्रदाता क्रेडिट आवश्यक',
+  'userErrors.insufficientCredits.body':
+    'AI प्रदाता के क्रेडिट समाप्त। रिचार्ज करें या API कुंजी बदलें।',
+  'userErrors.scope.chat': 'चैट',
 };
 
 export default messages;

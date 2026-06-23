@@ -2670,6 +2670,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'غير متصل بالإنترنت',
   'app.connectionIndicator.reconnecting': 'إعادة الاتصال…',
   'app.errorFallback.componentStack': 'مكدس المكوّنات',
+  'app.errorFallback.contactSupport': 'تواصل مع الدعم',
+  'app.errorFallback.copyEventId': 'نسخ',
+  'app.errorFallback.eventIdCopied': 'تم النسخ',
+  'app.errorFallback.eventIdLabel': 'معرّف الخطأ',
+  'app.errorFallback.revealLogs': 'إظهار السجلات',
   'app.errorFallback.downloadLatest': 'تنزيل الأحدث',
   'app.errorFallback.heading': 'العنوان',
   'app.errorFallback.hint': 'تلميح',
@@ -3626,6 +3631,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'استطلاعات عاملي الذاكرة',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'المُدارة',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     '(Xqx0xx) سيحقق كل شيء في السحابة، ويختار أفضل نموذج للمهمة، ويرفع التكاليف إلى أقصى حد، ويحتفظ بأمن التخلف عن الدفع.',
   'settings.ai.routing.managedMsg':
@@ -5854,6 +5862,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'جارٍ التقديم…',
   'agentworld.messaging.missingSignalBundle':
     'لم يفعّل هذا المستخدم الرسائل المشفرة بعد. اطلب منه فتح Agent World وتفعيل الرسائل المباشرة الآمنة قبل إرسال رسالة.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'إجراء مطلوب',
+  'userErrors.dismiss': 'تجاهل',
+  'userErrors.action.openBilling': 'فتح الفوترة',
+  'userErrors.action.openProviderSettings': 'إعدادات المزود',
+  'userErrors.budgetExceeded.title': 'تم استنفاد الميزانية المُدارة',
+  'userErrors.budgetExceeded.body': 'نفدت الميزانية المُدارة. أضف ميزانية أو غيّر خطتك.',
+  'userErrors.insufficientCredits.title': 'مطلوب رصيد المزود',
+  'userErrors.insufficientCredits.body': 'نفد رصيد المزود. أعد الشحن أو حدّث مفتاح API.',
+  'userErrors.scope.chat': 'الدردشة',
 };
 
 export default messages;

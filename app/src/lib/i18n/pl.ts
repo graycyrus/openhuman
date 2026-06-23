@@ -2750,6 +2750,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Ponowne łączenie…',
   'app.errorFallback.componentStack': 'Stos komponentów',
+  'app.errorFallback.contactSupport': 'Skontaktuj się z pomocą',
+  'app.errorFallback.copyEventId': 'Kopiuj',
+  'app.errorFallback.eventIdCopied': 'Skopiowano',
+  'app.errorFallback.eventIdLabel': 'Identyfikator błędu',
+  'app.errorFallback.revealLogs': 'Pokaż dzienniki',
   'app.errorFallback.downloadLatest': 'Pobierz najnowszą wersję',
   'app.errorFallback.heading': 'Coś poszło nie tak',
   'app.errorFallback.hint': 'Wskazówka',
@@ -3758,6 +3763,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Odpytywania procesu pamięci',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Zarządzane',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman uruchomi całą inferencję w chmurze, wybierze najlepszy model dla zadania, zoptymalizuje koszty i zachowa najbezpieczniejsze domyślne ustawienia routingu.',
   'settings.ai.routing.managedMsg':
@@ -6066,6 +6074,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Wysyłanie…',
   'agentworld.messaging.missingSignalBundle':
     'Ten użytkownik nie włączył jeszcze szyfrowanych wiadomości. Poproś go, aby otworzył Agent World i włączył bezpieczne DM przed wysłaniem wiadomości.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Wymagane działanie',
+  'userErrors.dismiss': 'Odrzuć',
+  'userErrors.action.openBilling': 'Otwórz rozliczenia',
+  'userErrors.action.openProviderSettings': 'Ustawienia dostawcy',
+  'userErrors.budgetExceeded.title': 'Wyczerpano zarządzany budżet',
+  'userErrors.budgetExceeded.body':
+    'Twój zarządzany budżet AI został wyczerpany. Dodaj budżet lub zmień plan.',
+  'userErrors.insufficientCredits.title': 'Wymagane środki u dostawcy',
+  'userErrors.insufficientCredits.body':
+    'Twój dostawca AI nie ma już środków. Doładuj je lub zaktualizuj klucz API.',
+  'userErrors.scope.chat': 'Czat',
 };
 
 export default messages;

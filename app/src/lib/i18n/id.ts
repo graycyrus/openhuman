@@ -2728,6 +2728,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Tidak online',
   'app.connectionIndicator.reconnecting': 'Menyambung ulang…',
   'app.errorFallback.componentStack': 'Stack komponen',
+  'app.errorFallback.contactSupport': 'Hubungi dukungan',
+  'app.errorFallback.copyEventId': 'Salin',
+  'app.errorFallback.eventIdCopied': 'Tersalin',
+  'app.errorFallback.eventIdLabel': 'ID Kesalahan',
+  'app.errorFallback.revealLogs': 'Tampilkan log',
   'app.errorFallback.downloadLatest': 'Unduh terbaru',
   'app.errorFallback.heading': 'Judul',
   'app.errorFallback.hint': 'Petunjuk',
@@ -3712,6 +3717,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Jajak pendapat pekerja memori',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Terkelola',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman akan menjalankan semua kesimpulan di awan, memilih model terbaik untuk tugas ini, mengoptimalkan biaya, dan menjaga standar routing teraman.',
   'settings.ai.routing.managedMsg':
@@ -5995,6 +6003,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Melamar…',
   'agentworld.messaging.missingSignalBundle':
     'Pengguna ini belum mengaktifkan pesan terenkripsi. Minta mereka membuka Agent World dan mengaktifkan DM aman sebelum Anda mengirim pesan.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Tindakan diperlukan',
+  'userErrors.dismiss': 'Tutup',
+  'userErrors.action.openBilling': 'Buka penagihan',
+  'userErrors.action.openProviderSettings': 'Pengaturan penyedia',
+  'userErrors.budgetExceeded.title': 'Anggaran terkelola habis',
+  'userErrors.budgetExceeded.body':
+    'Anggaran AI terkelola Anda sudah habis. Tambahkan anggaran atau ubah paket.',
+  'userErrors.insufficientCredits.title': 'Kredit penyedia diperlukan',
+  'userErrors.insufficientCredits.body':
+    'Penyedia AI Anda kehabisan kredit. Isi ulang atau perbarui kunci API-nya.',
+  'userErrors.scope.chat': 'Obrolan',
 };
 
 export default messages;

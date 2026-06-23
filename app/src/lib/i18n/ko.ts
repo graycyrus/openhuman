@@ -2700,6 +2700,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': '오프라인',
   'app.connectionIndicator.reconnecting': '다시 연결 중…',
   'app.errorFallback.componentStack': '컴포넌트 스택',
+  'app.errorFallback.contactSupport': '지원팀에 문의',
+  'app.errorFallback.copyEventId': '복사',
+  'app.errorFallback.eventIdCopied': '복사됨',
+  'app.errorFallback.eventIdLabel': '오류 ID',
+  'app.errorFallback.revealLogs': '로그 보기',
   'app.errorFallback.downloadLatest': '최신 버전 다운로드',
   'app.errorFallback.heading': '제목',
   'app.errorFallback.hint': '힌트',
@@ -3676,6 +3681,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': '메모리 작업자 설문 조사',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': '관리됨',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman이 모든 추론을 클라우드에서 실행하고, 작업에 가장 적합한 모델을 선택하며, 비용을 최적화하고 가장 안전한 라우팅 기본값을 유지합니다.',
   'settings.ai.routing.managedMsg':
@@ -5921,6 +5929,17 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': '지원 중…',
   'agentworld.messaging.missingSignalBundle':
     '이 사용자는 아직 암호화 메시지를 활성화하지 않았습니다. 메시지를 보내기 전에 Agent World를 열고 보안 DM을 활성화해 달라고 요청하세요.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': '조치 필요',
+  'userErrors.dismiss': '닫기',
+  'userErrors.action.openBilling': '결제 열기',
+  'userErrors.action.openProviderSettings': '제공업체 설정',
+  'userErrors.budgetExceeded.title': '관리형 예산 소진',
+  'userErrors.budgetExceeded.body': '관리형 AI 예산이 모두 소진되었습니다.',
+  'userErrors.insufficientCredits.title': '제공업체 크레딧 필요',
+  'userErrors.insufficientCredits.body': 'AI 제공업체 크레딧이 소진되었습니다.',
+  'userErrors.scope.chat': '채팅',
 };
 
 export default messages;

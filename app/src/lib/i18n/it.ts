@@ -2767,6 +2767,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Riconnessione…',
   'app.errorFallback.componentStack': 'Stack del componente',
+  'app.errorFallback.contactSupport': "Contatta l'assistenza",
+  'app.errorFallback.copyEventId': 'Copia',
+  'app.errorFallback.eventIdCopied': 'Copiato',
+  'app.errorFallback.eventIdLabel': 'ID errore',
+  'app.errorFallback.revealLogs': 'Mostra i log',
   'app.errorFallback.downloadLatest': "Scarica l'ultima versione",
   'app.errorFallback.heading': 'Intestazione',
   'app.errorFallback.hint': 'Suggerimento',
@@ -3759,6 +3764,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Sondaggi del Memory Worker',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Gestiti',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman eseguirà tutte le inferenze nel cloud, sceglierà il miglior modello per il compito, ottimizzerà i costi e manterrà le impostazioni di routing più sicure.',
   'settings.ai.routing.managedMsg':
@@ -6086,6 +6094,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Candidatura in corso…',
   'agentworld.messaging.missingSignalBundle':
     'Questo utente non ha ancora attivato la messaggistica crittografata. Chiedigli di aprire Agent World e attivare i DM sicuri prima di inviare un messaggio.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Azione necessaria',
+  'userErrors.dismiss': 'Ignora',
+  'userErrors.action.openBilling': 'Apri fatturazione',
+  'userErrors.action.openProviderSettings': 'Impostazioni del provider',
+  'userErrors.budgetExceeded.title': 'Budget gestito esaurito',
+  'userErrors.budgetExceeded.body':
+    'Il tuo budget IA gestito è esaurito. Aggiungi budget o cambia piano.',
+  'userErrors.insufficientCredits.title': 'Crediti del provider necessari',
+  'userErrors.insufficientCredits.body':
+    'Il tuo provider IA ha esaurito i crediti. Ricaricalo o aggiorna la chiave API.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

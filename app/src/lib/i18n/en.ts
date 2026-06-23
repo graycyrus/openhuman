@@ -3244,11 +3244,16 @@ const en: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Reconnecting…',
   'app.errorFallback.componentStack': 'Component stack',
+  'app.errorFallback.contactSupport': 'Contact support',
+  'app.errorFallback.copyEventId': 'Copy',
   'app.errorFallback.downloadLatest': 'Download latest',
+  'app.errorFallback.eventIdCopied': 'Copied',
+  'app.errorFallback.eventIdLabel': 'Error ID',
   'app.errorFallback.heading': 'Something went wrong',
   'app.errorFallback.hint':
     'Try reloading the app. If the problem persists, download the latest version.',
   'app.errorFallback.reloadApp': 'Reload app',
+  'app.errorFallback.revealLogs': 'Reveal logs',
   'app.errorFallback.subheading': 'An unexpected error occurred',
   'app.errorFallback.tryRecover': 'Try recover',
   'app.localAiDownload.installing': 'Installing...',
@@ -4306,6 +4311,9 @@ const en: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Memory worker polls',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Managed',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman will run all inference in the cloud, choose the best model for the task, optimize for cost, and keep the safest routing defaults.',
   'settings.ai.routing.managedMsg':
@@ -6244,6 +6252,19 @@ const en: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'Applying…',
   'agentworld.messaging.missingSignalBundle':
     "This user hasn't enabled encrypted messaging yet. Ask them to open Agent World and enable secure DMs before sending a message.",
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Action needed',
+  'userErrors.dismiss': 'Dismiss',
+  'userErrors.action.openBilling': 'Open billing',
+  'userErrors.action.openProviderSettings': 'Provider settings',
+  'userErrors.budgetExceeded.title': 'Managed budget reached',
+  'userErrors.budgetExceeded.body':
+    'Your managed AI budget is used up. Add budget or change your plan to continue.',
+  'userErrors.insufficientCredits.title': 'Provider credits required',
+  'userErrors.insufficientCredits.body':
+    'Your AI provider is out of credits. Top it up or update its API key to continue.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default en;

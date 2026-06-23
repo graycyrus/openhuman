@@ -2772,6 +2772,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'Offline',
   'app.connectionIndicator.reconnecting': 'Reconectando…',
   'app.errorFallback.componentStack': 'Pilha de componentes',
+  'app.errorFallback.contactSupport': 'Falar com o suporte',
+  'app.errorFallback.copyEventId': 'Copiar',
+  'app.errorFallback.eventIdCopied': 'Copiado',
+  'app.errorFallback.eventIdLabel': 'ID do erro',
+  'app.errorFallback.revealLogs': 'Mostrar registros',
   'app.errorFallback.downloadLatest': 'Baixar mais recente',
   'app.errorFallback.heading': 'Título',
   'app.errorFallback.hint': 'Dica',
@@ -3764,6 +3769,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'Pesquisas de trabalho de memória',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'Gerenciadas',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'OpenHuman executará toda a inferência na nuvem, escolherá o melhor modelo para a tarefa, otimizará os custos e manterá os padrões de roteamento mais seguros.',
   'settings.ai.routing.managedMsg':
@@ -6079,6 +6087,19 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'A enviar…',
   'agentworld.messaging.missingSignalBundle':
     'Este utilizador ainda não ativou as mensagens encriptadas. Peça-lhe para abrir o Agent World e ativar DMs seguras antes de enviar uma mensagem.',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'Ação necessária',
+  'userErrors.dismiss': 'Dispensar',
+  'userErrors.action.openBilling': 'Abrir faturamento',
+  'userErrors.action.openProviderSettings': 'Configurações do provedor',
+  'userErrors.budgetExceeded.title': 'Orçamento gerenciado esgotado',
+  'userErrors.budgetExceeded.body':
+    'Seu orçamento de IA gerenciado acabou. Adicione orçamento ou altere seu plano.',
+  'userErrors.insufficientCredits.title': 'Créditos do provedor necessários',
+  'userErrors.insufficientCredits.body':
+    'Seu provedor de IA ficou sem créditos. Recarregue-o ou atualize a chave de API.',
+  'userErrors.scope.chat': 'Chat',
 };
 
 export default messages;

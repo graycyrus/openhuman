@@ -2727,6 +2727,11 @@ const messages: TranslationMap = {
   'app.connectionIndicator.offline': 'অফলাইন',
   'app.connectionIndicator.reconnecting': 'পুনঃসংযোগ হচ্ছে…',
   'app.errorFallback.componentStack': 'কম্পোনেন্ট স্ট্যাক',
+  'app.errorFallback.contactSupport': 'সহায়তায় যোগাযোগ করুন',
+  'app.errorFallback.copyEventId': 'অনুলিপি',
+  'app.errorFallback.eventIdCopied': 'অনুলিপি হয়েছে',
+  'app.errorFallback.eventIdLabel': 'ত্রুটি আইডি',
+  'app.errorFallback.revealLogs': 'লগ দেখান',
   'app.errorFallback.downloadLatest': 'সর্বশেষ ডাউনলোড করুন',
   'app.errorFallback.heading': 'শিরোনাম',
   'app.errorFallback.hint': 'হিন্ট',
@@ -3703,6 +3708,9 @@ const messages: TranslationMap = {
   'settings.ai.memoryWorkerPolls': 'মেমরি কর্মী পোল',
   'settings.ai.defaultProviderName': 'OpenHuman',
   'settings.ai.routing.managed': 'পরিচালিত',
+  'settings.ai.routing.managedAlwaysOn': 'Always on',
+  'settings.ai.routing.managedHint':
+    'Managed is always available as a fallback. To use your own model, choose a routing mode below.',
   'settings.ai.routing.managedDesc':
     'xq0xqx সমস্ত প্রকার মেঘে রান করা হবে, কর্মের জন্য সেরা মডেল নির্বাচন করুন, খরচের জন্য ব্যবহারযোগ্য ডিফল্ট মান নির্বাচন করুন।',
   'settings.ai.routing.managedMsg':
@@ -5975,6 +5983,18 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.submitting': 'আবেদন করা হচ্ছে…',
   'agentworld.messaging.missingSignalBundle':
     'এই ব্যবহারকারী এখনো এনক্রিপ্টেড মেসেজিং চালু করেননি। বার্তা পাঠানোর আগে তাকে Agent World খুলে নিরাপদ DM চালু করতে বলুন।',
+
+  // User-actionable runtime errors (#3931)
+  'userErrors.title': 'পদক্ষেপ প্রয়োজন',
+  'userErrors.dismiss': 'বাতিল করুন',
+  'userErrors.action.openBilling': 'বিলিং খুলুন',
+  'userErrors.action.openProviderSettings': 'প্রদানকারী সেটিংস',
+  'userErrors.budgetExceeded.title': 'পরিচালিত বাজেট শেষ',
+  'userErrors.budgetExceeded.body': 'পরিচালিত AI বাজেট শেষ। বাজেট যোগ করুন বা প্ল্যান বদলান।',
+  'userErrors.insufficientCredits.title': 'প্রদানকারীর ক্রেডিট প্রয়োজন',
+  'userErrors.insufficientCredits.body':
+    'AI প্রদানকারীর ক্রেডিট শেষ। রিচার্জ করুন বা API কী বদলান।',
+  'userErrors.scope.chat': 'চ্যাট',
 };
 
 export default messages;
