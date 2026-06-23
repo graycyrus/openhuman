@@ -91,17 +91,19 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Boot-time entry point: idempotently seed the proactive agent jobs for an
-/// already-onboarded user.
+/// Boot-time entry point: backfill the autopilot job for an already-onboarded
+/// user who upgraded from a build that predates it.
 ///
-/// The onboarding `false→true` transition ([`set_onboarding_completed`]) also
-/// seeds these, but a user who onboarded *before* a given job existed would
-/// otherwise never get it on upgrade — and its Settings toggle would stay
-/// hidden because the panel only renders when the job is present. Calling this
-/// on core startup closes that gap. It's a no-op until onboarding is complete
-/// (a fresh user is seeded by the transition instead), and
-/// [`seed_proactive_agents`] is idempotent, so it only ever creates what's
-/// missing.
+/// Crucially this does **not** replay the full onboarding seed set
+/// ([`seed_proactive_agents`]) — a user may have *deliberately removed* a
+/// default job (e.g. `morning_briefing` via Settings → Cron Jobs), and
+/// re-creating it on every boot would silently override that opt-out. So we only
+/// ensure the one job this build introduces (`tinyplace_autopilot`) exists.
+/// Future default jobs should get their own narrow boot-backfill like this one.
+///
+/// No-op until onboarding is complete (a fresh user is seeded by the
+/// `false→true` transition, [`set_onboarding_completed`]) and idempotent (skips
+/// if the autopilot job already exists).
 ///
 /// [`set_onboarding_completed`]: crate::openhuman::config::ops::ui::set_onboarding_completed
 pub fn seed_proactive_agents_on_boot(config: &Config) -> Result<()> {
@@ -109,8 +111,15 @@ pub fn seed_proactive_agents_on_boot(config: &Config) -> Result<()> {
         tracing::debug!("[cron::seed] boot seed skipped — onboarding not complete");
         return Ok(());
     }
-    tracing::debug!("[cron::seed] boot seed — ensuring proactive agent jobs exist");
-    seed_proactive_agents(config)
+    let exists = list_jobs(config)?
+        .iter()
+        .any(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME));
+    if exists {
+        tracing::debug!("[cron::seed] boot seed — tinyplace_autopilot already present, skipping");
+        return Ok(());
+    }
+    tracing::info!("[cron::seed] boot seed — backfilling tinyplace_autopilot (disabled, opt-in)");
+    seed_tinyplace_autopilot(config)
 }
 
 /// Remove any persisted cron job named `"welcome"` from a prior build.
@@ -357,6 +366,44 @@ mod tests {
                 .filter(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
                 .count(),
             1
+        );
+        // Boot-backfill is scoped to the autopilot — it must NOT replay the full
+        // onboarding seed set, so it never created morning_briefing here.
+        assert!(
+            !list_jobs(&config)
+                .unwrap()
+                .iter()
+                .any(|j| j.name.as_deref() == Some(MORNING_BRIEFING_JOB_NAME)),
+            "boot backfill must not seed morning_briefing"
+        );
+    }
+
+    #[test]
+    fn boot_seed_does_not_recreate_a_removed_default_job() {
+        // Regression: a user who deliberately removed morning_briefing must not
+        // have it silently recreated on the next core start by the boot backfill.
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        config.onboarding_completed = true;
+
+        // Full onboarding seed, then the user removes morning_briefing.
+        seed_proactive_agents(&config).expect("onboarding seed");
+        let mb_id = list_jobs(&config)
+            .unwrap()
+            .into_iter()
+            .find(|j| j.name.as_deref() == Some(MORNING_BRIEFING_JOB_NAME))
+            .expect("morning_briefing seeded")
+            .id;
+        remove_job(&config, &mb_id).expect("remove morning_briefing");
+
+        // Boot backfill must leave the opt-out intact.
+        seed_proactive_agents_on_boot(&config).expect("boot seed");
+        assert!(
+            !list_jobs(&config)
+                .unwrap()
+                .iter()
+                .any(|j| j.name.as_deref() == Some(MORNING_BRIEFING_JOB_NAME)),
+            "boot backfill must not resurrect a user-removed morning_briefing"
         );
     }
 
