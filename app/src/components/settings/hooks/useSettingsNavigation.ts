@@ -3,7 +3,7 @@
 // every registered route resolves without a parallel switch-statement.
 import debug from 'debug';
 import { useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { type To, useLocation, useNavigate } from 'react-router-dom';
 
 import { settingsNavState } from '../modal/settingsOverlay';
 import { entryRoute, findEntryByRoute, SETTINGS_ROUTE_REGISTRY } from '../settingsRouteRegistry';
@@ -189,9 +189,9 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
   const closeSettings = useCallback(() => {
     // On desktop the modal was opened over a page (backgroundLocation); return
     // there. Otherwise fall back to /home.
-    const background = (location.state as { backgroundLocation?: unknown } | null)
-      ?.backgroundLocation;
-    navigate((background as Parameters<typeof navigate>[0]) ?? '/home');
+    const background = (location.state as { backgroundLocation?: To } | null)?.backgroundLocation;
+    // replace so pressing Back after closing doesn't reopen the Settings modal.
+    navigate(background ?? '/home', { replace: true });
   }, [navigate, location.state]);
 
   // -------------------------------------------------------------------------

@@ -35,6 +35,11 @@ export function SettingsModalFrame({ onClose, children, labelledBy }: SettingsMo
     return () => previousFocus?.focus?.();
   }, []);
 
+  // Portal into #root (not document.body) so the modal stays inside the app's
+  // tested subtree — `#root`-scoped checks (and E2E specs reading
+  // `#root.innerText()`) see the routed panel. Falls back to body if absent.
+  const portalTarget = document.getElementById('root') ?? document.body;
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -61,6 +66,7 @@ export function SettingsModalFrame({ onClose, children, labelledBy }: SettingsMo
           role="dialog"
           aria-modal="true"
           aria-labelledby={labelledBy}
+          aria-label={labelledBy ? undefined : t('nav.settings')}
           tabIndex={-1}
           data-testid="settings-modal-card"
           className="flex h-full w-full overflow-hidden rounded-2xl bg-white shadow-xl animate-fade-up focus:outline-none dark:bg-neutral-900">
@@ -68,6 +74,6 @@ export function SettingsModalFrame({ onClose, children, labelledBy }: SettingsMo
         </div>
       </div>
     </div>,
-    document.body
+    portalTarget
   );
 }

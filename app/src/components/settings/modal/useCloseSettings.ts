@@ -23,6 +23,7 @@ export function useCloseSettings(): () => void {
   return useCallback(() => {
     const background = (location.state as SettingsLocationState | null)?.backgroundLocation;
     debug('closeSettings: background=%o', background ?? SETTINGS_FALLBACK_PATH);
-    navigate(background ?? SETTINGS_FALLBACK_PATH);
+    // replace so pressing Back after closing doesn't reopen the Settings modal.
+    navigate(background ?? SETTINGS_FALLBACK_PATH, { replace: true });
   }, [navigate, location.state]);
 }

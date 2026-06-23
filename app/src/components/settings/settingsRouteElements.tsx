@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Route } from 'react-router-dom';
+import { Navigate, Route, useLocation } from 'react-router-dom';
 
 import WorkflowsTab from '../intelligence/WorkflowsTab';
 import SettingsIndexRedirect from './layout/SettingsIndexRedirect';
@@ -70,6 +70,18 @@ export const WrappedSettingsPage = ({ children }: { children: ReactNode }) => {
 const wrapSettingsPage = (element: ReactNode) => (
   <WrappedSettingsPage>{element}</WrappedSettingsPage>
 );
+
+/**
+ * Redirect that stays *within* `/settings/*` while preserving nav state — most
+ * importantly the desktop modal's `backgroundLocation`, so a legacy-slug hop
+ * inside the modal keeps its backdrop instead of falling back to the default
+ * page. Use this for in-settings redirects only; external redirects (`/brain`,
+ * `/connections`) intentionally exit the modal and keep a plain `<Navigate>`.
+ */
+const SettingsRedirect = ({ to }: { to: string }) => {
+  const location = useLocation();
+  return <Navigate to={to} replace state={location.state} />;
+};
 
 /**
  * The full settings route table — index, every panel, and every legacy-slug
@@ -177,38 +189,38 @@ export function settingsRouteElements(): ReactNode {
       {/* ── Legacy slugs → redirects (deep-link compatibility) ──── */}
       {/* Old hub pages */}
       <Route path="ai" element={<Navigate to="/connections?tab=llm" replace />} />
-      <Route path="agents-settings" element={<Navigate to="/settings/agents" replace />} />
-      <Route path="features" element={<Navigate to="/settings/screen-intelligence" replace />} />
-      <Route path="crypto" element={<Navigate to="/settings/wallet-balances" replace />} />
-      <Route path="notifications-hub" element={<Navigate to="/settings/notifications" replace />} />
+      <Route path="agents-settings" element={<SettingsRedirect to="/settings/agents" />} />
+      <Route path="features" element={<SettingsRedirect to="/settings/screen-intelligence" />} />
+      <Route path="crypto" element={<SettingsRedirect to="/settings/wallet-balances" />} />
+      <Route path="notifications-hub" element={<SettingsRedirect to="/settings/notifications" />} />
       {/* Composio (API key + routing) moved to Connections → API keys. */}
       <Route path="composio" element={<Navigate to="/connections?tab=composio-key" replace />} />
       {/* Merged Usage & Limits page */}
-      <Route path="heartbeat" element={<Navigate to="/settings/usage#background" replace />} />
-      <Route path="ledger-usage" element={<Navigate to="/settings/usage#background" replace />} />
-      <Route path="cost-dashboard" element={<Navigate to="/settings/usage" replace />} />
+      <Route path="heartbeat" element={<SettingsRedirect to="/settings/usage#background" />} />
+      <Route path="ledger-usage" element={<SettingsRedirect to="/settings/usage#background" />} />
+      <Route path="cost-dashboard" element={<SettingsRedirect to="/settings/usage" />} />
       {/* Autonomy rate-limit lives inside Agent access now */}
-      <Route path="autonomy" element={<Navigate to="/settings/agent-access" replace />} />
+      <Route path="autonomy" element={<SettingsRedirect to="/settings/agent-access" />} />
       {/* Merged Personality & Face page */}
-      <Route path="mascot" element={<Navigate to="/settings/personality#face" replace />} />
-      <Route path="persona" element={<Navigate to="/settings/personality" replace />} />
+      <Route path="mascot" element={<SettingsRedirect to="/settings/personality#face" />} />
+      <Route path="persona" element={<SettingsRedirect to="/settings/personality" />} />
       {/* Merged Integrations page */}
-      <Route path="task-sources" element={<Navigate to="/settings/integrations" replace />} />
+      <Route path="task-sources" element={<SettingsRedirect to="/settings/integrations" />} />
       <Route
         path="composio-routing"
         element={<Navigate to="/connections?tab=composio-key" replace />}
       />
       <Route
         path="webhooks-triggers"
-        element={<Navigate to="/settings/integrations#webhooks" replace />}
+        element={<SettingsRedirect to="/settings/integrations#webhooks" />}
       />
       {/* Notification routing tab */}
       <Route
         path="notification-routing"
-        element={<Navigate to="/settings/notifications#routing" replace />}
+        element={<SettingsRedirect to="/settings/notifications#routing" />}
       />
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/settings" replace />} />
+      <Route path="*" element={<SettingsRedirect to="/settings" />} />
     </>
   );
 }
