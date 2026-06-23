@@ -26,8 +26,15 @@ use anyhow::Result;
 /// Well-known job names used to detect whether seeding has already run.
 const MORNING_BRIEFING_JOB_NAME: &str = "morning_briefing";
 
-/// Well-known name of the opt-in autonomous tiny.place bounty worker job.
-const BOUNTY_WORKER_JOB_NAME: &str = "bounty_worker";
+/// Well-known name of the opt-in autonomous tiny.place agent job ("autopilot").
+/// Generic on purpose: it runs `tinyplace_agent`, which can do anything on
+/// tiny.place — bounties are just its default activity, not its limit.
+const TINYPLACE_AUTOPILOT_JOB_NAME: &str = "tinyplace_autopilot";
+
+/// Pre-rename name of the autopilot job. Earlier builds of this feature seeded
+/// it as `bounty_worker`; we prune any stale entry so the rename doesn't leave a
+/// duplicate (and the new generic job takes its place).
+const LEGACY_BOUNTY_WORKER_JOB_NAME: &str = "bounty_worker";
 
 /// Legacy name of the one-shot welcome cron job created by earlier
 /// builds of `seed_proactive_agents`. Kept as a constant (rather than
@@ -67,8 +74,10 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
     let has = |name: &str| existing.iter().any(|j| j.name.as_deref() == Some(name));
 
     // Prune before re-listing so a legacy welcome job left over from
-    // an interrupted prior run can't deliver a second welcome.
+    // an interrupted prior run can't deliver a second welcome, and so the
+    // pre-rename `bounty_worker` job doesn't shadow the new autopilot job.
     prune_legacy_welcome(config, &existing);
+    prune_legacy_named_job(config, &existing, LEGACY_BOUNTY_WORKER_JOB_NAME);
 
     if !has(MORNING_BRIEFING_JOB_NAME) {
         tracing::info!("[cron::seed] creating morning_briefing daily cron job");
@@ -77,13 +86,18 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
         tracing::debug!("[cron::seed] morning_briefing job already exists — skipping");
     }
 
-    if !has(BOUNTY_WORKER_JOB_NAME) {
+    // Re-list so the legacy-bounty_worker prune above is reflected (otherwise a
+    // freshly-pruned job would still read as "present" from the stale snapshot).
+    let has_autopilot = list_jobs(config)?
+        .iter()
+        .any(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME));
+    if !has_autopilot {
         tracing::info!(
-            "[cron::seed] creating autonomous bounty cron job (tinyplace_agent, disabled — opt-in)"
+            "[cron::seed] creating autonomous tiny.place autopilot job (tinyplace_agent, disabled — opt-in)"
         );
-        seed_bounty_worker(config)?;
+        seed_tinyplace_autopilot(config)?;
     } else {
-        tracing::debug!("[cron::seed] bounty_worker job already exists — skipping");
+        tracing::debug!("[cron::seed] tinyplace_autopilot job already exists — skipping");
     }
 
     Ok(())
@@ -149,6 +163,41 @@ fn prune_legacy_welcome(config: &Config, existing: &[crate::openhuman::cron::Cro
     }
 }
 
+/// Remove any persisted cron job with the given `name` from a prior build.
+///
+/// Used to retire a renamed job (e.g. `bounty_worker` → `tinyplace_autopilot`)
+/// so the old entry doesn't linger or shadow the new one. Best-effort: logs but
+/// never fails seeding, and keys on the stable `name` field (IDs are UUIDs).
+fn prune_legacy_named_job(
+    config: &Config,
+    existing: &[crate::openhuman::cron::CronJob],
+    name: &str,
+) {
+    let stale_ids: Vec<String> = existing
+        .iter()
+        .filter(|j| j.name.as_deref() == Some(name))
+        .map(|j| j.id.clone())
+        .collect();
+
+    if stale_ids.is_empty() {
+        return;
+    }
+
+    tracing::info!(
+        count = stale_ids.len(),
+        "[cron::seed] pruning renamed legacy '{name}' cron job(s)"
+    );
+    for id in stale_ids {
+        if let Err(e) = remove_job(config, &id) {
+            tracing::warn!(
+                job_id = %id,
+                error = %e,
+                "[cron::seed] failed to remove legacy '{name}' cron job — continuing"
+            );
+        }
+    }
+}
+
 /// Daily morning briefing at 7:00 AM in the device-local timezone
 /// (unless a timezone is later set explicitly).
 /// The cron expression `0 7 * * *` fires once per day. Users can later
@@ -182,12 +231,12 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Seed the autonomous tiny.place bounty job as a recurring (hourly) agent job
+/// Seed the autonomous tiny.place "autopilot" as a recurring (hourly) agent job
 /// — created **disabled**.
 ///
-/// The job runs the `tinyplace_agent` (the single tiny.place agent) with an
-/// autonomous bounty-loop prompt. Its job/toggle name stays `bounty_worker`
-/// because that's what it does; there is no separate "bounty_worker" agent.
+/// The job runs `tinyplace_agent` (the single tiny.place agent) autonomously.
+/// It's named generically (`tinyplace_autopilot`) because the agent can do
+/// anything on tiny.place — bounties are its default activity, not its limit.
 ///
 /// This is opt-in for a reason: a cron run bypasses the approval gate, and
 /// `tinyplace_agent`'s prompt authorizes it to take paid/irreversible actions
@@ -197,27 +246,27 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
 /// and (2) the devnet-first, be-prudent guidance in the agent's prompt.
 ///
 /// Runs in an isolated session with `proactive` delivery so each cycle's report
-/// (which bounties it attempted, submission URLs/IDs, anything it funded)
-/// reaches the user's active channel via the channels module's
-/// `ProactiveMessageSubscriber`.
-fn seed_bounty_worker(config: &Config) -> Result<()> {
+/// (what it worked on, submission URLs/IDs, anything it funded) reaches the
+/// user's active channel via the channels module's `ProactiveMessageSubscriber`.
+fn seed_tinyplace_autopilot(config: &Config) -> Result<()> {
     let schedule = Schedule::Every {
         every_ms: 60 * 60 * 1000, // hourly
     };
 
     let prompt = concat!(
-        "Run an autonomous bounty loop. Confirm your identity, recall which ",
-        "bounties you've already attempted, discover open tiny.place bounties, ",
-        "skip the ones you've done, pick the top 1-2 that fit your skills, do ",
-        "the work, publish each deliverable to your feed (tinyplace_post), and ",
-        "submit it. You are running autonomously, so you may take paid actions ",
-        "when worthwhile — be prudent with funds and prefer devnet. Record each ",
-        "attempt in memory and report the submission URLs and IDs."
+        "Run an autonomous tiny.place session. Confirm your identity and check ",
+        "your status/inbox, then look for worthwhile work — open bounties are ",
+        "the main opportunity, so recall which you've already attempted, pick the ",
+        "top 1-2 open ones that fit your skills, do the work, publish each ",
+        "deliverable to your feed (tinyplace_post), and submit it. You are running ",
+        "autonomously, so you may take paid actions when worthwhile — be prudent ",
+        "with funds and prefer devnet. Record what you do in memory and report ",
+        "concrete results (submission URLs/IDs, anything funded)."
     );
 
     let job = add_agent_job_with_definition(
         config,
-        Some(BOUNTY_WORKER_JOB_NAME.to_string()),
+        Some(TINYPLACE_AUTOPILOT_JOB_NAME.to_string()),
         schedule,
         prompt,
         SessionTarget::Isolated,
@@ -272,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn seeds_bounty_worker_disabled_and_idempotent() {
+    fn seeds_tinyplace_autopilot_disabled_and_idempotent() {
         let tmp = TempDir::new().unwrap();
         let config = test_config(&tmp);
 
@@ -280,18 +329,18 @@ mod tests {
         let jobs = list_jobs(&config).unwrap();
         let worker: Vec<_> = jobs
             .iter()
-            .filter(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+            .filter(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
             .collect();
         assert_eq!(
             worker.len(),
             1,
-            "exactly one bounty_worker job, got {worker:?}"
+            "exactly one tinyplace_autopilot job, got {worker:?}"
         );
         let worker = worker[0];
         // Opt-in: must be created disabled.
         assert!(
             !worker.enabled,
-            "bounty_worker must be seeded disabled (opt-in)"
+            "tinyplace_autopilot must be seeded disabled (opt-in)"
         );
         // Runs the single tiny.place agent autonomously (no dedicated agent def).
         assert_eq!(worker.agent_id.as_deref(), Some("tinyplace_agent"));
@@ -302,10 +351,50 @@ mod tests {
         assert_eq!(
             after
                 .iter()
-                .filter(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+                .filter(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
                 .count(),
             1,
-            "second seed must not duplicate the bounty_worker job"
+            "second seed must not duplicate the tinyplace_autopilot job"
+        );
+    }
+
+    #[test]
+    fn seed_prunes_renamed_bounty_worker_job() {
+        // A user who ran an earlier build of this feature has a `bounty_worker`
+        // job; seeding must retire it and create the renamed autopilot job in
+        // its place (no duplicate, no orphan).
+        let tmp = TempDir::new().unwrap();
+        let config = test_config(&tmp);
+
+        add_agent_job_with_definition(
+            &config,
+            Some(LEGACY_BOUNTY_WORKER_JOB_NAME.to_string()),
+            Schedule::Every {
+                every_ms: 60 * 60 * 1000,
+            },
+            "legacy bounty_worker prompt",
+            SessionTarget::Isolated,
+            None,
+            Some(proactive_delivery()),
+            false,
+            Some("tinyplace_agent".to_string()),
+        )
+        .expect("seed legacy bounty_worker");
+
+        seed_proactive_agents(&config).expect("seed after rename");
+        let jobs = list_jobs(&config).unwrap();
+        assert!(
+            !jobs
+                .iter()
+                .any(|j| j.name.as_deref() == Some(LEGACY_BOUNTY_WORKER_JOB_NAME)),
+            "legacy bounty_worker job must be pruned, got: {jobs:?}"
+        );
+        assert_eq!(
+            jobs.iter()
+                .filter(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
+                .count(),
+            1,
+            "exactly one renamed tinyplace_autopilot job should exist"
         );
     }
 
@@ -330,11 +419,11 @@ mod tests {
 
         seed_proactive_agents_on_boot(&config).expect("boot seed");
         let jobs = list_jobs(&config).unwrap();
-        // The autonomous bounty job exists, disabled (opt-in), on tinyplace_agent.
+        // The autonomous tiny.place job exists, disabled (opt-in), on tinyplace_agent.
         let worker = jobs
             .iter()
-            .find(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
-            .expect("bounty_worker job should be seeded on boot when onboarded");
+            .find(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
+            .expect("tinyplace_autopilot job should be seeded on boot when onboarded");
         assert!(!worker.enabled);
         assert_eq!(worker.agent_id.as_deref(), Some("tinyplace_agent"));
 
@@ -344,7 +433,7 @@ mod tests {
             list_jobs(&config)
                 .unwrap()
                 .iter()
-                .filter(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+                .filter(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
                 .count(),
             1
         );

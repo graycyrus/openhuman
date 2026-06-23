@@ -83,11 +83,11 @@ const mockUpdateAgent = vi.mocked(openhumanUpdateAgentSettings);
 const mockCronList = vi.mocked(openhumanCronList);
 const mockCronUpdate = vi.mocked(openhumanCronUpdate);
 
-// Minimal CoreCronJob for the seeded, disabled bounty_worker job.
-const bountyWorkerJob = (overrides: Partial<CoreCronJob> = {}): CoreCronJob =>
+// Minimal CoreCronJob for the seeded, disabled tinyplace_autopilot job.
+const autopilotJob = (overrides: Partial<CoreCronJob> = {}): CoreCronJob =>
   ({
-    id: 'bw-1',
-    name: 'bounty_worker',
+    id: 'tp-1',
+    name: 'tinyplace_autopilot',
     enabled: false,
     expression: '',
     schedule: { kind: 'every', every_ms: 3600000 } as never,
@@ -109,8 +109,8 @@ describe('AgentAccessPanel (advanced)', () => {
     mockUpdate.mockResolvedValue({ result: {} as never, logs: [] });
     mockGetAgent.mockResolvedValue({ result: agentSettings(), logs: [] });
     mockUpdateAgent.mockResolvedValue({ result: {} as never, logs: [] });
-    mockCronList.mockResolvedValue({ result: [bountyWorkerJob()], logs: [] });
-    mockCronUpdate.mockResolvedValue({ result: bountyWorkerJob({ enabled: true }), logs: [] });
+    mockCronList.mockResolvedValue({ result: [autopilotJob()], logs: [] });
+    mockCronUpdate.mockResolvedValue({ result: autopilotJob({ enabled: true }), logs: [] });
   });
 
   it('loads settings on mount and renders the advanced controls', async () => {
@@ -147,36 +147,34 @@ describe('AgentAccessPanel (advanced)', () => {
     );
   });
 
-  it('renders the bounty worker toggle when the seeded job is present', async () => {
+  it('renders the autopilot toggle when the seeded job is present', async () => {
     renderWithProviders(<AgentAccessPanel />);
     await waitFor(() => expect(mockCronList).toHaveBeenCalledTimes(1));
-    const sw = await screen.findByRole('switch', { name: /run the bounty worker automatically/i });
+    const sw = await screen.findByRole('switch', { name: /run automatically/i });
     expect(sw).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('enabling the bounty worker flips its cron job enabled flag', async () => {
+  it('enabling the autopilot flips its cron job enabled flag', async () => {
     renderWithProviders(<AgentAccessPanel />);
-    const sw = await screen.findByRole('switch', { name: /run the bounty worker automatically/i });
+    const sw = await screen.findByRole('switch', { name: /run automatically/i });
     fireEvent.click(sw);
-    await waitFor(() => expect(mockCronUpdate).toHaveBeenCalledWith('bw-1', { enabled: true }));
+    await waitFor(() => expect(mockCronUpdate).toHaveBeenCalledWith('tp-1', { enabled: true }));
   });
 
-  it('reverts the bounty worker toggle when the cron update fails', async () => {
+  it('reverts the autopilot toggle when the cron update fails', async () => {
     mockCronUpdate.mockRejectedValueOnce(new Error('boom'));
     renderWithProviders(<AgentAccessPanel />);
-    const sw = await screen.findByRole('switch', { name: /run the bounty worker automatically/i });
+    const sw = await screen.findByRole('switch', { name: /run automatically/i });
     fireEvent.click(sw);
     // Optimistic flip, then revert to off after the failed update settles.
     await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'false'));
   });
 
-  it('hides the bounty worker toggle when no seeded job exists', async () => {
+  it('hides the autopilot toggle when no seeded job exists', async () => {
     mockCronList.mockResolvedValue({ result: [], logs: [] });
     renderWithProviders(<AgentAccessPanel />);
     await screen.findByText('Confine to workspace');
-    expect(
-      screen.queryByRole('switch', { name: /run the bounty worker automatically/i })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /run automatically/i })).not.toBeInTheDocument();
   });
 
   it('adding then removing a granted folder persists the updated list', async () => {

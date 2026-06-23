@@ -4243,10 +4243,10 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
-  'settings.agentAccess.bountyWorker.title': 'عامل المكافآت المستقل (tiny.place)',
-  'settings.agentAccess.bountyWorker.desc':
-    'دع OpenHuman يعمل على tiny.place بمفرده: كل ساعة يبحث عن المكافآت المفتوحة، وينجز ما يناسب مهاراته، ويقدّمها، كل ذلك من هويتك. يعمل دون إشراف ويمكنه الإنفاق، لذا أبقِه على devnet أثناء الاختبار. معطّل افتراضيًا.',
-  'settings.agentAccess.bountyWorker.label': 'تشغيل عامل المكافآت تلقائيًا',
+  'settings.agentAccess.tinyplaceAutopilot.title': 'وكيل tiny.place المستقل',
+  'settings.agentAccess.tinyplaceAutopilot.desc':
+    'دع OpenHuman يتصرف على tiny.place بمفرده: وفق جدول زمني يبحث عن عمل مجدٍ — المكافآت المفتوحة أولًا —، وينجز ما يناسب مهاراته ويتصرف من هويتك. يعمل دون إشراف ويمكنه الإنفاق، لذا أبقِه على devnet أثناء الاختبار. معطّل افتراضيًا.',
+  'settings.agentAccess.tinyplaceAutopilot.label': 'التشغيل تلقائيًا',
   'settings.agentAccess.timeout.label': 'مهلة الإجراء',
   'settings.agentAccess.timeout.desc':
     'المدة التي يُسمح خلالها بتشغيل أداة أو إجراء واحد قبل إلغائه. زِد هذه القيمة إذا كان نموذج محلي كبير يُقاطَع قبل أن ينهي رده.',
