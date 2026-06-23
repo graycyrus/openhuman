@@ -42,13 +42,13 @@ describe('SidebarHeader', () => {
     );
   });
 
-  it('wallet button keeps its aria-label; hover label comes from the Tooltip wrapper', () => {
+  it('wallet button has matching aria-label and title', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     const btn = screen.getByRole('button', { name: 'nav.wallet' });
     expect(btn).toHaveAttribute('aria-label', 'nav.wallet');
-    // Native `title` was replaced by the styled <Tooltip> (faster, on-brand);
-    // the button itself no longer carries a `title` attribute.
-    expect(btn).not.toHaveAttribute('title');
+    // The styled <Tooltip> wrapper re-applies a native `title` fallback so the
+    // label still surfaces if the portal pill is occluded by a CEF webview.
+    expect(btn).toHaveAttribute('title', 'nav.wallet');
   });
 
   it('settings button navigates to /settings', () => {

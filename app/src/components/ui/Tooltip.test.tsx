@@ -134,6 +134,28 @@ describe('Tooltip', () => {
     expect(screen.queryByTestId('tooltip')).toBeNull();
   });
 
+  it('applies a native title fallback on the trigger (CEF-occlusion safety net)', () => {
+    render(
+      <Tooltip label="Wallet" delayMs={0}>
+        <button type="button" aria-label="Wallet">
+          icon
+        </button>
+      </Tooltip>
+    );
+    expect(screen.getByRole('button', { name: 'Wallet' })).toHaveAttribute('title', 'Wallet');
+  });
+
+  it('respects a trigger-supplied title over the label fallback', () => {
+    render(
+      <Tooltip label="Wallet" delayMs={0}>
+        <button type="button" aria-label="Wallet" title="Custom">
+          icon
+        </button>
+      </Tooltip>
+    );
+    expect(screen.getByRole('button', { name: 'Wallet' })).toHaveAttribute('title', 'Custom');
+  });
+
   it('clears a pending show when the trigger unmounts mid-hover', () => {
     const { unmount } = render(
       <Tooltip label="Human" delayMs={300}>

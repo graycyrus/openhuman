@@ -63,11 +63,18 @@ const TRANSFORM: Record<TooltipSide, string> = {
  * Lightweight, dependency-free hover/focus tooltip for icon-only controls.
  *
  * Renders a styled pill into a body portal (so it escapes the sidebar's
- * `overflow` clipping) positioned from the trigger's bounding rect. Prefer this
- * over the native `title` attribute on standalone icons: `title` lags ~1.5s,
- * is unstyled, and is easy to miss. Pair with an `aria-label` on the trigger
- * for screen readers — this pill is decorative (`aria-hidden`) to avoid a
- * double announcement.
+ * `overflow` clipping) positioned from the trigger's bounding rect. The pill
+ * gives fast (~`delayMs`), on-brand feedback that the native `title` attribute
+ * (lags ~1.5s, unstyled, easy to miss) cannot.
+ *
+ * The trigger also keeps a native `title={label}` fallback (unless it already
+ * sets one). This is deliberate: the pill lives in the HTML layer, but account
+ * webviews are native CEF views composited *above* HTML (see `Accounts.tsx` /
+ * `RootShellLayout.tsx`), so a pill that lands over an active webview is painted
+ * behind it. The OS-drawn `title` renders above everything and guarantees a
+ * label survives in that case. Pair with an `aria-label` on the trigger for
+ * screen readers (it takes precedence over `title`, so there's no double
+ * announcement); the pill itself is decorative (`aria-hidden`).
  */
 export default function Tooltip({ label, children, side = 'right', delayMs = 300 }: TooltipProps) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -106,6 +113,7 @@ export default function Tooltip({ label, children, side = 'right', delayMs = 300
   }
 
   const triggerProps = children.props as {
+    title?: string;
     onMouseEnter?: (e: MouseEvent<HTMLElement>) => void;
     onMouseLeave?: (e: MouseEvent<HTMLElement>) => void;
     onFocus?: (e: FocusEvent<HTMLElement>) => void;
@@ -113,6 +121,9 @@ export default function Tooltip({ label, children, side = 'right', delayMs = 300
   };
 
   const trigger = cloneElement(children, {
+    // Native `title` fallback for when the portal pill is occluded by a native
+    // CEF webview composited above the HTML layer. A trigger-supplied title wins.
+    title: triggerProps.title ?? label,
     onMouseEnter: (e: MouseEvent<HTMLElement>) => {
       show(e.currentTarget.getBoundingClientRect());
       triggerProps.onMouseEnter?.(e);
