@@ -10,7 +10,7 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
@@ -221,6 +221,70 @@ async function renderConversations(preload: Record<string, unknown> = {}) {
   return store;
 }
 
+async function renderConversationsRoute(route: string, preload: Record<string, unknown> = {}) {
+  const store = buildStore(preload);
+  const { default: Conversations } = await import('../Conversations');
+
+  render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[route]}>
+        <SidebarSlotProvider>
+          <SidebarSlotOutlet />
+          <Routes>
+            <Route
+              path="/chat/:threadId?"
+              element={
+                <>
+                  <LocationProbe />
+                  <Conversations />
+                </>
+              }
+            />
+          </Routes>
+        </SidebarSlotProvider>
+      </MemoryRouter>
+    </Provider>
+  );
+
+  return store;
+}
+
+async function renderEmbeddedConversationsRoute(
+  route: string,
+  preload: Record<string, unknown> = {}
+) {
+  const store = buildStore(preload);
+  const { default: Conversations } = await import('../Conversations');
+
+  render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[route]}>
+        <SidebarSlotProvider>
+          <SidebarSlotOutlet />
+          <Routes>
+            <Route
+              path="/human"
+              element={
+                <>
+                  <LocationProbe />
+                  <Conversations variant="sidebar" composer="mic-cloud" projectThreadList />
+                </>
+              }
+            />
+          </Routes>
+        </SidebarSlotProvider>
+      </MemoryRouter>
+    </Provider>
+  );
+
+  return store;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="route-path">{location.pathname}</span>;
+}
+
 /** The thread sidebar is always projected now (no toggle); just flush effects. */
 async function openSidebar() {
   await act(async () => {});
@@ -324,28 +388,30 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  // Covers the page-mode sidebar (TwoPanelLayout, id `chat`) once opened.
-  // Covers line 941: <div className="flex-1 overflow-y-auto"> (always rendered in page mode)
-  it('renders the sidebar pill tabs in page mode', async () => {
+  // Covers the page-mode sidebar (TwoPanelLayout, id `chat`) once opened. The
+  // General/Subconscious/Tasks filter chips were removed; the thread search is
+  // the stable top-of-sidebar control.
+  it('renders the sidebar thread search in page mode', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
 
     await openSidebar();
 
-    expect(screen.getByText('General')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-thread-search-input')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'General' })).not.toBeInTheDocument();
   });
 
-  // Covers line 941 empty branch
-  it('shows the General empty message when the default bucket has no threads', async () => {
+  // Covers the empty branch — with the filter chips gone the list always shows
+  // the generic empty message when no (General-bucket) threads exist.
+  it('shows the empty message when there are no threads', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
 
     // Sidebar is hidden by default — open it first.
     await openSidebar();
-    expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('No "General" threads')).toBeInTheDocument();
+    expect(screen.getByText('No threads yet')).toBeInTheDocument();
   });
 
   // Covers lines 1002-1004, 1007, 1011-1012, 1014: thread list items rendered unconditionally
@@ -372,6 +438,81 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(screen.getAllByText('Thread Alpha').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('Thread Beta').length).toBeGreaterThan(0);
+  });
+
+  it('falls back to /chat when the routed thread id is missing', async () => {
+    mockGetThreads.mockResolvedValue({
+      threads: [makeThread({ id: 't-1', title: 'Thread Alpha' })],
+      count: 1,
+    });
+
+    await act(async () => {
+      await renderConversationsRoute('/chat/missing-thread', { thread: emptyThreadState });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
+    });
+    expect(threadApi.createNewThread).not.toHaveBeenCalled();
+  });
+
+  it('updates the route when selecting sidebar threads by click or keyboard', async () => {
+    const threads = [
+      makeThread({ id: 't-1', title: 'Thread Alpha' }),
+      makeThread({ id: 't-2', title: 'Thread Beta' }),
+    ];
+    mockGetThreads.mockResolvedValue({ threads, count: 2 });
+
+    await act(async () => {
+      await renderConversationsRoute('/chat', { thread: emptyThreadState });
+    });
+    await openSidebar();
+
+    const alphaRow = await screen.findByRole('button', { name: /Thread Alpha/ });
+    await act(async () => {
+      fireEvent.click(alphaRow);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('route-path')).toHaveTextContent('/chat/t-1');
+    });
+
+    const betaRow = await screen.findByRole('button', { name: /Thread Beta/ });
+    await act(async () => {
+      fireEvent.keyDown(betaRow, { key: 'Enter' });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('route-path')).toHaveTextContent('/chat/t-2');
+    });
+  });
+
+  it('does not push chat routes when embedded chat creates a thread', async () => {
+    mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
+
+    await act(async () => {
+      await renderEmbeddedConversationsRoute('/human', { thread: emptyThreadState });
+    });
+
+    await waitFor(() => {
+      expect(threadApi.createNewThread).toHaveBeenCalled();
+    });
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
+  });
+
+  it('does not push chat routes when embedded chat selects a thread', async () => {
+    const threads = [makeThread({ id: 't-1', title: 'Thread Alpha' })];
+    mockGetThreads.mockResolvedValue({ threads, count: 1 });
+
+    await act(async () => {
+      await renderEmbeddedConversationsRoute('/human', { thread: emptyThreadState });
+    });
+    await openSidebar();
+
+    const alphaRow = await screen.findByRole('button', { name: /Thread Alpha/ });
+    await act(async () => {
+      fireEvent.click(alphaRow);
+    });
+
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
   });
 
   // Covers line 1083: messagesError branch renders error state
@@ -631,6 +772,27 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // The modal should now be open — "Are you sure you want to delete" text
     // This verifies lines 981, 982, 985 inside the delete onClick callback executed
     expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
+  });
+
+  it('replaces the route when deleting the currently-routed thread', async () => {
+    const thread = makeThread({ id: 't-del', title: 'Deletable Thread' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+
+    await act(async () => {
+      await renderConversationsRoute('/chat/t-del', { thread: selectedThreadState(thread) });
+    });
+    await openSidebar();
+
+    const deleteBtn = await screen.findByTitle('Delete thread');
+    await act(async () => {
+      fireEvent.click(deleteBtn);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    });
+
+    await waitFor(() => expect(threadApi.deleteThread).toHaveBeenCalledWith('t-del'));
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
   });
 
   // Covers lines 1399, 1409-1410: isNearLimit UpsellBanner render + onCtaClick
@@ -1337,11 +1499,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
-  // Batch-5: Conversation category tabs keep stable labels and mapping (pr#1646).
-  //
-  // The tab set is fixed so categories do not disappear when the thread list
-  // is empty, and the active-filter state remains unambiguous.
-  it('renders the fixed chat bucket tabs with stable labels', async () => {
+  // The General/Subconscious/Tasks filter chips were removed — the thread list
+  // is now fixed to the General bucket with no in-sidebar bucket switcher.
+  // Subconscious reflections and task/worker threads have dedicated surfaces.
+  it('does not render the removed bucket filter tabs', async () => {
     await act(async () => {
       await renderConversations({ thread: emptyThreadState });
     });
@@ -1349,60 +1510,9 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Sidebar is hidden by default — open it first.
     await openSidebar();
 
-    // Bucket tabs must be present regardless of thread count.
-    expect(screen.getByRole('tab', { name: 'General' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Subconscious' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Tasks' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Briefing' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Notification' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Workers' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tablist')).toHaveClass('flex-nowrap');
-  });
-
-  it('starts with the "General" tab selected', async () => {
-    await act(async () => {
-      await renderConversations({ thread: emptyThreadState });
-    });
-
-    // Sidebar is hidden by default — open it first.
-    await openSidebar();
-
-    expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Subconscious' })).toHaveAttribute(
-      'aria-selected',
-      'false'
-    );
-  });
-
-  it('shows category-specific empty message when a label tab is selected and no threads match', async () => {
-    await act(async () => {
-      await renderConversations({ thread: emptyThreadState });
-    });
-
-    // Sidebar is hidden by default — open it first.
-    await openSidebar();
-
-    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/"General" threads/i)).toBeInTheDocument();
-    });
-  });
-
-  it('shows a category-specific empty message when the Tasks tab is selected', async () => {
-    await act(async () => {
-      await renderConversations({ thread: emptyThreadState });
-    });
-
-    // Sidebar is hidden by default — open it first.
-    await openSidebar();
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Tasks' }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/"Tasks" threads/i)).toBeInTheDocument();
-    });
+    expect(screen.queryByRole('tab', { name: 'General' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Subconscious' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Tasks' })).not.toBeInTheDocument();
   });
 });
 
@@ -1676,7 +1786,7 @@ describe('Conversations — open-session resume (View work)', () => {
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
   });
 
-  it('honours location.state.openThreadId to open a task session on mount', async () => {
+  it('honours /chat/:threadId to open a task session on mount', async () => {
     // A task-labelled session thread, reachable only via an explicit
     // open-intent because it's hidden behind the default General tab.
     const taskThread = makeThread({
@@ -1692,11 +1802,10 @@ describe('Conversations — open-session resume (View work)', () => {
     await act(async () => {
       render(
         <Provider store={store}>
-          <MemoryRouter
-            initialEntries={[
-              { pathname: '/conversations', state: { openThreadId: 'task-open-1' } },
-            ]}>
-            <Conversations />
+          <MemoryRouter initialEntries={['/chat/task-open-1']}>
+            <Routes>
+              <Route path="/chat/:threadId" element={<Conversations />} />
+            </Routes>
           </MemoryRouter>
         </Provider>
       );
@@ -1758,5 +1867,45 @@ describe('Conversations — open-session resume (View work)', () => {
 
     // onViewSession navigates the chat view to the card's session thread.
     await waitFor(() => expect(store.getState().thread.selectedThreadId).toBe('sess-99'));
+  });
+
+  it('does not push chat routes when embedded chat opens task session work', async () => {
+    const thread = makeThread({ id: 'board-thread', title: 'Board thread' });
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+
+    const store = await renderEmbeddedConversationsRoute('/human', {
+      thread: selectedThreadState(thread),
+    });
+
+    const selectedId = store.getState().thread.selectedThreadId ?? 'board-thread';
+    await act(async () => {
+      store.dispatch(
+        setTaskBoardForThread({
+          threadId: selectedId,
+          board: {
+            threadId: selectedId,
+            updatedAt: '',
+            cards: [
+              {
+                id: 'tc1',
+                title: 'Worked card',
+                status: 'in_progress',
+                order: 0,
+                updatedAt: '',
+                sessionThreadId: 'sess-99',
+              },
+            ],
+          },
+        })
+      );
+    });
+
+    const viewBtn = await screen.findByTitle('View work');
+    await act(async () => {
+      fireEvent.click(viewBtn);
+    });
+
+    await waitFor(() => expect(store.getState().thread.selectedThreadId).toBe('sess-99'));
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/human');
   });
 });

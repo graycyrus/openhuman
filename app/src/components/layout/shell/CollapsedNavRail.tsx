@@ -69,6 +69,25 @@ export default function CollapsedNavRail() {
         </button>
       </Tooltip>
 
+      {/* Wallet shortcut — mirrors SidebarHeader wallet button for collapsed state. */}
+      <Tooltip label={t('nav.wallet')}>
+        <button
+          type="button"
+          onClick={() => navigate('/settings/wallet-balances')}
+          aria-label={t('nav.wallet')}
+          aria-current={
+            matchActive('/settings/wallet-balances', location.pathname) ? 'page' : undefined
+          }
+          data-analytics-id="collapsed-rail-wallet"
+          className={`${RAIL_BTN} ${
+            matchActive('/settings/wallet-balances', location.pathname)
+              ? 'bg-white text-stone-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+              : 'text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200'
+          }`}>
+          <NavIcon id="wallet" className="h-4 w-4" />
+        </button>
+      </Tooltip>
+
       {/* Primary nav destinations */}
       {tabs.map(tab => {
         const active = matchActive(tab.path, location.pathname);

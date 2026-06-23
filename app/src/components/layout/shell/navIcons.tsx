@@ -45,6 +45,24 @@ export function NavIcon({ id, className = 'w-5 h-5' }: NavIconProps) {
           />
         </svg>
       );
+    case 'feedback':
+      // Chat bubble with an upvote chevron — feedback board + voting.
+      return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M9.5 12l2.5-2.5 2.5 2.5"
+          />
+        </svg>
+      );
     case 'connections':
       return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,6 +112,17 @@ export function NavIcon({ id, className = 'w-5 h-5' }: NavIconProps) {
             strokeLinejoin="round"
             strokeWidth={1.8}
             d="M12 3c-2.4 2.4-4 5.5-4 9s1.6 6.6 4 9M12 3c2.4 2.4 4 5.5 4 9s-1.6 6.6-4 9M3 12h18"
+          />
+        </svg>
+      );
+    case 'wallet':
+      return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
           />
         </svg>
       );

@@ -9,8 +9,9 @@ const ICON_BTN =
   'flex h-7 w-7 flex-none items-center justify-center rounded-md text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200';
 
 /**
- * Thin utility header at the top of the root sidebar: jump Home, open Settings,
- * and collapse the sidebar. Language is chosen from Settings, not here.
+ * Thin utility header at the top of the root sidebar: jump Home, open the
+ * wallet, open Settings, and collapse the sidebar. Language is chosen from
+ * Settings, not here.
  */
 export default function SidebarHeader() {
   const { t } = useT();
@@ -39,6 +40,25 @@ export default function SidebarHeader() {
       </Tooltip>
 
       <div className="flex items-center gap-0.5">
+        {/* Wallet shortcut — one-click access to wallet balances. */}
+        <Tooltip label={t('nav.wallet')}>
+          <button
+            type="button"
+            onClick={() => navigate('/settings/wallet-balances')}
+            className={ICON_BTN}
+            data-analytics-id="sidebar-header-wallet"
+            aria-label={t('nav.wallet')}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              />
+            </svg>
+          </button>
+        </Tooltip>
+
         <Tooltip label={t('nav.settings')}>
           <button
             type="button"

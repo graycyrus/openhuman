@@ -1,7 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import debugFactory from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { type ChatSendError, chatSendError } from '../chat/chatSendError';
 import { checkPromptInjection, promptGuardMessage } from '../chat/promptInjectionGuard';
@@ -13,7 +13,6 @@ import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
-import PillTabBar from '../components/PillTabBar';
 import UpsellBanner from '../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../components/upsell/upsellDismissState';
 import MicComposer from '../features/human/MicComposer';
@@ -68,6 +67,7 @@ import type { ConfirmationModal as ConfirmationModalType } from '../types/intell
 import type { ThreadMessage } from '../types/thread';
 import type { TaskBoardCard, TaskBoardCardStatus } from '../types/turnState';
 import { splitAgentMessageIntoBubbles } from '../utils/agentMessageBubbles';
+import { chatThreadPath } from '../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../utils/config';
 import { BILLING_DASHBOARD_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
@@ -108,12 +108,7 @@ import {
   formatResetTime,
   getInlineCompletionSuffix,
 } from './conversations/utils/format';
-import {
-  GENERAL_TAB_VALUE,
-  isThreadVisibleInTab,
-  SUBCONSCIOUS_TAB_VALUE,
-  TASKS_TAB_VALUE,
-} from './conversations/utils/threadFilter';
+import { GENERAL_TAB_VALUE, isThreadVisibleInTab } from './conversations/utils/threadFilter';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 /** Maximum trailing characters rendered in the live-streaming assistant
@@ -214,6 +209,8 @@ const Conversations = ({
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const { threadId: routeThreadId } = useParams<{ threadId?: string }>();
+  const shouldSyncChatRoute = variant === 'page' && location.pathname.startsWith('/chat');
   const { threads, selectedThreadId, messages, isLoadingMessages, messagesError } = useAppSelector(
     state => state.thread
   );
@@ -248,7 +245,10 @@ const Conversations = ({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const [isPlayingReply, setIsPlayingReply] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState<string>(GENERAL_TAB_VALUE);
+  // Thread-list filtering is fixed to the General bucket — the in-sidebar
+  // General/Subconscious/Tasks chips were removed. Subconscious reflections and
+  // task/worker threads have dedicated surfaces (Intelligence, Tasks board).
+  const selectedLabel = GENERAL_TAB_VALUE;
   const [threadSearch, setThreadSearch] = useState('');
   const [inlineSuggestionValue, setInlineSuggestionValue] = useState('');
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
@@ -308,8 +308,9 @@ const Conversations = ({
   );
   const rustChat = useRustChat();
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null);
-  // Inline thread-title rename in the conversation header.
-  const [editingTitle, setEditingTitle] = useState(false);
+  // Inline thread-title rename in the sidebar thread list — keyed by the
+  // thread id being edited (null = none) so any row can rename in place.
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
   const editTitleInputRef = useRef<HTMLInputElement>(null);
   const ignoreNextTitleBlurRef = useRef(false);
@@ -321,7 +322,10 @@ const Conversations = ({
     isFreeTier,
     shouldShowBudgetCompletedMessage,
     usagePct,
-  } = useUsageState();
+    // #3767: gate on the tier for the selected chat mode — Quick runs on the
+    // `chat` tier, Reasoning on the `reasoning` tier — so the credits prompt
+    // reflects the mode the user actually picked.
+  } = useUsageState(selectedAgentProfileId === 'reasoning' ? 'reasoning' : 'chat');
   const [deleteModal, setDeleteModal] = useState<ConfirmationModalType>({
     isOpen: false,
     title: '',
@@ -427,6 +431,12 @@ const Conversations = ({
     const thread = await dispatch(createNewThread()).unwrap();
     dispatch(setSelectedThread(thread.id));
     void dispatch(loadThreadMessages(thread.id));
+    if (shouldSyncChatRoute) {
+      debug('[chat][route] created thread thread=%s navigate=true', thread.id);
+      navigate(chatThreadPath(thread.id));
+    } else {
+      debug('[chat][route] created thread thread=%s navigate=false', thread.id);
+    }
   };
 
   const handleUseOpenRouterFree = async () => {
@@ -440,13 +450,12 @@ const Conversations = ({
     }
   };
 
-  const handleStartEditTitle = () => {
-    if (!selectedThreadId) return;
-    const thr = threads.find(t => t.id === selectedThreadId);
-    debug('[chat] thread rename: start thread=%s', selectedThreadId);
+  const handleStartEditTitle = (threadId: string) => {
+    const thr = threads.find(t => t.id === threadId);
+    debug('[chat] thread rename: start thread=%s', threadId);
     setEditTitleValue(thr?.title ?? '');
     ignoreNextTitleBlurRef.current = true;
-    setEditingTitle(true);
+    setEditingThreadId(threadId);
     const scheduleSelect = window.requestAnimationFrame ?? window.setTimeout;
     scheduleSelect(() => {
       editTitleInputRef.current?.select();
@@ -454,27 +463,27 @@ const Conversations = ({
     });
   };
 
-  const handleCommitTitle = () => {
+  const handleCommitTitle = (threadId: string) => {
     const trimmed = editTitleValue.trim();
-    setEditingTitle(false);
+    setEditingThreadId(null);
     // Title length only — never log the title text itself (may carry PII).
-    if (!selectedThreadId || !trimmed) {
-      debug('[chat] thread rename: commit skipped thread=%s empty=%s', selectedThreadId, !trimmed);
+    if (!threadId || !trimmed) {
+      debug('[chat] thread rename: commit skipped thread=%s empty=%s', threadId, !trimmed);
       return;
     }
-    const currentTitle = threads.find(t => t.id === selectedThreadId)?.title?.trim();
+    const currentTitle = threads.find(t => t.id === threadId)?.title?.trim();
     if (trimmed === currentTitle) {
-      debug('[chat] thread rename: commit skipped thread=%s (unchanged)', selectedThreadId);
+      debug('[chat] thread rename: commit skipped thread=%s (unchanged)', threadId);
       return;
     }
-    debug('[chat] thread rename: commit thread=%s len=%d', selectedThreadId, trimmed.length);
-    void dispatch(updateThreadTitle({ threadId: selectedThreadId, title: trimmed }))
+    debug('[chat] thread rename: commit thread=%s len=%d', threadId, trimmed.length);
+    void dispatch(updateThreadTitle({ threadId, title: trimmed }))
       .unwrap()
-      .then(() => debug('[chat] thread rename: committed thread=%s', selectedThreadId))
+      .then(() => debug('[chat] thread rename: committed thread=%s', threadId))
       .catch(err =>
         debug(
           '[chat] thread rename: failed thread=%s err=%s',
-          selectedThreadId,
+          threadId,
           err instanceof Error ? err.message : String(err)
         )
       );
@@ -502,21 +511,21 @@ const Conversations = ({
         // Tasks board) wins over passive resume — and bypasses the General-tab
         // visibility filter so a task-labelled session thread can actually be
         // opened (the resume default below only considers General threads).
-        const openThreadId = (location.state as { openThreadId?: string } | null)?.openThreadId;
+        const openThreadId =
+          routeThreadId ?? (location.state as { openThreadId?: string } | null)?.openThreadId;
         const openThread = openThreadId ? data.threads.find(t => t.id === openThreadId) : undefined;
         if (openThread) {
-          // Switch the sidebar tab to the bucket that contains the opened
-          // thread (e.g. Tasks for a task session) so it's visible/selected in
-          // the list instead of hidden behind the default General tab.
-          setSelectedLabel(
-            isThreadVisibleInTab(openThread, TASKS_TAB_VALUE)
-              ? TASKS_TAB_VALUE
-              : isThreadVisibleInTab(openThread, SUBCONSCIOUS_TAB_VALUE)
-                ? SUBCONSCIOUS_TAB_VALUE
-                : GENERAL_TAB_VALUE
-          );
+          // An explicit open intent (e.g. View work from the Tasks board) opens
+          // the thread in the main pane directly; the thread list itself stays
+          // filtered to General.
           dispatch(setSelectedThread(openThread.id));
           void dispatch(loadThreadMessages(openThread.id));
+          debug('[chat][route] opened requested thread thread=%s', openThread.id);
+          return;
+        }
+        if (openThreadId) {
+          debug('[chat][route] requested thread not found thread=%s; falling back', openThreadId);
+          navigate('/chat', { replace: true });
           return;
         }
         // Default landing is a fresh "new window" (the merged Home surface) —
@@ -541,7 +550,7 @@ const Conversations = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch]);
+  }, [dispatch, routeThreadId]);
 
   useEffect(() => {
     if (selectedThreadId) {
@@ -1469,16 +1478,6 @@ const Conversations = ({
     return sortedThreads.filter(thread => (thread.title ?? '').toLowerCase().includes(q));
   }, [sortedThreads, threadSearch]);
 
-  // Fixed bucket set so categories don't disappear when empty and the active
-  // filter state remains unambiguous regardless of what threads exist.
-  const labelTabs = [
-    { label: t('chat.filter.general'), value: GENERAL_TAB_VALUE },
-    { label: t('chat.filter.subconscious'), value: SUBCONSCIOUS_TAB_VALUE },
-    { label: t('chat.filter.tasks'), value: TASKS_TAB_VALUE },
-  ];
-  const selectedLabelDisplay =
-    labelTabs.find(tab => tab.value === selectedLabel)?.label ?? selectedLabel;
-
   const isSidebar = variant === 'sidebar';
   // "New window" = the merged Home surface: a page-variant chat whose selected
   // thread has no messages yet. We show the greeting + banners hero above a
@@ -1563,17 +1562,8 @@ const Conversations = ({
           </button>
         )}
       </div>
-      <div className="px-2 py-2 border-b border-stone-50 dark:border-neutral-800">
-        <PillTabBar
-          items={labelTabs}
-          selected={selectedLabel}
-          onChange={setSelectedLabel}
-          containerClassName="scrollbar-hide flex flex-nowrap gap-1 overflow-x-auto py-1"
-          itemClassName="flex-none whitespace-nowrap px-2"
-        />
-      </div>
       {/* New conversation — a subtle, centered thread-style row (not a loud
-          button), below the pills and above the thread list. */}
+          button), below the search and above the thread list. */}
       <button
         type="button"
         data-testid="new-thread-button"
@@ -1597,7 +1587,7 @@ const Conversations = ({
       <div className="flex-1 overflow-y-auto">
         {visibleThreads.length === 0 ? (
           <p className="px-4 py-6 text-xs text-stone-400 dark:text-neutral-500 text-center">
-            {t('chat.noLabelThreads').replace('{label}', selectedLabelDisplay)}
+            {t('chat.noThreads')}
           </p>
         ) : (
           visibleThreads.map(thread => (
@@ -1610,6 +1600,9 @@ const Conversations = ({
               onClick={() => {
                 dispatch(setSelectedThread(thread.id));
                 void dispatch(loadThreadMessages(thread.id));
+                if (shouldSyncChatRoute) {
+                  navigate(chatThreadPath(thread.id));
+                }
               }}
               onKeyDown={e => {
                 if (e.target !== e.currentTarget) return;
@@ -1617,6 +1610,9 @@ const Conversations = ({
                   e.preventDefault();
                   dispatch(setSelectedThread(thread.id));
                   void dispatch(loadThreadMessages(thread.id));
+                  if (shouldSyncChatRoute) {
+                    navigate(chatThreadPath(thread.id));
+                  }
                 }
               }}
               className={`w-full text-left px-3 py-1.5 border-b border-stone-100/60 dark:border-neutral-800/60 transition-colors group cursor-pointer ${
@@ -1625,14 +1621,68 @@ const Conversations = ({
                   : 'hover:bg-stone-50 dark:hover:bg-neutral-800/60'
               }`}>
               <div className="flex items-center justify-between">
-                <p
-                  className={`text-xs truncate flex-1 ${
-                    selectedThreadId === thread.id
-                      ? 'font-medium text-primary-700 dark:text-primary-200'
-                      : 'text-stone-700 dark:text-neutral-200'
-                  }`}>
-                  {resolveThreadDisplayTitle(thread.id)}
-                </p>
+                {editingThreadId === thread.id ? (
+                  <input
+                    ref={editTitleInputRef}
+                    value={editTitleValue}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => setEditTitleValue(e.target.value)}
+                    onKeyDown={e => {
+                      e.stopPropagation();
+                      // Ignore the Enter that confirms an IME composition
+                      // candidate (CJK input) so it doesn't prematurely commit.
+                      if (isImeCompositionKeyEvent(e)) return;
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCommitTitle(thread.id);
+                      } else if (e.key === 'Escape') {
+                        // Escape is an explicit cancel — suppress the commit the
+                        // ensuing blur would otherwise fire.
+                        ignoreNextTitleBlurRef.current = true;
+                        setEditingThreadId(null);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (ignoreNextTitleBlurRef.current) {
+                        ignoreNextTitleBlurRef.current = false;
+                        return;
+                      }
+                      handleCommitTitle(thread.id);
+                    }}
+                    aria-label={t('chat.editThreadTitle')}
+                    data-testid={`thread-title-input-${thread.id}`}
+                    className="h-5 min-w-0 flex-1 border-b border-primary-400 bg-transparent py-0 text-xs font-medium leading-none text-stone-700 outline-none dark:text-neutral-200"
+                    autoFocus
+                  />
+                ) : (
+                  <p
+                    className={`text-xs truncate flex-1 ${
+                      selectedThreadId === thread.id
+                        ? 'font-medium text-primary-700 dark:text-primary-200'
+                        : 'text-stone-700 dark:text-neutral-200'
+                    }`}>
+                    {resolveThreadDisplayTitle(thread.id)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  data-analytics-id="chat-sidebar-edit-thread-title"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleStartEditTitle(thread.id);
+                  }}
+                  aria-label={t('chat.editThreadTitle')}
+                  title={t('chat.editThreadTitle')}
+                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-stone-200 dark:bg-neutral-800 dark:hover:bg-neutral-800 text-stone-400 dark:text-neutral-500 hover:text-primary-500 transition-all flex-shrink-0">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                </button>
                 <button
                   type="button"
                   data-analytics-id="chat-sidebar-delete-thread"
@@ -1649,6 +1699,9 @@ const Conversations = ({
                       cancelText: t('common.cancel'),
                       destructive: true,
                       onConfirm: () => {
+                        if (shouldSyncChatRoute && routeThreadId === thread.id) {
+                          navigate('/chat', { replace: true });
+                        }
                         void dispatch(deleteThread(thread.id));
                       },
                       onCancel: () => {},
@@ -1697,8 +1750,10 @@ const Conversations = ({
       <div
         ref={messagesContainerRef}
         // Full-width scroll (scrollbar hugs the window edge); inner content is
-        // centered and width-capped per branch below.
-        className="flex-1 overflow-y-auto">
+        // centered and width-capped per branch below. `min-h-0` lets this
+        // basis-0 flex child shrink to 0 so the composer footer can take the
+        // space (and scroll) on short windows (#3785).
+        className="flex-1 min-h-0 overflow-y-auto">
         {isLoadingMessages ? (
           <div className="mx-auto w-full max-w-[48.75rem] space-y-4 px-5 py-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -1772,11 +1827,21 @@ const Conversations = ({
                   // event, so forcing it active would wedge the composer.
                   dispatch(setSelectedThread(card.sessionThreadId));
                   void dispatch(loadThreadMessages(card.sessionThreadId));
+                  if (shouldSyncChatRoute) {
+                    navigate(chatThreadPath(card.sessionThreadId));
+                  }
                 }}
               />
             )}
             {visibleMessages.map(msg => {
               const isAgentTextMode = msg.sender === 'agent' && agentMessageViewMode === 'text';
+              // Parsed once per message: for current messages (extraMetadata
+              // present, or agent messages) msg.content already has no markers,
+              // so this is a no-op. For legacy persisted user messages with raw
+              // [IMAGE:...]/[FILE:...] markers and no extraMetadata, this is
+              // what keeps the marker text out of both the rendered bubble and
+              // the copy-to-clipboard action.
+              const parsedContent = parseMessageImages(msg.content ?? '');
               return (
                 <div key={msg.id}>
                   <div
@@ -1835,9 +1900,10 @@ const Conversations = ({
                       ) : (
                         <div className="flex flex-col items-end gap-1">
                           {(() => {
+                            const displayText = parsedContent.text;
                             const dataUris = Array.isArray(msg.extraMetadata?.attachmentDataUris)
                               ? (msg.extraMetadata.attachmentDataUris as string[])
-                              : parseMessageImages(msg.content ?? '').dataUris;
+                              : parsedContent.dataUris;
                             const hasImages = dataUris.length > 0;
                             // Document attachments carry no image data-URI (only
                             // images do); surface them as filename chips from the
@@ -1895,14 +1961,14 @@ const Conversations = ({
                                     ))}
                                   </div>
                                 )}
-                                {(msg.content || showTime) && (
+                                {(displayText || showTime) && (
                                   <div className="rounded-2xl px-4 py-2.5 bg-primary-500 text-white rounded-br-md break-words overflow-hidden">
-                                    {msg.content && (
-                                      <BubbleMarkdown content={msg.content} tone="user" />
+                                    {displayText && (
+                                      <BubbleMarkdown content={displayText} tone="user" />
                                     )}
                                     {showTime && (
                                       <p
-                                        className={`${msg.content ? 'mt-1' : ''} text-[10px] text-white/60`}>
+                                        className={`${displayText ? 'mt-1' : ''} text-[10px] text-white/60`}>
                                         {formatRelativeTime(msg.createdAt)}
                                       </p>
                                     )}
@@ -1916,7 +1982,7 @@ const Conversations = ({
                       <button
                         type="button"
                         data-analytics-id="chat-message-copy"
-                        onClick={() => handleCopyMessage(msg.id, msg.content)}
+                        onClick={() => handleCopyMessage(msg.id, parsedContent.text)}
                         className={`absolute -top-1 ${
                           isAgentTextMode
                             ? 'right-0'
@@ -2222,11 +2288,22 @@ const Conversations = ({
         data-walkthrough="home-cta"
         // Page variant: float at the bottom (absolute) over the fade; centered +
         // width-capped to match the messages. `z-20` keeps it above messages
-        // that would otherwise paint over it while scrolling. Sidebar embed
-        // keeps the in-flow composer.
+        // that would otherwise paint over it while scrolling.
+        //
+        // Sidebar embed keeps the in-flow composer pinned at the bottom, but it
+        // must stay reachable when the panel is too short to hold the whole
+        // footer — it stacks the upsell/error banners + actionable error CTAs
+        // (e.g. the voice "Setup" link) + the composer (#3785). Rather than a
+        // percentage `max-height` (which does not reliably resolve inside a
+        // stretched flex item in Chromium), let the footer SHRINK: dropping
+        // `flex-shrink-0` and adding `min-h-0 overflow-y-auto` makes the flex
+        // algorithm cap it to the available height (the basis-0 message list
+        // gives up its space first) and scroll internally instead of being
+        // clipped by the `overflow-hidden` mainPanel. On a tall window there is
+        // free space, so the footer keeps its natural height (composer pinned).
         className={
           isSidebar
-            ? 'mx-auto w-full max-w-[48.75rem] flex-shrink-0 px-4 py-3'
+            ? 'mx-auto w-full max-w-[48.75rem] min-h-0 overflow-y-auto px-4 py-3'
             : 'absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[48.75rem] px-4 pb-4 pt-6'
         }>
         <>
@@ -2504,6 +2581,7 @@ const Conversations = ({
             onClick={() => {
               dispatch(setSelectedThread(selectedThreadParent.id));
               void dispatch(loadThreadMessages(selectedThreadParent.id));
+              navigate(chatThreadPath(selectedThreadParent.id));
             }}
             className="mt-2 flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
             data-testid="worker-thread-back-to-parent">
@@ -2514,66 +2592,7 @@ const Conversations = ({
           </button>
         )}
 
-        {/* Thread title + inline rename (page variant). Hover the title to
-            reveal the edit affordance; Enter commits, Escape cancels. */}
-        {!isSidebar && selectedThreadId && (
-          <div className="mt-2 min-w-0">
-            {editingTitle ? (
-              <input
-                ref={editTitleInputRef}
-                value={editTitleValue}
-                onChange={e => setEditTitleValue(e.target.value)}
-                onKeyDown={e => {
-                  // Ignore the Enter that confirms an IME composition candidate
-                  // (CJK input) so it doesn't prematurely commit the rename.
-                  if (isImeCompositionKeyEvent(e)) return;
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleCommitTitle();
-                  } else if (e.key === 'Escape') {
-                    setEditingTitle(false);
-                  }
-                }}
-                onBlur={() => {
-                  if (ignoreNextTitleBlurRef.current) {
-                    ignoreNextTitleBlurRef.current = false;
-                    return;
-                  }
-                  handleCommitTitle();
-                }}
-                aria-label={t('chat.editThreadTitle')}
-                className="h-6 w-full min-w-0 border-b border-primary-400 bg-transparent py-0 text-sm font-medium leading-none text-stone-700 outline-none dark:text-neutral-200"
-                autoFocus
-              />
-            ) : (
-              <div className="group/title flex min-w-0 items-center gap-1">
-                <h3 className="truncate text-sm font-medium text-stone-700 dark:text-neutral-200">
-                  {resolveThreadDisplayTitle(selectedThreadId)}
-                </h3>
-                <button
-                  type="button"
-                  data-analytics-id="chat-header-edit-thread-title"
-                  onMouseDown={e => {
-                    e.preventDefault();
-                    handleStartEditTitle();
-                  }}
-                  onClick={handleStartEditTitle}
-                  aria-label={t('chat.editThreadTitle')}
-                  title={t('chat.editThreadTitle')}
-                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-stone-400 opacity-0 transition-all hover:bg-stone-100 hover:text-stone-600 group-hover/title:opacity-100 group-focus-within/title:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300">
-                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Thread title + inline rename moved to the sidebar thread list rows. */}
 
         {/* Model + token stats (left) and the quick/reasoning toggle + files
             chip (right) share one line. */}
