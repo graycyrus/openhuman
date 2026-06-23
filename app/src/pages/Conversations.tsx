@@ -303,6 +303,11 @@ const Conversations = ({
   const agentMessageViewMode = useAppSelector(
     state => state.theme?.agentMessageViewMode ?? 'bubbles'
   );
+  // When ON, the verbose per-agent "Agentic task insights" timeline is hidden
+  // from chat; a compact blinking "Processing" link (and the existing message
+  // bubble loading) stand in for it, with the full run one click away in the
+  // Agent Process Source side panel. See themeSlice.hideAgentInsights.
+  const hideAgentInsights = useAppSelector(state => state.theme?.hideAgentInsights ?? false);
   const inferenceTurnLifecycleByThread = useAppSelector(
     state => state.chatRuntime.inferenceTurnLifecycleByThread
   );
@@ -2232,12 +2237,29 @@ const Conversations = ({
                 messages the turn produced — both for the settled/inline case
                 (shouldRenderTimelineBeforeLatestAgentMessage) and the live
                 in-flight fallback. */}
-            {selectedThreadToolTimeline.length > 0 && (
-              <ToolTimelineBlock
-                entries={selectedThreadToolTimeline}
-                onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
-              />
-            )}
+            {selectedThreadToolTimeline.length > 0 &&
+              (hideAgentInsights ? (
+                // "Hide agent thinking" is ON: suppress the verbose step rows.
+                // While the turn is still in flight, surface a single compact
+                // blinking "Processing" link that opens the full run in the
+                // Agent Process Source side panel. Once settled, the
+                // "View full agent process Source" button below takes over.
+                isSending ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowProcessSource(true)}
+                    data-testid="agent-processing-link"
+                    className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+                    <span>{t('conversations.agentTaskInsights.processing')} →</span>
+                  </button>
+                ) : null
+              ) : (
+                <ToolTimelineBlock
+                  entries={selectedThreadToolTimeline}
+                  onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+                />
+              ))}
             {/* "View full agent process" — only in the settled/inline state
                 (turn finished, an agent message exists). Hoisted out of the
                 per-message map alongside the panel above so it renders once

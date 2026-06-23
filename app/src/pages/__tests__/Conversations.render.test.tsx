@@ -19,6 +19,7 @@ import { chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
+  beginInferenceTurn,
   setInferenceStatusForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
@@ -1777,6 +1778,124 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
     await act(async () => {
       fireEvent.click(screen.getByTestId('subagent-view-processing'));
     });
+  });
+
+  it('hides the verbose timeline when "hide agent thinking" is on, but still opens the source panel', async () => {
+    const thread = makeThread({ id: 'hide-insights-thread', title: 'Hide insights' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'How many posts?',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent',
+        sender: 'agent',
+        type: 'text',
+        content: 'Zero posts went up.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+        theme: {
+          mode: 'system',
+          tabBarLabels: 'hover',
+          fontSize: 'medium',
+          hideAgentInsights: true,
+        },
+      });
+    });
+
+    await screen.findByText('Zero posts went up.');
+    await act(async () => {
+      store!.dispatch(
+        setToolTimelineForThread({
+          threadId: thread.id,
+          entries: [{ id: 'tl-1', name: 'web_fetch', round: 1, status: 'success' }],
+        })
+      );
+    });
+
+    // Settled turn + preference ON: the verbose inline timeline is suppressed…
+    expect(screen.queryByTestId('agent-task-insights')).toBeNull();
+    // …but the "View full agent process Source" affordance still works and the
+    // full run is one click away in the side panel (which renders the timeline).
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('view-process-source'));
+    });
+    expect(await screen.findByTestId('agent-task-insights')).toBeInTheDocument();
+  });
+
+  it('shows a blinking "Processing" link instead of the timeline while in flight', async () => {
+    const thread = makeThread({ id: 'processing-thread', title: 'Processing' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Go.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+        theme: {
+          mode: 'system',
+          tabBarLabels: 'hover',
+          fontSize: 'medium',
+          hideAgentInsights: true,
+        },
+      });
+    });
+
+    await screen.findByText('Go.');
+    // Drive the thread into an in-flight turn so `isSending` is true, then seed
+    // a running timeline that the preference should keep hidden behind the link.
+    await act(async () => {
+      store!.dispatch(beginInferenceTurn({ threadId: thread.id }));
+      store!.dispatch(
+        setToolTimelineForThread({
+          threadId: thread.id,
+          entries: [{ id: 'tl-1', name: 'web_fetch', round: 1, status: 'running' }],
+        })
+      );
+    });
+
+    const link = await screen.findByTestId('agent-processing-link');
+    expect(link).toBeInTheDocument();
+    expect(screen.queryByTestId('agent-task-insights')).toBeNull();
+
+    // Clicking the compact link opens the full run in the source panel.
+    await act(async () => {
+      fireEvent.click(link);
+    });
+    expect(await screen.findByTestId('agent-task-insights')).toBeInTheDocument();
   });
 });
 
