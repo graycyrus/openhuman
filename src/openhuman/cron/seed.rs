@@ -89,6 +89,28 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
     Ok(())
 }
 
+/// Boot-time entry point: idempotently seed the proactive agent jobs for an
+/// already-onboarded user.
+///
+/// The onboarding `false→true` transition ([`set_onboarding_completed`]) also
+/// seeds these, but a user who onboarded *before* a given job existed would
+/// otherwise never get it on upgrade — and its Settings toggle would stay
+/// hidden because the panel only renders when the job is present. Calling this
+/// on core startup closes that gap. It's a no-op until onboarding is complete
+/// (a fresh user is seeded by the transition instead), and
+/// [`seed_proactive_agents`] is idempotent, so it only ever creates what's
+/// missing.
+///
+/// [`set_onboarding_completed`]: crate::openhuman::config::ops::ui::set_onboarding_completed
+pub fn seed_proactive_agents_on_boot(config: &Config) -> Result<()> {
+    if !config.onboarding_completed {
+        tracing::debug!("[cron::seed] boot seed skipped — onboarding not complete");
+        return Ok(());
+    }
+    tracing::debug!("[cron::seed] boot seed — ensuring proactive agent jobs exist");
+    seed_proactive_agents(config)
+}
+
 /// Remove any persisted cron job named `"welcome"` from a prior build.
 ///
 /// The one-shot welcome job `delete_after_run = true + Schedule::At`
@@ -284,6 +306,47 @@ mod tests {
                 .count(),
             1,
             "second seed must not duplicate the bounty_worker job"
+        );
+    }
+
+    #[test]
+    fn boot_seed_is_noop_until_onboarded() {
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        config.onboarding_completed = false;
+
+        seed_proactive_agents_on_boot(&config).expect("boot seed");
+        assert!(
+            list_jobs(&config).unwrap().is_empty(),
+            "boot seed must not create jobs before onboarding completes"
+        );
+    }
+
+    #[test]
+    fn boot_seed_creates_missing_jobs_when_onboarded() {
+        let tmp = TempDir::new().unwrap();
+        let mut config = test_config(&tmp);
+        config.onboarding_completed = true;
+
+        seed_proactive_agents_on_boot(&config).expect("boot seed");
+        let jobs = list_jobs(&config).unwrap();
+        // The autonomous bounty job exists, disabled (opt-in), on tinyplace_agent.
+        let worker = jobs
+            .iter()
+            .find(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+            .expect("bounty_worker job should be seeded on boot when onboarded");
+        assert!(!worker.enabled);
+        assert_eq!(worker.agent_id.as_deref(), Some("tinyplace_agent"));
+
+        // Idempotent across a second boot.
+        seed_proactive_agents_on_boot(&config).expect("second boot seed");
+        assert_eq!(
+            list_jobs(&config)
+                .unwrap()
+                .iter()
+                .filter(|j| j.name.as_deref() == Some(BOUNTY_WORKER_JOB_NAME))
+                .count(),
+            1
         );
     }
 
