@@ -428,13 +428,21 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
       ? 'text-amber-700 dark:text-amber-300'
       : item.status === 'success'
         ? 'text-sage-700 dark:text-sage-300'
-        : 'text-coral-700 dark:text-coral-300';
+        : item.status === 'cancelled'
+          ? 'text-stone-600 dark:text-neutral-300'
+          : item.status === 'awaiting_user'
+            ? 'text-amber-700 dark:text-amber-300'
+            : 'text-coral-700 dark:text-coral-300';
   const statusLabel =
     item.status === 'running'
       ? t('conversations.subagent.statusRunning')
       : item.status === 'success'
         ? t('conversations.subagent.statusCompleted')
-        : t('conversations.subagent.statusFailed');
+        : item.status === 'cancelled'
+          ? t('conversations.subagent.statusCancelled')
+          : item.status === 'awaiting_user'
+            ? t('conversations.subagent.statusAwaitingUser')
+            : t('conversations.subagent.statusFailed');
 
   const argsText = formatArgs(item.args);
   const hasOutput = item.result != null;

@@ -287,6 +287,20 @@ describe('SubagentDrawer', () => {
     );
   });
 
+  it('renders cancelled/awaiting_user tool-call statuses with their own label (not "failed")', () => {
+    const transcript: SubagentTranscriptItem[] = [
+      { kind: 'tool', iteration: 1, callId: 'c1', toolName: 'web_search', status: 'cancelled' },
+      { kind: 'tool', iteration: 1, callId: 'c2', toolName: 'composio', status: 'awaiting_user' },
+    ];
+    render(
+      <SubagentDrawer subagent={activity({ transcript })} status="cancelled" onClose={() => {}} />
+    );
+    const rows = screen.getAllByTestId('subagent-drawer-tool-call');
+    expect(rows[0].textContent?.toLowerCase()).toContain('cancelled');
+    expect(rows[0].textContent?.toLowerCase()).not.toContain('failed');
+    expect(rows[1].textContent?.toLowerCase()).toContain('awaiting');
+  });
+
   it('does not offer expansion for a tool call with no captured args or result', () => {
     const transcript: SubagentTranscriptItem[] = [
       { kind: 'tool', iteration: 1, callId: 'c1', toolName: 'web_search', status: 'success' },

@@ -15,6 +15,30 @@ fn unix_epoch_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// Upper bound on the sub-agent tool output forwarded to the drawer over
+/// Socket.IO. The `SubagentToolCallCompleted` event carries the *pre-handoff*
+/// tool result (the result-handoff path that stashes large toolkit payloads
+/// behind a short placeholder runs later, in `SubagentToolSource`), so a raw
+/// multi-MB integration result would otherwise ship in full to the socket /
+/// Redux / DOM. Cap it here on a UTF-8 boundary with a truncation marker so the
+/// drawer payload stays bounded while still showing what the tool returned.
+const MAX_WIRE_SUBAGENT_OUTPUT: usize = 256 * 1024;
+
+/// Truncate `output` to [`MAX_WIRE_SUBAGENT_OUTPUT`] bytes on a char boundary,
+/// appending a marker when content was dropped. Returns the input unchanged
+/// when it's already within the cap.
+fn cap_wire_output(output: String) -> String {
+    if output.len() <= MAX_WIRE_SUBAGENT_OUTPUT {
+        return output;
+    }
+    let mut end = MAX_WIRE_SUBAGENT_OUTPUT;
+    while end > 0 && !output.is_char_boundary(end) {
+        end -= 1;
+    }
+    let omitted = output.len() - end;
+    format!("{}\n…[truncated {omitted} bytes of tool output]", &output[..end])
+}
+
 pub(super) fn ledger_upsert_agent_run(
     config: &crate::openhuman::config::Config,
     upsert: crate::openhuman::session_db::run_ledger::AgentRunUpsert,
@@ -779,9 +803,10 @@ pub(crate) fn spawn_progress_bridge(
                         round: Some(round),
                         tool_call_id: Some(call_id),
                         // The child's actual tool output, so the drawer can show
-                        // *what came back* (not just a char count). `output_chars`
-                        // + `elapsed_ms` still ride along in `subagent` below.
-                        output: Some(output),
+                        // *what came back* (not just a char count). Capped to a
+                        // bounded size for the wire (#4007); `output_chars` +
+                        // `elapsed_ms` still ride along in `subagent` below.
+                        output: Some(cap_wire_output(output)),
                         subagent: Some(SubagentProgressDetail {
                             child_iteration: Some(iteration),
                             agent_id: Some(agent_id),
@@ -1036,6 +1061,24 @@ pub(crate) fn spawn_progress_bridge(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cap_wire_output_passes_through_small_payloads() {
+        let s = "small tool result".to_string();
+        assert_eq!(cap_wire_output(s.clone()), s);
+    }
+
+    #[test]
+    fn cap_wire_output_truncates_large_payloads_on_char_boundary() {
+        // A multibyte payload past the cap: result stays valid UTF-8, is shorter
+        // than the input, and carries the truncation marker.
+        let big = "é".repeat(MAX_WIRE_SUBAGENT_OUTPUT); // 2 bytes each → well over cap
+        let capped = cap_wire_output(big.clone());
+        assert!(capped.len() < big.len());
+        assert!(capped.contains("[truncated"));
+        // Truncation landed on a char boundary (no replacement char / panic).
+        assert!(capped.starts_with('é'));
+    }
 
     #[test]
     fn worktree_detail_collapses_empty_changed_files_to_none() {
