@@ -404,24 +404,36 @@ function toolTimelineFromPersisted(entry: PersistedToolTimelineEntry): ToolTimel
 /**
  * Settle a rehydrated tool/subagent row that has no live event driver.
  *
- * A turn-state snapshot is a point-in-time mirror: any row left at a
- * non-terminal status (`running` / `awaiting_user`) was still in-flight when
- * the snapshot was written. When the owning turn was *interrupted* (the core
- * process that was driving it is gone — see `mark_all_interrupted`), no
- * `subagent_done` / `chat_done` event will ever arrive to flip it terminal, so
- * the row would pulse forever (`agentNameTone` blinks the agent name for any
- * non-terminal status). Mark such orphaned rows `cancelled` — terminal, muted,
- * and not pulsing — mirroring `markSubagentCancelled`.
+ * A turn-state snapshot is a point-in-time mirror: a row left at the
+ * non-terminal `running` status was still in-flight when the snapshot was
+ * written. When the owning turn was *interrupted* (the core process that was
+ * driving it is gone — see `mark_all_interrupted`), no `subagent_done` /
+ * `chat_done` event will ever arrive to flip it terminal, so the row would
+ * pulse forever — the agent-name blink is driven by the row `status`
+ * (`agentNameTone(entry.status)`; `running` pulses, `cancelled` is muted &
+ * static). Settle the row to `cancelled` — terminal, muted, not pulsing —
+ * mirroring `markSubagentCancelled`.
  *
- * `running` is the only non-terminal value the persisted timeline can carry
- * (`PersistedToolStatus` is `running | success | error`).
+ * `running` is the only non-terminal value the persisted *row* status can carry
+ * (`PersistedToolStatus` is `running | success | error`), so that single guard
+ * catches every orphan.
+ *
+ * The nested `subagent.status` is a richer enum: a subagent that emitted
+ * `SubagentAwaitingUser` is persisted with the row `running` but
+ * `subagent.status = 'awaiting_user'`. Only settle a child that is *itself*
+ * still `running`; leaving `awaiting_user` (and any other non-running child)
+ * intact preserves the truthful "was waiting for the user" history — and the
+ * pulse is already stopped by the row-level `cancelled` above.
  */
 function settleOrphanedTimelineEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
   if (entry.status !== 'running') return entry;
   return {
     ...entry,
     status: 'cancelled',
-    subagent: entry.subagent ? { ...entry.subagent, status: 'cancelled' } : entry.subagent,
+    subagent:
+      entry.subagent && entry.subagent.status === 'running'
+        ? { ...entry.subagent, status: 'cancelled' }
+        : entry.subagent,
   };
 }
 

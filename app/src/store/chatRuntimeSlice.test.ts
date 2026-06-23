@@ -184,6 +184,36 @@ describe('chatRuntimeSlice queue status', () => {
     expect(byId['subagent:sub-completed']).toBe('success');
   });
 
+  it('settles the parent row but preserves an awaiting_user subagent on interrupt', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({
+        snapshot: makeInterruptedSnapshot('t2', [
+          {
+            id: 't2:subagent:s1:researcher',
+            name: 'subagent:researcher',
+            round: 1,
+            // Core keeps the row `running` while the child is paused for the user.
+            status: 'running',
+            subagent: {
+              taskId: 's1',
+              agentId: 'researcher',
+              status: 'awaiting_user',
+              workerThreadId: 'worker-1',
+              toolCalls: [],
+            },
+          },
+        ]),
+      })
+    );
+    const row = store.getState().chatRuntime.toolTimelineByThread['t2'][0];
+    // The row stops pulsing (status drives agentNameTone)…
+    expect(row.status).toBe('cancelled');
+    // …but the truthful "was awaiting user" child state is kept, not clobbered.
+    expect(row.subagent?.status).toBe('awaiting_user');
+    expect(row.subagent?.workerThreadId).toBe('worker-1');
+  });
+
   it('isolates queue status across threads', () => {
     const store = makeStore();
     store.dispatch(
