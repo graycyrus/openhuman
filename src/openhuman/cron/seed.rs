@@ -31,11 +31,6 @@ const MORNING_BRIEFING_JOB_NAME: &str = "morning_briefing";
 /// tiny.place — bounties are just its default activity, not its limit.
 const TINYPLACE_AUTOPILOT_JOB_NAME: &str = "tinyplace_autopilot";
 
-/// Pre-rename name of the autopilot job. Earlier builds of this feature seeded
-/// it as `bounty_worker`; we prune any stale entry so the rename doesn't leave a
-/// duplicate (and the new generic job takes its place).
-const LEGACY_BOUNTY_WORKER_JOB_NAME: &str = "bounty_worker";
-
 /// Legacy name of the one-shot welcome cron job created by earlier
 /// builds of `seed_proactive_agents`. Kept as a constant (rather than
 /// a string literal inline) so a grep for `WELCOME_JOB_NAME` still
@@ -74,10 +69,8 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
     let has = |name: &str| existing.iter().any(|j| j.name.as_deref() == Some(name));
 
     // Prune before re-listing so a legacy welcome job left over from
-    // an interrupted prior run can't deliver a second welcome, and so the
-    // pre-rename `bounty_worker` job doesn't shadow the new autopilot job.
+    // an interrupted prior run can't deliver a second welcome.
     prune_legacy_welcome(config, &existing);
-    prune_legacy_named_job(config, &existing, LEGACY_BOUNTY_WORKER_JOB_NAME);
 
     if !has(MORNING_BRIEFING_JOB_NAME) {
         tracing::info!("[cron::seed] creating morning_briefing daily cron job");
@@ -86,12 +79,7 @@ pub fn seed_proactive_agents(config: &Config) -> Result<()> {
         tracing::debug!("[cron::seed] morning_briefing job already exists — skipping");
     }
 
-    // Re-list so the legacy-bounty_worker prune above is reflected (otherwise a
-    // freshly-pruned job would still read as "present" from the stale snapshot).
-    let has_autopilot = list_jobs(config)?
-        .iter()
-        .any(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME));
-    if !has_autopilot {
+    if !has(TINYPLACE_AUTOPILOT_JOB_NAME) {
         tracing::info!(
             "[cron::seed] creating autonomous tiny.place autopilot job (tinyplace_agent, disabled — opt-in)"
         );
@@ -158,41 +146,6 @@ fn prune_legacy_welcome(config: &Config, existing: &[crate::openhuman::cron::Cro
                 job_id = %id,
                 error = %e,
                 "[cron::seed] failed to remove legacy welcome cron job — continuing"
-            );
-        }
-    }
-}
-
-/// Remove any persisted cron job with the given `name` from a prior build.
-///
-/// Used to retire a renamed job (e.g. `bounty_worker` → `tinyplace_autopilot`)
-/// so the old entry doesn't linger or shadow the new one. Best-effort: logs but
-/// never fails seeding, and keys on the stable `name` field (IDs are UUIDs).
-fn prune_legacy_named_job(
-    config: &Config,
-    existing: &[crate::openhuman::cron::CronJob],
-    name: &str,
-) {
-    let stale_ids: Vec<String> = existing
-        .iter()
-        .filter(|j| j.name.as_deref() == Some(name))
-        .map(|j| j.id.clone())
-        .collect();
-
-    if stale_ids.is_empty() {
-        return;
-    }
-
-    tracing::info!(
-        count = stale_ids.len(),
-        "[cron::seed] pruning renamed legacy '{name}' cron job(s)"
-    );
-    for id in stale_ids {
-        if let Err(e) = remove_job(config, &id) {
-            tracing::warn!(
-                job_id = %id,
-                error = %e,
-                "[cron::seed] failed to remove legacy '{name}' cron job — continuing"
             );
         }
     }
@@ -355,46 +308,6 @@ mod tests {
                 .count(),
             1,
             "second seed must not duplicate the tinyplace_autopilot job"
-        );
-    }
-
-    #[test]
-    fn seed_prunes_renamed_bounty_worker_job() {
-        // A user who ran an earlier build of this feature has a `bounty_worker`
-        // job; seeding must retire it and create the renamed autopilot job in
-        // its place (no duplicate, no orphan).
-        let tmp = TempDir::new().unwrap();
-        let config = test_config(&tmp);
-
-        add_agent_job_with_definition(
-            &config,
-            Some(LEGACY_BOUNTY_WORKER_JOB_NAME.to_string()),
-            Schedule::Every {
-                every_ms: 60 * 60 * 1000,
-            },
-            "legacy bounty_worker prompt",
-            SessionTarget::Isolated,
-            None,
-            Some(proactive_delivery()),
-            false,
-            Some("tinyplace_agent".to_string()),
-        )
-        .expect("seed legacy bounty_worker");
-
-        seed_proactive_agents(&config).expect("seed after rename");
-        let jobs = list_jobs(&config).unwrap();
-        assert!(
-            !jobs
-                .iter()
-                .any(|j| j.name.as_deref() == Some(LEGACY_BOUNTY_WORKER_JOB_NAME)),
-            "legacy bounty_worker job must be pruned, got: {jobs:?}"
-        );
-        assert_eq!(
-            jobs.iter()
-                .filter(|j| j.name.as_deref() == Some(TINYPLACE_AUTOPILOT_JOB_NAME))
-                .count(),
-            1,
-            "exactly one renamed tinyplace_autopilot job should exist"
         );
     }
 
