@@ -1,13 +1,33 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { describe, expect, it } from 'vitest';
 
+import type { PersistedTurnState } from '../types/turnState';
 import chatRuntimeReducer, {
   clearAllChatRuntime,
   clearQueueStatusForThread,
   clearRuntimeForThread,
+  hydrateRuntimeFromSnapshot,
   type QueueStatus,
   setQueueStatusForThread,
 } from './chatRuntimeSlice';
+
+function makeInterruptedSnapshot(
+  threadId: string,
+  toolTimeline: PersistedTurnState['toolTimeline']
+): PersistedTurnState {
+  return {
+    threadId,
+    requestId: 'req-1',
+    lifecycle: 'interrupted',
+    iteration: 3,
+    maxIterations: 10,
+    streamingText: '',
+    thinking: '',
+    toolTimeline,
+    startedAt: '2026-06-23T00:00:00Z',
+    updatedAt: '2026-06-23T00:00:00Z',
+  };
+}
 
 function makeStore() {
   return configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
@@ -76,6 +96,56 @@ describe('chatRuntimeSlice queue status', () => {
       collects: 0,
       total: 0,
     });
+  });
+
+  it('settles orphaned running rows when hydrating an interrupted snapshot', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({
+        snapshot: makeInterruptedSnapshot('t1', [
+          {
+            id: 't1:subagent:s1:tinyplace_agent',
+            name: 'subagent:tinyplace_agent',
+            round: 1,
+            status: 'running',
+            subagent: {
+              taskId: 's1',
+              agentId: 'tinyplace_agent',
+              status: 'running',
+              toolCalls: [],
+            },
+          },
+          {
+            id: 't1:subagent:s2:tinyplace_agent',
+            name: 'subagent:tinyplace_agent',
+            round: 1,
+            status: 'success',
+            subagent: {
+              taskId: 's2',
+              agentId: 'tinyplace_agent',
+              status: 'completed',
+              toolCalls: [],
+            },
+          },
+          {
+            id: 't1:subagent:s3:tinyplace_agent',
+            name: 'subagent:tinyplace_agent',
+            round: 1,
+            status: 'error',
+            subagent: { taskId: 's3', agentId: 'tinyplace_agent', status: 'failed', toolCalls: [] },
+          },
+        ]),
+      })
+    );
+    const timeline = store.getState().chatRuntime.toolTimelineByThread['t1'];
+    // The dangling 'running' row becomes terminal 'cancelled' (no live driver to settle it)…
+    expect(timeline[0].status).toBe('cancelled');
+    expect(timeline[0].subagent?.status).toBe('cancelled');
+    // …while already-terminal rows are left untouched.
+    expect(timeline[1].status).toBe('success');
+    expect(timeline[1].subagent?.status).toBe('completed');
+    expect(timeline[2].status).toBe('error');
+    expect(timeline[2].subagent?.status).toBe('failed');
   });
 
   it('isolates queue status across threads', () => {

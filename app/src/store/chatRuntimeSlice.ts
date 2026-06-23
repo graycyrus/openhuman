@@ -401,6 +401,30 @@ function toolTimelineFromPersisted(entry: PersistedToolTimelineEntry): ToolTimel
   };
 }
 
+/**
+ * Settle a rehydrated tool/subagent row that has no live event driver.
+ *
+ * A turn-state snapshot is a point-in-time mirror: any row left at a
+ * non-terminal status (`running` / `awaiting_user`) was still in-flight when
+ * the snapshot was written. When the owning turn was *interrupted* (the core
+ * process that was driving it is gone — see `mark_all_interrupted`), no
+ * `subagent_done` / `chat_done` event will ever arrive to flip it terminal, so
+ * the row would pulse forever (`agentNameTone` blinks the agent name for any
+ * non-terminal status). Mark such orphaned rows `cancelled` — terminal, muted,
+ * and not pulsing — mirroring `markSubagentCancelled`.
+ *
+ * `running` is the only non-terminal value the persisted timeline can carry
+ * (`PersistedToolStatus` is `running | success | error`).
+ */
+function settleOrphanedTimelineEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
+  if (entry.status !== 'running') return entry;
+  return {
+    ...entry,
+    status: 'cancelled',
+    subagent: entry.subagent ? { ...entry.subagent, status: 'cancelled' } : entry.subagent,
+  };
+}
+
 function timelineStatusFromRun(status: AgentRun['status']): ToolTimelineEntryStatus {
   switch (status) {
     case 'completed':
@@ -864,7 +888,11 @@ const chatRuntimeSlice = createSlice({
       if (snapshot.lifecycle === 'interrupted') {
         delete state.inferenceStatusByThread[threadId];
         delete state.streamingAssistantByThread[threadId];
-        state.toolTimelineByThread[threadId] = snapshot.toolTimeline.map(toolTimelineFromPersisted);
+        // No live driver remains for this turn — settle any in-flight rows so
+        // their agent names stop pulsing instead of blinking forever.
+        state.toolTimelineByThread[threadId] = snapshot.toolTimeline
+          .map(toolTimelineFromPersisted)
+          .map(settleOrphanedTimelineEntry);
         return;
       }
 
