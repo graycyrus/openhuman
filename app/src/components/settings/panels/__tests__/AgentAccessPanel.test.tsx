@@ -166,7 +166,9 @@ describe('AgentAccessPanel (advanced)', () => {
     renderWithProviders(<AgentAccessPanel />);
     const sw = await screen.findByRole('switch', { name: /run automatically/i });
     fireEvent.click(sw);
-    // Optimistic flip, then revert to off after the failed update settles.
+    // The update RPC must actually be attempted (and fail)…
+    await waitFor(() => expect(mockCronUpdate).toHaveBeenCalledWith('tp-1', { enabled: true }));
+    // …then the optimistic flip reverts to off after the failure settles.
     await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'false'));
   });
 

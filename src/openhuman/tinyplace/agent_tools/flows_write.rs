@@ -560,10 +560,14 @@ fn post_flow(args: Value) -> FlowFuture {
             content_type,
             post_id: None,
         };
+        log::debug!("[tinyplace][flow] post create_post_call handle={handle}");
         match client.feeds.create_post(&handle, &post_create).await {
             Ok(post) => {
                 let post_id = post.post_id.clone();
                 let url = format!("{TINYPLACE_WEB_ORIGIN}/posts/{post_id}");
+                log::debug!(
+                    "[tinyplace][flow] post create_post_ok post_id={post_id} bounty={bounty_id:?}"
+                );
                 let v = serde_json::to_value(&post).unwrap_or(Value::Null);
                 let mut md = Markdown::new();
                 md.heading("Published to your feed");
@@ -585,7 +589,10 @@ fn post_flow(args: Value) -> FlowFuture {
                 };
                 finish(md, &[suggestion])
             }
-            Err(e) => Ok(sdk_error("Publishing your post", e)),
+            Err(e) => {
+                log::debug!("[tinyplace][flow] post create_post_err err={e}");
+                Ok(sdk_error("Publishing your post", e))
+            }
         }
     })
 }

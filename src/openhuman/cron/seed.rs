@@ -18,8 +18,8 @@
 
 use crate::openhuman::config::Config;
 use crate::openhuman::cron::{
-    add_agent_job_with_definition, dedup_named_jobs, list_jobs, pause_job, remove_job,
-    DeliveryConfig, Schedule, SessionTarget,
+    add_agent_job_with_definition, dedup_named_jobs, list_jobs, remove_job, DeliveryConfig,
+    Schedule, SessionTarget,
 };
 use anyhow::Result;
 
@@ -179,6 +179,7 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
         Some(proactive_delivery()),
         false, // recurring — do not delete after run
         Some(MORNING_BRIEFING_JOB_NAME.to_string()),
+        true, // enabled
     )?;
 
     Ok(())
@@ -202,6 +203,7 @@ fn seed_morning_briefing(config: &Config) -> Result<()> {
 /// (what it worked on, submission URLs/IDs, anything it funded) reaches the
 /// user's active channel via the channels module's `ProactiveMessageSubscriber`.
 fn seed_tinyplace_autopilot(config: &Config) -> Result<()> {
+    tracing::debug!("[cron::seed] seed_tinyplace_autopilot start");
     let schedule = Schedule::Every {
         every_ms: 60 * 60 * 1000, // hourly
     };
@@ -217,6 +219,10 @@ fn seed_tinyplace_autopilot(config: &Config) -> Result<()> {
         "concrete results (submission URLs/IDs, anything funded)."
     );
 
+    // Insert already-disabled (enabled=false) in a single statement. Opt-in is
+    // load-bearing for an autonomous spender, so we never create it enabled and
+    // then disable it in a second write — a crash between the two could leave it
+    // running without the user opting in.
     let job = add_agent_job_with_definition(
         config,
         Some(TINYPLACE_AUTOPILOT_JOB_NAME.to_string()),
@@ -228,12 +234,14 @@ fn seed_tinyplace_autopilot(config: &Config) -> Result<()> {
         false, // recurring — do not delete after run
         // Runs the single tiny.place agent autonomously (no dedicated agent def).
         Some("tinyplace_agent".to_string()),
+        false, // enabled=false — opt-in, created disabled atomically
     )?;
 
-    // Opt-in: the job is created disabled. The user enables it explicitly via
-    // the Settings toggle (cron.update_job → enabled=true).
-    pause_job(config, &job.id)?;
-
+    tracing::debug!(
+        job_id = %job.id,
+        enabled = job.enabled,
+        "[cron::seed] seed_tinyplace_autopilot done — created disabled (opt-in)"
+    );
     Ok(())
 }
 
@@ -373,6 +381,7 @@ mod tests {
             Some(proactive_delivery()),
             true,
             Some(LEGACY_WELCOME_JOB_NAME.to_string()),
+            true, // enabled
         )
         .expect("seed legacy welcome");
         assert_eq!(list_jobs(&config).unwrap().len(), 1);
