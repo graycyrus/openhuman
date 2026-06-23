@@ -167,13 +167,12 @@ pub fn all_tools_with_runtime(
         // `agent::harness::subagent_runner` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
         Box::new(SpawnAsyncSubagentTool::new()),
-        // Steer a running async sub-agent mid-flight and collect its result:
-        // `steer_subagent { task_id, message }` injects into the child's
-        // run-queue (drained at its next iteration boundary), `wait_subagent
-        // { task_id }` blocks for the final output. See
-        // `agent_orchestration::running_subagents`.
+        // Steer/list/close reusable async sub-agents and collect results by
+        // durable `subagent_session_id` (preferred) or transient `task_id`.
+        Box::new(ListSubagentsTool::new()),
         Box::new(SteerSubagentTool::new()),
         Box::new(WaitSubagentTool::new()),
+        Box::new(CloseSubagentTool::new()),
         Box::new(ContinueSubagentTool::new()),
         Box::new(SpawnParallelAgentsTool::new()),
         Box::new(DelegateToPersonalityTool::new()),
@@ -250,8 +249,6 @@ pub fn all_tools_with_runtime(
         // can explain an empty/stalled wiki + the fix.
         Box::new(MemoryDoctorTool::new(config.clone())),
         Box::new(MemoryQueryTool),
-        Box::new(MemoryQueryWalkTool),
-        Box::new(SmartMemoryWalkTool),
         // memory_search tools — vector search, chunk context, hybrid search,
         // and previously unregistered raw store tools.
         Box::new(MemoryVectorSearchTool),
@@ -528,6 +525,9 @@ pub fn all_tools_with_runtime(
 
     // Subconscious scratchpad tools — persistent working memory across ticks.
     tools.extend(crate::openhuman::subconscious::scratchpad::tools::all_scratchpad_tools());
+
+    // Subconscious user-facing handoff — notify_user proactive delivery.
+    tools.extend(crate::openhuman::subconscious::user_thread::all_user_thread_tools());
 
     // tiny.place agent surface. These wrap the internal tiny.place controllers
     // so the dedicated tinyplace subagent can register identities, inspect

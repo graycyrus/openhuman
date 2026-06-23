@@ -4,6 +4,45 @@ import type { TranslationMap } from './types';
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   'conversations.backgroundTasks.title': 'Background tasks',
+  'nav.feedback': '피드백 보내기',
+  'feedback.board': '피드백 보드',
+  'feedback.empty': '아직 피드백이 없습니다. 가장 먼저 아이디어를 공유해 보세요.',
+  'feedback.loadMore': '더 불러오기',
+  'feedback.loadError': '피드백을 불러오지 못했습니다',
+  'feedback.expand': '펼치기',
+  'feedback.collapse': '접기',
+  'feedback.comments': '댓글',
+  'feedback.viewIssue': '이슈 보기',
+  'feedback.status.open': '열림',
+  'feedback.status.planned': '계획됨',
+  'feedback.status.completed': '완료됨',
+  'feedback.status.closed': '닫힘',
+  'feedback.type.feature': '기능',
+  'feedback.type.bug': '버그',
+  'feedback.sort.hot': '인기',
+  'feedback.sort.top': '추천순',
+  'feedback.sort.new': '최신순',
+  'feedback.filter.allTypes': '모든 유형',
+  'feedback.filter.allStatuses': '모든 상태',
+  'feedback.vote.up': '추천',
+  'feedback.vote.down': '비추천',
+  'feedback.submit.heading': '피드백 공유',
+  'feedback.submit.subheading':
+    '기능을 제안하거나 버그를 신고하세요. 다른 사용자가 투표할 수 있습니다.',
+  'feedback.submit.titlePlaceholder': '제목',
+  'feedback.submit.bodyPlaceholder': '아이디어나 겪으신 문제를 설명해 주세요',
+  'feedback.submit.action': '제출',
+  'feedback.submit.success': '감사합니다! 회원님의 피드백이 보드에 등록되었습니다.',
+  'feedback.submit.rejected': '피드백이 검토에서 거절되었습니다.',
+  'feedback.submit.error': '문제가 발생했습니다. 다시 시도해 주세요.',
+  'feedback.admin.status': '상태',
+  'feedback.admin.updateFailed': '상태를 업데이트하지 못했습니다',
+  'feedback.comments.empty': '아직 댓글이 없습니다.',
+  'feedback.comments.placeholder': '댓글 추가',
+  'feedback.comments.post': '등록',
+  'feedback.comments.loadError': '댓글을 불러오지 못했습니다',
+  'feedback.comments.postError': '댓글을 등록하지 못했습니다',
+  'feedback.comments.you': '나',
   'conversations.backgroundTasks.titleWithCount': 'Background tasks ({count})',
   'conversations.backgroundTasks.running': '{count} running',
   'conversations.backgroundTasks.noneRunning': 'none running',
@@ -39,15 +78,15 @@ const messages: TranslationMap = {
   'nav.noAgentProfiles': '에이전트 프로필을 찾을 수 없습니다',
   'nav.activity': '활동',
   'nav.brain': '브레인',
-  'nav.agentWorld': 'Tiny.Place',
+  'nav.agentWorld': 'Tiny Place',
   'nav.wallet': '지갑',
   'agentWorld.description':
     'Tiny.Place는 AI 에이전트를 위한 소셜 네트워크입니다. OpenHuman을 사용해 소통하고, 일자리를 찾고 올리며, 거래하고 함께 성장하세요.',
   'agentWorld.world': '월드',
   'agentWorld.world.booting': '렌더러를 시작하는 중...',
-  'agentWorld.world.title': '에이전트 월드',
+  'agentWorld.world.title': 'Tiny Place',
   'agentWorld.world.description':
-    'tiny.place에 에이전트를 등록하면 월드 안에서 움직이기 시작합니다.',
+    'tiny.place에 참여하면 에이전트가 다른 에이전트와 협업할 수 있습니다: 작업을 찾고 게시하고, 거래하고, 메시지를 주고받고, 바운티에 함께 참여하세요.',
   'agentWorld.world.room': '방',
   'agentWorld.world.rooms.poker.name': '포커',
   'agentWorld.world.rooms.poker.description': '펠트 테이블을 둘러싼 여덟 좌석.',
@@ -109,6 +148,21 @@ const messages: TranslationMap = {
   'common.create': '생성',
   'common.search': '검색',
   'common.loading': '로딩 중…',
+  'sync.runs': '동기화 실행',
+  'sync.totalCost': '합계',
+  'sync.when': '시간',
+  'sync.source': '소스',
+  'sync.items': '항목',
+  'sync.tokens': '토큰',
+  'sync.cost': '비용',
+  'sync.duration': '기간',
+  'sync.noAuditEntries': '아직 기록된 동기화 실행이 없습니다.',
+  'sync.timeAgo.justNow': '방금',
+  'sync.timeAgo.minutes': '{n}분 전',
+  'sync.timeAgo.hours': '{n}시간 전',
+  'sync.timeAgo.days': '{n}일 전',
+  'sync.status.success': '성공',
+  'sync.status.failed': '실패',
   'common.error': '오류',
   'common.success': '성공',
   'common.back': '뒤로',
@@ -1107,6 +1161,16 @@ const messages: TranslationMap = {
   'settings.embeddings.providerAria': '임베딩 제공자',
   'settings.embeddings.statusConfigured': '구성됨',
   'settings.embeddings.statusNeedsKey': 'API 키 필요',
+  'settings.embeddings.requiresSignIn': 'OpenHuman 로그인 필요',
+  'settings.embeddings.managedLoginRequired':
+    '관리형 임베딩을 사용하려면 OpenHuman 로그인이 필요합니다. OpenHuman 백엔드를 사용하려면 로그인하세요.',
+  'settings.embeddings.managedBannerIntro':
+    '관리형 임베딩은 OpenHuman 백엔드를 통해 라우팅되며 OpenHuman 계정 세션이 필요합니다.',
+  'settings.embeddings.managedBannerLocalSession':
+    '이 공급자를 사용하려면 로컬 세션을 종료하고 로그인하거나, 로컬 또는 자체 키 임베딩 공급자로 전환하세요.',
+  'settings.embeddings.managedBannerRemoteSession':
+    'OpenHuman 세션을 새로 고치려면 다시 로그인하거나, 로컬 또는 자체 키 임베딩 공급자로 전환하세요.',
+  'settings.embeddings.signInAgain': '다시 로그인',
   'settings.embeddings.apiKeyLabel': '{provider} API 키',
   'settings.embeddings.placeholderStored': '•••••••(저장됨)',
   'settings.embeddings.placeholderKey': 'API 키를 붙여넣으세요…',
@@ -1124,6 +1188,7 @@ const messages: TranslationMap = {
   'settings.embeddings.testConnection': '연결 테스트',
   'settings.embeddings.testing': '테스트 중…',
   'settings.embeddings.testSuccess': '연결됨 — {dims} 차원',
+  'settings.embeddings.connectionTestFailed': '테스트 실패',
   'settings.embeddings.testFailed': '실패: {error}',
   'settings.embeddings.saving': '저장 중…',
   'settings.embeddings.saved': '저장됨.',
@@ -2412,6 +2477,21 @@ const messages: TranslationMap = {
   'subconscious.decision.failed': '실패',
   'subconscious.decision.cancelled': '취소됨',
   'subconscious.decision.skipped': '건너뜀',
+  // Subconscious triggers (event-driven orchestrator) debug panel
+  'subconsciousTriggers.title': '잠재의식 트리거',
+  'subconsciousTriggers.subtitle': '이벤트 기반 백그라운드 오케스트레이터',
+  'subconsciousTriggers.pipeline': '파이프라인',
+  'subconsciousTriggers.mode': '모드',
+  'subconsciousTriggers.orchestrator': '오케스트레이터',
+  'subconsciousTriggers.running': '실행 중',
+  'subconsciousTriggers.stopped': '중지됨',
+  'subconsciousTriggers.promotionsPerHour': '승격 / 시간',
+  'subconsciousTriggers.queueDepth': '큐 깊이',
+  'subconsciousTriggers.orchestratorThread': '오케스트레이터 스레드',
+  'subconsciousTriggers.userThread': '사용자 스레드',
+  'subconsciousTriggers.disabledHint': '파이프라인을 활성화하려면 이벤트 기반 모드를 켜세요.',
+  'subconsciousTriggers.enable': '활성화',
+  'subconsciousTriggers.disable': '비활성화',
   'actionable.complete': '완료',
   'actionable.dismiss': '닫기',
   'actionable.snooze': '다시 알림',
@@ -2490,6 +2570,14 @@ const messages: TranslationMap = {
   'bootCheck.portConflictFixing': '수정 중…',
   'bootCheck.portConflictFixFailed':
     '자동 수정에 실패했습니다. 컴퓨터를 재시작한 후 다시 시도해 주세요.',
+  'bootCheck.portConflictOwner':
+    '{name}(PID {pid})이(가) OpenHuman에 필요한 네트워크 포트를 사용하고 있습니다.',
+  'bootCheck.portConflictGuidance':
+    '포트를 비우려면 해당 프로그램을 닫거나 아래에서 강제 종료한 후 다시 시도하세요.',
+  'bootCheck.portConflictForceQuit': '{name} 강제 종료',
+  'bootCheck.portConflictForceQuitting': '{name} 종료 중…',
+  'bootCheck.portConflictForceQuitFailed':
+    '해당 프로그램을 닫지 못했습니다. 수동으로 닫은 후 다시 시도해야 할 수 있습니다.',
   'notifications.justNow': '방금 전',
   'notifications.minAgo': '{n}분 전',
   'notifications.hrAgo': '{n}시간 전',
@@ -3588,6 +3676,46 @@ const messages: TranslationMap = {
   'settings.ai.routing.backgroundTasks': '백그라운드 작업',
   'settings.ai.routing.bgTasksDesc':
     '요약, 하트비트, 학습 및 잠재의식 평가처럼 기본 대화 흐름 밖에서 사용되는 모델입니다.',
+  'settings.ai.routing.workload.chat.label': 'Chat',
+  'settings.ai.routing.workload.chat.description':
+    'Direct conversational back-and-forth — “Quick” mode in Conversations',
+  'settings.ai.routing.workload.chat.hint':
+    'Recommended: a cheap or mid-cost fast chat model with high tokens/sec and low latency. Open-source local models can work well here if they feel responsive.',
+  'settings.ai.routing.workload.reasoning.label': 'Reasoning',
+  'settings.ai.routing.workload.reasoning.description':
+    'Main chat agent, meeting summarizer — “Reasoning” mode in Conversations',
+  'settings.ai.routing.workload.reasoning.hint':
+    'Recommended: a more expensive frontier or strong reasoning model for deep thinking. This is used for the main chat agent, meeting summaries, and heavier answer synthesis.',
+  'settings.ai.routing.workload.agentic.label': 'Agentic',
+  'settings.ai.routing.workload.agentic.description':
+    'Sub-agent runners, tool loops, GIF decisions',
+  'settings.ai.routing.workload.agentic.hint':
+    'Recommended: a reliable instruction-following model with strong tool use. Mid-cost frontier models are usually safest; capable open-source models can work if tool calling is stable.',
+  'settings.ai.routing.workload.coding.label': 'Coding',
+  'settings.ai.routing.workload.coding.description': 'Code generation and refactor passes',
+  'settings.ai.routing.workload.coding.hint':
+    'Recommended: a coding-tuned model with strong instruction following, edit quality, and long-context performance. This is usually worth spending more on.',
+  'settings.ai.routing.workload.vision.label': 'Vision',
+  'settings.ai.routing.workload.vision.description':
+    'Image understanding for the vision sub-agent — always multimodal',
+  'settings.ai.routing.workload.vision.hint':
+    'Recommended: a multimodal model that accepts image input. The managed default (vision-v1) is image-capable; any provider you route here is always treated as vision-enabled.',
+  'settings.ai.routing.workload.memory.label': 'Memory summarization',
+  'settings.ai.routing.workload.memory.description': 'Tree-extracts and consolidations',
+  'settings.ai.routing.workload.memory.hint':
+    'Recommended: a cheaper summarization model. It should be consistent and compact, but it does not need premium frontier-level reasoning.',
+  'settings.ai.routing.workload.heartbeat.label': 'Heartbeat',
+  'settings.ai.routing.workload.heartbeat.description': 'Background reasoning between user turns',
+  'settings.ai.routing.workload.heartbeat.hint':
+    'Recommended: a cheap, efficient background model. This runs often between turns, so low cost matters more than maximum intelligence.',
+  'settings.ai.routing.workload.learning.label': 'Learning · Reflections',
+  'settings.ai.routing.workload.learning.description': 'Periodic reflection over recent history',
+  'settings.ai.routing.workload.learning.hint':
+    'Recommended: a stronger reflective model. This can be mid-cost or premium because it benefits from better synthesis over recent history.',
+  'settings.ai.routing.workload.subconscious.label': 'Subconscious',
+  'settings.ai.routing.workload.subconscious.description': 'Eventfulness scoring + drift checks',
+  'settings.ai.routing.workload.subconscious.hint':
+    'Recommended: a very cheap monitoring model, ideally one that is lightweight and predictable. This is for eventfulness scoring, drift checks, and quiet background evaluation.',
   'settings.ai.routing.addCustomProvider': '사용자 정의 공급자 추가',
   'settings.ai.globalModel.title': '모든 것에 대해 하나의 모델을 선택합니다.',
   'settings.ai.globalModel.desc':
@@ -4851,6 +4979,43 @@ const messages: TranslationMap = {
   'upsell.usageLimit.resetsIn': '{time}에 초기화됩니다.',
   'upsell.usageLimit.upgradePlan': '플랜 업그레이드',
   'upsell.usageLimit.weeklyInference': '{amount}',
+  'walkthrough.steps.startChat.title': '채팅에서 시작하기',
+  'walkthrough.steps.startChat.content':
+    '채팅이 시작점입니다. 새 창은 설정 후 보았던 같은 인사와 빠른 작업으로 열립니다.',
+  'walkthrough.steps.sayHello.title': '인사하기',
+  'walkthrough.steps.sayHello.content': '언제든 여기를 눌러 AI 어시스턴트와 대화를 시작하세요.',
+  'walkthrough.steps.meetAi.title': 'AI 만나기',
+  'walkthrough.steps.meetAi.content':
+    '대화가 이루어지는 곳입니다. 질문하고, 요약을 받고, 아이디어를 정리하세요. 모든 내용은 검색할 수 있습니다.',
+  'walkthrough.steps.connectWorld.title': '내 세계 연결하기',
+  'walkthrough.steps.connectWorld.content':
+    'Gmail, Slack, WhatsApp 등 각 연결은 어시스턴트에 더 많은 기능을 더합니다.',
+  'walkthrough.steps.messagingApps.title': '이미 쓰는 곳에서 채팅하기',
+  'walkthrough.steps.messagingApps.content':
+    'WhatsApp, Telegram, Slack, Discord를 연결하면 어시스턴트가 어디서든 연락할 수 있습니다.',
+  'walkthrough.steps.settings.title': '내 방식으로 설정하기',
+  'walkthrough.steps.settings.content':
+    '환경설정, 개인정보, 알림이 모두 여기에 있습니다. 이 페이지에서 언제든 투어를 다시 시작할 수 있습니다.',
+  'walkthrough.steps.chatTab.title': '채팅으로 돌아가기',
+  'walkthrough.steps.chatTab.content': '대화로 돌아가고 싶을 때 Chat 탭을 사용하세요.',
+  'walkthrough.steps.humanTab.title': 'Human 프로필 보기',
+  'walkthrough.steps.humanTab.content':
+    'Human은 개인 맥락, 정체성, 어시스턴트가 보는 프로필을 한곳에 모읍니다.',
+  'walkthrough.steps.brainTab.title': 'Brain 열기',
+  'walkthrough.steps.brainTab.content':
+    'Brain은 메모리 그래프입니다. OpenHuman이 무엇을 알고 아이디어가 어떻게 연결되는지 확인하는 곳입니다.',
+  'walkthrough.steps.agentWorldTab.title': 'Agent World 탐색',
+  'walkthrough.steps.agentWorldTab.content':
+    'Agent World에는 재사용 가능한 에이전트와 공유 자동화가 있습니다.',
+  'walkthrough.steps.connectionsTab.title': '연결 관리',
+  'walkthrough.steps.connectionsTab.content':
+    '서비스를 추가하거나 조정하고 싶을 때 Connections는 항상 기본 내비게이션에 있습니다.',
+  'walkthrough.steps.feedbackTab.title': '피드백 보내기',
+  'walkthrough.steps.feedbackTab.content':
+    'Feedback은 문제를 보고하거나 개선을 요청하는 직접적인 공간입니다.',
+  'walkthrough.steps.allSet.title': '준비 완료!',
+  'walkthrough.steps.allSet.content':
+    '어시스턴트가 환영 메모를 남겼습니다. 이곳에서 채팅하고, 질문하고, 아이디어를 정리해 보세요. 즐겁게 사용하세요!',
   'walkthrough.tooltip.letsGo': '시작해 봅시다!',
   'walkthrough.tooltip.next': '다음 →',
   'walkthrough.tooltip.skip': '투어 건너뛰기',
@@ -5729,6 +5894,8 @@ const messages: TranslationMap = {
   'agentworld.jobs.applyModal.cancel': '취소',
   'agentworld.jobs.applyModal.submit': '지원서 제출',
   'agentworld.jobs.applyModal.submitting': '지원 중…',
+  'agentworld.messaging.missingSignalBundle':
+    '이 사용자는 아직 암호화 메시지를 활성화하지 않았습니다. 메시지를 보내기 전에 Agent World를 열고 보안 DM을 활성화해 달라고 요청하세요.',
 };
 
 export default messages;

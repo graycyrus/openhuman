@@ -118,6 +118,32 @@ impl Config {
             }
         }
 
+        if let Some(flag) = env.get_any(&["OPENHUMAN_SHELL_HIDE_WINDOW", "SHELL_HIDE_WINDOW"]) {
+            let normalized = flag.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "1" | "true" | "yes" | "on" => {
+                    self.shell.hide_window = true;
+                    tracing::debug!(
+                        value = %flag,
+                        "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window=true"
+                    );
+                }
+                "0" | "false" | "no" | "off" => {
+                    self.shell.hide_window = false;
+                    tracing::debug!(
+                        value = %flag,
+                        "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window=false"
+                    );
+                }
+                _ => tracing::warn!(
+                    value = %flag,
+                    "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW unrecognized value ignored; \
+                     keeping current hide_window={}",
+                    self.shell.hide_window
+                ),
+            }
+        }
+
         self.apply_search_env(env);
         self.apply_proxy_env(env);
         self.apply_runtime_env(env);
@@ -656,6 +682,11 @@ impl Config {
         if let Some(raw) = env.get("OPENHUMAN_MEMORY_TREE_CLOUD_SUMMARIZATION") {
             if let Some(val) = parse_env_bool("OPENHUMAN_MEMORY_TREE_CLOUD_SUMMARIZATION", &raw) {
                 self.memory_tree.cloud_summarization_opt_in = val;
+            }
+        }
+        if let Some(raw) = env.get("OPENHUMAN_MEMORY_TREE_SPACY_ENABLED") {
+            if let Some(val) = parse_env_bool("OPENHUMAN_MEMORY_TREE_SPACY_ENABLED", &raw) {
+                self.memory_tree.spacy_enabled = val;
             }
         }
     }

@@ -47,6 +47,7 @@ import {
 } from '../../store/threadSlice';
 import type { ThreadMessage } from '../../types/thread';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/turnState';
+import { chatThreadPath } from '../../utils/chatRoutes';
 import { settingsNavState } from '../settings/modal/settingsOverlay';
 import { UserTaskComposer } from './UserTaskComposer';
 
@@ -392,7 +393,7 @@ export default function IntelligenceTasksTab() {
         dispatch(setActiveThread(thread.id));
         void dispatch(loadThreads());
         void dispatch(loadThreadMessages(thread.id));
-        navigate('/chat');
+        navigate(chatThreadPath(thread.id));
 
         await chatSend({
           threadId: thread.id,
@@ -589,10 +590,7 @@ export default function IntelligenceTasksTab() {
             dispatch(setSelectedThread(tid));
             void dispatch(loadThreads());
             void dispatch(loadThreadMessages(tid));
-            // Pass the thread as an explicit open-intent so Conversations'
-            // mount-resume honors it (its default resume only considers
-            // General-tab threads and would otherwise drop this task session).
-            navigate('/chat', { state: { openThreadId: tid } });
+            navigate(chatThreadPath(tid));
           }}
           workingCardId={workingCardId}
           mutatingCardId={mutatingCardId}
