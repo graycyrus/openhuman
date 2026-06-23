@@ -13,6 +13,7 @@ import ChatNewWindowHero from '../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../components/chat/ComposerTokenStats';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
+import { settingsNavState } from '../components/settings/modal/settingsOverlay';
 import UpsellBanner from '../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../components/upsell/upsellDismissState';
 import MicComposer from '../features/human/MicComposer';
@@ -303,6 +304,11 @@ const Conversations = ({
   const agentMessageViewMode = useAppSelector(
     state => state.theme?.agentMessageViewMode ?? 'bubbles'
   );
+  // When ON, the verbose per-agent "Agentic task insights" timeline is hidden
+  // from chat; a compact blinking "Processing" link (and the existing message
+  // bubble loading) stand in for it, with the full run one click away in the
+  // Agent Process Source side panel. See themeSlice.hideAgentInsights.
+  const hideAgentInsights = useAppSelector(state => state.theme?.hideAgentInsights ?? false);
   const inferenceTurnLifecycleByThread = useAppSelector(
     state => state.chatRuntime.inferenceTurnLifecycleByThread
   );
@@ -2125,7 +2131,7 @@ const Conversations = ({
             {selectedStreamingAssistant &&
               (selectedStreamingAssistant.thinking.length > 0 ||
                 (selectedStreamingAssistant.content.length > 0 &&
-                  selectedThreadToolTimeline.length === 0)) && (
+                  (selectedThreadToolTimeline.length === 0 || hideAgentInsights))) && (
                 <div className="flex justify-start">
                   <div className="relative w-fit max-w-[75%]">
                     {selectedStreamingAssistant.thinking.length > 0 && (
@@ -2140,7 +2146,7 @@ const Conversations = ({
                       </details>
                     )}
                     {selectedStreamingAssistant.content.length > 0 &&
-                      selectedThreadToolTimeline.length === 0 && (
+                      (selectedThreadToolTimeline.length === 0 || hideAgentInsights) && (
                         <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-stone-200/80 dark:bg-neutral-800 text-stone-900 dark:text-neutral-100">
                           <p className="text-xs text-stone-700 dark:text-neutral-200 font-mono whitespace-pre-wrap break-words leading-snug">
                             {selectedStreamingAssistant.content.length >
@@ -2235,13 +2241,44 @@ const Conversations = ({
                 messages the turn produced — both for the settled/inline case
                 (shouldRenderTimelineBeforeLatestAgentMessage) and the live
                 in-flight fallback. */}
-            {selectedThreadToolTimeline.length > 0 && (
-              <ToolTimelineBlock
-                entries={selectedThreadToolTimeline}
-                onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
-                liveResponse={selectedStreamingAssistant?.content}
-              />
-            )}
+            {selectedThreadToolTimeline.length > 0 &&
+              (hideAgentInsights ? (
+                // "Hide agent thinking" is ON: suppress the verbose step rows.
+                // While the turn is still in flight, surface a single compact
+                // blinking "Processing" link that opens the full run in the
+                // Agent Process Source side panel. Once settled, the
+                // "View full agent process Source" button below takes over.
+                isSending ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowProcessSource(true)}
+                    data-testid="agent-processing-link"
+                    className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+                    <span>{t('conversations.agentTaskInsights.processing')} →</span>
+                  </button>
+                ) : !shouldRenderTimelineBeforeLatestAgentMessage ? (
+                  // Settled, but the hoisted "View full agent process Source"
+                  // opener below won't render because no agent message exists
+                  // for this turn (e.g. a cancelled first turn — onError skips
+                  // the agent message for `error_type === 'cancelled'`). Without
+                  // this fallback the recorded steps would be unreachable while
+                  // hidden, so surface our own opener whenever entries remain.
+                  <button
+                    type="button"
+                    onClick={() => setShowProcessSource(true)}
+                    data-testid="agent-process-source-fallback"
+                    className="px-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+                    {t('conversations.agentTaskInsights.viewProcessSource')} →
+                  </button>
+                ) : null
+              ) : (
+                <ToolTimelineBlock
+                  entries={selectedThreadToolTimeline}
+                  onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+                  liveResponse={selectedStreamingAssistant?.content}
+                />
+              ))}
             {/* "View full agent process" — only in the settled/inline state
                 (turn finished, an agent message exists). Hoisted out of the
                 per-message map alongside the panel above so it renders once
@@ -2435,7 +2472,7 @@ const Conversations = ({
                     // STT/TTS provider settings live on the Voice panel
                     // since PR 2; the legacy local-model route was for
                     // back when speech assets were lumped with Ollama.
-                    navigate('/settings/voice');
+                    navigate('/settings/voice', settingsNavState(location));
                   }}
                   className="text-xs text-primary-500 hover:text-primary-600 font-medium transition-colors">
                   {t('chat.setup')}
