@@ -5,6 +5,7 @@ import debug from 'debug';
 import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { settingsNavState } from '../modal/settingsOverlay';
 import { entryRoute, findEntryByRoute, SETTINGS_ROUTE_REGISTRY } from '../settingsRouteRegistry';
 
 const log = debug('settings:nav');
@@ -163,20 +164,18 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
 
   const navigateToSettings = useCallback(
     (route: SettingsRoute | string = 'home') => {
-      if (route === 'home') {
-        navigate('/settings');
-      } else {
-        navigate(`/settings/${route}`);
-      }
+      // Preserve the modal's backdrop (desktop) across panel-to-panel nav.
+      const target = route === 'home' ? '/settings' : `/settings/${route}`;
+      navigate(target, settingsNavState(location));
     },
-    [navigate]
+    [navigate, location]
   );
 
   const navigateToTeamManagement = useCallback(
     (teamId: string) => {
-      navigate(`/settings/team/manage/${teamId}`);
+      navigate(`/settings/team/manage/${teamId}`, settingsNavState(location));
     },
-    [navigate]
+    [navigate, location]
   );
 
   const navigateBack = useCallback(() => {
@@ -188,8 +187,12 @@ export const useSettingsNavigation = (): SettingsNavigationHook => {
   }, [currentRoute, goBackWithFallback]);
 
   const closeSettings = useCallback(() => {
-    goBackWithFallback('/home');
-  }, [goBackWithFallback]);
+    // On desktop the modal was opened over a page (backgroundLocation); return
+    // there. Otherwise fall back to /home.
+    const background = (location.state as { backgroundLocation?: unknown } | null)
+      ?.backgroundLocation;
+    navigate((background as Parameters<typeof navigate>[0]) ?? '/home');
+  }, [navigate, location.state]);
 
   // -------------------------------------------------------------------------
   // Breadcrumbs — derived from the registry.

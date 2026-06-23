@@ -1,6 +1,7 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import { settingsNavState } from '../../settings/modal/settingsOverlay';
 import { useRootSidebar } from './RootShellLayout';
 import { useHomeNav } from './useHomeNav';
 
@@ -14,6 +15,7 @@ const ICON_BTN =
 export default function SidebarHeader() {
   const { t } = useT();
   const navigate = useNavigate();
+  const location = useLocation();
   const { hide } = useRootSidebar();
   const handleHome = useHomeNav();
 
@@ -40,7 +42,7 @@ export default function SidebarHeader() {
         {/* Wallet shortcut — one-click access to wallet balances. */}
         <button
           type="button"
-          onClick={() => navigate('/settings/wallet-balances')}
+          onClick={() => navigate('/settings/wallet-balances', settingsNavState(location))}
           className={ICON_BTN}
           data-analytics-id="sidebar-header-wallet"
           aria-label={t('nav.wallet')}
@@ -57,7 +59,7 @@ export default function SidebarHeader() {
 
         <button
           type="button"
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate('/settings', settingsNavState(location))}
           className={ICON_BTN}
           data-analytics-id="sidebar-header-settings"
           aria-label={t('nav.settings')}

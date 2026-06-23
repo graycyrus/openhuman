@@ -27,6 +27,8 @@ import OpenhumanLinkModal from './components/OpenhumanLinkModal';
 import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import PttHotkeyManager from './components/PttHotkeyManager';
 import SecurityBanner from './components/SecurityBanner';
+import SettingsModal from './components/settings/modal/SettingsModal';
+import { resolveSettingsOverlay } from './components/settings/modal/settingsOverlay';
 import GlobalUpsellBanner from './components/upsell/GlobalUpsellBanner';
 import AppWalkthrough from './components/walkthrough/AppWalkthrough';
 import { MascotFrameProducer } from './features/meet/MascotFrameProducer';
@@ -232,10 +234,17 @@ function AppShellDesktop() {
   );
   const chromeless = !token || onOnboardingRoute || onHiddenChromePath;
 
+  // Desktop Settings is a modal overlay (the backgroundLocation pattern): when
+  // the URL is a settings path we keep rendering the page *behind* it
+  // (`baseLocation`) and mount <SettingsModal/> on top. The existing
+  // webview-hide effect above already keys on `location.pathname` (the real
+  // `/settings/*`), so the native CEF webview hides and won't occlude the modal.
+  const { settingsOpen, baseLocation } = resolveSettingsOverlay(location);
+
   const content = (
     <div ref={scrollRef} className="relative h-full overflow-y-auto">
       <GlobalUpsellBanner />
-      <AppRoutes />
+      <AppRoutes location={baseLocation} />
     </div>
   );
 
@@ -250,6 +259,9 @@ function AppShellDesktop() {
             <RootShellLayout sidebar={<AppSidebar />}>{content}</RootShellLayout>
           )}
         </div>
+        {/* Desktop Settings modal — mounted over whatever page is rendered
+            beneath when the URL is a settings path. */}
+        {settingsOpen && !chromeless && <SettingsModal />}
         <OpenhumanLinkModal />
         {/* Hidden Remotion-driven producer for the Meet camera. Mounts a
             640×480 JPEG frame stream to the Rust frame bus while a meet

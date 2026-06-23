@@ -6,6 +6,7 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
+import { settingsNavState } from '../../settings/modal/settingsOverlay';
 import { NavIcon } from './navIcons';
 import { useHomeNav } from './useHomeNav';
 
@@ -70,7 +71,7 @@ export default function CollapsedNavRail() {
       {/* Wallet shortcut — mirrors SidebarHeader wallet button for collapsed state. */}
       <button
         type="button"
-        onClick={() => navigate('/settings/wallet-balances')}
+        onClick={() => navigate('/settings/wallet-balances', settingsNavState(location))}
         title={t('nav.wallet')}
         aria-label={t('nav.wallet')}
         aria-current={
