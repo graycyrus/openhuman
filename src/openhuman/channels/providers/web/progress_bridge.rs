@@ -24,19 +24,29 @@ fn unix_epoch_ms() -> u64 {
 /// drawer payload stays bounded while still showing what the tool returned.
 const MAX_WIRE_SUBAGENT_OUTPUT: usize = 256 * 1024;
 
-/// Truncate `output` to [`MAX_WIRE_SUBAGENT_OUTPUT`] bytes on a char boundary,
-/// appending a marker when content was dropped. Returns the input unchanged
-/// when it's already within the cap.
+/// Bytes reserved within the cap for the truncation marker so the *final*
+/// payload (content + marker) never exceeds [`MAX_WIRE_SUBAGENT_OUTPUT`].
+/// Generous upper bound for `…[truncated <N> bytes of tool output]` at any
+/// plausible `N` (the "…" is 3 UTF-8 bytes).
+const TRUNCATION_MARKER_BUDGET: usize = 80;
+
+/// Truncate `output` so the returned string stays within
+/// [`MAX_WIRE_SUBAGENT_OUTPUT`] bytes, slicing on a char boundary and
+/// appending a marker (which is itself counted against the cap) when content
+/// was dropped. Returns the input unchanged when it's already within the cap.
 fn cap_wire_output(output: String) -> String {
     if output.len() <= MAX_WIRE_SUBAGENT_OUTPUT {
         return output;
     }
-    let mut end = MAX_WIRE_SUBAGENT_OUTPUT;
+    let mut end = MAX_WIRE_SUBAGENT_OUTPUT.saturating_sub(TRUNCATION_MARKER_BUDGET);
     while end > 0 && !output.is_char_boundary(end) {
         end -= 1;
     }
     let omitted = output.len() - end;
-    format!("{}\n…[truncated {omitted} bytes of tool output]", &output[..end])
+    format!(
+        "{}\n…[truncated {omitted} bytes of tool output]",
+        &output[..end]
+    )
 }
 
 pub(super) fn ledger_upsert_agent_run(
@@ -1078,6 +1088,8 @@ mod tests {
         assert!(capped.contains("[truncated"));
         // Truncation landed on a char boundary (no replacement char / panic).
         assert!(capped.starts_with('é'));
+        // The final payload (content + marker) must honor the wire cap.
+        assert!(capped.len() <= MAX_WIRE_SUBAGENT_OUTPUT);
     }
 
     #[test]
