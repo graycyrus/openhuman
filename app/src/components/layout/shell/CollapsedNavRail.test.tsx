@@ -102,7 +102,9 @@ describe('CollapsedNavRail', () => {
 
   it('defers to Wallet on the wallet sub-page — only one icon stays active', () => {
     renderWithProviders(<CollapsedNavRail />, { initialEntries: ['/settings/wallet-balances'] });
-    expect(screen.getByRole('button', { name: 'nav.settings' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('button', { name: 'nav.settings' })).not.toHaveAttribute(
+      'aria-current'
+    );
     expect(screen.getByRole('button', { name: 'nav.wallet' })).toHaveAttribute(
       'aria-current',
       'page'
