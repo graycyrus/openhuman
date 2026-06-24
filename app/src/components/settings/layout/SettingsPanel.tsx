@@ -83,6 +83,7 @@ export default function SettingsPanel<T extends string = string>({
         description={description}
         leading={leading}
         action={action}
+        headerExtra={subNav}
         tabs={tabs}
         value={value}
         onChange={onChange}

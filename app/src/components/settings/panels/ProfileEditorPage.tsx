@@ -184,9 +184,6 @@ const ProfileEditorPage = () => {
           <div className="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
             {t('settings.profiles.editor.notFound')}
           </div>
-          <Button type="button" variant="secondary" size="sm" onClick={backToList}>
-            {t('common.back')}
-          </Button>
         </div>
       ) : (
         <div className="space-y-4">

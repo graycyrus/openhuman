@@ -128,7 +128,7 @@ const TeamMembersPanel = () => {
   };
 
   return (
-    <SettingsPanel description={t('pages.settings.account.teamDesc')}>
+    <SettingsPanel title={t('team.members')} description={t('pages.settings.account.teamDesc')}>
       {error && <ErrorBanner message={error} />}
 
       {/* Refreshing indicator - only when loading and has existing data */}

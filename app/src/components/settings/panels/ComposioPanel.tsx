@@ -25,8 +25,9 @@ import {
 } from '../../../utils/tauriCommands';
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsRow, SettingsSection, SettingsStatusLine, SettingsTextField } from '../controls';
-import SettingsPanel from '../layout/SettingsPanel';
+import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 type Mode = 'backend' | 'direct';
 
@@ -41,6 +42,7 @@ interface ComposioPanelProps {
 
 const ComposioPanel = ({ embedded = false, managedAuthEnabled }: ComposioPanelProps = {}) => {
   const { t } = useT();
+  const { navigateBack } = useSettingsNavigation();
   const { snapshot } = useCoreState();
   const allowManagedAuth =
     managedAuthEnabled ??
@@ -206,206 +208,199 @@ const ComposioPanel = ({ embedded = false, managedAuthEnabled }: ComposioPanelPr
   const composioDescription = embedded
     ? undefined
     : t('settings.developerMenu.composioRouting.desc');
+  const composioLeading = embedded ? undefined : <SettingsBackButton onBack={navigateBack} />;
 
   if (loading) {
-    const loadingBody = (
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        {t('settings.composio.loading')}
-      </p>
-    );
-    if (embedded) {
-      return (
-        <PanelPage contentClassName="">
-          <div>{loadingBody}</div>
-        </PanelPage>
-      );
-    }
-    return <SettingsPanel description={composioDescription}>{loadingBody}</SettingsPanel>;
-  }
-
-  const panelBody = (
-    <>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        {t('settings.composio.intro')}
-      </p>
-
-      {allowManagedAuth ? (
-        <SettingsSection>
-          <fieldset className="px-4 py-3">
-            <legend className="text-sm font-medium text-neutral-800 dark:text-neutral-100 mb-2">
-              {t('settings.composio.routingMode')}
-            </legend>
-            <div className="space-y-2">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="composio-mode"
-                  value="backend"
-                  checked={mode === 'backend'}
-                  onChange={() => setMode('backend')}
-                  aria-label={t('settings.composio.modeManaged')}
-                  className="mt-1"
-                />
-                <div className="text-left">
-                  <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
-                    {t('settings.composio.modeManaged')}
-                  </span>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                    {t('settings.composio.modeManagedDesc')}
-                  </p>
-                </div>
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="composio-mode"
-                  value="direct"
-                  checked={mode === 'direct'}
-                  onChange={() => setMode('direct')}
-                  aria-label={t('settings.composio.modeDirect')}
-                  className="mt-1"
-                />
-                <div className="text-left">
-                  <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
-                    {t('settings.composio.modeDirect')}
-                  </span>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                    {t('settings.composio.modeDirectDesc')}
-                  </p>
-                </div>
-              </label>
-            </div>
-          </fieldset>
-        </SettingsSection>
-      ) : (
-        <SettingsSection>
-          <div className="px-4 py-3 space-y-2">
-            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
-              {t('settings.composio.modeDirect')}
-            </p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {t(
-                'settings.composio.directOnlyDesc',
-                'Managed Composio auth is unavailable here. Enter your own Composio API key or skip this for now.'
-              )}
-            </p>
-          </div>
-        </SettingsSection>
-      )}
-
-      {/* API key field — only when Direct is selected */}
-      {mode === 'direct' && (
-        <SettingsSection
-          title={t('settings.composio.apiKeyLabel')}
-          description={t('settings.composio.apiKeyDesc')}>
-          <SettingsRow
-            stacked
-            control={
-              <div className="space-y-1">
-                <SettingsTextField
-                  id="composio-api-key"
-                  type="password"
-                  autoComplete="off"
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  placeholder={
-                    apiKeyStored
-                      ? t('settings.composio.apiKeyStoredPlaceholder')
-                      : t('settings.composio.apiKeyExamplePlaceholder')
-                  }
-                  aria-label={t('settings.composio.apiKeyLabel')}
-                  mono
-                />
-                {apiKeyStored && (
-                  <p className="text-xs text-sage-700 dark:text-sage-300">
-                    {t('settings.composio.apiKeyStored')}
-                  </p>
-                )}
-              </div>
-            }
-          />
-        </SettingsSection>
-      )}
-
-      {confirmGate === 'awaiting' ? (
-        // [composio-direct] Inline confirmation step — kept as a
-        // sibling state rather than a portal modal so the warning
-        // copy stays in the same scroll context as the toggle the
-        // user just changed. Easier to dismiss with the keyboard and
-        // composes more naturally with the existing settings panel
-        // chrome.
-        <div
-          role="alertdialog"
-          aria-labelledby="composio-confirm-title"
-          className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 p-4 space-y-3">
-          <p id="composio-confirm-title" className="text-sm font-medium text-amber-900">
-            {t('settings.composio.confirmTitle')}
-          </p>
-          <div className="text-xs text-amber-900 space-y-2">
-            <p>{t('settings.composio.confirmWarning')}</p>
-            <p>{t('settings.composio.confirmNeedItems')}</p>
-            <ol className="list-decimal list-inside space-y-0.5 ml-2">
-              <li>{t('settings.composio.confirmItem1')}</li>
-              <li>{t('settings.composio.confirmItem2')}</li>
-              <li>{t('settings.composio.confirmItem3')}</li>
-            </ol>
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleCancelTransition}
-              disabled={saving}
-              className="flex-1">
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void handleConfirmTransition()}
-              disabled={saving}
-              className="flex-1 bg-amber-600 hover:bg-amber-500">
-              {saving ? t('settings.composio.switching') : t('settings.composio.confirmSwitch')}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => void handleSave()}
-            disabled={saving}>
-            {saving ? t('settings.composio.saving') : t('common.save')}
-          </Button>
-          <SettingsStatusLine
-            saving={false}
-            savedNote={
-              saveStatus === 'saved'
-                ? t('composio.settingsSaved')
-                : saveStatus === 'cleared'
-                  ? t('settings.composio.clearedToBackend')
-                  : null
-            }
-            error={saveStatus === 'error' ? t('settings.composio.saveErrorNoKey') : null}
-            savingLabel=""
-          />
-        </div>
-      )}
-    </>
-  );
-
-  if (embedded) {
     return (
-      <PanelPage contentClassName="">
-        <div className="space-y-5">{panelBody}</div>
+      <PanelPage contentClassName="" description={composioDescription} leading={composioLeading}>
+        <div className={embedded ? '' : 'p-4'}>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            {t('settings.composio.loading')}
+          </p>
+        </div>
       </PanelPage>
     );
   }
 
-  return <SettingsPanel description={composioDescription}>{panelBody}</SettingsPanel>;
+  return (
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      description={composioDescription}
+      leading={composioLeading}>
+      <div className={embedded ? 'space-y-5' : 'p-4 pt-2 space-y-5'}>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          {t('settings.composio.intro')}
+        </p>
+
+        {allowManagedAuth ? (
+          <SettingsSection>
+            <fieldset className="px-4 py-3">
+              <legend className="text-sm font-medium text-neutral-800 dark:text-neutral-100 mb-2">
+                {t('settings.composio.routingMode')}
+              </legend>
+              <div className="space-y-2">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="composio-mode"
+                    value="backend"
+                    checked={mode === 'backend'}
+                    onChange={() => setMode('backend')}
+                    aria-label={t('settings.composio.modeManaged')}
+                    className="mt-1"
+                  />
+                  <div className="text-left">
+                    <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                      {t('settings.composio.modeManaged')}
+                    </span>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      {t('settings.composio.modeManagedDesc')}
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="composio-mode"
+                    value="direct"
+                    checked={mode === 'direct'}
+                    onChange={() => setMode('direct')}
+                    aria-label={t('settings.composio.modeDirect')}
+                    className="mt-1"
+                  />
+                  <div className="text-left">
+                    <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                      {t('settings.composio.modeDirect')}
+                    </span>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      {t('settings.composio.modeDirectDesc')}
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </fieldset>
+          </SettingsSection>
+        ) : (
+          <SettingsSection>
+            <div className="px-4 py-3 space-y-2">
+              <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                {t('settings.composio.modeDirect')}
+              </p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {t(
+                  'settings.composio.directOnlyDesc',
+                  'Managed Composio auth is unavailable here. Enter your own Composio API key or skip this for now.'
+                )}
+              </p>
+            </div>
+          </SettingsSection>
+        )}
+
+        {/* API key field — only when Direct is selected */}
+        {mode === 'direct' && (
+          <SettingsSection
+            title={t('settings.composio.apiKeyLabel')}
+            description={t('settings.composio.apiKeyDesc')}>
+            <SettingsRow
+              stacked
+              control={
+                <div className="space-y-1">
+                  <SettingsTextField
+                    id="composio-api-key"
+                    type="password"
+                    autoComplete="off"
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    placeholder={
+                      apiKeyStored
+                        ? t('settings.composio.apiKeyStoredPlaceholder')
+                        : t('settings.composio.apiKeyExamplePlaceholder')
+                    }
+                    aria-label={t('settings.composio.apiKeyLabel')}
+                    mono
+                  />
+                  {apiKeyStored && (
+                    <p className="text-xs text-sage-700 dark:text-sage-300">
+                      {t('settings.composio.apiKeyStored')}
+                    </p>
+                  )}
+                </div>
+              }
+            />
+          </SettingsSection>
+        )}
+
+        {confirmGate === 'awaiting' ? (
+          // [composio-direct] Inline confirmation step — kept as a
+          // sibling state rather than a portal modal so the warning
+          // copy stays in the same scroll context as the toggle the
+          // user just changed. Easier to dismiss with the keyboard and
+          // composes more naturally with the existing settings panel
+          // chrome.
+          <div
+            role="alertdialog"
+            aria-labelledby="composio-confirm-title"
+            className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 p-4 space-y-3">
+            <p id="composio-confirm-title" className="text-sm font-medium text-amber-900">
+              {t('settings.composio.confirmTitle')}
+            </p>
+            <div className="text-xs text-amber-900 space-y-2">
+              <p>{t('settings.composio.confirmWarning')}</p>
+              <p>{t('settings.composio.confirmNeedItems')}</p>
+              <ol className="list-decimal list-inside space-y-0.5 ml-2">
+                <li>{t('settings.composio.confirmItem1')}</li>
+                <li>{t('settings.composio.confirmItem2')}</li>
+                <li>{t('settings.composio.confirmItem3')}</li>
+              </ol>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleCancelTransition}
+                disabled={saving}
+                className="flex-1">
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleConfirmTransition()}
+                disabled={saving}
+                className="flex-1 bg-amber-600 hover:bg-amber-500">
+                {saving ? t('settings.composio.switching') : t('settings.composio.confirmSwitch')}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => void handleSave()}
+              disabled={saving}>
+              {saving ? t('settings.composio.saving') : t('common.save')}
+            </Button>
+            <SettingsStatusLine
+              saving={false}
+              savedNote={
+                saveStatus === 'saved'
+                  ? t('composio.settingsSaved')
+                  : saveStatus === 'cleared'
+                    ? t('settings.composio.clearedToBackend')
+                    : null
+              }
+              error={saveStatus === 'error' ? t('settings.composio.saveErrorNoKey') : null}
+              savingLabel=""
+            />
+          </div>
+        )}
+      </div>
+    </PanelPage>
+  );
 };
 
 export default ComposioPanel;

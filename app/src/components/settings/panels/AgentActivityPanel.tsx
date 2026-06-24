@@ -108,10 +108,6 @@ export default function AgentActivityPanel() {
   return (
     <SettingsPanel description={t('activityLevel.description')}>
       <div className="flex flex-col gap-4">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          {t('activityLevel.description')}
-        </p>
-
         {monthlyCost && monthlyCost.total_cost_usd > 0 && (
           <div className="px-3 py-2 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm">
             <span className="font-medium text-neutral-800 dark:text-neutral-200">

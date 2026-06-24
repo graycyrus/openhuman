@@ -57,8 +57,9 @@ import {
 import { ConfirmationModal } from '../../intelligence/ConfirmationModal';
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsSelect, SettingsStatusLine, SettingsSwitch, SettingsTextField } from '../controls';
-import SettingsPanel from '../layout/SettingsPanel';
+import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import { ClaudeCodeConnect } from './ai/ClaudeCodeStatusCard';
 import { routingWithProviderRemoved, toSelectableChatModels } from './aiRouting';
 import {
@@ -2903,6 +2904,7 @@ interface AIPanelProps {
 
 const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
   const { t } = useT();
+  const { navigateBack } = useSettingsNavigation();
   const { saved, draft, isDirty, save, persist, discard, loading, error, reload } = useAISettings();
   // #1574 §4b: advisory re-embed modal, driven by the backend status RPC.
   // Logic lives in a unit-testable hook (see useReembedBackfillModal).
@@ -3134,9 +3136,13 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
         : inferredRoutingMode;
   const sharedModelRef = useMemo(() => inferSharedModelRef(draft.routing), [draft.routing]);
 
-  const aiBody = (
-    <>
-      <div className="space-y-6">
+  return (
+    <PanelPage
+      className="z-10"
+      contentClassName=""
+      description={embedded ? undefined : t('pages.settings.ai.llmDesc')}
+      leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
+      <div className={embedded ? 'space-y-6' : 'space-y-6 p-4'}>
         {/* ═══════════════════════════════════════════════════════════════
             AUTH — provider authentication (cloud providers + local Ollama
             setup). Everything the user needs to wire a model up.
@@ -3729,20 +3735,8 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
           }
         />
       )}
-    </>
+    </PanelPage>
   );
-
-  // Embedded inside a tabbed parent (e.g. onboarding): keep the headerless
-  // PanelPage so the surrounding chrome stays unchanged.
-  if (embedded) {
-    return (
-      <PanelPage className="z-10" contentClassName="">
-        {aiBody}
-      </PanelPage>
-    );
-  }
-
-  return <SettingsPanel description={t('pages.settings.ai.llmDesc')}>{aiBody}</SettingsPanel>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

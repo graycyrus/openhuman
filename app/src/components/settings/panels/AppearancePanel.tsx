@@ -160,7 +160,7 @@ const AppearancePanel = () => {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => dispatch(setThemeMode(opt.id))}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:bg-primary-500/10 dark:focus-visible:bg-primary-900/30 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
                   idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
                 } ${
                   selected
@@ -225,7 +225,7 @@ const AppearancePanel = () => {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => dispatch(setFontSize(opt.id))}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:bg-primary-500/10 dark:focus-visible:bg-primary-900/30 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
                   idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
                 } ${
                   selected

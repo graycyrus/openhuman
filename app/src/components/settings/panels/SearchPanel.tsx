@@ -10,10 +10,12 @@ import {
   type SearchSettings,
   type SearchSettingsUpdate,
 } from '../../../utils/tauriCommands/config';
+import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
 import Input from '../../ui/Input';
+import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsStatusLine, SettingsTextArea } from '../controls';
-import SettingsPanel from '../layout/SettingsPanel';
+import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 
 type Status =
   | { kind: 'idle' }
@@ -56,6 +58,7 @@ const normalizeAllowedHost = (raw: string): string =>
 
 const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
   const { t } = useT();
+  const { navigateBack } = useSettingsNavigation();
   const { snapshot } = useCoreState();
   const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
 
@@ -221,247 +224,242 @@ const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
     return false;
   };
 
-  const body = (
-    <>
-      <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
-        {t('settings.search.description')}
-      </p>
+  return (
+    <PanelPage
+      className="z-10"
+      testId="search-settings-panel"
+      contentClassName=""
+      description={embedded ? undefined : t('settings.search.menuDesc')}
+      leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
+      <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
+        <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
+          {t('settings.search.description')}
+        </p>
 
-      {isLocalSession && (
-        <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-4 py-3 text-sm text-stone-700 dark:text-neutral-200">
-          {t('settings.search.localManagedUnavailable')}
-        </div>
-      )}
+        {isLocalSession && (
+          <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 px-4 py-3 text-sm text-stone-700 dark:text-neutral-200">
+            {t('settings.search.localManagedUnavailable')}
+          </div>
+        )}
 
-      {status.kind === 'loading' && (
-        <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-xs text-stone-500 dark:text-neutral-400">
-          {t('common.loading')}
-        </div>
-      )}
+        {status.kind === 'loading' && (
+          <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-xs text-stone-500 dark:text-neutral-400">
+            {t('common.loading')}
+          </div>
+        )}
 
-      {settings && (
-        <>
-          <div
-            className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
-            role="radiogroup"
-            aria-label={t('settings.search.engineAria')}>
-            {visibleEngines.map((opt, idx) => {
-              const selected = opt.id === selectedEngine;
-              const configured = isConfigured(opt.id);
-              const blocked = opt.requiresKey && !configured && selected;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  data-testid={`search-engine-${opt.id}`}
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => void persistEngine(opt.id)}
-                  className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
-                    idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
-                  } ${
-                    selected
-                      ? 'bg-primary-50 dark:bg-primary-500/10'
-                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
-                  }`}>
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        {opt.label}
+        {settings && (
+          <>
+            <div
+              className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden"
+              role="radiogroup"
+              aria-label={t('settings.search.engineAria')}>
+              {visibleEngines.map((opt, idx) => {
+                const selected = opt.id === selectedEngine;
+                const configured = isConfigured(opt.id);
+                const blocked = opt.requiresKey && !configured && selected;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-testid={`search-engine-${opt.id}`}
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => void persistEngine(opt.id)}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
+                      idx !== 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''
+                    } ${
+                      selected
+                        ? 'bg-primary-50 dark:bg-primary-500/10'
+                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                    }`}>
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {opt.label}
+                        </span>
+                        {opt.requiresKey && (
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${
+                              configured
+                                ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/40 dark:text-sage-200'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                            }`}>
+                            {configured
+                              ? t('settings.search.statusConfigured')
+                              : t('settings.search.statusNeedsKey')}
+                          </span>
+                        )}
                       </span>
-                      {opt.requiresKey && (
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${
-                            configured
-                              ? 'bg-sage-100 text-sage-700 dark:bg-sage-900/40 dark:text-sage-200'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                          }`}>
-                          {configured
-                            ? t('settings.search.statusConfigured')
-                            : t('settings.search.statusNeedsKey')}
+                      <span className="block mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                        {opt.description}
+                      </span>
+                      {blocked && (
+                        <span className="block mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                          {t('settings.search.fallbackToManaged')}
                         </span>
                       )}
                     </span>
-                    <span className="block mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                      {opt.description}
-                    </span>
-                    {blocked && (
-                      <span className="block mt-1 text-[11px] text-amber-700 dark:text-amber-300">
-                        {t('settings.search.fallbackToManaged')}
-                      </span>
+                    {selected && (
+                      <svg
+                        className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
                     )}
-                  </span>
-                  {selected && (
-                    <svg
-                      className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* BYO API keys */}
-          <div className="space-y-3">
-            <KeyEditor
-              label={t('settings.search.parallelKeyLabel')}
-              placeholder={
-                settings.parallel_configured
-                  ? t('settings.search.placeholderStored')
-                  : t('settings.search.placeholderParallel')
-              }
-              show={showParallel}
-              onToggleShow={() => setShowParallel(s => !s)}
-              value={parallelKey}
-              onChange={setParallelKey}
-              onSave={() => void persistKey('parallel', parallelKey)}
-              onClear={() => void persistKey('parallel', '')}
-              configured={settings.parallel_configured}
-              docUrl="https://parallel.ai/"
-              t={t}
-            />
-            <KeyEditor
-              label={t('settings.search.braveKeyLabel')}
-              placeholder={
-                settings.brave_configured
-                  ? t('settings.search.placeholderStored')
-                  : t('settings.search.placeholderBrave')
-              }
-              show={showBrave}
-              onToggleShow={() => setShowBrave(s => !s)}
-              value={braveKey}
-              onChange={setBraveKey}
-              onSave={() => void persistKey('brave', braveKey)}
-              onClear={() => void persistKey('brave', '')}
-              configured={settings.brave_configured}
-              docUrl="https://brave.com/search/api/"
-              t={t}
-            />
-            <KeyEditor
-              label={t('settings.search.queritKeyLabel')}
-              placeholder={
-                settings.querit_configured
-                  ? t('settings.search.placeholderStored')
-                  : t('settings.search.placeholderQuerit')
-              }
-              show={showQuerit}
-              onToggleShow={() => setShowQuerit(s => !s)}
-              value={queritKey}
-              onChange={setQueritKey}
-              onSave={() => void persistKey('querit', queritKey)}
-              onClear={() => void persistKey('querit', '')}
-              configured={settings.querit_configured}
-              docUrl="https://www.querit.ai/en/docs/reference/post"
-              t={t}
-            />
-          </div>
-
-          {/* Allowed websites — unified host allowlist shared by web_fetch /
-                curl and (when enabled) the browser tool. Web search is not
-                gated by this list. */}
-          <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 space-y-2">
-            {/* Section heading, not a form label — use a <p> so screen
-                  readers don't announce an orphan <label> with no htmlFor. */}
-            <p className="text-xs font-semibold text-stone-700 dark:text-neutral-200">
-              {t('settings.search.allowedSitesLabel')}
-            </p>
-            <div
-              role="radiogroup"
-              aria-label={t('settings.search.accessModeAria')}
-              className="flex rounded-lg border border-stone-200 dark:border-neutral-800 overflow-hidden">
-              {(
-                [
-                  ['all', 'settings.search.accessAllowAll'],
-                  ['custom', 'settings.search.accessCustom'],
-                  ['block', 'settings.search.accessBlockAll'],
-                ] as const
-              ).map(([value, labelKey], idx) => {
-                const selected = mode === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => selectMode(value)}
-                    disabled={status.kind === 'saving'}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
-                      idx !== 0 ? 'border-l border-stone-200 dark:border-neutral-800' : ''
-                    } ${
-                      selected
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
-                    }`}>
-                    {t(labelKey)}
                   </button>
                 );
               })}
             </div>
-            <p className="text-[11px] text-stone-500 dark:text-neutral-400 leading-relaxed">
-              {mode === 'all'
-                ? t('settings.search.allowedSitesAllOn')
-                : mode === 'block'
-                  ? t('settings.search.accessBlockAllHint')
-                  : t('settings.search.allowedSitesHint')}
-            </p>
-            {mode === 'custom' && (
-              <>
-                <SettingsTextArea
-                  value={allowedText}
-                  onChange={e => setAllowedText(e.target.value)}
-                  rows={4}
-                  spellCheck={false}
-                  placeholder={t('settings.search.allowedSitesPlaceholder')}
-                  className="font-mono text-xs"
-                  aria-label={t('settings.search.allowedSitesLabel')}
-                />
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="xs"
-                  onClick={() => persistAllowedDomains()}
-                  disabled={status.kind === 'saving'}>
-                  {t('settings.search.allowedSitesSave')}
-                </Button>
-              </>
-            )}
-          </div>
 
-          <SettingsStatusLine
-            saving={status.kind === 'saving'}
-            savedNote={status.kind === 'saved' ? t('settings.search.statusSaved') : null}
-            error={
-              status.kind === 'error'
-                ? `${t('settings.search.statusError')}: ${status.message}`
-                : null
-            }
-            savingLabel={t('settings.search.statusSaving')}
-          />
-        </>
-      )}
-    </>
-  );
+            {/* BYO API keys */}
+            <div className="space-y-3">
+              <KeyEditor
+                label={t('settings.search.parallelKeyLabel')}
+                placeholder={
+                  settings.parallel_configured
+                    ? t('settings.search.placeholderStored')
+                    : t('settings.search.placeholderParallel')
+                }
+                show={showParallel}
+                onToggleShow={() => setShowParallel(s => !s)}
+                value={parallelKey}
+                onChange={setParallelKey}
+                onSave={() => void persistKey('parallel', parallelKey)}
+                onClear={() => void persistKey('parallel', '')}
+                configured={settings.parallel_configured}
+                docUrl="https://parallel.ai/"
+                t={t}
+              />
+              <KeyEditor
+                label={t('settings.search.braveKeyLabel')}
+                placeholder={
+                  settings.brave_configured
+                    ? t('settings.search.placeholderStored')
+                    : t('settings.search.placeholderBrave')
+                }
+                show={showBrave}
+                onToggleShow={() => setShowBrave(s => !s)}
+                value={braveKey}
+                onChange={setBraveKey}
+                onSave={() => void persistKey('brave', braveKey)}
+                onClear={() => void persistKey('brave', '')}
+                configured={settings.brave_configured}
+                docUrl="https://brave.com/search/api/"
+                t={t}
+              />
+              <KeyEditor
+                label={t('settings.search.queritKeyLabel')}
+                placeholder={
+                  settings.querit_configured
+                    ? t('settings.search.placeholderStored')
+                    : t('settings.search.placeholderQuerit')
+                }
+                show={showQuerit}
+                onToggleShow={() => setShowQuerit(s => !s)}
+                value={queritKey}
+                onChange={setQueritKey}
+                onSave={() => void persistKey('querit', queritKey)}
+                onClear={() => void persistKey('querit', '')}
+                configured={settings.querit_configured}
+                docUrl="https://www.querit.ai/en/docs/reference/post"
+                t={t}
+              />
+            </div>
 
-  // Embedded mode renders headerless content inside another panel's body, so it
-  // must not pull in the SettingsPanel chrome (title / back button / sub-nav).
-  if (embedded) {
-    return <div className="space-y-4">{body}</div>;
-  }
+            {/* Allowed websites — unified host allowlist shared by web_fetch /
+                curl and (when enabled) the browser tool. Web search is not
+                gated by this list. */}
+            <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 space-y-2">
+              {/* Section heading, not a form label — use a <p> so screen
+                  readers don't announce an orphan <label> with no htmlFor. */}
+              <p className="text-xs font-semibold text-stone-700 dark:text-neutral-200">
+                {t('settings.search.allowedSitesLabel')}
+              </p>
+              <div
+                role="radiogroup"
+                aria-label={t('settings.search.accessModeAria')}
+                className="flex rounded-lg border border-stone-200 dark:border-neutral-800 overflow-hidden">
+                {(
+                  [
+                    ['all', 'settings.search.accessAllowAll'],
+                    ['custom', 'settings.search.accessCustom'],
+                    ['block', 'settings.search.accessBlockAll'],
+                  ] as const
+                ).map(([value, labelKey], idx) => {
+                  const selected = mode === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => selectMode(value)}
+                      disabled={status.kind === 'saving'}
+                      className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 focus:outline-none focus-visible:bg-primary-50 dark:focus-visible:bg-primary-900/30 ${
+                        idx !== 0 ? 'border-l border-stone-200 dark:border-neutral-800' : ''
+                      } ${
+                        selected
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                      }`}>
+                      {t(labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-stone-500 dark:text-neutral-400 leading-relaxed">
+                {mode === 'all'
+                  ? t('settings.search.allowedSitesAllOn')
+                  : mode === 'block'
+                    ? t('settings.search.accessBlockAllHint')
+                    : t('settings.search.allowedSitesHint')}
+              </p>
+              {mode === 'custom' && (
+                <>
+                  <SettingsTextArea
+                    value={allowedText}
+                    onChange={e => setAllowedText(e.target.value)}
+                    rows={4}
+                    spellCheck={false}
+                    placeholder={t('settings.search.allowedSitesPlaceholder')}
+                    className="font-mono text-xs"
+                    aria-label={t('settings.search.allowedSitesLabel')}
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="xs"
+                    onClick={() => persistAllowedDomains()}
+                    disabled={status.kind === 'saving'}>
+                    {t('settings.search.allowedSitesSave')}
+                  </Button>
+                </>
+              )}
+            </div>
 
-  return (
-    <SettingsPanel testId="search-settings-panel" description={t('settings.search.menuDesc')}>
-      {body}
-    </SettingsPanel>
+            <SettingsStatusLine
+              saving={status.kind === 'saving'}
+              savedNote={status.kind === 'saved' ? t('settings.search.statusSaved') : null}
+              error={
+                status.kind === 'error'
+                  ? `${t('settings.search.statusError')}: ${status.message}`
+                  : null
+              }
+              savingLabel={t('settings.search.statusSaving')}
+            />
+          </>
+        )}
+      </div>
+    </PanelPage>
   );
 };
 

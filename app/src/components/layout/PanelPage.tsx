@@ -130,6 +130,7 @@ export default function PanelPage<T extends string = string>({
         action={action}
         className="flex-shrink-0 px-4 pt-4 pb-3"
         bgClassName={DEFAULT_PANEL_HEADER_BG}>
+        {headerExtra}
         <ChipTabs
           className="flex flex-wrap gap-1.5 pt-2"
           ariaLabel={tabsAriaLabel}
