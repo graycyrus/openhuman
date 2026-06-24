@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import PanelScaffold from '../../components/layout/PanelScaffold';
+import Button from '../../components/ui/Button';
 import {
   type AvailabilityResponse,
   type DirectoryIdentityListingsResponse,
@@ -420,12 +421,9 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
               setInput(sanitize(e.target.value));
             }}
           />
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          <Button type="submit" variant="primary" size="md" disabled={!input.trim()}>
             Check
-          </button>
+          </Button>
         </form>
 
         {availState.status === 'loading' && (
@@ -446,17 +444,17 @@ function RegisterTab({ onRegistered }: { onRegistered?: () => void }) {
                 <span className="text-xs font-medium text-green-500">
                   @{availableHandle} is available
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   disabled={busy}
                   onClick={() => {
                     reg.begin(availableHandle);
-                  }}
-                  className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                  }}>
                   {reg.state.phase === 'challenge_loading'
                     ? 'Loading…'
                     : `Register @${availableHandle}`}
-                </button>
+                </Button>
               </div>
             ) : (
               <div>
@@ -806,30 +804,33 @@ function TradingTab() {
                 )}
                 <div className="mt-2 flex gap-1">
                   {listing.listingType !== 'auction' && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      className="flex-1"
                       disabled={buying !== null}
-                      onClick={() => startBuy(listing)}
-                      className="flex-1 rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      onClick={() => startBuy(listing)}>
                       Buy
-                    </button>
+                    </Button>
                   )}
                   {listing.listingType === 'auction' && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      className="flex-1"
                       disabled={commit !== null}
-                      onClick={() => setCommit({ kind: 'bid', listing })}
-                      className="flex-1 rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      onClick={() => setCommit({ kind: 'bid', listing })}>
                       Bid
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    className="flex-1"
                     disabled={commit !== null}
-                    onClick={() => setCommit({ kind: 'offer', listing })}
-                    className="flex-1 rounded-md border border-stone-300 px-2 py-1 text-xs font-medium text-stone-700 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200">
+                    onClick={() => setCommit({ kind: 'offer', listing })}>
                     Offer
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}

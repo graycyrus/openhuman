@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import Button from '../../ui/Button';
 import InstallDialog from './InstallDialog';
 import InstalledServerDetail from './InstalledServerDetail';
 import McpInventoryPanel from './McpInventoryPanel';
@@ -225,20 +226,22 @@ const McpServersTab = () => {
   if (view.mode === 'detail' && selectedServer) {
     return (
       <div className="space-y-3">
-        <button
-          type="button"
+        <Button
+          variant="tertiary"
+          size="xs"
           onClick={() => setView({ mode: 'home' })}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          leadingIcon={
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          }>
           {t('mcp.install.back')}
-        </button>
+        </Button>
         <InstalledServerDetail
           server={selectedServer}
           connStatus={selectedConnStatus}
@@ -253,20 +256,22 @@ const McpServersTab = () => {
   if (view.mode === 'install') {
     return (
       <div className="space-y-3">
-        <button
-          type="button"
+        <Button
+          variant="tertiary"
+          size="xs"
           onClick={() => setView({ mode: 'home' })}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-500 dark:text-neutral-400 hover:text-stone-700 dark:hover:text-neutral-200 transition-colors">
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          leadingIcon={
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          }>
           {t('mcp.install.back')}
-        </button>
+        </Button>
         <InstallDialog
           qualifiedName={view.qualifiedName}
           prefillEnv={view.prefillEnv}
@@ -290,13 +295,14 @@ const McpServersTab = () => {
           aria-label={t('mcp.catalog.searchAria')}
           className="flex-1 rounded-lg border border-stone-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-800 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
         />
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="md"
           onClick={() => setInventoryOpen(true)}
           aria-label={t('mcp.inventory.openAria')}
-          className="shrink-0 rounded-lg border border-stone-200 dark:border-neutral-700 px-3 py-2 text-xs font-medium text-stone-600 dark:text-neutral-300 hover:bg-stone-50 dark:hover:bg-neutral-800">
+          className="shrink-0">
           {t('mcp.inventory.openButton')}
-        </button>
+        </Button>
       </div>
 
       {/* Filter chips */}
@@ -495,12 +501,13 @@ const McpServersTab = () => {
           catalogPage < catalogTotalPages &&
           (activeChip === 'all' || activeChip === 'registry') && (
             <div className="py-3 text-center border-t border-stone-100 dark:border-neutral-800">
-              <button
-                type="button"
+              <Button
+                variant="tertiary"
+                size="xs"
                 onClick={handleLoadMore}
-                className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                className="text-primary-600 dark:text-primary-400 hover:underline">
                 {t('mcp.catalog.loadMore')}
-              </button>
+              </Button>
             </div>
           )}
       </div>
