@@ -22,7 +22,6 @@ import {
 import { isLocalSessionToken } from '../../../utils/localSession';
 import PanelPage from '../../layout/PanelPage';
 import Button from '../../ui/Button';
-import SettingsBackButton from '../components/SettingsBackButton';
 import {
   SettingsBadge,
   SettingsRow,
@@ -31,7 +30,7 @@ import {
   SettingsStatusLine,
   SettingsTextField,
 } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 type Status =
   | { kind: 'idle' }
@@ -56,7 +55,6 @@ interface EmbeddingsPanelProps {
 
 const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
   const { snapshot, clearSession } = useCoreState();
   const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
 
@@ -101,22 +99,26 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
   }, [reload]);
 
   if (!settings) {
+    const loadingBody = (
+      <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-xs text-neutral-500 dark:text-neutral-400">
+        {status.kind === 'loading'
+          ? t('common.loading')
+          : status.kind === 'error'
+            ? status.message
+            : ''}
+      </div>
+    );
+    if (embedded) {
+      return (
+        <PanelPage contentClassName="">
+          <div>{loadingBody}</div>
+        </PanelPage>
+      );
+    }
     return (
-      <PanelPage
-        className="z-10"
-        contentClassName=""
-        description={embedded ? undefined : t('pages.settings.ai.embeddingsDesc')}
-        leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
-        <div className={embedded ? '' : 'p-4'}>
-          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-xs text-neutral-500 dark:text-neutral-400">
-            {status.kind === 'loading'
-              ? t('common.loading')
-              : status.kind === 'error'
-                ? status.message
-                : ''}
-          </div>
-        </div>
-      </PanelPage>
+      <SettingsPanel description={t('pages.settings.ai.embeddingsDesc')}>
+        {loadingBody}
+      </SettingsPanel>
     );
   }
 
@@ -388,13 +390,9 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
     }
   }
 
-  return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={embedded ? undefined : t('pages.settings.ai.embeddingsDesc')}
-      leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
-      <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
+  const panelBody = (
+    <>
+      <div className="space-y-4">
         <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
           {t('settings.embeddings.description')}
         </p>
@@ -788,7 +786,19 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
           </div>
         </div>
       )}
-    </PanelPage>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <PanelPage contentClassName="">
+        <div>{panelBody}</div>
+      </PanelPage>
+    );
+  }
+
+  return (
+    <SettingsPanel description={t('pages.settings.ai.embeddingsDesc')}>{panelBody}</SettingsPanel>
   );
 };
 

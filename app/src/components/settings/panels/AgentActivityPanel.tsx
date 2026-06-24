@@ -2,10 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import PanelPage from '../../layout/PanelPage';
-import SettingsBackButton from '../components/SettingsBackButton';
 import { SettingsStatusLine } from '../controls';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 interface ActivityLevelSettings {
   level: number;
@@ -51,7 +49,6 @@ function getCostMax(level: number): number {
 
 export default function AgentActivityPanel() {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
   const [settings, setSettings] = useState<ActivityLevelSettings | null>(null);
   const [monthlyCost, setMonthlyCost] = useState<MonthlyCostSummary | null>(null);
   const [status, setStatus] = useState<Status>('loading');
@@ -109,12 +106,8 @@ export default function AgentActivityPanel() {
   }
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('activityLevel.description')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="flex flex-col gap-4 p-4">
+    <SettingsPanel description={t('activityLevel.description')}>
+      <div className="flex flex-col gap-4">
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           {t('activityLevel.description')}
         </p>
@@ -183,6 +176,6 @@ export default function AgentActivityPanel() {
           savingLabel={t('autonomy.statusSaving')}
         />
       </div>
-    </PanelPage>
+    </SettingsPanel>
   );
 }

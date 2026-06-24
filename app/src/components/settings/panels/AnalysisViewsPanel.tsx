@@ -9,10 +9,8 @@ import GraphCohesionTab from '../../intelligence/GraphCohesionTab';
 import MemoryFreshnessTab from '../../intelligence/MemoryFreshnessTab';
 import MemoryTimelineTab from '../../intelligence/MemoryTimelineTab';
 import NamespaceOverviewTab from '../../intelligence/NamespaceOverviewTab';
-import PanelPage from '../../layout/PanelPage';
 import PillTabBar from '../../PillTabBar';
-import SettingsBackButton from '../components/SettingsBackButton';
-import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
+import SettingsPanel from '../layout/SettingsPanel';
 
 /**
  * Analysis views — the 8 parked memory-graph analysis surfaces.
@@ -34,7 +32,6 @@ type AnalysisView =
 
 const AnalysisViewsPanel = () => {
   const { t } = useT();
-  const { navigateBack } = useSettingsNavigation();
   const [activeView, setActiveView] = useState<AnalysisView>('diagram');
 
   const views: { id: AnalysisView; label: string }[] = [
@@ -49,29 +46,23 @@ const AnalysisViewsPanel = () => {
   ];
 
   return (
-    <PanelPage
-      className="z-10"
-      contentClassName=""
-      description={t('settings.analysisViews.menuDesc')}
-      leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="p-4 space-y-4">
-        <PillTabBar
-          items={views.map(view => ({ label: view.label, value: view.id }))}
-          selected={activeView}
-          onChange={setActiveView}
-          containerClassName="flex flex-wrap gap-2 pb-1"
-        />
+    <SettingsPanel description={t('settings.analysisViews.menuDesc')}>
+      <PillTabBar
+        items={views.map(view => ({ label: view.label, value: view.id }))}
+        selected={activeView}
+        onChange={setActiveView}
+        containerClassName="flex flex-wrap gap-2 pb-1"
+      />
 
-        {activeView === 'diagram' && <DiagramViewerTab />}
-        {activeView === 'centrality' && <GraphCentralityTab />}
-        {activeView === 'cohesion' && <GraphCohesionTab />}
-        {activeView === 'associations' && <EntityAssociationsTab />}
-        {activeView === 'freshness' && <MemoryFreshnessTab />}
-        {activeView === 'timeline' && <MemoryTimelineTab />}
-        {activeView === 'paths' && <ConnectionPathTab />}
-        {activeView === 'namespaces' && <NamespaceOverviewTab />}
-      </div>
-    </PanelPage>
+      {activeView === 'diagram' && <DiagramViewerTab />}
+      {activeView === 'centrality' && <GraphCentralityTab />}
+      {activeView === 'cohesion' && <GraphCohesionTab />}
+      {activeView === 'associations' && <EntityAssociationsTab />}
+      {activeView === 'freshness' && <MemoryFreshnessTab />}
+      {activeView === 'timeline' && <MemoryTimelineTab />}
+      {activeView === 'paths' && <ConnectionPathTab />}
+      {activeView === 'namespaces' && <NamespaceOverviewTab />}
+    </SettingsPanel>
   );
 };
 
