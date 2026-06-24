@@ -64,22 +64,22 @@ function ToolCallRow({
   const tone = toolCallTone(call.status);
   return (
     <div className="flex items-center gap-1.5" data-testid="subagent-tool-call">
-      <span className={`text-[9px] ${tone}`}>•</span>
-      <span className="text-[10px] text-stone-700 dark:text-neutral-200">
+      <span className={`text-[11px] ${tone}`}>•</span>
+      <span className="text-[12px] text-stone-700 dark:text-neutral-200">
         {call.displayName ?? formatToolName(call.toolName)}
       </span>
       {call.detail ? (
-        <span className="rounded bg-stone-100 px-1 font-mono text-[9px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="rounded bg-stone-100 px-1 font-mono text-[11px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
           {call.detail}
         </span>
       ) : null}
       {/* Status reads as a glyph (✓/✕) or a quiet running dot — not the raw
           "running"/"success" word, which the design treats as noise. */}
-      <span className={`text-[9px] ${tone}`} aria-hidden>
+      <span className={`text-[11px] ${tone}`} aria-hidden>
         {call.status === 'running' ? '·' : call.status === 'error' ? '✕' : '✓'}
       </span>
       {call.elapsedMs != null && call.status !== 'running' ? (
-        <span className="text-[9px] text-stone-400 dark:text-neutral-500">
+        <span className="text-[11px] text-stone-400 dark:text-neutral-500">
           {call.elapsedMs >= 1000
             ? `${(call.elapsedMs / 1000).toFixed(1)}s`
             : `${call.elapsedMs}ms`}
@@ -108,17 +108,17 @@ function ThoughtBlock({ text }: { text: string }) {
       data-testid="subagent-thought"
       className="group/thought my-0.5 border-l-2 border-stone-200 pl-2 dark:border-neutral-700">
       <summary className="flex cursor-pointer list-none items-center gap-1 select-none marker:hidden">
-        <span aria-hidden className="text-[9px] leading-none">
+        <span aria-hidden className="text-[11px] leading-none">
           💭
         </span>
-        <span className="text-[9px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
+        <span className="text-[11px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
           {t('conversations.subagent.thoughts')}
         </span>
-        <span className="text-[8px] text-stone-300 transition-transform group-open/thought:rotate-90 dark:text-neutral-600">
+        <span className="text-[10px] text-stone-300 transition-transform group-open/thought:rotate-90 dark:text-neutral-600">
           ▶
         </span>
       </summary>
-      <div className="mt-0.5 text-[10px] break-words text-stone-500 italic dark:text-neutral-400">
+      <div className="mt-0.5 text-[12px] break-words text-stone-500 italic dark:text-neutral-400">
         “{clean}”
       </div>
     </details>
@@ -149,17 +149,17 @@ function LiveResponseBlock({ text }: { text: string }) {
       data-testid="agent-live-response"
       className="group/resp mt-1.5 border-l-2 border-primary-300 pl-2 dark:border-primary-500/50">
       <summary className="flex cursor-pointer list-none items-center gap-1 select-none marker:hidden">
-        <span aria-hidden className="text-[9px] leading-none">
+        <span aria-hidden className="text-[11px] leading-none">
           💬
         </span>
-        <span className="text-[9px] font-semibold tracking-wide text-primary-500 uppercase dark:text-primary-300">
+        <span className="text-[11px] font-semibold tracking-wide text-primary-500 uppercase dark:text-primary-300">
           {t('conversations.agentTaskInsights.response')}
         </span>
-        <span className="text-[8px] text-stone-300 transition-transform group-open/resp:rotate-90 dark:text-neutral-600">
+        <span className="text-[10px] text-stone-300 transition-transform group-open/resp:rotate-90 dark:text-neutral-600">
           ▶
         </span>
       </summary>
-      <p className="mt-0.5 text-[10px] leading-snug break-words whitespace-pre-wrap text-stone-600 dark:text-neutral-300">
+      <p className="mt-0.5 text-[12px] leading-snug break-words whitespace-pre-wrap text-stone-600 dark:text-neutral-300">
         {clean.length > RESPONSE_PREVIEW_CHARS ? (
           <span className="text-stone-400 dark:text-neutral-500">…</span>
         ) : null}
@@ -226,7 +226,7 @@ export function SubagentActivityBlock({
 
   return (
     <div
-      className="mt-1 space-y-0.5 text-[10px] text-stone-500 dark:text-neutral-400"
+      className="mt-1 space-y-0.5 text-[12px] text-stone-500 dark:text-neutral-400"
       data-testid="subagent-activity">
       {headerBits.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -265,21 +265,21 @@ export function SubagentActivityBlock({
               {t('worktree.label')}
             </span>
             <span
-              className="truncate font-mono text-[10px] text-stone-500 dark:text-neutral-400"
+              className="truncate font-mono text-[12px] text-stone-500 dark:text-neutral-400"
               title={subagent.worktreePath}>
               {basename(subagent.worktreePath)}
             </span>
             {subagent.isDirty ? (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
                 {t('worktree.dirty')}
               </span>
             ) : (
-              <span className="rounded-full bg-sage-100 px-1.5 py-0.5 text-[9px] font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
+              <span className="rounded-full bg-sage-100 px-1.5 py-0.5 text-[11px] font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
                 {t('worktree.clean')}
               </span>
             )}
             {subagent.changedFiles && subagent.changedFiles.length > 0 ? (
-              <span className="text-[9px] text-stone-400 dark:text-neutral-500">
+              <span className="text-[11px] text-stone-400 dark:text-neutral-500">
                 {subagent.changedFiles.length}{' '}
                 {subagent.changedFiles.length === 1
                   ? t('worktree.changedFile')
@@ -295,7 +295,7 @@ export function SubagentActivityBlock({
           type="button"
           onClick={onView}
           data-testid="subagent-view-processing"
-          className="mt-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-500/15">
+          className="mt-0.5 rounded-full px-1.5 py-0.5 text-[12px] font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-500/15">
           {t('conversations.subagent.viewProcessing')} →
         </button>
       ) : null}
@@ -364,14 +364,14 @@ export function ToolTimelineBlock({
   return (
     <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
       <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
-        <span className="text-[11px] font-medium text-stone-500 dark:text-neutral-400">
+        <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
           {t('conversations.agentTaskInsights.title')}
         </span>
-        <span className="text-[9px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
+        <span className="text-[11px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
           ▶
         </span>
       </summary>
-      <div className="text-xs text-stone-400 dark:text-neutral-500">
+      <div className="text-sm text-stone-400 dark:text-neutral-500">
         {entries.map((entry, index) => {
           const formatted = formatTimelineEntry(entry);
           const detailContent =
@@ -395,14 +395,14 @@ export function ToolTimelineBlock({
               {expandable ? (
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
-                    <span className={`text-[11px] font-medium ${nameTone}`}>{formatted.title}</span>
-                    <span className="text-[9px] text-stone-300 transition-transform group-open/row:rotate-90 dark:text-neutral-600">
+                    <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
+                    <span className="text-[11px] text-stone-300 transition-transform group-open/row:rotate-90 dark:text-neutral-600">
                       ▶
                     </span>
                   </summary>
                   {workerRef ? (
                     <div
-                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[11px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
                       {workerRef.before}
                       <WorkerThreadRefCard
                         ref={workerRef.ref}
@@ -412,12 +412,12 @@ export function ToolTimelineBlock({
                     </div>
                   ) : formatted.detail ? (
                     <div
-                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[11px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 rounded-xl rounded-tl-md px-2.5 py-2 text-[13px] whitespace-pre-wrap break-words text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
                       {formatted.detail}
                     </div>
                   ) : detailContent ? (
                     <pre
-                      className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[10px] whitespace-pre-wrap break-all text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
+                      className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-stone-600 dark:text-neutral-300 ${BODY_SURFACE}`}>
                       {detailContent}
                     </pre>
                   ) : null}
@@ -430,7 +430,7 @@ export function ToolTimelineBlock({
                 </details>
               ) : (
                 <div className="flex items-center">
-                  <span className={`text-[11px] font-medium ${nameTone}`}>{formatted.title}</span>
+                  <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
                 </div>
               )}
             </AgentTimelineRail>
