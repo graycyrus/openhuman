@@ -119,7 +119,7 @@ describe('SubagentActivityBlock', () => {
     expect(row.textContent).not.toContain('GMAIL_READ_MESSAGES');
   });
 
-  it('renders every thought inline as a labeled "Thoughts" block (reasoning + narration)', () => {
+  it('renders every thought inline as quoted prose (reasoning + narration)', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -134,10 +134,11 @@ describe('SubagentActivityBlock', () => {
       />
     );
     const thoughts = screen.getAllByTestId('subagent-thought');
-    // Both reasoning and visible narration surface as their own Thoughts block.
+    // Both reasoning and visible narration surface as their own prose block —
+    // shown directly, with no "Thoughts" heading.
     expect(thoughts).toHaveLength(2);
-    expect(thoughts[0].textContent).toContain('Thoughts');
     expect(thoughts[0].textContent).toContain('pondering the request');
+    expect(thoughts[0].textContent).not.toContain('Thoughts');
     expect(thoughts[1].textContent).toContain('Here is what I found so far');
   });
 
@@ -166,7 +167,7 @@ describe('SubagentActivityBlock', () => {
     expect(rows[2].textContent).toContain('Found three relevant results');
   });
 
-  it('renders each thought as a collapsible details (open by default) with a thought icon', () => {
+  it('shows a thought directly as prose — no heading, no collapse', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -178,11 +179,13 @@ describe('SubagentActivityBlock', () => {
       />
     );
     const thought = screen.getByTestId('subagent-thought');
-    expect(thought.tagName).toBe('DETAILS');
-    expect(thought).toHaveAttribute('open');
-    // The thought-balloon icon sits in the clickable summary alongside the label.
-    expect(thought.querySelector('summary')?.textContent).toContain('💭');
-    expect(thought.querySelector('summary')?.textContent).toContain('Thoughts');
+    // No collapsible <details>/<summary> and no "Thoughts" heading — the text
+    // is shown directly.
+    expect(thought.tagName).not.toBe('DETAILS');
+    expect(thought.querySelector('summary')).toBeNull();
+    expect(thought.textContent).toContain('weighing the options');
+    expect(thought.textContent).not.toContain('Thoughts');
+    expect(thought.textContent).not.toContain('💭');
   });
 
   it('strips a leaked <tool_call> envelope from the thought text', () => {

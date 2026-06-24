@@ -91,37 +91,23 @@ function ToolCallRow({
 
 /**
  * The agent's reasoning or visible narration, surfaced inline in the timeline
- * as a quoted/italic "Thoughts" block at the position it streamed — so a
- * thought shows up wherever it occurred between tool calls. Both `thinking`
- * and `text` transcript items render through here. Renders nothing for an
- * all-whitespace delta so a half-streamed item never flashes an empty quote.
+ * as quoted/italic prose at the position it streamed — so a thought shows up
+ * wherever it occurred between tool calls. Shown directly (no "Thoughts"
+ * heading, no collapse). Both `thinking` and `text` transcript items render
+ * through here. Renders nothing for an all-whitespace delta so a half-streamed
+ * item never flashes an empty quote.
  */
 function ThoughtBlock({ text }: { text: string }) {
-  const { t } = useT();
   // Drop any inline `<tool_call>…</tool_call>` envelope the model emitted as
   // text — the call already shows as its own row — then flatten to one line.
   const clean = stripToolCallEnvelopes(text).replace(/\s+/g, ' ').trim();
   if (!clean) return null;
   return (
-    <details
-      open
+    <div
       data-testid="subagent-thought"
-      className="group/thought my-0.5 border-l-2 border-stone-200 pl-2 dark:border-neutral-700">
-      <summary className="flex cursor-pointer list-none items-center gap-1 select-none marker:hidden">
-        <span aria-hidden className="text-[11px] leading-none">
-          💭
-        </span>
-        <span className="text-[11px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
-          {t('conversations.subagent.thoughts')}
-        </span>
-        <span className="text-[10px] text-stone-300 transition-transform group-open/thought:rotate-90 dark:text-neutral-600">
-          ▶
-        </span>
-      </summary>
-      <div className="mt-0.5 text-[12px] break-words text-stone-500 italic dark:text-neutral-400">
-        “{clean}”
-      </div>
-    </details>
+      className="my-0.5 border-l-2 border-stone-200 pl-2 text-[12px] break-words text-stone-500 italic dark:border-neutral-700 dark:text-neutral-400">
+      “{clean}”
+    </div>
   );
 }
 
