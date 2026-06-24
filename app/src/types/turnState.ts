@@ -5,7 +5,7 @@
  * to surface interrupted turns left behind by a previous core process.
  */
 
-export type PersistedTurnLifecycle = 'started' | 'streaming' | 'interrupted';
+export type PersistedTurnLifecycle = 'started' | 'streaming' | 'interrupted' | 'completed';
 
 export type PersistedTurnPhase = 'thinking' | 'tool_use' | 'subagent';
 
@@ -59,7 +59,23 @@ export interface PersistedSubagentToolCall {
   iteration?: number;
   elapsedMs?: number;
   outputChars?: number;
+  /** Server-computed human label for this child call (from `Tool::display_label`). */
+  displayName?: string;
+  /** Server-computed contextual detail (path / recipient / query). */
+  detail?: string;
 }
+
+/**
+ * One ordered item in the parent turn's processing transcript — the
+ * interleaved record of narration, reasoning, and tool calls used to render
+ * the "View processing" panel (mirrors the Rust `TranscriptItem`). `seq` is a
+ * monotonic per-turn ordering key; a `toolCall` item points at a row in
+ * {@link PersistedTurnState.toolTimeline} by `callId`.
+ */
+export type PersistedTranscriptItem =
+  | { kind: 'narration'; round: number; seq: number; text: string }
+  | { kind: 'thinking'; round: number; seq: number; text: string }
+  | { kind: 'toolCall'; round: number; seq: number; callId: string };
 
 export interface PersistedSubagentActivity {
   taskId: string;
@@ -101,6 +117,9 @@ export interface PersistedTurnState {
   streamingText: string;
   thinking: string;
   toolTimeline: PersistedToolTimelineEntry[];
+  /** Ordered narration/thinking/tool transcript for the processing panel.
+   *  Absent on snapshots written before this field. */
+  transcript?: PersistedTranscriptItem[];
   taskBoard?: TaskBoard | null;
   startedAt: string;
   updatedAt: string;

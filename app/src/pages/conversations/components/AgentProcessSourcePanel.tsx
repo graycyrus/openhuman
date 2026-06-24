@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
+import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { type AgentSource, extractAgentSources } from '../../../utils/toolTimelineFormatting';
 import { AgentSparkIcon } from './AgentTimelineRail';
+import { ProcessingTranscriptView } from './ProcessingTranscriptView';
 import { ToolTimelineBlock } from './ToolTimelineBlock';
 
 /** Compact globe glyph for a source row. Inherits `currentColor`. */
@@ -64,10 +65,15 @@ function AgentSourceRow({ source }: { source: AgentSource }) {
 export function AgentProcessSourcePanel({
   open,
   entries,
+  transcript = [],
   onClose,
 }: {
   open: boolean;
   entries: ToolTimelineEntry[];
+  /** Ordered narration/thinking/tool transcript. When present, the panel
+   *  renders the interleaved Hermes view; otherwise it falls back to the
+   *  tool-only timeline. */
+  transcript?: ProcessingTranscriptItem[];
   onClose: () => void;
 }) {
   const { t } = useT();
@@ -119,7 +125,11 @@ export function AgentProcessSourcePanel({
             <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
               {t('conversations.agentTaskInsights.stepsHeading')}
             </h3>
-            {entries.length > 0 ? (
+            {transcript.length > 0 ? (
+              // Hermes-style interleaved narration + grouped, human-labeled steps.
+              <ProcessingTranscriptView transcript={transcript} entries={entries} />
+            ) : entries.length > 0 ? (
+              // Legacy snapshot (no transcript): fall back to the tool timeline.
               <ToolTimelineBlock entries={entries} expandAllRows />
             ) : (
               <p className="text-xs text-stone-400 italic dark:text-neutral-500">

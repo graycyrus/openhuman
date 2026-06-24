@@ -3079,6 +3079,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'কোনো ধাপ রেকর্ড করা হয়নি',
   'conversations.agentTaskInsights.viewProcessSource': 'সম্পূর্ণ এজেন্ট প্রক্রিয়ার উৎস দেখুন',
   'conversations.agentTaskInsights.processing': 'প্রসেসিং',
+  'conversations.agentTaskInsights.done': 'সম্পন্ন',
   'daemon.serviceBlockingGate.body': 'বডি',
   'daemon.serviceBlockingGate.downloadHint': 'ডাউনলোড হিন্ট',
   'daemon.serviceBlockingGate.downloadLatest': 'সর্বশেষ সংস্করণ ডাউনলোড করুন',

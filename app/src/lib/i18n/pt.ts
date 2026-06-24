@@ -3129,6 +3129,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'Nenhuma etapa registrada',
   'conversations.agentTaskInsights.viewProcessSource': 'Ver a fonte completa do processo do agente',
   'conversations.agentTaskInsights.processing': 'Processando',
+  'conversations.agentTaskInsights.done': 'Concluído',
   'daemon.serviceBlockingGate.body': 'Corpo',
   'daemon.serviceBlockingGate.downloadHint': 'Dica de download',
   'daemon.serviceBlockingGate.downloadLatest': 'Baixar Versão Mais Recente',

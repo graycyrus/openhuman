@@ -28,6 +28,81 @@ fn iteration_start_promotes_lifecycle_and_records_round() {
 }
 
 #[test]
+fn transcript_interleaves_narration_thinking_and_tools_in_order() {
+    let (_d, mut m) = fresh("t");
+    // A turn that thinks, narrates, calls a tool, then narrates again. The
+    // transcript must preserve that exact streaming order via `seq`, coalesce
+    // consecutive same-kind deltas in the same round, and carry the server
+    // label through onto the tool row.
+    m.observe(&AgentProgress::ThinkingDelta {
+        delta: "Let me ".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::ThinkingDelta {
+        delta: "check.".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::TextDelta {
+        delta: "Reading your inbox".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::ToolCallStarted {
+        call_id: "tc-1".into(),
+        tool_name: "gmail_read".into(),
+        arguments: serde_json::json!({ "to": "x@y.com" }),
+        iteration: 1,
+        display_label: Some("Reading messages".into()),
+        display_detail: Some("x@y.com".into()),
+    });
+    m.observe(&AgentProgress::TextDelta {
+        delta: "Done.".into(),
+        iteration: 1,
+    });
+
+    let s = m.snapshot();
+    assert_eq!(
+        s.transcript.len(),
+        4,
+        "thinking, narration, tool, narration"
+    );
+    match &s.transcript[0] {
+        TranscriptItem::Thinking { text, seq, .. } => {
+            assert_eq!(text, "Let me check.", "coalesced same-round thinking");
+            assert_eq!(*seq, 0);
+        }
+        other => panic!("expected thinking first, got {other:?}"),
+    }
+    match &s.transcript[1] {
+        TranscriptItem::Narration { text, .. } => assert_eq!(text, "Reading your inbox"),
+        other => panic!("expected narration, got {other:?}"),
+    }
+    match &s.transcript[2] {
+        TranscriptItem::ToolCall { call_id, .. } => assert_eq!(call_id, "tc-1"),
+        other => panic!("expected tool call, got {other:?}"),
+    }
+    match &s.transcript[3] {
+        TranscriptItem::Narration { text, .. } => assert_eq!(text, "Done."),
+        other => panic!("expected trailing narration, got {other:?}"),
+    }
+    // seq is strictly increasing in push order.
+    let seqs: Vec<u32> = s
+        .transcript
+        .iter()
+        .map(|i| match i {
+            TranscriptItem::Narration { seq, .. }
+            | TranscriptItem::Thinking { seq, .. }
+            | TranscriptItem::ToolCall { seq, .. } => *seq,
+        })
+        .collect();
+    assert_eq!(seqs, vec![0, 1, 2, 3]);
+
+    // The server label/detail landed on the timeline row the transcript points to.
+    let row = s.tool_timeline.iter().find(|e| e.id == "tc-1").unwrap();
+    assert_eq!(row.display_name.as_deref(), Some("Reading messages"));
+    assert_eq!(row.detail.as_deref(), Some("x@y.com"));
+}
+
+#[test]
 fn tool_call_start_and_complete_track_timeline() {
     let (_d, mut m) = fresh("t");
     m.observe(&AgentProgress::IterationStarted {
@@ -39,6 +114,8 @@ fn tool_call_start_and_complete_track_timeline() {
         tool_name: "shell".into(),
         arguments: serde_json::json!({}),
         iteration: 1,
+        display_label: None,
+        display_detail: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline.len(), 1);
@@ -105,6 +182,8 @@ fn tool_call_started_reuses_args_delta_placeholder_for_same_call_id() {
         tool_name: "shell".into(),
         arguments: serde_json::json!({}),
         iteration: 1,
+        display_label: None,
+        display_detail: None,
     });
     let timeline = &m.snapshot().tool_timeline;
     assert_eq!(
@@ -184,16 +263,24 @@ fn task_board_update_is_stored_and_flushed() {
 }
 
 #[test]
-fn turn_completed_deletes_snapshot_and_finish_is_noop() {
+fn turn_completed_keeps_snapshot_as_completed_and_finish_is_noop() {
     let dir = tempdir().expect("tempdir");
     let store = TurnStateStore::new(dir.path().to_path_buf());
     let mut mirror = TurnStateMirror::new(store.clone(), "t", "req-1");
     mirror.observe(&AgentProgress::TurnCompleted { iterations: 3 });
-    assert!(store.get("t").expect("get").is_none());
+    // The snapshot is kept (not deleted) so a reloaded client can replay the
+    // finished turn's processing transcript, marked terminal `Completed` with
+    // the live fields quiesced.
+    let loaded = store.get("t").expect("get").expect("snapshot kept");
+    assert_eq!(loaded.lifecycle, TurnLifecycle::Completed);
+    assert!(loaded.active_tool.is_none());
+    assert!(loaded.active_subagent.is_none());
+    assert!(loaded.phase.is_none());
 
-    // finish() must not resurrect the snapshot.
+    // finish() must not flip a completed snapshot back to interrupted.
     mirror.finish();
-    assert!(store.get("t").expect("get").is_none());
+    let after = store.get("t").expect("get").expect("snapshot still kept");
+    assert_eq!(after.lifecycle, TurnLifecycle::Completed);
 }
 
 #[test]
@@ -240,6 +327,8 @@ fn subagent_lifecycle_records_and_clears_active() {
         tool_name: "search".into(),
         arguments: serde_json::Value::Null,
         iteration: 1,
+        display_label: None,
+        display_detail: None,
     });
     let activity = m.snapshot().tool_timeline[0]
         .subagent

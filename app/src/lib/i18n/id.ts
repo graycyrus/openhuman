@@ -3083,6 +3083,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'Tidak ada langkah yang tercatat',
   'conversations.agentTaskInsights.viewProcessSource': 'Lihat sumber proses agen lengkap',
   'conversations.agentTaskInsights.processing': 'Memproses',
+  'conversations.agentTaskInsights.done': 'Selesai',
   'daemon.serviceBlockingGate.body': 'Isi',
   'daemon.serviceBlockingGate.downloadHint': 'Petunjuk unduhan',
   'daemon.serviceBlockingGate.downloadLatest': 'Unduh Versi Terbaru',

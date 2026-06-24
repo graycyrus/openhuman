@@ -3626,6 +3626,7 @@ const en: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'No steps recorded',
   'conversations.agentTaskInsights.viewProcessSource': 'View full agent process Source',
   'conversations.agentTaskInsights.processing': 'Processing',
+  'conversations.agentTaskInsights.done': 'Done',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':

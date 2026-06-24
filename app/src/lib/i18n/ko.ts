@@ -3055,6 +3055,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': '기록된 단계 없음',
   'conversations.agentTaskInsights.viewProcessSource': '전체 에이전트 프로세스 소스 보기',
   'conversations.agentTaskInsights.processing': '처리 중',
+  'conversations.agentTaskInsights.done': '완료',
   'daemon.serviceBlockingGate.body': '본문',
   'daemon.serviceBlockingGate.downloadHint': '다운로드 안내',
   'daemon.serviceBlockingGate.downloadLatest': '최신 버전 다운로드',

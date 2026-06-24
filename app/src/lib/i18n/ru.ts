@@ -3102,6 +3102,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'Шаги не записаны',
   'conversations.agentTaskInsights.viewProcessSource': 'Показать полный источник процесса агента',
   'conversations.agentTaskInsights.processing': 'Обработка',
+  'conversations.agentTaskInsights.done': 'Готово',
   'daemon.serviceBlockingGate.body': 'Текст',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',

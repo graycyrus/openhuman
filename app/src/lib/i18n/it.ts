@@ -3125,6 +3125,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource':
     "Visualizza l'origine completa del processo dell'agente",
   'conversations.agentTaskInsights.processing': 'Elaborazione',
+  'conversations.agentTaskInsights.done': 'Completato',
   'daemon.serviceBlockingGate.body': 'Corpo',
   'daemon.serviceBlockingGate.downloadHint': 'Suggerimento di download',
   'daemon.serviceBlockingGate.downloadLatest': "Scarica l'ultima versione",

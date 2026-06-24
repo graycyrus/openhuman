@@ -3080,6 +3080,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'कोई चरण दर्ज नहीं किया गया',
   'conversations.agentTaskInsights.viewProcessSource': 'पूर्ण एजेंट प्रक्रिया स्रोत देखें',
   'conversations.agentTaskInsights.processing': 'प्रोसेसिंग',
+  'conversations.agentTaskInsights.done': 'पूर्ण',
   'daemon.serviceBlockingGate.body': 'विवरण',
   'daemon.serviceBlockingGate.downloadHint': 'डाउनलोड संकेत',
   'daemon.serviceBlockingGate.downloadLatest': 'नवीनतम संस्करण डाउनलोड करें',

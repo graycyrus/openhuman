@@ -286,6 +286,7 @@ const Conversations = ({
   // behaviour stays intact.
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
+  const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
   const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
@@ -1339,6 +1340,9 @@ const Conversations = ({
 
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? [])
+    : [];
+  const selectedThreadProcessing = selectedThreadId
+    ? (processingByThread[selectedThreadId] ?? [])
     : [];
   // Detached background sub-agents (mode === 'async') spawned in this thread.
   const backgroundProcesses = useMemo(
@@ -2752,6 +2756,7 @@ const Conversations = ({
       <AgentProcessSourcePanel
         open={showProcessSource}
         entries={selectedThreadToolTimeline}
+        transcript={selectedThreadProcessing}
         onClose={() => setShowProcessSource(false)}
       />
     </div>

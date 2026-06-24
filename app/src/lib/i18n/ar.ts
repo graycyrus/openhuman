@@ -3015,6 +3015,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.noSteps': 'لم يتم تسجيل أي خطوات',
   'conversations.agentTaskInsights.viewProcessSource': 'عرض مصدر عملية الوكيل الكامل',
   'conversations.agentTaskInsights.processing': 'قيد المعالجة',
+  'conversations.agentTaskInsights.done': 'تم',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل أحدث إصدار',

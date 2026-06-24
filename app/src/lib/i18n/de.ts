@@ -3153,6 +3153,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource':
     'Vollständige Agentenprozess-Quelle anzeigen',
   'conversations.agentTaskInsights.processing': 'Wird verarbeitet',
+  'conversations.agentTaskInsights.done': 'Fertig',
   'daemon.serviceBlockingGate.body': 'Körper',
   'daemon.serviceBlockingGate.downloadHint': 'Hinweis herunterladen',
   'daemon.serviceBlockingGate.downloadLatest': 'Lade die neueste Version herunter',

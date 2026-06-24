@@ -55,6 +55,10 @@ function ToolCallRow({
     status: ToolTimelineEntryStatus;
     elapsedMs?: number;
     iteration?: number;
+    /** Server-computed human label; preferred over the client formatter. */
+    displayName?: string;
+    /** Server-computed contextual detail (path / recipient / query). */
+    detail?: string;
   };
 }) {
   const tone = toolCallTone(call.status);
@@ -62,12 +66,18 @@ function ToolCallRow({
     <div className="flex items-center gap-1.5" data-testid="subagent-tool-call">
       <span className={`text-[9px] ${tone}`}>•</span>
       <span className="text-[10px] text-stone-700 dark:text-neutral-200">
-        {formatToolName(call.toolName)}
+        {call.displayName ?? formatToolName(call.toolName)}
       </span>
-      {call.iteration != null ? (
-        <span className="text-[9px] text-stone-400 dark:text-neutral-500">·t{call.iteration}</span>
+      {call.detail ? (
+        <span className="rounded bg-stone-100 px-1 font-mono text-[9px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+          {call.detail}
+        </span>
       ) : null}
-      <span className={`text-[9px] ${tone}`}>{call.status}</span>
+      {/* Status reads as a glyph (✓/✕) or a quiet running dot — not the raw
+          "running"/"success" word, which the design treats as noise. */}
+      <span className={`text-[9px] ${tone}`} aria-hidden>
+        {call.status === 'running' ? '·' : call.status === 'error' ? '✕' : '✓'}
+      </span>
       {call.elapsedMs != null && call.status !== 'running' ? (
         <span className="text-[9px] text-stone-400 dark:text-neutral-500">
           {call.elapsedMs >= 1000

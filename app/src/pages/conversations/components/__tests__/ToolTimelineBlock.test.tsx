@@ -80,14 +80,43 @@ describe('SubagentActivityBlock', () => {
     );
     const calls = screen.getAllByTestId('subagent-tool-call');
     expect(calls).toHaveLength(3);
+    // Human labels + timing, with status as a glyph (✓ / · / ✕) instead of the
+    // raw "running"/"success" word the design treats as noise.
     expect(calls[0].textContent).toContain('Searching the web');
-    expect(calls[0].textContent).toContain('success');
+    expect(calls[0].textContent).toContain('✓');
     expect(calls[0].textContent).toContain('312ms');
+    expect(calls[0].textContent).not.toContain('success');
     expect(calls[1].textContent).toContain('Composio Execute');
-    expect(calls[1].textContent).toContain('running');
-    expect(calls[1].textContent).toContain('·t2');
+    expect(calls[1].textContent).not.toContain('running');
+    expect(calls[1].textContent).not.toContain('·t2');
     expect(calls[2].textContent).toContain('Reading file');
-    expect(calls[2].textContent).toContain('error');
+    expect(calls[2].textContent).toContain('✕');
+    expect(calls[2].textContent).toContain('50ms');
+  });
+
+  it('prefers the server-supplied label + contextual detail for a child tool call', () => {
+    renderInStore(
+      <SubagentActivityBlock
+        subagent={{
+          taskId: 't',
+          agentId: 'researcher',
+          toolCalls: [
+            {
+              callId: 'c1',
+              toolName: 'GMAIL_READ_MESSAGES',
+              status: 'success',
+              displayName: 'Reading messages',
+              detail: 'steven@gmail.com',
+            },
+          ],
+        }}
+      />
+    );
+    const row = screen.getByTestId('subagent-tool-call');
+    expect(row.textContent).toContain('Reading messages');
+    expect(row.textContent).toContain('steven@gmail.com');
+    // Never the raw snake_case slug.
+    expect(row.textContent).not.toContain('GMAIL_READ_MESSAGES');
   });
 
   it('renders every thought inline as a labeled "Thoughts" block (reasoning + narration)', () => {

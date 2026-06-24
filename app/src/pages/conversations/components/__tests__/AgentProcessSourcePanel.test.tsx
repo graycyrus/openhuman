@@ -98,6 +98,31 @@ describe('AgentProcessSourcePanel', () => {
     expect(screen.queryByTestId('subagent-view-processing')).toBeNull();
   });
 
+  it('renders the interleaved transcript (thoughts + grouped human steps) when present', () => {
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[
+          { id: 'c1', name: 'file_read', round: 1, status: 'success' },
+          { id: 'c2', name: 'file_read', round: 1, status: 'success' },
+        ]}
+        transcript={[
+          { kind: 'narration', round: 1, seq: 0, text: 'Let me check both docs first.' },
+          { kind: 'toolCall', round: 1, seq: 1, callId: 'c1' },
+          { kind: 'toolCall', round: 1, seq: 2, callId: 'c2' },
+          { kind: 'narration', round: 1, seq: 3, text: 'Now I can see what is missing.' },
+        ]}
+        onClose={() => {}}
+      />
+    );
+    // Narration prose renders (the thoughts the user wanted surfaced).
+    expect(screen.getByText('Let me check both docs first.')).toBeInTheDocument();
+    expect(screen.getByText('Now I can see what is missing.')).toBeInTheDocument();
+    // The two consecutive reads collapse into one human-summarized group.
+    expect(screen.getByText('Read 2 files')).toBeInTheDocument();
+    expect(screen.getByTestId('processing-transcript')).toBeInTheDocument();
+  });
+
   it('renders no source rows when no web tools were used', () => {
     renderPanel(
       <AgentProcessSourcePanel
