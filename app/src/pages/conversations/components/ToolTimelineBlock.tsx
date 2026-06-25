@@ -412,10 +412,15 @@ export function ToolTimelineBlock({
               isFirst={index === 0}
               isLast={index === entries.length - 1}>
               {compact ? (
-                // Finished step: a single line — the human label (its tone
-                // conveys status) + a "View details →" link to the full-run panel.
+                // Collapsed step: a single line — the human label + a
+                // "View details →" link to the full-run panel. A collapsed row
+                // is backgrounded, so it never pulses — only the single active
+                // (expanded) step blinks. Strip `animate-pulse` from the tone.
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
+                  <span
+                    className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')}`}>
+                    {formatted.title}
+                  </span>
                   <button
                     type="button"
                     onClick={onViewDetails}
