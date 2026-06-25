@@ -7,6 +7,13 @@ import type {
   ToolTimelineEntry,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
+import { useBackgroundActivity } from '../hooks/useBackgroundActivity';
+import {
+  CronJobRow,
+  MemorySection,
+  SectionHeader,
+  SubconsciousRow,
+} from './BackgroundActivityRows';
 
 /**
  * A background process = a *detached* sub-agent spawned with
@@ -120,6 +127,8 @@ export function BackgroundProcessesPanel({
   onOpenProcess,
 }: BackgroundProcessesPanelProps) {
   const { t } = useT();
+  // Cron jobs + subconscious + memory syncing — fetched only while open.
+  const activity = useBackgroundActivity(open);
 
   useEffect(() => {
     if (!open) return;
@@ -172,13 +181,15 @@ export function BackgroundProcessesPanel({
           </Button>
         </header>
 
-        {processes.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-stone-400 dark:text-neutral-500">
-            {t('conversations.backgroundTasks.empty')}
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto p-2">
-            {processes.map(p => {
+        <div className="flex-1 overflow-y-auto p-2">
+          {/* Section 1 — detached sub-agents spawned in this chat. */}
+          <SectionHeader title={t('conversations.backgroundTasks.sectionThisChat')} />
+          {processes.length === 0 ? (
+            <div className="px-2.5 py-2 text-[12px] text-stone-400 dark:text-neutral-500">
+              {t('conversations.backgroundTasks.empty')}
+            </div>
+          ) : (
+            processes.map(p => {
               const s = statusStyle(p.status);
               const toolCallLabel = (
                 p.toolCount === 1
@@ -217,9 +228,31 @@ export function BackgroundProcessesPanel({
                   </span>
                 </button>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
+
+          {/* Section 2 — scheduled (cron) jobs, global, view-only. */}
+          <SectionHeader title={t('conversations.backgroundTasks.sectionScheduled')} />
+          {activity.cronJobs.length === 0 ? (
+            <div className="px-2.5 py-2 text-[12px] text-stone-400 dark:text-neutral-500">
+              {t('conversations.backgroundTasks.cronEmpty')}
+            </div>
+          ) : (
+            activity.cronJobs.map(job => <CronJobRow key={job.id} job={job} />)
+          )}
+
+          {/* Section 3 — subconscious / background-thinking loop. */}
+          {activity.subconscious ? (
+            <>
+              <SectionHeader title={t('conversations.backgroundTasks.sectionSubconscious')} />
+              <SubconsciousRow summary={activity.subconscious} />
+            </>
+          ) : null}
+
+          {/* Section 4 — memory syncing / ingestion. */}
+          <SectionHeader title={t('conversations.backgroundTasks.sectionMemory')} />
+          <MemorySection memory={activity.memory} />
+        </div>
       </aside>
     </div>
   );

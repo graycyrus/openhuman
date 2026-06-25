@@ -28,6 +28,15 @@ export interface ChatToolCallEvent {
    * this id for end-to-end reconciliation.
    */
   tool_call_id?: string;
+  /**
+   * Server-computed human label for this call (e.g. "Reading messages"),
+   * set by the Rust `Tool::display_label`. Present for dynamic
+   * Composio/MCP/integration tools the client can't label itself; absent
+   * for built-ins the client formatter already handles.
+   */
+  tool_display_label?: string;
+  /** Server-computed contextual detail (e.g. "steven@gmail.com"). */
+  tool_display_detail?: string;
 }
 
 export interface ChatToolResultEvent {
@@ -307,6 +316,10 @@ export interface ChatSubagentToolCallEvent {
    * with no/`null` arguments.
    */
   args?: unknown;
+  /** Server-computed human label for this child call (from `Tool::display_label`). */
+  tool_display_label?: string;
+  /** Server-computed contextual detail (path / recipient / query). */
+  tool_display_detail?: string;
   subagent?: SubagentProgressDetail;
 }
 
@@ -1057,6 +1070,26 @@ export async function chatCancel(threadId: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Clear the run-queue (steer/followup/collect lanes) for a thread via core RPC.
+ * Used when the user dismisses queued follow-ups so the backend drops them
+ * instead of dispatching them after the current turn. Returns the number of
+ * dropped messages on success, or `null` when the RPC fails — the caller must
+ * distinguish these: on failure the backend queue is still intact and WILL
+ * dispatch the follow-ups, so the UI must keep the pills rather than hide them.
+ */
+export async function chatClearQueue(threadId: string): Promise<number | null> {
+  try {
+    const res = await callCoreRpc<{ dropped?: number }>({
+      method: 'openhuman.channel_web_queue_clear',
+      params: { thread_id: threadId },
+    });
+    return res?.dropped ?? 0;
+  } catch {
+    return null;
   }
 }
 

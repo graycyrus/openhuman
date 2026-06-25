@@ -363,6 +363,9 @@ pub fn all_tools_with_runtime(
         Box::new(ThreadUpdateTitleTool),
         Box::new(ThreadUpdateLabelsTool),
         Box::new(ThreadMessageListTool),
+        // Read-only cross-thread transcript search (trigram index). Lets the
+        // context scout and other agents recall what was said in earlier chats.
+        Box::new(ThreadTranscriptSearchTool),
         Box::new(ThreadMessageAppendTool),
         Box::new(ThreadMessageUpdateTool),
         Box::new(ThreadTitleGenerateTool),
@@ -570,6 +573,24 @@ pub fn all_tools_with_runtime(
         ));
         tools.push(Box::new(
             crate::openhuman::memory_goals::GoalsDeleteTool::new(goals_dir),
+        ));
+    }
+
+    // Thread-level goal tools (Codex-style per-thread completion contract).
+    // Visible only to agents that allowlist them (orchestrator). The target
+    // thread is resolved from the ambient `thread_id`, so no thread arg is
+    // taken. `goal_get`/`goal_set`/`goal_complete` — pause/resume/budget are
+    // system-driven and have no model tool.
+    {
+        let goal_dir = root_config.workspace_dir.clone();
+        tools.push(Box::new(crate::openhuman::thread_goals::GoalGetTool::new(
+            goal_dir.clone(),
+        )));
+        tools.push(Box::new(crate::openhuman::thread_goals::GoalSetTool::new(
+            goal_dir.clone(),
+        )));
+        tools.push(Box::new(
+            crate::openhuman::thread_goals::GoalCompleteTool::new(goal_dir),
         ));
     }
 

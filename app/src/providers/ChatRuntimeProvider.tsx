@@ -22,14 +22,17 @@ import {
 } from '../services/chatService';
 import { store } from '../store';
 import {
+  appendProcessingProse,
   appendSubagentStreamDelta,
   clearInferenceStatusForThread,
   clearParallelRequest,
   clearPendingApprovalForThread,
+  clearProcessingForThread,
   clearStreamingAssistantForThread,
   endInferenceTurn,
   markInferenceTurnStreaming,
   recordChatTurnUsage,
+  recordProcessingTool,
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,
   setInferenceStatusForThread,
@@ -48,6 +51,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
 import {
   addInferenceResponse,
+  addMessageLocal,
   clearThreadInferenceActive,
   createNewThread,
   generateThreadTitleIfNeeded,
@@ -55,7 +59,11 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import { IS_PROD } from '../utils/config';
-import { formatTimelineEntry, promptFromArgsBuffer } from '../utils/toolTimelineFormatting';
+import {
+  formatTimelineEntry,
+  isKnownClientTool,
+  promptFromArgsBuffer,
+} from '../utils/toolTimelineFormatting';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
 const USER_FACING_AGENT_ERROR_MESSAGE =
@@ -339,10 +347,49 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
 
     const decorateEntry = (entry: ToolTimelineEntry): ToolTimelineEntry => {
       const formatted = formatTimelineEntry(entry);
-      return { ...entry, displayName: formatted.title, detail: formatted.detail };
+      // The server now attaches a human label/detail for dynamic
+      // Composio/MCP/integration tools the client can't know. Trust it for
+      // those; for the fixed set of built-ins the client formatter labels
+      // well (with args-aware detail), the client label stays authoritative.
+      if (entry.displayName && !isKnownClientTool(entry.name)) {
+        return {
+          ...entry,
+          displayName: entry.displayName,
+          detail: entry.detail ?? formatted.detail,
+        };
+      }
+      return { ...entry, displayName: formatted.title, detail: formatted.detail ?? entry.detail };
     };
 
-    const finishChatDoneTurn = (event: ChatDoneEvent, path: string) => {
+    // When a turn ends, any follow-ups the user queued behind it are about to be
+    // dispatched by the backend as fresh turns. Nothing else persists their
+    // prompt — the web channel never writes user messages; the composer does
+    // (`addMessageLocal` → `appendMessage`) — so append them to the transcript
+    // now. Doing it here (after this turn's assistant reply was appended, before
+    // `endInferenceTurn` clears the pills) keeps the append-log order correct:
+    // user → assistant → queued follow-up. Without this the queued prompts are
+    // lost on reload and the dispatched answer has no visible user message.
+    const flushQueuedFollowups = async (threadId: string) => {
+      const queued = store.getState().chatRuntime.queuedFollowupsByThread[threadId] ?? [];
+      // Persist sequentially so the queued prompts land in the append-log in the
+      // order the user queued them (concurrent dispatches would race), and
+      // surface failures instead of dropping them silently. The stored message
+      // carries the original content + attachment metadata, so the follow-up
+      // persists identically to an interactive send.
+      for (const item of queued) {
+        try {
+          await dispatch(addMessageLocal({ threadId, message: item.message })).unwrap();
+        } catch (error) {
+          rtLog('flush_followup_append_failed', {
+            thread: threadId,
+            message: item.message.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    };
+
+    const finishChatDoneTurn = async (event: ChatDoneEvent, path: string) => {
       rtLog('refresh_usage_counter', {
         thread: event.thread_id,
         request: event.request_id,
@@ -356,6 +403,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         path,
       });
       refetchSnapshot();
+      // Persist queued follow-ups (in order, after this turn's assistant reply)
+      // and only then clear the queue + lifecycle.
+      await flushQueuedFollowups(event.thread_id);
       dispatch(endInferenceTurn({ threadId: event.thread_id }));
       dispatch(clearThreadInferenceActive(event.thread_id));
     };
@@ -364,6 +414,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     const cleanup = subscribeChatEvents({
       onInferenceStart: (event: ChatInferenceStartEvent) => {
         rtLog('inference_start', { thread: event.thread_id, request: event.request_id });
+        // Fresh turn: drop the previous turn's live processing transcript so a
+        // new turn's narration/steps don't append onto the old one.
+        dispatch(clearProcessingForThread({ threadId: event.thread_id }));
         dispatch(markInferenceTurnStreaming({ threadId: event.thread_id }));
         dispatch(
           setInferenceStatusForThread({
@@ -414,6 +467,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           ? existing.findIndex(entry => entry.id === event.tool_call_id)
           : -1;
 
+        // Stable row id, shared with the processing-transcript tool pointer so
+        // the panel can resolve the row by `callId`.
+        const rowId =
+          event.tool_call_id ??
+          `${event.thread_id}:${event.round}:${existing.length}:${event.tool_name}`;
+
         let entries: ToolTimelineEntry[];
         if (existingIdx >= 0) {
           entries = [...existing];
@@ -422,21 +481,26 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             name: event.tool_name,
             round: event.round,
             status: 'running',
+            displayName: event.tool_display_label ?? entries[existingIdx].displayName,
+            detail: event.tool_display_detail ?? entries[existingIdx].detail,
           });
         } else {
           entries = [
             ...existing,
             decorateEntry({
-              id:
-                event.tool_call_id ??
-                `${event.thread_id}:${event.round}:${existing.length}:${event.tool_name}`,
+              id: rowId,
               name: event.tool_name,
               round: event.round,
               status: 'running',
+              displayName: event.tool_display_label,
+              detail: event.tool_display_detail,
             }),
           ];
         }
         dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
+        dispatch(
+          recordProcessingTool({ threadId: event.thread_id, round: event.round, callId: rowId })
+        );
       },
       onToolResult: (event: ChatToolResultEvent) => {
         const eventKey = `tool_result:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.success}:${event.tool_call_id ?? ''}`;
@@ -642,6 +706,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 status: 'running',
                 iteration: event.subagent?.child_iteration,
                 args: event.args,
+                displayName: event.tool_display_label,
+                detail: event.tool_display_detail,
               },
             ],
           },
@@ -657,6 +723,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             toolName: event.tool_name,
             iteration: event.subagent?.child_iteration,
             args: event.args,
+            displayName: event.tool_display_label,
+            detail: event.tool_display_detail,
           })
         );
       },
@@ -771,6 +839,16 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           };
         }
         dispatch(setStreamingAssistantForThread({ threadId: event.thread_id, streaming }));
+        // Build the live interleaved processing transcript so a mid-turn
+        // "View processing" isn't empty (the persisted one lands on settle).
+        dispatch(
+          appendProcessingProse({
+            threadId: event.thread_id,
+            kind: 'narration',
+            round: event.round,
+            delta: event.delta,
+          })
+        );
       },
       onThinkingDelta: event => {
         const cr = store.getState().chatRuntime;
@@ -800,6 +878,14 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           };
         }
         dispatch(setStreamingAssistantForThread({ threadId: event.thread_id, streaming }));
+        dispatch(
+          appendProcessingProse({
+            threadId: event.thread_id,
+            kind: 'thinking',
+            round: event.round,
+            delta: event.delta,
+          })
+        );
       },
       onToolArgsDelta: event => {
         const cr = store.getState().chatRuntime;
@@ -929,6 +1015,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           firstString(a.path) ??
           firstString(a.url) ??
           firstString(a.target);
+        // `composio_connect` carries the toolkit slug so the inline connect
+        // card (#3993) knows which integration to authorize.
+        const toolkit = firstString(a.toolkit);
         dispatch(
           setPendingApprovalForThread({
             threadId: event.thread_id,
@@ -937,6 +1026,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               toolName: event.tool_name,
               message: event.message,
               command,
+              toolkit,
             },
           })
         );
@@ -1046,7 +1136,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 error: error instanceof Error ? error.message : String(error),
               });
             }
-            finishChatDoneTurn(event, 'proactive');
+            await finishChatDoneTurn(event, 'proactive');
           })();
           return;
         }
@@ -1081,7 +1171,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 error: error instanceof Error ? error.message : String(error),
               });
             }
-            finishChatDoneTurn(event, 'segment_reconcile');
+            await finishChatDoneTurn(event, 'segment_reconcile');
           })();
           return;
         }
@@ -1092,7 +1182,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             assistantMessage: event.full_response,
           })
         );
-        finishChatDoneTurn(event, 'ordinary');
+        void finishChatDoneTurn(event, 'ordinary');
       },
       onError: event => {
         const eventKey = `error:${event.thread_id}:${event.request_id ?? 'none'}:${event.error_type}`;
@@ -1184,6 +1274,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           requestUsageRefresh();
         }
 
+        // The backend drains + dispatches queued follow-ups even when the turn
+        // errored, so flush them to the transcript here too (otherwise their
+        // prompts are lost). Mirrors the done path (sequential internally).
+        void flushQueuedFollowups(event.thread_id);
         dispatch(endInferenceTurn({ threadId: event.thread_id }));
         dispatch(clearThreadInferenceActive(event.thread_id));
       },
