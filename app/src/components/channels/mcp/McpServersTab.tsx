@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
+import ChipTabs from '../../layout/ChipTabs';
 import Button from '../../ui/Button';
 import InstallDialog from './InstallDialog';
 import InstalledServerDetail from './InstalledServerDetail';
@@ -306,24 +307,22 @@ const McpServersTab = () => {
       </div>
 
       {/* Filter chips */}
-      <div className="flex items-center gap-2">
-        {(['all', 'installed', 'registry'] as FilterChip[]).map(chip => (
-          <button
-            key={chip}
-            type="button"
-            onClick={() => setActiveChip(chip)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              activeChip === chip
-                ? 'bg-primary-500 text-white'
-                : 'bg-stone-100 dark:bg-neutral-800 text-stone-600 dark:text-neutral-300 hover:bg-stone-200 dark:hover:bg-neutral-700'
-            }`}>
-            {chip === 'all' && t('mcp.tab.filter.all')}
-            {chip === 'installed' &&
-              t('mcp.tab.filter.installed').replace('{count}', String(filteredInstalled.length))}
-            {chip === 'registry' && t('mcp.tab.filter.registry')}
-          </button>
-        ))}
-      </div>
+      <ChipTabs<FilterChip>
+        className="flex flex-wrap items-center gap-2"
+        value={activeChip}
+        onChange={setActiveChip}
+        items={[
+          { id: 'all', label: t('mcp.tab.filter.all') },
+          {
+            id: 'installed',
+            label: t('mcp.tab.filter.installed').replace(
+              '{count}',
+              String(filteredInstalled.length)
+            ),
+          },
+          { id: 'registry', label: t('mcp.tab.filter.registry') },
+        ]}
+      />
 
       {loadError && (
         <div className="rounded-lg border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-3 py-2 text-xs text-coral-700 dark:text-coral-300">
