@@ -400,7 +400,7 @@ export function ToolTimelineBlock({
               onViewWholeRun();
             }}
             data-testid="view-process-source"
-            className="ml-auto shrink-0 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+            className="shrink-0 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
             {t('conversations.agentTaskInsights.viewProcessSource')} →
           </button>
         ) : null}
