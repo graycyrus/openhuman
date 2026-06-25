@@ -3165,6 +3165,8 @@ const en: TranslationMap = {
   'notifications.category.meetings': 'Meetings',
   'notifications.category.reminders': 'Reminders',
   'notifications.category.important': 'Important',
+  'notifications.filterAll': 'All',
+  'notifications.filterEmpty': 'No alerts in this category',
 
   // About / Updates: status summary phrases
   'about.update.status.checking': 'Checking...',
