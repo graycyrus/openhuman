@@ -393,6 +393,37 @@ function subagentToolCallFromPersisted(call: PersistedSubagentToolCall): Subagen
   };
 }
 
+/**
+ * Carry the live sub-agent prose (reasoning/narration) across a snapshot
+ * rehydration. Sub-agent streamed text/thinking is live-only — the persisted
+ * snapshot rebuilds a sub-agent transcript from its tool calls *without* the
+ * prose. So when a thread re-hydrates mid-turn (e.g. the user switches tabs
+ * and comes back), the snapshot rows would otherwise lose the inline thoughts.
+ * Match by sub-agent `taskId` (live and persisted rows use different entry
+ * ids) and graft the richer in-memory prose transcript onto the new rows.
+ */
+function preserveLiveSubagentProse(
+  existing: ToolTimelineEntry[] | undefined,
+  next: ToolTimelineEntry[]
+): ToolTimelineEntry[] {
+  if (!existing || existing.length === 0) return next;
+  const liveProse = new Map<string, SubagentTranscriptItem[]>();
+  for (const entry of existing) {
+    const tx = entry.subagent?.transcript;
+    if (entry.subagent && tx && tx.some(i => i.kind === 'text' || i.kind === 'thinking')) {
+      liveProse.set(entry.subagent.taskId, tx);
+    }
+  }
+  if (liveProse.size === 0) return next;
+  return next.map(entry => {
+    if (!entry.subagent) return entry;
+    const saved = liveProse.get(entry.subagent.taskId);
+    if (!saved) return entry;
+    // Clone the items so we don't reuse Immer drafts from the prior state.
+    return { ...entry, subagent: { ...entry.subagent, transcript: saved.map(i => ({ ...i })) } };
+  });
+}
+
 function subagentActivityFromPersisted(activity: PersistedSubagentActivity): SubagentActivity {
   return {
     taskId: activity.taskId,
@@ -1007,9 +1038,10 @@ const chatRuntimeSlice = createSlice({
         delete state.streamingAssistantByThread[threadId];
         // Settle any in-flight rows so their agent names stop pulsing
         // (no-op for an already-completed snapshot whose rows are terminal).
-        state.toolTimelineByThread[threadId] = snapshot.toolTimeline
-          .map(toolTimelineFromPersisted)
-          .map(settleOrphanedTimelineEntry);
+        state.toolTimelineByThread[threadId] = preserveLiveSubagentProse(
+          state.toolTimelineByThread[threadId],
+          snapshot.toolTimeline.map(toolTimelineFromPersisted).map(settleOrphanedTimelineEntry)
+        );
         state.processingByThread[threadId] = snapshot.transcript ?? [];
         return;
       }
@@ -1036,7 +1068,10 @@ const chatRuntimeSlice = createSlice({
         delete state.streamingAssistantByThread[threadId];
       }
 
-      state.toolTimelineByThread[threadId] = snapshot.toolTimeline.map(toolTimelineFromPersisted);
+      state.toolTimelineByThread[threadId] = preserveLiveSubagentProse(
+        state.toolTimelineByThread[threadId],
+        snapshot.toolTimeline.map(toolTimelineFromPersisted)
+      );
       state.processingByThread[threadId] = snapshot.transcript ?? [];
     },
     /**

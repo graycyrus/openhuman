@@ -10,6 +10,7 @@ import chatRuntimeReducer, {
   hydrateRuntimeFromSnapshot,
   type QueueStatus,
   setQueueStatusForThread,
+  setToolTimelineForThread,
 } from './chatRuntimeSlice';
 
 function makeRun(id: string, status: AgentRunStatus): AgentRun {
@@ -230,5 +231,82 @@ describe('chatRuntimeSlice queue status', () => {
     );
     expect(store.getState().chatRuntime.queueStatusByThread['t1']?.steers).toBe(1);
     expect(store.getState().chatRuntime.queueStatusByThread['t2']?.followups).toBe(2);
+  });
+});
+
+describe('hydrateRuntimeFromSnapshot — sub-agent prose persistence', () => {
+  it('carries live sub-agent thoughts across rehydration (matched by taskId)', () => {
+    const store = makeStore();
+    // Live in-memory row: sub-agent with streamed reasoning + a tool call.
+    // Live and persisted rows use different entry ids, so the merge matches
+    // on the sub-agent taskId.
+    store.dispatch(
+      setToolTimelineForThread({
+        threadId: 't9',
+        entries: [
+          {
+            id: 't9:subagent:task-x:spawn_subagent',
+            name: 'subagent:researcher',
+            round: 1,
+            status: 'running',
+            subagent: {
+              taskId: 'task-x',
+              agentId: 'researcher',
+              toolCalls: [],
+              transcript: [
+                { kind: 'thinking', iteration: 1, text: 'let me search the inbox' },
+                {
+                  kind: 'tool',
+                  iteration: 1,
+                  callId: 'c1',
+                  toolName: 'web_search',
+                  status: 'success',
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+
+    // Snapshot rebuilds the sub-agent transcript from tool calls only (no
+    // prose) and uses the persisted entry id `subagent:<taskId>`.
+    const snapshot: PersistedTurnState = {
+      threadId: 't9',
+      requestId: 'req-1',
+      lifecycle: 'streaming',
+      iteration: 1,
+      maxIterations: 10,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [
+        {
+          id: 'subagent:task-x',
+          name: 'subagent:researcher',
+          round: 1,
+          status: 'running',
+          subagent: {
+            taskId: 'task-x',
+            agentId: 'researcher',
+            toolCalls: [{ callId: 'c1', toolName: 'web_search', status: 'success' }],
+          },
+        },
+      ],
+      startedAt: '2026-06-23T00:00:00Z',
+      updatedAt: '2026-06-23T00:00:00Z',
+    };
+
+    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot }));
+
+    const row = store
+      .getState()
+      .chatRuntime.toolTimelineByThread['t9'].find(e => e.subagent?.taskId === 'task-x');
+    const transcript = row?.subagent?.transcript ?? [];
+    // The streamed thought survives the rehydration instead of being clobbered
+    // by the prose-less snapshot.
+    const thinking = transcript.find(i => i.kind === 'thinking');
+    expect(thinking && 'text' in thinking ? thinking.text : undefined).toBe(
+      'let me search the inbox'
+    );
   });
 });
