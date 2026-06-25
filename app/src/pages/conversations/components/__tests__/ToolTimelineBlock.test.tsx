@@ -93,6 +93,28 @@ describe('SubagentActivityBlock', () => {
     expect(calls[2].textContent).toContain('50ms');
   });
 
+  it('labels cancelled / awaiting-user calls distinctly (not the green "Done" pill)', () => {
+    renderInStore(
+      <SubagentActivityBlock
+        subagent={{
+          taskId: 't',
+          agentId: 'researcher',
+          toolCalls: [
+            { callId: 'c1', toolName: 'web_search', status: 'cancelled', elapsedMs: 10 },
+            { callId: 'c2', toolName: 'file_read', status: 'awaiting_user' },
+          ],
+        }}
+      />
+    );
+    const calls = screen.getAllByTestId('subagent-tool-call');
+    expect(calls).toHaveLength(2);
+    // A cancelled / awaiting-user call must NOT read as a successful "Done" step.
+    expect(calls[0].textContent).toContain('Cancelled');
+    expect(calls[0].textContent).not.toContain('Done');
+    expect(calls[1].textContent).toContain('Awaiting input');
+    expect(calls[1].textContent).not.toContain('Done');
+  });
+
   it('prefers the server-supplied label + contextual detail for a child tool call', () => {
     renderInStore(
       <SubagentActivityBlock

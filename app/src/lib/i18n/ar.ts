@@ -3076,6 +3076,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'تم',
   'conversations.agentTaskInsights.failed': 'فشل',
   'conversations.agentTaskInsights.running': 'قيد التشغيل',
+  'conversations.agentTaskInsights.cancelled': 'ملغى',
+  'conversations.agentTaskInsights.awaitingUser': 'في انتظار الإدخال',
   'conversations.agentTaskInsights.viewDetails': 'عرض التفاصيل',
   'conversations.agentTaskInsights.subagentsHeading': 'الوكلاء الفرعيون',
   'daemon.serviceBlockingGate.body': 'المحتوى',

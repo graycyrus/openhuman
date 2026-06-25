@@ -3173,6 +3173,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Gotowe',
   'conversations.agentTaskInsights.failed': 'Niepowodzenie',
   'conversations.agentTaskInsights.running': 'W toku',
+  'conversations.agentTaskInsights.cancelled': 'Anulowano',
+  'conversations.agentTaskInsights.awaitingUser': 'Oczekiwanie na dane',
   'conversations.agentTaskInsights.viewDetails': 'Zobacz szczegóły',
   'conversations.agentTaskInsights.subagentsHeading': 'Podagenci',
   'daemon.serviceBlockingGate.body':

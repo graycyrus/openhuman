@@ -3142,6 +3142,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'पूर्ण',
   'conversations.agentTaskInsights.failed': 'विफल',
   'conversations.agentTaskInsights.running': 'चल रहा है',
+  'conversations.agentTaskInsights.cancelled': 'रद्द किया गया',
+  'conversations.agentTaskInsights.awaitingUser': 'इनपुट की प्रतीक्षा',
   'conversations.agentTaskInsights.viewDetails': 'विवरण देखें',
   'conversations.agentTaskInsights.subagentsHeading': 'सब-एजेंट',
   'daemon.serviceBlockingGate.body': 'विवरण',

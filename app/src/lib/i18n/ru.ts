@@ -3164,6 +3164,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Готово',
   'conversations.agentTaskInsights.failed': 'Ошибка',
   'conversations.agentTaskInsights.running': 'Выполняется',
+  'conversations.agentTaskInsights.cancelled': 'Отменено',
+  'conversations.agentTaskInsights.awaitingUser': 'Ожидание ввода',
   'conversations.agentTaskInsights.viewDetails': 'Подробнее',
   'conversations.agentTaskInsights.subagentsHeading': 'Субагенты',
   'daemon.serviceBlockingGate.body': 'Текст',

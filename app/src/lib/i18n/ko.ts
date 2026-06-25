@@ -3116,6 +3116,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': '완료',
   'conversations.agentTaskInsights.failed': '실패',
   'conversations.agentTaskInsights.running': '실행 중',
+  'conversations.agentTaskInsights.cancelled': '취소됨',
+  'conversations.agentTaskInsights.awaitingUser': '입력 대기 중',
   'conversations.agentTaskInsights.viewDetails': '세부 정보 보기',
   'conversations.agentTaskInsights.subagentsHeading': '서브 에이전트',
   'daemon.serviceBlockingGate.body': '본문',

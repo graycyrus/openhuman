@@ -3187,6 +3187,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Completato',
   'conversations.agentTaskInsights.failed': 'Non riuscito',
   'conversations.agentTaskInsights.running': 'In corso',
+  'conversations.agentTaskInsights.cancelled': 'Annullato',
+  'conversations.agentTaskInsights.awaitingUser': 'In attesa di input',
   'conversations.agentTaskInsights.viewDetails': 'Vedi dettagli',
   'conversations.agentTaskInsights.subagentsHeading': 'Sotto-agenti',
   'daemon.serviceBlockingGate.body': 'Corpo',

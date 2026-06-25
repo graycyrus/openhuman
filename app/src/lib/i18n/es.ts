@@ -3193,6 +3193,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Listo',
   'conversations.agentTaskInsights.failed': 'Fallido',
   'conversations.agentTaskInsights.running': 'En curso',
+  'conversations.agentTaskInsights.cancelled': 'Cancelado',
+  'conversations.agentTaskInsights.awaitingUser': 'Esperando entrada',
   'conversations.agentTaskInsights.viewDetails': 'Ver detalles',
   'conversations.agentTaskInsights.subagentsHeading': 'Subagentes',
   'daemon.serviceBlockingGate.body': 'Cuerpo',

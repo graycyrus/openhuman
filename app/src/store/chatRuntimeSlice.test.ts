@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AgentRun, AgentRunStatus, PersistedTurnState } from '../types/turnState';
 import chatRuntimeReducer, {
+  appendProcessingProse,
   clearAllChatRuntime,
   clearQueueStatusForThread,
   clearRuntimeForThread,
@@ -85,8 +86,15 @@ describe('chatRuntimeSlice queue status', () => {
         status: { active: true, steers: 0, followups: 1, collects: 0, total: 1 },
       })
     );
+    // Also seed a processing transcript so the clear covers it too (a global
+    // reset must not leave stale "View processing" prose behind).
+    store.dispatch(
+      appendProcessingProse({ threadId: 't1', kind: 'narration', round: 1, delta: 'thinking…' })
+    );
+    expect(store.getState().chatRuntime.processingByThread.t1).toHaveLength(1);
     store.dispatch(clearAllChatRuntime());
     expect(store.getState().chatRuntime.queueStatusByThread).toEqual({});
+    expect(store.getState().chatRuntime.processingByThread).toEqual({});
   });
 
   it('updates queue status when set again', () => {

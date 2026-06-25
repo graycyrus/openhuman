@@ -58,10 +58,20 @@ function StatusTag({ status }: { status: ToolTimelineEntryStatus }) {
             label: t('conversations.agentTaskInsights.running'),
             classes: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
           }
-        : {
-            label: t('conversations.agentTaskInsights.done'),
-            classes: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-300',
-          };
+        : status === 'cancelled'
+          ? {
+              label: t('conversations.agentTaskInsights.cancelled'),
+              classes: 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400',
+            }
+          : status === 'awaiting_user'
+            ? {
+                label: t('conversations.agentTaskInsights.awaitingUser'),
+                classes: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+              }
+            : {
+                label: t('conversations.agentTaskInsights.done'),
+                classes: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-300',
+              };
   return (
     <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${classes}`}>{label}</span>
   );

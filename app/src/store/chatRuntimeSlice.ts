@@ -1054,6 +1054,7 @@ const chatRuntimeSlice = createSlice({
       state.parallelStreamsByThread = {};
       state.parallelRequestThreads = {};
       state.toolTimelineByThread = {};
+      state.processingByThread = {};
       state.taskBoardByThread = {};
       state.inferenceTurnLifecycleByThread = {};
       state.pendingApprovalByThread = {};

@@ -3141,6 +3141,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'সম্পন্ন',
   'conversations.agentTaskInsights.failed': 'ব্যর্থ',
   'conversations.agentTaskInsights.running': 'চলছে',
+  'conversations.agentTaskInsights.cancelled': 'বাতিল',
+  'conversations.agentTaskInsights.awaitingUser': 'ইনপুটের অপেক্ষায়',
   'conversations.agentTaskInsights.viewDetails': 'বিস্তারিত দেখুন',
   'conversations.agentTaskInsights.subagentsHeading': 'সাব-এজেন্ট',
   'daemon.serviceBlockingGate.body': 'বডি',

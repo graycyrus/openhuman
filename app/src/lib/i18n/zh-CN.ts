@@ -2993,6 +2993,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': '完成',
   'conversations.agentTaskInsights.failed': '失败',
   'conversations.agentTaskInsights.running': '运行中',
+  'conversations.agentTaskInsights.cancelled': '已取消',
+  'conversations.agentTaskInsights.awaitingUser': '等待输入',
   'conversations.agentTaskInsights.viewDetails': '查看详情',
   'conversations.agentTaskInsights.subagentsHeading': '子代理',
   'daemon.serviceBlockingGate.body': '核心服务不可用，请等待或下载最新版本。',
