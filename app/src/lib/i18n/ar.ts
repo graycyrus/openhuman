@@ -3018,6 +3018,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'تم',
   'conversations.agentTaskInsights.failed': 'فشل',
   'conversations.agentTaskInsights.running': 'قيد التشغيل',
+  'conversations.agentTaskInsights.viewDetails': 'عرض التفاصيل',
+  'conversations.agentTaskInsights.subagentsHeading': 'الوكلاء الفرعيون',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل أحدث إصدار',

@@ -343,6 +343,7 @@ const BODY_SURFACE = 'bg-stone-50 dark:bg-neutral-800/60';
 export function ToolTimelineBlock({
   entries,
   onViewSubagent,
+  onViewDetails,
   expandAllRows = false,
   liveResponse,
 }: {
@@ -351,6 +352,11 @@ export function ToolTimelineBlock({
    * subagent cards render without the "view full processing" affordance
    * (e.g. interrupted-snapshot rendering with no live driver). */
   onViewSubagent?: (subagent: SubagentActivity) => void;
+  /** Compact chat mode: when set, each row renders as a single
+   * `label + "View details →"` line (no inline expand) and the link opens the
+   * full-run "Agent Process Source" side panel via this callback. The panel
+   * itself renders without `onViewDetails` to keep the full expanded view. */
+  onViewDetails?: () => void;
   /** Expand every row's details by default (used by the "Agent Process
    * Source" panel, where the whole run should be visible at a glance).
    * In the inline chat only the latest running row auto-expands. */
@@ -401,7 +407,21 @@ export function ToolTimelineBlock({
               key={entry.id}
               isFirst={index === 0}
               isLast={index === entries.length - 1}>
-              {expandable ? (
+              {onViewDetails ? (
+                // Compact chat mode: a single line per step — the human label
+                // (its tone conveys status) + a "View details →" link that opens
+                // the full-run side panel where the whole processing lives.
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
+                  <button
+                    type="button"
+                    onClick={onViewDetails}
+                    data-testid="view-details"
+                    className="text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+                    {t('conversations.agentTaskInsights.viewDetails')} →
+                  </button>
+                </div>
+              ) : expandable ? (
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
                     <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>

@@ -3083,6 +3083,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'पूर्ण',
   'conversations.agentTaskInsights.failed': 'विफल',
   'conversations.agentTaskInsights.running': 'चल रहा है',
+  'conversations.agentTaskInsights.viewDetails': 'विवरण देखें',
+  'conversations.agentTaskInsights.subagentsHeading': 'सब-एजेंट',
   'daemon.serviceBlockingGate.body': 'विवरण',
   'daemon.serviceBlockingGate.downloadHint': 'डाउनलोड संकेत',
   'daemon.serviceBlockingGate.downloadLatest': 'नवीनतम संस्करण डाउनलोड करें',

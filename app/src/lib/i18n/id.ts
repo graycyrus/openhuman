@@ -3086,6 +3086,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Selesai',
   'conversations.agentTaskInsights.failed': 'Gagal',
   'conversations.agentTaskInsights.running': 'Berjalan',
+  'conversations.agentTaskInsights.viewDetails': 'Lihat detail',
+  'conversations.agentTaskInsights.subagentsHeading': 'Sub-agen',
   'daemon.serviceBlockingGate.body': 'Isi',
   'daemon.serviceBlockingGate.downloadHint': 'Petunjuk unduhan',
   'daemon.serviceBlockingGate.downloadLatest': 'Unduh Versi Terbaru',

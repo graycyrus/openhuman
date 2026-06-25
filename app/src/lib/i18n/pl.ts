@@ -3114,6 +3114,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Gotowe',
   'conversations.agentTaskInsights.failed': 'Niepowodzenie',
   'conversations.agentTaskInsights.running': 'W toku',
+  'conversations.agentTaskInsights.viewDetails': 'Zobacz szczegóły',
+  'conversations.agentTaskInsights.subagentsHeading': 'Podagenci',
   'daemon.serviceBlockingGate.body':
     'Rdzeń OpenHuman nie odpowiada. Spróbuj ponownie lub pobierz najnowszą wersję aplikacji.',
   'daemon.serviceBlockingGate.downloadHint':

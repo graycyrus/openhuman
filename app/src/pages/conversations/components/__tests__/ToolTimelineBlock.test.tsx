@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
@@ -436,5 +436,50 @@ describe('ToolTimelineBlock — worker thread ref status propagation', () => {
     };
     renderInStore(<ToolTimelineBlock entries={[malformed]} />);
     expect(screen.queryByTestId('worker-thread-status-badge')).toBeNull();
+  });
+});
+
+describe('ToolTimelineBlock — compact chat mode (onViewDetails)', () => {
+  const entries: ToolTimelineEntry[] = [
+    { id: 'tl-1', name: 'agent_prepare_context', round: 1, status: 'success', detail: 'fetch X' },
+    {
+      id: 'sa-1',
+      name: 'subagent:researcher',
+      round: 1,
+      status: 'running',
+      subagent: {
+        taskId: 'task-1',
+        agentId: 'researcher',
+        toolCalls: [],
+        transcript: [{ kind: 'thinking', iteration: 1, text: 'pondering' }],
+      },
+    },
+  ];
+
+  it('renders compact rows with a "View details" link instead of inline expansion', () => {
+    const onViewDetails = vi.fn();
+    renderInStore(<ToolTimelineBlock entries={entries} onViewDetails={onViewDetails} />);
+
+    // One "View details" link per row.
+    const links = screen.getAllByTestId('view-details');
+    expect(links).toHaveLength(2);
+
+    // No inline sub-agent activity / no per-row <details> — only the group
+    // header <details> remains.
+    expect(screen.queryByTestId('subagent-activity')).toBeNull();
+    const insights = screen.getByTestId('agent-task-insights');
+    expect(insights.querySelectorAll('details')).toHaveLength(0);
+    expect(insights.tagName).toBe('DETAILS');
+
+    // Clicking a link opens the full-run panel via the callback.
+    fireEvent.click(links[0]);
+    expect(onViewDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('still expands inline (no compact link) when onViewDetails is omitted (panel mode)', () => {
+    renderInStore(<ToolTimelineBlock entries={entries} expandAllRows />);
+    // Panel/expandable path: sub-agent activity is shown, no "View details" link.
+    expect(screen.getByTestId('subagent-activity')).toBeInTheDocument();
+    expect(screen.queryByTestId('view-details')).toBeNull();
   });
 });

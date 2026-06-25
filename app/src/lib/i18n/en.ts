@@ -3629,6 +3629,8 @@ const en: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Done',
   'conversations.agentTaskInsights.failed': 'Failed',
   'conversations.agentTaskInsights.running': 'Running',
+  'conversations.agentTaskInsights.viewDetails': 'View details',
+  'conversations.agentTaskInsights.subagentsHeading': 'Sub-agents',
   'daemon.serviceBlockingGate.body':
     'Retrying in the background. This usually resolves in a few seconds.',
   'daemon.serviceBlockingGate.downloadHint':

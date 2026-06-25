@@ -3105,6 +3105,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Готово',
   'conversations.agentTaskInsights.failed': 'Ошибка',
   'conversations.agentTaskInsights.running': 'Выполняется',
+  'conversations.agentTaskInsights.viewDetails': 'Подробнее',
+  'conversations.agentTaskInsights.subagentsHeading': 'Субагенты',
   'daemon.serviceBlockingGate.body': 'Текст',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',

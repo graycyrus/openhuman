@@ -1472,7 +1472,7 @@ const Conversations = ({
         ) : (
           <ToolTimelineBlock
             entries={selectedThreadToolTimeline}
-            onViewSubagent={sub => setOpenSubagentTaskId(sub.taskId)}
+            onViewDetails={() => setShowProcessSource(true)}
             liveResponse={selectedStreamingAssistant?.content}
           />
         )}

@@ -3058,6 +3058,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': '완료',
   'conversations.agentTaskInsights.failed': '실패',
   'conversations.agentTaskInsights.running': '실행 중',
+  'conversations.agentTaskInsights.viewDetails': '세부 정보 보기',
+  'conversations.agentTaskInsights.subagentsHeading': '서브 에이전트',
   'daemon.serviceBlockingGate.body': '본문',
   'daemon.serviceBlockingGate.downloadHint': '다운로드 안내',
   'daemon.serviceBlockingGate.downloadLatest': '최신 버전 다운로드',

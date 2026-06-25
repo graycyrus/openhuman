@@ -1674,16 +1674,15 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
       Node.DOCUMENT_POSITION_FOLLOWING
     );
 
-    // Exercise the hoisted button: opens the "Agent Process Source" panel.
+    // Inline rows are compact — each shows a "View details →" link instead of
+    // an inline expand. Clicking one opens the full-run Agent Process Source
+    // side panel (every row opens the same panel).
+    const viewDetails = screen.getAllByTestId('view-details');
+    expect(viewDetails.length).toBeGreaterThan(0);
     await act(async () => {
-      fireEvent.click(screen.getByTestId('view-process-source'));
+      fireEvent.click(viewDetails[0]);
     });
-
-    // Exercise onViewSubagent: clicking the subagent row's "view full
-    // processing" affordance opens the subagent drawer for that task.
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('subagent-view-processing'));
-    });
+    expect(await screen.findByTestId('agent-process-source-panel')).toBeInTheDocument();
   });
 
   it('hides the verbose timeline when "hide agent thinking" is on, but still opens the source panel', async () => {

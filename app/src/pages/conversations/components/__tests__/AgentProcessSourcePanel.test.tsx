@@ -123,6 +123,38 @@ describe('AgentProcessSourcePanel', () => {
     expect(screen.getByTestId('processing-transcript')).toBeInTheDocument();
   });
 
+  it('shows each sub-agent’s full activity in a "Sub-agents" deep-dive alongside the transcript', () => {
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[
+          {
+            id: 'sa-1',
+            name: 'subagent:researcher',
+            round: 1,
+            status: 'success',
+            subagent: {
+              taskId: 'task-1',
+              agentId: 'researcher',
+              toolCalls: [],
+              transcript: [{ kind: 'thinking', iteration: 1, text: 'planning the search' }],
+            },
+          },
+        ]}
+        transcript={[{ kind: 'narration', round: 1, seq: 0, text: 'Delegating to a researcher.' }]}
+        onClose={() => {}}
+      />
+    );
+    // The parent narration shows via the transcript view…
+    expect(screen.getByText('Delegating to a researcher.')).toBeInTheDocument();
+    // …and the sub-agent's full activity (its thoughts) shows in the deep-dive,
+    // with no redundant "view full processing" button (no onView).
+    expect(screen.getByTestId('agent-source-subagent')).toBeInTheDocument();
+    const activity = screen.getByTestId('subagent-activity');
+    expect(activity.textContent).toContain('planning the search');
+    expect(screen.queryByTestId('subagent-view-processing')).toBeNull();
+  });
+
   it('renders no source rows when no web tools were used', () => {
     renderPanel(
       <AgentProcessSourcePanel

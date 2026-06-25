@@ -3128,6 +3128,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.done': 'Completato',
   'conversations.agentTaskInsights.failed': 'Non riuscito',
   'conversations.agentTaskInsights.running': 'In corso',
+  'conversations.agentTaskInsights.viewDetails': 'Vedi dettagli',
+  'conversations.agentTaskInsights.subagentsHeading': 'Sotto-agenti',
   'daemon.serviceBlockingGate.body': 'Corpo',
   'daemon.serviceBlockingGate.downloadHint': 'Suggerimento di download',
   'daemon.serviceBlockingGate.downloadLatest': "Scarica l'ultima versione",

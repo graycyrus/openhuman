@@ -2,10 +2,14 @@ import { useEffect } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
-import { type AgentSource, extractAgentSources } from '../../../utils/toolTimelineFormatting';
+import {
+  type AgentSource,
+  extractAgentSources,
+  formatTimelineEntry,
+} from '../../../utils/toolTimelineFormatting';
 import { AgentSparkIcon } from './AgentTimelineRail';
 import { ProcessingTranscriptView } from './ProcessingTranscriptView';
-import { ToolTimelineBlock } from './ToolTimelineBlock';
+import { SubagentActivityBlock, ToolTimelineBlock } from './ToolTimelineBlock';
 
 /** Compact globe glyph for a source row. Inherits `currentColor`. */
 function GlobeIcon({ className }: { className?: string }) {
@@ -91,6 +95,10 @@ export function AgentProcessSourcePanel({
   if (!open) return null;
 
   const sources = extractAgentSources(entries);
+  // Each sub-agent's full activity (thoughts + tool rows + detail) for the
+  // deep-dive section — the inline chat rows are now compact, so the whole
+  // processing lives here.
+  const subagentEntries = entries.filter(entry => entry.subagent);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" data-testid="agent-process-source-panel">
@@ -129,7 +137,8 @@ export function AgentProcessSourcePanel({
               // Hermes-style interleaved narration + grouped, human-labeled steps.
               <ProcessingTranscriptView transcript={transcript} entries={entries} />
             ) : entries.length > 0 ? (
-              // Legacy snapshot (no transcript): fall back to the tool timeline.
+              // Legacy snapshot (no transcript): fall back to the tool timeline,
+              // which already nests each sub-agent's full activity inline.
               <ToolTimelineBlock entries={entries} expandAllRows />
             ) : (
               <p className="text-xs text-stone-400 italic dark:text-neutral-500">
@@ -137,6 +146,28 @@ export function AgentProcessSourcePanel({
               </p>
             )}
           </section>
+
+          {/* Sub-agents — each delegated agent's full processing (thoughts +
+              tool rows + detail). Only rendered alongside the transcript view,
+              which doesn't nest sub-agent activity itself; the no-transcript
+              fallback above already expands it. */}
+          {transcript.length > 0 && subagentEntries.length > 0 ? (
+            <section>
+              <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
+                {t('conversations.agentTaskInsights.subagentsHeading')}
+              </h3>
+              <div className="space-y-3">
+                {subagentEntries.map(entry => (
+                  <div key={entry.id} data-testid="agent-source-subagent">
+                    <p className="text-[12px] font-medium text-stone-700 dark:text-neutral-200">
+                      {formatTimelineEntry(entry).title}
+                    </p>
+                    <SubagentActivityBlock subagent={entry.subagent!} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {sources.length > 0 ? (
             <section>
