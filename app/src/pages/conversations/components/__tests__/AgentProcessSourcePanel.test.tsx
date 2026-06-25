@@ -155,6 +155,41 @@ describe('AgentProcessSourcePanel', () => {
     expect(screen.queryByTestId('subagent-view-processing')).toBeNull();
   });
 
+  it('scopes to a single step when scopedEntry is set (only that step, with its name as title)', () => {
+    const scoped: ToolTimelineEntry = {
+      id: 'sa-scope',
+      name: 'subagent:researcher',
+      round: 1,
+      status: 'success',
+      subagent: {
+        taskId: 'task-9',
+        agentId: 'researcher',
+        toolCalls: [],
+        transcript: [{ kind: 'thinking', iteration: 1, text: 'scoped thought' }],
+      },
+    };
+    renderPanel(
+      <AgentProcessSourcePanel
+        open
+        entries={[
+          scoped,
+          // A second, unrelated step that must NOT show in the scoped view.
+          { id: 'other', name: 'web_fetch', round: 1, status: 'success' },
+        ]}
+        transcript={[{ kind: 'narration', round: 1, seq: 0, text: 'whole-run narration' }]}
+        scopedEntry={scoped}
+        onClose={() => {}}
+      />
+    );
+    // Header shows the step's label, not the generic title.
+    expect(screen.getByText('Researching')).toBeInTheDocument();
+    // Only the scoped step's activity renders…
+    expect(screen.getByTestId('subagent-activity').textContent).toContain('scoped thought');
+    // …and the whole-run transcript / other steps do NOT.
+    expect(screen.queryByTestId('processing-transcript')).toBeNull();
+    expect(screen.queryByText('whole-run narration')).toBeNull();
+  });
+
   it('renders no source rows when no web tools were used', () => {
     renderPanel(
       <AgentProcessSourcePanel

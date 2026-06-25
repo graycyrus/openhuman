@@ -352,11 +352,11 @@ export function ToolTimelineBlock({
    * subagent cards render without the "view full processing" affordance
    * (e.g. interrupted-snapshot rendering with no live driver). */
   onViewSubagent?: (subagent: SubagentActivity) => void;
-  /** Compact chat mode: when set, each row renders as a single
+  /** Compact chat mode: when set, a finished step renders as a single
    * `label + "View details →"` line (no inline expand) and the link opens the
-   * full-run "Agent Process Source" side panel via this callback. The panel
-   * itself renders without `onViewDetails` to keep the full expanded view. */
-  onViewDetails?: () => void;
+   * side panel scoped to *that* step via this callback. The panel itself
+   * renders without `onViewDetails` to keep the full expanded view. */
+  onViewDetails?: (entry: ToolTimelineEntry) => void;
   /** Expand every row's details by default (used by the "Agent Process
    * Source" panel, where the whole run should be visible at a glance).
    * In the inline chat only the latest running row auto-expands. */
@@ -423,7 +423,7 @@ export function ToolTimelineBlock({
                   </span>
                   <button
                     type="button"
-                    onClick={onViewDetails}
+                    onClick={() => onViewDetails(entry)}
                     data-testid="view-details"
                     className="text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
                     {t('conversations.agentTaskInsights.viewDetails')} →

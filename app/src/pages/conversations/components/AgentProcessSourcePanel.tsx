@@ -70,6 +70,7 @@ export function AgentProcessSourcePanel({
   open,
   entries,
   transcript = [],
+  scopedEntry,
   onClose,
 }: {
   open: boolean;
@@ -78,6 +79,10 @@ export function AgentProcessSourcePanel({
    *  renders the interleaved Hermes view; otherwise it falls back to the
    *  tool-only timeline. */
   transcript?: ProcessingTranscriptItem[];
+  /** When set, the panel is scoped to a single step — its title becomes the
+   *  step label and the body shows only that step's details (its sub-agent
+   *  activity, or its tool detail). `undefined` → the whole-run overview. */
+  scopedEntry?: ToolTimelineEntry;
   onClose: () => void;
 }) {
   const { t } = useT();
@@ -94,11 +99,14 @@ export function AgentProcessSourcePanel({
 
   if (!open) return null;
 
-  const sources = extractAgentSources(entries);
-  // Each sub-agent's full activity (thoughts + tool rows + detail) for the
-  // deep-dive section — the inline chat rows are now compact, so the whole
-  // processing lives here.
+  // Sources/sub-agents are scoped to the single step when one is selected,
+  // else they cover the whole run.
+  const sources = extractAgentSources(scopedEntry ? [scopedEntry] : entries);
   const subagentEntries = entries.filter(entry => entry.subagent);
+  // For a scoped *non*-sub-agent step, the detail (args / output) to show.
+  const scopedDetail = scopedEntry
+    ? (formatTimelineEntry(scopedEntry).detail ?? scopedEntry.argsBuffer)
+    : undefined;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" data-testid="agent-process-source-panel">
@@ -116,7 +124,9 @@ export function AgentProcessSourcePanel({
             <AgentSparkIcon />
           </span>
           <span className="min-w-0 flex-1 truncate font-semibold text-stone-800 dark:text-neutral-100">
-            {t('conversations.agentTaskInsights.processSourceTitle')}
+            {scopedEntry
+              ? formatTimelineEntry(scopedEntry).title
+              : t('conversations.agentTaskInsights.processSourceTitle')}
           </span>
           <button
             type="button"
@@ -133,7 +143,20 @@ export function AgentProcessSourcePanel({
             <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
               {t('conversations.agentTaskInsights.stepsHeading')}
             </h3>
-            {transcript.length > 0 ? (
+            {scopedEntry ? (
+              // Scoped to one step: show only that step's details.
+              scopedEntry.subagent ? (
+                <SubagentActivityBlock subagent={scopedEntry.subagent} />
+              ) : scopedDetail ? (
+                <pre className="max-h-[60vh] overflow-y-auto rounded-lg bg-stone-50 px-3 py-2 text-[12px] whitespace-pre-wrap break-words text-stone-600 dark:bg-neutral-800/60 dark:text-neutral-300">
+                  {scopedDetail}
+                </pre>
+              ) : (
+                <p className="text-xs text-stone-400 italic dark:text-neutral-500">
+                  {t('conversations.agentTaskInsights.noSteps')}
+                </p>
+              )
+            ) : transcript.length > 0 ? (
               // Hermes-style interleaved narration + grouped, human-labeled steps.
               <ProcessingTranscriptView transcript={transcript} entries={entries} />
             ) : entries.length > 0 ? (
@@ -151,7 +174,7 @@ export function AgentProcessSourcePanel({
               tool rows + detail). Only rendered alongside the transcript view,
               which doesn't nest sub-agent activity itself; the no-transcript
               fallback above already expands it. */}
-          {transcript.length > 0 && subagentEntries.length > 0 ? (
+          {!scopedEntry && transcript.length > 0 && subagentEntries.length > 0 ? (
             <section>
               <h3 className="mb-2 text-[10px] font-semibold tracking-wide text-stone-400 uppercase dark:text-neutral-500">
                 {t('conversations.agentTaskInsights.subagentsHeading')}

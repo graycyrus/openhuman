@@ -48,6 +48,7 @@ import {
   registerParallelRequest,
   setTaskBoardForThread,
   setToolTimelineForThread,
+  type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
@@ -239,6 +240,10 @@ const Conversations = ({
   // Whether the consolidated "Agent Process Source" panel is open (the full
   // agent-run timeline + visited sources for the current thread).
   const [showProcessSource, setShowProcessSource] = useState(false);
+  // When the user clicks a step's "View details →", the Agent Process Source
+  // panel is scoped to that single step. `null` = the whole-run overview
+  // (opened by the bottom "View full agent process Source" link).
+  const [scopedDetailEntryId, setScopedDetailEntryId] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [replyMode, setReplyMode] = useState<ReplyMode>('text');
   const [isRecording, setIsRecording] = useState(false);
@@ -1443,6 +1448,20 @@ const Conversations = ({
   // The insights panel (timeline + "View full agent process Source" opener),
   // built once and rendered inline above the latest answer. `null` when there
   // are no recorded steps for the thread.
+  // Open the Agent Process Source panel scoped to one step, or to the whole run.
+  const openScopedDetail = (entry: ToolTimelineEntry) => {
+    setScopedDetailEntryId(entry.id);
+    setShowProcessSource(true);
+  };
+  const openWholeRunSource = () => {
+    setScopedDetailEntryId(null);
+    setShowProcessSource(true);
+  };
+  const scopedDetailEntry =
+    scopedDetailEntryId != null
+      ? selectedThreadToolTimeline.find(e => e.id === scopedDetailEntryId)
+      : undefined;
+
   const agentInsights =
     selectedThreadToolTimeline.length > 0 ? (
       <>
@@ -1454,7 +1473,7 @@ const Conversations = ({
           isSending ? (
             <button
               type="button"
-              onClick={() => setShowProcessSource(true)}
+              onClick={openWholeRunSource}
               data-testid="agent-processing-link"
               className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
@@ -1463,7 +1482,7 @@ const Conversations = ({
           ) : !shouldRenderTimelineBeforeLatestAgentMessage ? (
             <button
               type="button"
-              onClick={() => setShowProcessSource(true)}
+              onClick={openWholeRunSource}
               data-testid="agent-process-source-fallback"
               className="px-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
               {t('conversations.agentTaskInsights.viewProcessSource')} →
@@ -1472,7 +1491,7 @@ const Conversations = ({
         ) : (
           <ToolTimelineBlock
             entries={selectedThreadToolTimeline}
-            onViewDetails={() => setShowProcessSource(true)}
+            onViewDetails={openScopedDetail}
             liveResponse={selectedStreamingAssistant?.content}
           />
         )}
@@ -1481,7 +1500,7 @@ const Conversations = ({
         {shouldRenderTimelineBeforeLatestAgentMessage && (
           <button
             type="button"
-            onClick={() => setShowProcessSource(true)}
+            onClick={openWholeRunSource}
             data-testid="view-process-source"
             className="px-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
             {t('conversations.agentTaskInsights.viewProcessSource')} →
@@ -2766,7 +2785,11 @@ const Conversations = ({
         open={showProcessSource}
         entries={selectedThreadToolTimeline}
         transcript={selectedThreadProcessing}
-        onClose={() => setShowProcessSource(false)}
+        scopedEntry={scopedDetailEntry}
+        onClose={() => {
+          setShowProcessSource(false);
+          setScopedDetailEntryId(null);
+        }}
       />
     </div>
   );
