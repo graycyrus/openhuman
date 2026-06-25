@@ -437,4 +437,17 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         SubagentTranscriptItem::Text { text, .. } => assert_eq!(text, "Found it."),
         other => panic!("expected narration, got {other:?}"),
     }
+
+    // The wire form MUST be camelCase — the FE reads `toolName`/`callId`, and
+    // snake_case leaking through caused a `replace`-on-undefined crash.
+    let json = serde_json::to_string(m.snapshot()).expect("serialize");
+    assert!(
+        json.contains("\"toolName\""),
+        "tool item must serialize camelCase"
+    );
+    assert!(json.contains("\"callId\""));
+    assert!(
+        !json.contains("\"tool_name\""),
+        "no snake_case fields on the wire"
+    );
 }

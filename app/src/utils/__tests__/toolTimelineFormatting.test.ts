@@ -363,3 +363,13 @@ describe('buildProcessingBlocks', () => {
     expect(blocks[0].kind).toBe('toolGroup');
   });
 });
+
+describe('formatter null-safety (malformed / legacy snapshot guard)', () => {
+  it('does not throw on undefined input', () => {
+    // A snake_case (legacy) persisted transcript item yields undefined
+    // camelCase fields; the formatter must degrade, not crash the app.
+    expect(formatToolName(undefined)).toBe('');
+    expect(stripToolCallEnvelopes(undefined)).toBe('');
+    expect(stripToolCallEnvelopes(null)).toBe('');
+  });
+});

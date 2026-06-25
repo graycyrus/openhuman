@@ -78,7 +78,8 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
  * Format a raw tool name into a short human-readable label.
  * Used for subagent child tool rows and sub-mascot activity text.
  */
-export function formatToolName(toolName: string): string {
+export function formatToolName(toolName: string | undefined): string {
+  if (!toolName) return '';
   return TOOL_DISPLAY_NAMES[toolName] ?? humanizeIdentifier(toolName);
 }
 
@@ -153,7 +154,8 @@ export function isKnownClientTool(name: string): boolean {
  * half-arrived delta never flashes raw markup. Whitespace is left intact —
  * callers that render single-line previews collapse it themselves.
  */
-export function stripToolCallEnvelopes(text: string): string {
+export function stripToolCallEnvelopes(text: string | undefined | null): string {
+  if (!text) return '';
   return text
     .replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, '')
     .replace(/<tool_call\b[^>]*>[\s\S]*$/i, '');
@@ -645,7 +647,8 @@ function normalizeIntegrationName(value: string): string {
   }
 }
 
-function humanizeIdentifier(value: string): string {
+function humanizeIdentifier(value: string | undefined | null): string {
+  if (!value) return '';
   return value
     .replace(/^subagent:/, '')
     .replace(/^delegate_/, '')

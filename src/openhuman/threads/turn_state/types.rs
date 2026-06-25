@@ -142,7 +142,14 @@ pub struct SubagentToolCall {
 /// transcript is built as a single ordered list). Persisting these lets the
 /// inline "Agentic task insights" thoughts survive a settled turn / reload.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "kind")]
+// `rename_all` renames the variant tags; `rename_all_fields` renames the
+// fields *inside* the struct variants (call_id → callId, …) — without the
+// latter the FE would read `undefined` for camelCase fields.
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "kind"
+)]
 pub enum SubagentTranscriptItem {
     /// The sub-agent's hidden reasoning.
     Thinking {
@@ -186,7 +193,13 @@ pub enum SubagentTranscriptItem {
 /// items hold only a `call_id` pointer into [`TurnState::tool_timeline`] so
 /// the row's status/label live in exactly one place.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "kind")]
+// `rename_all_fields` is required so the `ToolCall.call_id` field serializes as
+// `callId` (the FE reads camelCase) — `rename_all` alone only renames variants.
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "kind"
+)]
 pub enum TranscriptItem {
     /// The agent's visible assistant text between tool calls.
     Narration { round: u32, seq: u32, text: String },
