@@ -214,6 +214,168 @@ pub fn log_provider_insufficient_credits_402(
     );
 }
 
+/// Whether a provider non-2xx response is a deterministic **monthly-quota /
+/// usage-limit exhausted** user-state error — the user's third-party plan has
+/// spent its allotment for the period and no request will succeed until it
+/// resets (a billing/plan state OpenHuman has no lever over).
+///
+/// Distinct from [`is_provider_insufficient_credits_402`] in two ways:
+/// 1. The signal is a *usage-quota cap* ("you have reached the limit",
+///    `MONTHLY_REQUEST_COUNT`), not an account balance.
+/// 2. The upstream proxy may wrap its own 402 inside a **500** envelope, e.g.
+///    Kiro IDE: `kiro API error (500 Internal Server Error): {"error":\
+///    {"message":"HTTP 402 from Kiro IDE: {\"reason\":\"MONTHLY_REQUEST_COUNT\"}"…}}`.
+///    So this is **status-agnostic** — matched against the body like
+///    [`is_context_window_exceeded_message`] — because gating on a 402
+///    transport status (as the credits matcher does) would let the 500-wrapped
+///    flood straight through to [`should_report_provider_http_failure`]
+///    (TAURI-RUST-C9A: 9k events from a single quota-capped user, retried per
+///    memory-extraction attempt).
+///
+/// Keyed on quota-specific wording only, so a generic 500 outage (or a 429
+/// rate-limit, which has its own transient handling) is not swallowed. Covered
+/// by a verbatim-body test so a provider wording drift fails CI.
+pub fn is_provider_quota_exhausted(body: &str) -> bool {
+    body_indicates_quota_exhausted(body)
+}
+
+/// Phrase-level matcher for a provider monthly-quota / usage-limit exhausted
+/// body. Single source of truth for the quota-phrase set, shared by the
+/// emit-site guard [`is_provider_quota_exhausted`] and the `before_send`
+/// defense-in-depth filter
+/// [`crate::core::observability::is_quota_exhausted_event`] (which matches the
+/// formatted `<provider> API error (…): <body>` message so the demotion reaches
+/// every compatible-provider HTTP path, not just `Provider::chat()`'s
+/// `native_chat` cascade). TAURI-RUST-C9A.
+pub fn body_indicates_quota_exhausted(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    lower.contains("monthly_request_count")
+        || lower.contains("monthly request")
+        || lower.contains("monthly limit")
+        || lower.contains("monthly quota")
+        || lower.contains("quota exceeded")
+        || lower.contains("usage limit exceeded")
+        // "reached the limit" alone is ambiguous (rate-limit, token-limit), so
+        // require a quota/plan/request/monthly co-marker to keep the blast
+        // radius on plan-quota exhaustion only.
+        || (lower.contains("reached the limit")
+            && (lower.contains("request")
+                || lower.contains("quota")
+                || lower.contains("monthly")
+                || lower.contains("plan")))
+}
+
+pub fn log_provider_quota_exhausted(
+    operation: &str,
+    provider: &str,
+    model: Option<&str>,
+    status: reqwest::StatusCode,
+) {
+    tracing::info!(
+        domain = "llm_provider",
+        operation = operation,
+        provider = provider,
+        model = model.unwrap_or(""),
+        status = status.as_u16(),
+        failure = "non_2xx",
+        kind = "quota_exhausted",
+        "[llm_provider] {operation} provider monthly-quota exhausted — third-party plan limit \
+         reached (no local lever), not reporting to Sentry"
+    );
+}
+
+/// Stable anchor phrase for the actionable Ollama-Cloud-500 user message, shared
+/// by [`ollama_cloud_internal_500_user_message`] (which builds it) and
+/// [`is_ollama_cloud_internal_500_message`] (which matches the re-raised string
+/// at the RPC/agent boundary), so the two cannot drift.
+const OLLAMA_CLOUD_INTERNAL_500_USER_PREFIX: &str = "Ollama cloud is temporarily unavailable";
+
+/// Whether a provider non-2xx response is an Ollama **Cloud** hosted-inference
+/// internal error: `500` + a `{"error":"Internal Server Error (ref: <uuid>)"}`
+/// body.
+///
+/// ollama.com's hosted `*:cloud` models (minimax-m3 / qwen3.5 / gpt-oss …)
+/// intermittently `500` with this opaque, server-generated envelope. The `ref:`
+/// is a fresh UUID per event, the failure is non-deterministic, and the request
+/// that 500s is byte-identical to the one that succeeds when the cloud backend
+/// is healthy — so there is **no client lever** (nothing to validate,
+/// reshape, or reconfigure). The reliable-provider layer already retries and
+/// falls back across providers/models, so each per-attempt 500 is pure noise:
+/// TAURI-RUST-5MV, 3,062 events from 5 users in a single window. Demote from
+/// Sentry to an info log while the error still propagates so retry/fallback runs
+/// unchanged.
+///
+/// Anchored on the `internal server error (ref:` body shape, which is specific
+/// to ollama.com's hosted envelope — a **local** Ollama daemon 500 (a genuine
+/// model crash / OOM worth paging) does not carry a `ref:` UUID, so it still
+/// reaches Sentry. The phrase is covered by a verbatim-body test so a provider
+/// wording drift fails CI instead of silently leaking events.
+pub fn is_ollama_cloud_internal_500(
+    provider: &str,
+    status: reqwest::StatusCode,
+    body: &str,
+) -> bool {
+    provider == "ollama"
+        && status == reqwest::StatusCode::INTERNAL_SERVER_ERROR
+        && body
+            .to_ascii_lowercase()
+            .contains("internal server error (ref:")
+}
+
+/// Message-level half of [`is_ollama_cloud_internal_500`]: matches the actionable
+/// user message re-raised at the RPC/agent boundary
+/// (`core::observability::expected_error_kind`), so the higher-layer re-report is
+/// demoted too instead of leaking the event the emit-site already suppressed (the
+/// `domain=agent` half of TAURI-RUST-5MV). Mirrors the
+/// `is_provider_insufficient_credits_402` / `body_indicates_insufficient_credits`
+/// split. Keyed on the [`OLLAMA_CLOUD_INTERNAL_500_USER_PREFIX`] anchor, which we
+/// own, so it cannot collide with an unrelated provider body.
+pub fn is_ollama_cloud_internal_500_message(message: &str) -> bool {
+    let needle = OLLAMA_CLOUD_INTERNAL_500_USER_PREFIX.to_ascii_lowercase();
+    message.to_ascii_lowercase().contains(needle.as_str())
+}
+
+/// Build the actionable user-facing message for an Ollama-Cloud hosted-inference
+/// 500, replacing the opaque `Internal Server Error (ref: <uuid>)` body (which
+/// carries no signal the user can act on) with retry/switch guidance. The model
+/// is included when known (native/streaming chat); the `api_error` path has no
+/// model in scope and omits it.
+pub fn ollama_cloud_internal_500_user_message(
+    model: Option<&str>,
+    status: reqwest::StatusCode,
+) -> String {
+    let code = status.as_u16();
+    match model {
+        Some(model) => format!(
+            "{OLLAMA_CLOUD_INTERNAL_500_USER_PREFIX} for model `{model}` (Ollama returned HTTP \
+             {code}); the hosted model failed on Ollama's side — retry shortly or switch models."
+        ),
+        None => format!(
+            "{OLLAMA_CLOUD_INTERNAL_500_USER_PREFIX} (Ollama returned HTTP {code}); the hosted \
+             model failed on Ollama's side — retry shortly or switch models."
+        ),
+    }
+}
+
+pub fn log_ollama_cloud_internal_500(
+    operation: &str,
+    provider: &str,
+    model: Option<&str>,
+    status: reqwest::StatusCode,
+) {
+    tracing::info!(
+        domain = "llm_provider",
+        operation = operation,
+        provider = provider,
+        model = model.unwrap_or(""),
+        status = status.as_u16(),
+        failure = "non_2xx",
+        kind = "ollama_cloud_internal_500",
+        "[llm_provider] {operation} Ollama Cloud hosted-inference 500 — provider-internal \
+         (no client lever), not reporting to Sentry"
+    );
+}
+
 /// Whether a provider non-2xx response is a deterministic
 /// **configuration-rejection** user-state error (unknown model id,
 /// abstract tier leaked to a custom provider, model-specific temperature
@@ -705,6 +867,11 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
     // custom gateways mis-report it as 500 — TAURI-RUST-501 — so a status
     // gate would let those through to `should_report_provider_http_failure`).
     let is_context_window_exceeded = is_context_window_exceeded_message(&body);
+    // Monthly-quota exhaustion is likewise status-agnostic: the Kiro IDE proxy
+    // wraps its 402 inside a 500 envelope (TAURI-RUST-C9A), so match the body
+    // directly rather than gating on a 402 status (which the credits matcher
+    // below does). The user's third-party plan quota is spent — no local lever.
+    let is_quota_exhausted = is_provider_quota_exhausted(&body);
     // F4/F2: any managed-backend response carrying a stable `errorCode` is
     // backend-owned — it already paged or is expected user-state — so the FE
     // must not double-report. The one exception (malformed `BAD_REQUEST`) is
@@ -719,6 +886,18 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
     // from Sentry (TAURI-RUST-8FQ flood).
     let is_openai_oauth_session_expired =
         is_openai_oauth_session_expired_http(provider, status, &body);
+    // Insufficient-credits 402: the user's own BYO provider account is out of
+    // balance — a flat billing fact, not a reservation-window error, so there is
+    // NO local max_tokens lever to apply. Demote from Sentry like the per-method
+    // compatible-provider arms; the complete classification for a genuinely-
+    // unpreventable BYO-balance condition (TAURI-RUST-4QF DeepSeek "Insufficient
+    // Balance"). This shared helper backs the two methods that delegate here
+    // (chat_via_responses fallback and the non-streaming completion path).
+    let is_insufficient_credits_402 = is_provider_insufficient_credits_402(status, &body);
+    // Ollama Cloud hosted-inference 500 (`Internal Server Error (ref: <uuid>)`):
+    // provider-internal, non-deterministic, no client lever. Demote from Sentry
+    // and replace the opaque ref body with actionable guidance (TAURI-RUST-5MV).
+    let is_ollama_cloud_internal_500 = is_ollama_cloud_internal_500(provider, status, &body);
 
     if is_auth_failure && is_backend {
         // Single source of truth for backend session-expiry handling (warn +
@@ -735,12 +914,18 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
         log_provider_config_rejection("api_error", provider, None, status);
     } else if is_context_window_exceeded {
         log_context_window_exceeded("api_error", provider, None, status);
+    } else if is_quota_exhausted {
+        log_provider_quota_exhausted("api_error", provider, None, status);
     } else if is_backend_error_code_owned {
         log_backend_error_code_owned("api_error", provider, None, status, &body);
     } else if is_byo_auth_failure {
         log_byo_provider_auth_failure("api_error", provider, None, status);
     } else if is_openai_oauth_session_expired {
         log_openai_oauth_session_expired("api_error", provider, None, status);
+    } else if is_insufficient_credits_402 {
+        log_provider_insufficient_credits_402("api_error", provider, None, status);
+    } else if is_ollama_cloud_internal_500 {
+        log_ollama_cloud_internal_500("api_error", provider, None, status);
     } else if should_report_provider_http_failure(status) {
         crate::core::observability::report_error(
             message.as_str(),
@@ -752,6 +937,12 @@ pub async fn api_error(provider: &str, response: reqwest::Response) -> anyhow::E
                 ("failure", "non_2xx"),
             ],
         );
+    }
+    // Replace the opaque `Internal Server Error (ref: <uuid>)` body with
+    // actionable guidance; the prefix anchors the higher-layer re-report
+    // demotion (`is_ollama_cloud_internal_500_message`).
+    if is_ollama_cloud_internal_500 {
+        return anyhow::anyhow!(ollama_cloud_internal_500_user_message(None, status));
     }
     anyhow::anyhow!(message)
 }
@@ -814,6 +1005,70 @@ mod tests {
             StatusCode::PAYMENT_REQUIRED,
             "{\"error\":{\"message\":\"some unrelated condition\"}}"
         ));
+    }
+
+    /// Verbatim TAURI-RUST-C9A provider body — the Kiro IDE proxy wraps its own
+    /// 402 monthly-quota refusal inside a 500 envelope. The matcher keys on this
+    /// prose, so coupling the test to the exact string makes a provider wording
+    /// drift fail CI rather than silently leak events back to Sentry.
+    const C9A_BODY: &str = "kiro API error (500 Internal Server Error): \
+        {\"error\":{\"message\":\"HTTP 402 from Kiro IDE: {\\\"message\\\":\\\"You have \
+        reached the limit.\\\",\\\"reason\\\":\\\"MONTHLY_REQUEST_COUNT\\\"}\",\
+        \"type\":\"server_error\"}}";
+
+    #[test]
+    fn quota_exhausted_matches_verbatim_c9a_body() {
+        // Status-agnostic: the verbatim 500-wrapped body must match even though
+        // the transport status is 500, not 402.
+        assert!(is_provider_quota_exhausted(C9A_BODY));
+        assert!(body_indicates_quota_exhausted(C9A_BODY));
+    }
+
+    #[test]
+    fn quota_exhausted_matches_common_phrasings() {
+        for body in [
+            "{\"reason\":\"MONTHLY_REQUEST_COUNT\"}",
+            "You have reached the limit on your monthly requests",
+            "monthly request quota reached",
+            "monthly limit reached",
+            "plan quota exceeded",
+            "usage limit exceeded for this period",
+        ] {
+            assert!(is_provider_quota_exhausted(body), "should match: {body:?}");
+        }
+    }
+
+    #[test]
+    fn quota_exhausted_ignores_unrelated_500_and_rate_limit() {
+        // A generic 500 outage and a 429 rate-limit are NOT plan-quota
+        // exhaustion and must stay reportable / retryable respectively — the
+        // quota guard must not swallow them.
+        for body in [
+            "kiro API error (500 Internal Server Error): {\"error\":\
+             {\"message\":\"upstream connection reset\",\"type\":\"server_error\"}}",
+            "rate_limit_exceeded: too many requests, retry after 12s",
+            "429 Too Many Requests",
+            "context length exceeded: reduce the number of tokens",
+        ] {
+            assert!(
+                !is_provider_quota_exhausted(body),
+                "should NOT match: {body:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn quota_and_credits_matchers_do_not_overlap_on_c9a() {
+        // The 402-gated credits matcher must keep ignoring the 500-wrapped
+        // quota body (it is status-anchored) — the quota matcher is the one
+        // that catches it. Proves the locked-in
+        // `insufficient_credits_402_ignores_non_402_status` invariant holds and
+        // the two classifiers cover distinct shapes.
+        assert!(!is_provider_insufficient_credits_402(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            C9A_BODY
+        ));
+        assert!(is_provider_quota_exhausted(C9A_BODY));
     }
 
     /// Verbatim TAURI-RUST-8FQ Responses-API body. The matcher keys on this
@@ -879,6 +1134,89 @@ mod tests {
             StatusCode::BAD_REQUEST,
             OAUTH_EXPIRED_8FQ_BODY
         ));
+    }
+
+    /// Verbatim TAURI-RUST-5MV provider body. The matcher keys on the
+    /// `Internal Server Error (ref:` envelope, so coupling the test to the exact
+    /// wire shape makes an Ollama-Cloud wording drift fail CI rather than
+    /// silently leak events back to Sentry.
+    const OLLAMA_CLOUD_500_BODY: &str =
+        "{\"error\":\"Internal Server Error (ref: df512dcb-d915-493b-8f2d-e8d3dfa640c1)\"}";
+
+    #[test]
+    fn ollama_cloud_internal_500_matches_verbatim_5mv_body() {
+        assert!(is_ollama_cloud_internal_500(
+            "ollama",
+            StatusCode::INTERNAL_SERVER_ERROR,
+            OLLAMA_CLOUD_500_BODY
+        ));
+    }
+
+    #[test]
+    fn ollama_cloud_internal_500_ignores_non_500_status() {
+        // Same body on a non-500 status is not this provider-internal flood —
+        // keep it reportable so a genuine bug elsewhere isn't masked.
+        assert!(!is_ollama_cloud_internal_500(
+            "ollama",
+            StatusCode::BAD_REQUEST,
+            OLLAMA_CLOUD_500_BODY
+        ));
+        assert!(!is_ollama_cloud_internal_500(
+            "ollama",
+            StatusCode::SERVICE_UNAVAILABLE,
+            OLLAMA_CLOUD_500_BODY
+        ));
+    }
+
+    #[test]
+    fn ollama_cloud_internal_500_ignores_other_providers() {
+        // A 500 with the same envelope from a non-ollama provider stays
+        // reportable — this gate is scoped to ollama.com hosted inference.
+        assert!(!is_ollama_cloud_internal_500(
+            "openai",
+            StatusCode::INTERNAL_SERVER_ERROR,
+            OLLAMA_CLOUD_500_BODY
+        ));
+    }
+
+    #[test]
+    fn ollama_cloud_internal_500_ignores_local_ollama_500_without_ref() {
+        // A local Ollama daemon 500 (genuine model crash / OOM, worth paging)
+        // does not carry the `ref:` UUID, so it must NOT be swallowed.
+        assert!(!is_ollama_cloud_internal_500(
+            "ollama",
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "{\"error\":\"llama runner process has terminated: exit status 0xc0000409\"}"
+        ));
+    }
+
+    #[test]
+    fn ollama_cloud_internal_500_user_message_is_matched_by_message_matcher() {
+        // Couple the prose builder to the re-report matcher so the
+        // `expected_error_kind` / before_send demotion can't drift from the
+        // string the emit sites actually raise.
+        let with_model = ollama_cloud_internal_500_user_message(
+            Some("minimax-m3:cloud"),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        );
+        assert!(with_model.contains("minimax-m3:cloud"));
+        assert!(!with_model.contains("ref:"));
+        assert!(is_ollama_cloud_internal_500_message(&with_model));
+
+        let without_model =
+            ollama_cloud_internal_500_user_message(None, StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(is_ollama_cloud_internal_500_message(&without_model));
+    }
+
+    #[test]
+    fn log_ollama_cloud_internal_500_smoke() {
+        // The helper only emits a demotion info log; calling it covers that path.
+        log_ollama_cloud_internal_500(
+            "native_chat",
+            "ollama",
+            Some("minimax-m3:cloud"),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        );
     }
 
     #[test]
