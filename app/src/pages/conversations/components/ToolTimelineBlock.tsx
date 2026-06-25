@@ -42,6 +42,32 @@ function toolCallTone(status: ToolTimelineEntryStatus): string {
 }
 
 /**
+ * Status pill for a tool-call row — a tinted "Done" / "Failed" / "Running"
+ * tag instead of a bare ✓/✕ glyph, so the outcome reads at a glance.
+ */
+function StatusTag({ status }: { status: ToolTimelineEntryStatus }) {
+  const { t } = useT();
+  const { label, classes } =
+    status === 'error'
+      ? {
+          label: t('conversations.agentTaskInsights.failed'),
+          classes: 'bg-coral-100 text-coral-700 dark:bg-coral-500/15 dark:text-coral-300',
+        }
+      : status === 'running'
+        ? {
+            label: t('conversations.agentTaskInsights.running'),
+            classes: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+          }
+        : {
+            label: t('conversations.agentTaskInsights.done'),
+            classes: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-300',
+          };
+  return (
+    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${classes}`}>{label}</span>
+  );
+}
+
+/**
  * One child tool-call row in a sub-agent's inline activity. Shared by the
  * ordered transcript (interleaved with {@link ThoughtBlock}) and the flat
  * `toolCalls` fallback, so the row markup lives in exactly one place.
@@ -73,11 +99,8 @@ function ToolCallRow({
           {call.detail}
         </span>
       ) : null}
-      {/* Status reads as a glyph (✓/✕) or a quiet running dot — not the raw
-          "running"/"success" word, which the design treats as noise. */}
-      <span className={`text-[11px] ${tone}`} aria-hidden>
-        {call.status === 'running' ? '·' : call.status === 'error' ? '✕' : '✓'}
-      </span>
+      {/* Status reads as a tinted "Done" / "Failed" / "Running" tag. */}
+      <StatusTag status={call.status} />
       {call.elapsedMs != null && call.status !== 'running' ? (
         <span className="text-[11px] text-stone-400 dark:text-neutral-500">
           {call.elapsedMs >= 1000

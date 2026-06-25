@@ -3084,6 +3084,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource': 'Lihat sumber proses agen lengkap',
   'conversations.agentTaskInsights.processing': 'Memproses',
   'conversations.agentTaskInsights.done': 'Selesai',
+  'conversations.agentTaskInsights.failed': 'Gagal',
+  'conversations.agentTaskInsights.running': 'Berjalan',
   'daemon.serviceBlockingGate.body': 'Isi',
   'daemon.serviceBlockingGate.downloadHint': 'Petunjuk unduhan',
   'daemon.serviceBlockingGate.downloadLatest': 'Unduh Versi Terbaru',

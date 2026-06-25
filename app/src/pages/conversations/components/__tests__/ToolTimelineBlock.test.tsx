@@ -80,17 +80,16 @@ describe('SubagentActivityBlock', () => {
     );
     const calls = screen.getAllByTestId('subagent-tool-call');
     expect(calls).toHaveLength(3);
-    // Human labels + timing, with status as a glyph (✓ / · / ✕) instead of the
-    // raw "running"/"success" word the design treats as noise.
+    // Human labels + timing, with status as a tinted "Done" / "Failed" /
+    // "Running" tag instead of a bare ✓/✕ glyph or the raw lowercase word.
     expect(calls[0].textContent).toContain('Searching the web');
-    expect(calls[0].textContent).toContain('✓');
+    expect(calls[0].textContent).toContain('Done');
     expect(calls[0].textContent).toContain('312ms');
-    expect(calls[0].textContent).not.toContain('success');
     expect(calls[1].textContent).toContain('Composio Execute');
-    expect(calls[1].textContent).not.toContain('running');
+    expect(calls[1].textContent).toContain('Running');
     expect(calls[1].textContent).not.toContain('·t2');
     expect(calls[2].textContent).toContain('Reading file');
-    expect(calls[2].textContent).toContain('✕');
+    expect(calls[2].textContent).toContain('Failed');
     expect(calls[2].textContent).toContain('50ms');
   });
 

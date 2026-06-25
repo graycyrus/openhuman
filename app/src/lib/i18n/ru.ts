@@ -3103,6 +3103,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource': 'Показать полный источник процесса агента',
   'conversations.agentTaskInsights.processing': 'Обработка',
   'conversations.agentTaskInsights.done': 'Готово',
+  'conversations.agentTaskInsights.failed': 'Ошибка',
+  'conversations.agentTaskInsights.running': 'Выполняется',
   'daemon.serviceBlockingGate.body': 'Текст',
   'daemon.serviceBlockingGate.downloadHint': 'Подсказка по загрузке',
   'daemon.serviceBlockingGate.downloadLatest': 'Скачать последнюю версию',

@@ -3080,6 +3080,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource': 'সম্পূর্ণ এজেন্ট প্রক্রিয়ার উৎস দেখুন',
   'conversations.agentTaskInsights.processing': 'প্রসেসিং',
   'conversations.agentTaskInsights.done': 'সম্পন্ন',
+  'conversations.agentTaskInsights.failed': 'ব্যর্থ',
+  'conversations.agentTaskInsights.running': 'চলছে',
   'daemon.serviceBlockingGate.body': 'বডি',
   'daemon.serviceBlockingGate.downloadHint': 'ডাউনলোড হিন্ট',
   'daemon.serviceBlockingGate.downloadLatest': 'সর্বশেষ সংস্করণ ডাউনলোড করুন',

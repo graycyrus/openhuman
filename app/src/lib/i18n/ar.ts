@@ -3016,6 +3016,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource': 'عرض مصدر عملية الوكيل الكامل',
   'conversations.agentTaskInsights.processing': 'قيد المعالجة',
   'conversations.agentTaskInsights.done': 'تم',
+  'conversations.agentTaskInsights.failed': 'فشل',
+  'conversations.agentTaskInsights.running': 'قيد التشغيل',
   'daemon.serviceBlockingGate.body': 'المحتوى',
   'daemon.serviceBlockingGate.downloadHint': 'تلميح التنزيل',
   'daemon.serviceBlockingGate.downloadLatest': 'تنزيل أحدث إصدار',

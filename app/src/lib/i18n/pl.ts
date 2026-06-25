@@ -3112,6 +3112,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource': 'Zobacz pełne źródło procesu agenta',
   'conversations.agentTaskInsights.processing': 'Przetwarzanie',
   'conversations.agentTaskInsights.done': 'Gotowe',
+  'conversations.agentTaskInsights.failed': 'Niepowodzenie',
+  'conversations.agentTaskInsights.running': 'W toku',
   'daemon.serviceBlockingGate.body':
     'Rdzeń OpenHuman nie odpowiada. Spróbuj ponownie lub pobierz najnowszą wersję aplikacji.',
   'daemon.serviceBlockingGate.downloadHint':

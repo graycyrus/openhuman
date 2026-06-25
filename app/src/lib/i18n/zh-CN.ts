@@ -2933,6 +2933,8 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.viewProcessSource': '查看完整的智能体处理来源',
   'conversations.agentTaskInsights.processing': '处理中',
   'conversations.agentTaskInsights.done': '完成',
+  'conversations.agentTaskInsights.failed': '失败',
+  'conversations.agentTaskInsights.running': '运行中',
   'daemon.serviceBlockingGate.body': '核心服务不可用，请等待或下载最新版本。',
   'daemon.serviceBlockingGate.downloadHint': '下载最新版本',
   'daemon.serviceBlockingGate.downloadLatest': '下载最新版本',
