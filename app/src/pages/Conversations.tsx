@@ -1596,7 +1596,11 @@ const Conversations = ({
       : undefined;
 
   const agentInsights =
-    selectedThreadToolTimeline.length > 0 ? (
+    // Render when there are tool steps OR a persisted reasoning/narration
+    // transcript. A tool-less turn (the agent only thinks/narrates, no tool
+    // calls) has an empty timeline but still persists thoughts — without the
+    // transcript guard those thoughts would be unreachable.
+    selectedThreadToolTimeline.length > 0 || selectedThreadProcessing.length > 0 ? (
       <>
         {hideAgentInsights ? (
           // "Hide agent thinking" is ON: suppress the verbose step rows.
@@ -1621,13 +1625,30 @@ const Conversations = ({
               {t('conversations.agentTaskInsights.viewProcessSource')} →
             </button>
           ) : null
-        ) : (
+        ) : selectedThreadToolTimeline.length > 0 ? (
           <ToolTimelineBlock
             entries={selectedThreadToolTimeline}
             onViewDetails={openScopedDetail}
             onViewWholeRun={openWholeRunSource}
             liveResponse={selectedStreamingAssistant?.content}
           />
+        ) : (
+          // Transcript-only turn: reasoning/narration was streamed but no tool
+          // calls were made, so the inline step timeline is empty. The thoughts
+          // are still persisted — surface a standalone opener (matching the
+          // settled insights header) so the full-run panel stays reachable.
+          <button
+            type="button"
+            onClick={openWholeRunSource}
+            data-testid="view-process-source"
+            className="flex items-center gap-1.5 px-1 py-1 text-left">
+            <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
+              {t('conversations.agentTaskInsights.title')}
+            </span>
+            <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+              →
+            </span>
+          </button>
         )}
         {/* "View full agent process Source" — only needed in the hidden-insights
             settled state; when the timeline is visible the link lives in its

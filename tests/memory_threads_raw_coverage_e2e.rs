@@ -3140,6 +3140,8 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         tool_name: "memory.search".into(),
         arguments: json!({ "q": "coverage" }),
         iteration: 2,
+        display_label: None,
+        display_detail: None,
     }));
     assert!(mirror.observe(&AgentProgress::ToolCallCompleted {
         call_id: "call-1".into(),
@@ -3181,6 +3183,8 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         tool_name: "memory.read".into(),
         arguments: serde_json::Value::Null,
         iteration: 1,
+        display_label: None,
+        display_detail: None,
     }));
     assert!(!mirror.observe(&AgentProgress::SubagentToolCallCompleted {
         agent_id: "researcher".into(),
@@ -3451,7 +3455,10 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
                 iteration: Some(1),
                 elapsed_ms: Some(100),
                 output_chars: Some(10),
+                display_name: None,
+                detail: None,
             }],
+            transcript: vec![],
         }),
     });
     let second = TurnState::started("thread/b", "request-2", 2, "2026-05-29T12:01:00Z");

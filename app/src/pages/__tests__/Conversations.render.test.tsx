@@ -19,6 +19,7 @@ import { chatClearQueue, chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
 import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
+  appendProcessingProse,
   beginInferenceTurn,
   setInferenceStatusForThread,
   setTaskBoardForThread,
@@ -1802,6 +1803,68 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
       fireEvent.click(link);
     });
     expect(await screen.findByTestId('agent-task-insights')).toBeInTheDocument();
+  });
+
+  it('surfaces a process-source opener for a tool-less (transcript-only) turn', async () => {
+    // The agent only streamed reasoning/narration — no tool calls — so the
+    // inline step timeline is empty, but the persisted thoughts must stay
+    // reachable through a standalone opener into the full-run panel.
+    const thread = makeThread({ id: 'transcript-only-thread', title: 'Thinking only' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'Just think out loud.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent',
+        sender: 'agent',
+        type: 'text',
+        content: 'Here is my reasoning result.',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+      });
+    });
+
+    await screen.findByText('Here is my reasoning result.');
+    // Seed a narration-only transcript (no tool timeline at all).
+    await act(async () => {
+      store!.dispatch(
+        appendProcessingProse({
+          threadId: thread.id,
+          kind: 'narration',
+          round: 1,
+          delta: 'Let me reason about this carefully.',
+        })
+      );
+    });
+
+    // The verbose step timeline never renders (there are no tool steps)…
+    expect(screen.queryByTestId('agent-task-insights')).toBeNull();
+    // …but the standalone opener appears and opens the full-run panel, which
+    // shows the persisted thoughts.
+    const opener = screen.getByTestId('view-process-source');
+    await act(async () => {
+      fireEvent.click(opener);
+    });
+    expect(await screen.findByTestId('agent-process-source-panel')).toBeInTheDocument();
   });
 
   it('keeps a settled source opener when hidden and no agent message exists (cancelled first turn)', async () => {
