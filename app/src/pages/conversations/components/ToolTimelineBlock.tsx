@@ -12,6 +12,7 @@ import {
   stripToolCallEnvelopes,
 } from '../../../utils/toolTimelineFormatting';
 import { parseWorkerThreadRef } from '../utils/workerThreadRef';
+import { BubbleMarkdown } from './AgentMessageBubble';
 import { agentNameTone, AgentTimelineRail } from './AgentTimelineRail';
 import { WorkerThreadRefCard, type WorkerThreadStatus } from './WorkerThreadRefCard';
 
@@ -99,20 +100,28 @@ function ToolCallRow({
 }) {
   const tone = toolCallTone(call.status);
   return (
-    <div className="flex items-center gap-1.5" data-testid="subagent-tool-call">
-      <span className={`text-[11px] ${tone}`}>•</span>
-      <span className="text-[12px] text-stone-700 dark:text-neutral-200">
+    <div className="flex min-w-0 items-center gap-1.5" data-testid="subagent-tool-call">
+      <span className={`shrink-0 text-[11px] ${tone}`}>•</span>
+      <span className="shrink-0 text-[12px] whitespace-nowrap text-stone-700 dark:text-neutral-200">
         {call.displayName ?? formatToolName(call.toolName)}
       </span>
+      {/* The contextual arg (path / recipient / query) can be long, so it
+          truncates to a single line and absorbs the row's spare width — the
+          full value stays available on hover — instead of wrapping into a
+          multi-line box that knocks the name and status out of alignment. */}
       {call.detail ? (
-        <span className="rounded bg-stone-100 px-1 font-mono text-[11px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <span
+          title={call.detail}
+          className="min-w-0 truncate rounded bg-stone-100 px-1 py-px font-mono text-[11px] text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
           {call.detail}
         </span>
       ) : null}
       {/* Status reads as a tinted "Done" / "Failed" / "Running" tag. */}
-      <StatusTag status={call.status} />
+      <span className="shrink-0">
+        <StatusTag status={call.status} />
+      </span>
       {call.elapsedMs != null && call.status !== 'running' ? (
-        <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+        <span className="shrink-0 text-[11px] text-stone-400 dark:text-neutral-500">
           {call.elapsedMs >= 1000
             ? `${(call.elapsedMs / 1000).toFixed(1)}s`
             : `${call.elapsedMs}ms`}
@@ -132,14 +141,17 @@ function ToolCallRow({
  */
 function ThoughtBlock({ text }: { text: string }) {
   // Drop any inline `<tool_call>…</tool_call>` envelope the model emitted as
-  // text — the call already shows as its own row — then flatten to one line.
-  const clean = stripToolCallEnvelopes(text).replace(/\s+/g, ' ').trim();
+  // text — the call already shows as its own row. Keep the original newlines
+  // (only trim the ends) so the markdown renderer can see headings, lists,
+  // code fences and emphasis instead of flattening them to one plain line.
+  const clean = stripToolCallEnvelopes(text).trim();
   if (!clean) return null;
+  // Rendered through the shared `BubbleMarkdown` so a thought reads with the
+  // same markdown formatting as an agent message (no blockquote rail, no
+  // literal quote glyphs — the timeline position already marks it as narration).
   return (
-    <div
-      data-testid="subagent-thought"
-      className="my-0.5 border-l-2 border-stone-200 pl-2 text-[12px] break-words text-stone-500 italic dark:border-neutral-700 dark:text-neutral-400">
-      “{clean}”
+    <div data-testid="subagent-thought" className="my-0.5 break-words">
+      <BubbleMarkdown content={clean} />
     </div>
   );
 }
