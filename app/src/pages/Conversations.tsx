@@ -2635,24 +2635,6 @@ const Conversations = ({
           />
         )}
 
-        {/* Cancel the in-flight turn. Lives in the floating footer (above the
-            queued-follow-ups strip + composer) so it stays reachable now that
-            the composer is interactive mid-stream — otherwise the taller footer
-            would paint over a cancel control left in the message flow. */}
-        {isSending && rustChat && (
-          <div className="mb-2 flex justify-start px-1">
-            <button
-              type="button"
-              data-analytics-id="chat-cancel-generation"
-              onClick={() => {
-                if (selectedThreadId) void chatCancel(selectedThreadId);
-              }}
-              className="text-xs text-stone-500 transition-colors hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
-              {t('common.cancel')}
-            </button>
-          </div>
-        )}
-
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">
             <MicComposer
@@ -2672,6 +2654,13 @@ const Conversations = ({
               inputValue={inputValue}
               setInputValue={setInputValue}
               onSend={handleComposerSend}
+              onStopGeneration={
+                rustChat
+                  ? () => {
+                      if (selectedThreadId) void chatCancel(selectedThreadId);
+                    }
+                  : undefined
+              }
               textInputRef={textInputRef}
               fileInputRef={fileInputRef}
               composerInteractionBlocked={composerInteractionBlocked}
