@@ -103,6 +103,12 @@ pub struct SubagentActivity {
     pub worker_thread_id: Option<String>,
     #[serde(default)]
     pub tool_calls: Vec<SubagentToolCall>,
+    /// Ordered reasoning/narration/tool transcript for this sub-agent — what
+    /// the inline "Agentic task insights" thoughts render from. Persisted (not
+    /// live-only) so the thoughts survive a settled turn / reload.
+    /// `#[serde(default)]` so snapshots written before this field load empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transcript: Vec<SubagentTranscriptItem>,
 }
 
 /// One child tool call performed by a running sub-agent.
@@ -127,6 +133,46 @@ pub struct SubagentToolCall {
     /// Server-computed contextual detail (e.g. the path / recipient).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+}
+
+/// One ordered item in a sub-agent's processing transcript — its streamed
+/// reasoning (`thinking`), visible narration (`text`), or a tool call, in the
+/// exact order they occurred. Mirrors the frontend `SubagentTranscriptItem`
+/// union 1:1 (order = push order; no `seq` is needed because each sub-agent's
+/// transcript is built as a single ordered list). Persisting these lets the
+/// inline "Agentic task insights" thoughts survive a settled turn / reload.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum SubagentTranscriptItem {
+    /// The sub-agent's hidden reasoning.
+    Thinking {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        iteration: Option<u32>,
+        text: String,
+    },
+    /// The sub-agent's visible narration.
+    Text {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        iteration: Option<u32>,
+        text: String,
+    },
+    /// A child tool call at the point it occurred (self-contained so a
+    /// rehydrated row renders without cross-referencing `tool_calls`).
+    Tool {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        iteration: Option<u32>,
+        call_id: String,
+        tool_name: String,
+        status: ToolTimelineStatus,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        elapsed_ms: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        output_chars: Option<usize>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        display_name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        detail: Option<String>,
+    },
 }
 
 /// One ordered item in the parent turn's processing transcript.

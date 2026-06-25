@@ -350,3 +350,91 @@ fn subagent_lifecycle_records_and_clears_active() {
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
     assert!(s.active_subagent.is_none());
 }
+
+#[test]
+fn subagent_transcript_persists_interleaved_prose_and_tools() {
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::IterationStarted {
+        iteration: 1,
+        max_iterations: 25,
+    });
+    m.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 10,
+        worker_thread_id: None,
+        display_name: Some("Researcher".into()),
+    });
+    // Reasoning (two same-iteration deltas, must coalesce), then a tool, then
+    // visible narration — the order must be preserved in the transcript.
+    m.observe(&AgentProgress::SubagentThinkingDelta {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        delta: "let me ".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::SubagentThinkingDelta {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        delta: "search.".into(),
+        iteration: 1,
+    });
+    // A sub-agent tool boundary must flush the accumulated prose to disk.
+    let flushed = m.observe(&AgentProgress::SubagentToolCallStarted {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        call_id: "c1".into(),
+        tool_name: "search".into(),
+        arguments: serde_json::Value::Null,
+        iteration: 1,
+        display_label: Some("Searching".into()),
+        display_detail: None,
+    });
+    assert!(flushed, "sub-agent tool boundary must flush");
+    m.observe(&AgentProgress::SubagentTextDelta {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        delta: "Found it.".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::SubagentToolCallCompleted {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        call_id: "c1".into(),
+        tool_name: "search".into(),
+        success: true,
+        output_chars: 5,
+        output: String::new(),
+        elapsed_ms: 12,
+        iteration: 1,
+    });
+
+    let activity = m.snapshot().tool_timeline[0]
+        .subagent
+        .as_ref()
+        .expect("activity")
+        .clone();
+    assert_eq!(activity.transcript.len(), 3, "thinking, tool, narration");
+    match &activity.transcript[0] {
+        SubagentTranscriptItem::Thinking { text, .. } => {
+            assert_eq!(text, "let me search.", "coalesced same-iteration thinking");
+        }
+        other => panic!("expected thinking, got {other:?}"),
+    }
+    match &activity.transcript[1] {
+        SubagentTranscriptItem::Tool {
+            call_id, status, ..
+        } => {
+            assert_eq!(call_id, "c1");
+            // Completion flips the transcript tool item, not just `tool_calls`.
+            assert_eq!(*status, ToolTimelineStatus::Success);
+        }
+        other => panic!("expected tool, got {other:?}"),
+    }
+    match &activity.transcript[2] {
+        SubagentTranscriptItem::Text { text, .. } => assert_eq!(text, "Found it."),
+        other => panic!("expected narration, got {other:?}"),
+    }
+}

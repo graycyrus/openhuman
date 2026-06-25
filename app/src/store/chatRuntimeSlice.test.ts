@@ -309,4 +309,58 @@ describe('hydrateRuntimeFromSnapshot — sub-agent prose persistence', () => {
       'let me search the inbox'
     );
   });
+
+  it('replays a persisted sub-agent transcript on a settled turn (no live data)', () => {
+    const store = makeStore();
+    // No live entries seeded — this is the settled / reloaded case. The
+    // snapshot itself now carries the sub-agent prose transcript.
+    const snapshot: PersistedTurnState = {
+      threadId: 't10',
+      requestId: 'req-1',
+      lifecycle: 'completed',
+      iteration: 2,
+      maxIterations: 10,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [
+        {
+          id: 'subagent:task-y',
+          name: 'subagent:researcher',
+          round: 1,
+          status: 'success',
+          subagent: {
+            taskId: 'task-y',
+            agentId: 'researcher',
+            toolCalls: [{ callId: 'c1', toolName: 'web_search', status: 'success' }],
+            transcript: [
+              { kind: 'thinking', iteration: 1, text: 'planning the search' },
+              {
+                kind: 'tool',
+                iteration: 1,
+                callId: 'c1',
+                toolName: 'web_search',
+                status: 'success',
+              },
+              { kind: 'text', iteration: 1, text: 'here is the summary' },
+            ],
+          },
+        },
+      ],
+      startedAt: '2026-06-23T00:00:00Z',
+      updatedAt: '2026-06-23T00:00:00Z',
+    };
+
+    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot }));
+
+    const row = store
+      .getState()
+      .chatRuntime.toolTimelineByThread['t10'].find(e => e.subagent?.taskId === 'task-y');
+    const transcript = row?.subagent?.transcript ?? [];
+    // The persisted prose survives a reload with no in-memory live data.
+    expect(transcript.map(i => i.kind)).toEqual(['thinking', 'tool', 'text']);
+    const thinking = transcript[0];
+    expect(thinking.kind === 'thinking' ? thinking.text : undefined).toBe('planning the search');
+    const text = transcript[2];
+    expect(text.kind === 'text' ? text.text : undefined).toBe('here is the summary');
+  });
 });

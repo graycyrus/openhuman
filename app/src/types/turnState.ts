@@ -77,6 +77,27 @@ export type PersistedTranscriptItem =
   | { kind: 'thinking'; round: number; seq: number; text: string }
   | { kind: 'toolCall'; round: number; seq: number; callId: string };
 
+/**
+ * One ordered item in a sub-agent's processing transcript (mirrors the Rust
+ * `SubagentTranscriptItem`). Unlike the parent transcript there is no `seq` —
+ * order is the array order. Persisting these lets the inline sub-agent thoughts
+ * survive a settled turn / reload.
+ */
+export type PersistedSubagentTranscriptItem =
+  | { kind: 'thinking'; iteration?: number; text: string }
+  | { kind: 'text'; iteration?: number; text: string }
+  | {
+      kind: 'tool';
+      iteration?: number;
+      callId: string;
+      toolName: string;
+      status: PersistedToolStatus;
+      elapsedMs?: number;
+      outputChars?: number;
+      displayName?: string;
+      detail?: string;
+    };
+
 export interface PersistedSubagentActivity {
   taskId: string;
   agentId: string;
@@ -91,6 +112,10 @@ export interface PersistedSubagentActivity {
   /** Persistent worker sub-thread id backing this delegation (camelCase from core). */
   workerThreadId?: string;
   toolCalls: PersistedSubagentToolCall[];
+  /** Ordered reasoning/narration/tool transcript for this sub-agent — what the
+   *  inline thoughts render from. Absent on snapshots written before this
+   *  field; the UI then falls back to rebuilding tool-only items. */
+  transcript?: PersistedSubagentTranscriptItem[];
 }
 
 export interface PersistedToolTimelineEntry {

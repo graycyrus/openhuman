@@ -18,8 +18,8 @@ use crate::openhuman::agent::progress::AgentProgress;
 
 use super::store::TurnStateStore;
 use super::types::{
-    SubagentActivity, SubagentToolCall, ToolTimelineEntry, ToolTimelineStatus, TranscriptItem,
-    TurnLifecycle, TurnPhase, TurnState,
+    SubagentActivity, SubagentToolCall, SubagentTranscriptItem, ToolTimelineEntry,
+    ToolTimelineStatus, TranscriptItem, TurnLifecycle, TurnPhase, TurnState,
 };
 
 const MIRROR_LOG_PREFIX: &str = "[threads:turn_state:mirror]";
@@ -191,6 +191,7 @@ impl TurnStateMirror {
                         output_chars: None,
                         worker_thread_id: worker_thread_id.clone(),
                         tool_calls: Vec::new(),
+                        transcript: Vec::new(),
                     }),
                 });
                 self.flush();
@@ -269,9 +270,25 @@ impl TurnStateMirror {
                             display_name: display_label.clone(),
                             detail: display_detail.clone(),
                         });
+                        // Mirror the call into the ordered transcript so the
+                        // rehydrated thoughts interleave it at the right spot.
+                        activity.transcript.push(SubagentTranscriptItem::Tool {
+                            iteration: Some(*iteration),
+                            call_id: call_id.clone(),
+                            tool_name: tool_name.clone(),
+                            status: ToolTimelineStatus::Running,
+                            elapsed_ms: None,
+                            output_chars: None,
+                            display_name: display_label.clone(),
+                            detail: display_detail.clone(),
+                        });
                     }
                 }
-                false
+                // Flush at sub-agent tool boundaries so prose streamed since the
+                // last boundary reaches disk (the parent is blocked on the
+                // spawn tool, so its own flushes don't fire mid sub-agent run).
+                self.flush();
+                true
             }
             AgentProgress::SubagentToolCallCompleted {
                 task_id,
@@ -283,33 +300,59 @@ impl TurnStateMirror {
             } => {
                 if let Some(entry) = self.find_subagent_entry_mut(task_id) {
                     if let Some(activity) = entry.subagent.as_mut() {
+                        let status = if *success {
+                            ToolTimelineStatus::Success
+                        } else {
+                            ToolTimelineStatus::Error
+                        };
                         if let Some(call) = activity
                             .tool_calls
                             .iter_mut()
                             .rev()
                             .find(|c| c.call_id == *call_id)
                         {
-                            call.status = if *success {
-                                ToolTimelineStatus::Success
-                            } else {
-                                ToolTimelineStatus::Error
-                            };
+                            call.status = status;
                             call.elapsed_ms = Some(*elapsed_ms);
                             call.output_chars = Some(*output_chars);
                         }
+                        // Keep the transcript's Tool item in lockstep so the
+                        // rehydrated row shows the terminal status + timing.
+                        if let Some(SubagentTranscriptItem::Tool {
+                            status: tx_status,
+                            elapsed_ms: tx_elapsed,
+                            output_chars: tx_output,
+                            ..
+                        }) = activity
+                            .transcript
+                            .iter_mut()
+                            .rev()
+                            .find(|item| matches!(item, SubagentTranscriptItem::Tool { call_id: c, .. } if c == call_id))
+                        {
+                            *tx_status = status;
+                            *tx_elapsed = Some(*elapsed_ms);
+                            *tx_output = Some(*output_chars);
+                        }
                     }
                 }
+                self.flush();
+                true
+            }
+            AgentProgress::SubagentTextDelta {
+                task_id,
+                delta,
+                iteration,
+                ..
+            } => {
+                self.push_subagent_prose(task_id, *iteration, delta, false);
                 false
             }
-            AgentProgress::SubagentTextDelta { .. }
-            | AgentProgress::SubagentThinkingDelta { .. } => {
-                // Sub-agent streaming text/thinking is display-only: it is
-                // rendered live in the parent thread's subagent transcript
-                // but intentionally **not** persisted to the turn-state
-                // snapshot. The child's final assistant text lands in the
-                // thread on completion, so replaying partial deltas after a
-                // reconnect would add weight without value. Acknowledge
-                // without mutating the snapshot or flushing.
+            AgentProgress::SubagentThinkingDelta {
+                task_id,
+                delta,
+                iteration,
+                ..
+            } => {
+                self.push_subagent_prose(task_id, *iteration, delta, true);
                 false
             }
             AgentProgress::TaskBoardUpdated { board } => {
@@ -482,6 +525,55 @@ impl TurnStateMirror {
             .iter_mut()
             .rev()
             .find(|entry| entry.id == needle)
+    }
+
+    /// Append a sub-agent prose delta (narration when `is_thinking == false`,
+    /// reasoning otherwise) to that sub-agent's transcript, coalescing into the
+    /// trailing same-kind, same-iteration item so a streamed paragraph stays
+    /// one entry (mirrors the frontend `appendSubagentStreamDelta`). Mutate-
+    /// only (no flush) — high-frequency like the parent's `TextDelta`; the
+    /// accumulated prose is persisted at the next sub-agent tool boundary.
+    fn push_subagent_prose(
+        &mut self,
+        task_id: &str,
+        iteration: u32,
+        delta: &str,
+        is_thinking: bool,
+    ) {
+        let Some(entry) = self.find_subagent_entry_mut(task_id) else {
+            return;
+        };
+        let Some(activity) = entry.subagent.as_mut() else {
+            return;
+        };
+        match activity.transcript.last_mut() {
+            Some(SubagentTranscriptItem::Thinking {
+                iteration: it,
+                text,
+            }) if is_thinking && *it == Some(iteration) => {
+                text.push_str(delta);
+                return;
+            }
+            Some(SubagentTranscriptItem::Text {
+                iteration: it,
+                text,
+            }) if !is_thinking && *it == Some(iteration) => {
+                text.push_str(delta);
+                return;
+            }
+            _ => {}
+        }
+        activity.transcript.push(if is_thinking {
+            SubagentTranscriptItem::Thinking {
+                iteration: Some(iteration),
+                text: delta.to_string(),
+            }
+        } else {
+            SubagentTranscriptItem::Text {
+                iteration: Some(iteration),
+                text: delta.to_string(),
+            }
+        });
     }
 
     #[cfg(test)]

@@ -6,6 +6,7 @@ import type {
   AgentRun,
   PersistedSubagentActivity,
   PersistedSubagentToolCall,
+  PersistedSubagentTranscriptItem,
   PersistedToolTimelineEntry,
   PersistedTranscriptItem,
   PersistedTurnState,
@@ -424,6 +425,25 @@ function preserveLiveSubagentProse(
   });
 }
 
+function subagentTranscriptItemFromPersisted(
+  item: PersistedSubagentTranscriptItem
+): SubagentTranscriptItem {
+  if (item.kind === 'tool') {
+    return {
+      kind: 'tool',
+      iteration: item.iteration,
+      callId: item.callId,
+      toolName: item.toolName,
+      status: item.status,
+      elapsedMs: item.elapsedMs,
+      outputChars: item.outputChars,
+      displayName: item.displayName,
+      detail: item.detail,
+    };
+  }
+  return { kind: item.kind, iteration: item.iteration, text: item.text };
+}
+
 function subagentActivityFromPersisted(activity: PersistedSubagentActivity): SubagentActivity {
   return {
     taskId: activity.taskId,
@@ -438,19 +458,22 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
     elapsedMs: activity.elapsedMs,
     outputChars: activity.outputChars,
     toolCalls: activity.toolCalls.map(subagentToolCallFromPersisted),
-    // Streamed text/thinking is live-only and never persisted, so a
-    // rehydrated run can't replay the prose. Rebuild the transcript from
-    // the persisted tool calls (tool items only) so an interrupted run
-    // still shows its tool sequence in chronological order.
-    transcript: activity.toolCalls.map(call => ({
-      kind: 'tool' as const,
-      iteration: call.iteration,
-      callId: call.callId,
-      toolName: call.toolName,
-      status: call.status,
-      elapsedMs: call.elapsedMs,
-      outputChars: call.outputChars,
-    })),
+    // Prefer the persisted prose transcript (reasoning/narration interleaved
+    // with tools) so a settled / reloaded run replays its thoughts. Fall back
+    // to a tool-only rebuild for snapshots written before sub-agent prose was
+    // persisted (the `transcript` field is absent there).
+    transcript:
+      activity.transcript && activity.transcript.length > 0
+        ? activity.transcript.map(subagentTranscriptItemFromPersisted)
+        : activity.toolCalls.map(call => ({
+            kind: 'tool' as const,
+            iteration: call.iteration,
+            callId: call.callId,
+            toolName: call.toolName,
+            status: call.status,
+            elapsedMs: call.elapsedMs,
+            outputChars: call.outputChars,
+          })),
   };
 }
 
