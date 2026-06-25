@@ -433,23 +433,23 @@ export function ToolTimelineBlock({
               isFirst={index === 0}
               isLast={index === entries.length - 1}>
               {compact ? (
-                // Collapsed step: a single line — the human label + a
-                // "View details →" link to the full-run panel. A collapsed row
+                // Collapsed step: the whole label is the link — "Run Code →"
+                // opens the full-run panel scoped to this step. A collapsed row
                 // is backgrounded, so it never pulses — only the single active
                 // (expanded) step blinks. Strip `animate-pulse` from the tone.
-                <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onViewDetails(entry)}
+                  data-testid="view-details"
+                  className="group/details flex items-center gap-1.5 text-left">
                   <span
-                    className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')}`}>
+                    className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')} group-hover/details:underline`}>
                     {formatted.title}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onViewDetails(entry)}
-                    data-testid="view-details"
-                    className="text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
-                    {t('conversations.agentTaskInsights.viewDetails')} →
-                  </button>
-                </div>
+                  <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+                    →
+                  </span>
+                </button>
               ) : expandable ? (
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
@@ -508,9 +508,25 @@ export function ToolTimelineBlock({
   if (!isRunning) {
     return (
       <div className="mb-2 px-1 py-0" data-testid="agent-task-insights">
-        <div className="mb-1.5 flex items-center gap-1.5">
-          {titleLabel}
-          {wholeRunLink}
+        <div className="mb-1.5 flex items-center">
+          {onViewWholeRun ? (
+            // Settled: the whole title is the link — "Agentic task insights →"
+            // opens the full-run panel (matches the collapsed step rows).
+            <button
+              type="button"
+              onClick={onViewWholeRun}
+              data-testid="view-process-source"
+              className="group/insights-link flex items-center gap-1.5 text-left">
+              <span className="text-[13px] font-medium text-stone-500 group-hover/insights-link:underline dark:text-neutral-400">
+                {t('conversations.agentTaskInsights.title')}
+              </span>
+              <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+                →
+              </span>
+            </button>
+          ) : (
+            titleLabel
+          )}
         </div>
         {body}
       </div>
