@@ -378,33 +378,35 @@ export function ToolTimelineBlock({
 
   if (entries.length === 0) return null;
 
-  // The group header is a static section label — the live "working" state is
-  // conveyed by the pulsing agent-name rows (and the chat's own activity
-  // indicator), so the header does NOT repeat a "Working…" string.
-  return (
-    <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
-      <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
-        <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
-          {t('conversations.agentTaskInsights.title')}
-        </span>
-        <span className="text-[11px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
-          ▶
-        </span>
-        {onViewWholeRun ? (
-          <button
-            type="button"
-            // Sits inside <summary>; stop the click from toggling the collapse.
-            onClick={e => {
-              e.preventDefault();
-              e.stopPropagation();
-              onViewWholeRun();
-            }}
-            data-testid="view-process-source"
-            className="shrink-0 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
-            {t('conversations.agentTaskInsights.viewProcessSource')} →
-          </button>
-        ) : null}
-      </summary>
+  const isRunning = latestRunningEntryId != null;
+
+  const titleLabel = (
+    <span className="text-[13px] font-medium text-stone-500 dark:text-neutral-400">
+      {t('conversations.agentTaskInsights.title')}
+    </span>
+  );
+
+  // Whole-run "View full agent process Source →" link — sits in the header
+  // beside the title, in both the collapsible and the static layout.
+  const wholeRunLink = onViewWholeRun ? (
+    <button
+      type="button"
+      // Stop the click from toggling the collapse when nested in <summary>.
+      onClick={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        onViewWholeRun();
+      }}
+      data-testid="view-process-source"
+      className="shrink-0 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+      {t('conversations.agentTaskInsights.viewProcessSource')} →
+    </button>
+  ) : null;
+
+  // The rows + the parent's streaming response — shared by both the collapsible
+  // (in-flight) and static (settled) header layouts below.
+  const body = (
+    <>
       <div className="text-sm text-stone-400 dark:text-neutral-500">
         {entries.map((entry, index) => {
           const formatted = formatTimelineEntry(entry);
@@ -494,6 +496,37 @@ export function ToolTimelineBlock({
         })}
       </div>
       {liveResponse ? <LiveResponseBlock text={liveResponse} /> : null}
+    </>
+  );
+
+  // The group header is a static section label — the live "working" state is
+  // conveyed by the pulsing agent-name rows, so it never repeats a "Working…"
+  // string. While the run is in flight the group is collapsible; once it
+  // settles the chevron/collapse is dropped and the header renders static —
+  // matching the finished sub-agent steps, which also drop their collapse when
+  // done.
+  if (!isRunning) {
+    return (
+      <div className="mb-2 px-1 py-0" data-testid="agent-task-insights">
+        <div className="mb-1.5 flex items-center gap-1.5">
+          {titleLabel}
+          {wholeRunLink}
+        </div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
+      <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
+        {titleLabel}
+        <span className="text-[11px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
+          ▶
+        </span>
+        {wholeRunLink}
+      </summary>
+      {body}
     </details>
   );
 }
