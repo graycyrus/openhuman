@@ -344,6 +344,7 @@ export function ToolTimelineBlock({
   entries,
   onViewSubagent,
   onViewDetails,
+  onViewWholeRun,
   expandAllRows = false,
   liveResponse,
 }: {
@@ -357,6 +358,10 @@ export function ToolTimelineBlock({
    * side panel scoped to *that* step via this callback. The panel itself
    * renders without `onViewDetails` to keep the full expanded view. */
   onViewDetails?: (entry: ToolTimelineEntry) => void;
+  /** Opens the whole-run "Agent Process Source" panel. When set, a compact
+   * "View full agent process Source →" link sits in the group header beside the
+   * "Agentic task insights" title (clicking it does NOT toggle the collapse). */
+  onViewWholeRun?: () => void;
   /** Expand every row's details by default (used by the "Agent Process
    * Source" panel, where the whole run should be visible at a glance).
    * In the inline chat only the latest running row auto-expands. */
@@ -385,6 +390,20 @@ export function ToolTimelineBlock({
         <span className="text-[11px] text-stone-400 transition-transform group-open/insights:rotate-90 dark:text-neutral-500">
           ▶
         </span>
+        {onViewWholeRun ? (
+          <button
+            type="button"
+            // Sits inside <summary>; stop the click from toggling the collapse.
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              onViewWholeRun();
+            }}
+            data-testid="view-process-source"
+            className="ml-auto shrink-0 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-300">
+            {t('conversations.agentTaskInsights.viewProcessSource')} →
+          </button>
+        ) : null}
       </summary>
       <div className="text-sm text-stone-400 dark:text-neutral-500">
         {entries.map((entry, index) => {

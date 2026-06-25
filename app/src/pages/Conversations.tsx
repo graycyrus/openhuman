@@ -1492,12 +1492,14 @@ const Conversations = ({
           <ToolTimelineBlock
             entries={selectedThreadToolTimeline}
             onViewDetails={openScopedDetail}
+            onViewWholeRun={openWholeRunSource}
             liveResponse={selectedStreamingAssistant?.content}
           />
         )}
-        {/* "View full agent process Source" — settled state (turn finished,
-            an agent message exists). */}
-        {shouldRenderTimelineBeforeLatestAgentMessage && (
+        {/* "View full agent process Source" — only needed in the hidden-insights
+            settled state; when the timeline is visible the link lives in its
+            header (ToolTimelineBlock onViewWholeRun). */}
+        {shouldRenderTimelineBeforeLatestAgentMessage && hideAgentInsights && (
           <button
             type="button"
             onClick={openWholeRunSource}
