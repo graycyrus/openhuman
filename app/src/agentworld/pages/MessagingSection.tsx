@@ -12,6 +12,7 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import ChipTabs from '../../components/layout/ChipTabs';
 import Button from '../../components/ui/Button';
 import {
   type BroadcastChannel,
@@ -1398,23 +1399,14 @@ export default function MessagingSection({ tabs = VISIBLE_TABS }: MessagingSecti
     <div className="flex flex-col h-full">
       {/* Tab chips — only shown when more than one tab is enabled. */}
       {showTabBar && (
-        <div className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0">
-          {tabs.map(tab => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              data-active={activeTab === tab}
-              className={[
-                'whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                activeTab === tab
-                  ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                  : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-              ].join(' ')}>
-              {TAB_LABELS[tab]}
-            </button>
-          ))}
-        </div>
+        <ChipTabs<Tab>
+          as="tab"
+          ariaLabel="Messaging sections"
+          className="flex gap-1 px-4 py-3 border-b border-stone-200 dark:border-neutral-800 overflow-x-auto shrink-0"
+          items={tabs.map(tab => ({ id: tab, label: TAB_LABELS[tab] }))}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       )}
 
       {/* Signal key status — always visible when wallet is connected */}

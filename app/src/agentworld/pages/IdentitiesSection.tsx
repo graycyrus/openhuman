@@ -15,6 +15,7 @@
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
+import ChipTabs from '../../components/layout/ChipTabs';
 import PanelScaffold from '../../components/layout/PanelScaffold';
 import Button from '../../components/ui/Button';
 import {
@@ -1012,25 +1013,17 @@ export default function IdentitiesSection() {
 
   return (
     <PanelScaffold description="Claim handles, manage your registry, and trade identities">
-      <div className="flex gap-1">
-        {(Object.keys(TAB_KEYS) as Tab[]).map(tabKey => (
-          <button
-            key={tabKey}
-            type="button"
-            onClick={() => {
-              dispatch({ type: 'set', tab: tabKey });
-            }}
-            data-active={tab === tabKey}
-            className={[
-              'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-              tab === tabKey
-                ? 'bg-stone-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-            ].join(' ')}>
-            {TAB_KEYS[tabKey]}
-          </button>
-        ))}
-      </div>
+      <ChipTabs<Tab>
+        as="tab"
+        ariaLabel="Identity sections"
+        className="flex gap-1"
+        items={(Object.keys(TAB_KEYS) as Tab[]).map(tabKey => ({
+          id: tabKey,
+          label: TAB_KEYS[tabKey],
+        }))}
+        value={tab}
+        onChange={tabKey => dispatch({ type: 'set', tab: tabKey })}
+      />
 
       <div key={key}>
         {tab === 'register' && <RegisterTab onRegistered={bumpRegistryKey} />}
