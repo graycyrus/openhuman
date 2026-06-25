@@ -398,19 +398,22 @@ export function ToolTimelineBlock({
           // detail to show. Mirrors the rule that a non-subagent row only
           // expands when it has detail content.
           const expandable = detailContent != null || subagent != null;
-          const shouldAutoExpand =
-            expandAllRows || (latestRunningEntryId != null && latestRunningEntryId === entry.id);
+          const isLatestRunning = latestRunningEntryId != null && latestRunningEntryId === entry.id;
+          const shouldAutoExpand = expandAllRows || isLatestRunning;
           const nameTone = agentNameTone(entry.status);
+          // Chat mode: the currently-running step stays expanded inline in the
+          // main UI; finished steps collapse to a compact "View details →" link
+          // (their full activity lives in the side panel).
+          const compact = onViewDetails != null && !isLatestRunning;
 
           return (
             <AgentTimelineRail
               key={entry.id}
               isFirst={index === 0}
               isLast={index === entries.length - 1}>
-              {onViewDetails ? (
-                // Compact chat mode: a single line per step — the human label
-                // (its tone conveys status) + a "View details →" link that opens
-                // the full-run side panel where the whole processing lives.
+              {compact ? (
+                // Finished step: a single line — the human label (its tone
+                // conveys status) + a "View details →" link to the full-run panel.
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[13px] font-medium ${nameTone}`}>{formatted.title}</span>
                   <button

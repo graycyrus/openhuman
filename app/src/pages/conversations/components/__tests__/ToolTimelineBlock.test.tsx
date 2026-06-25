@@ -441,7 +441,9 @@ describe('ToolTimelineBlock — worker thread ref status propagation', () => {
 
 describe('ToolTimelineBlock — compact chat mode (onViewDetails)', () => {
   const entries: ToolTimelineEntry[] = [
+    // A finished step.
     { id: 'tl-1', name: 'agent_prepare_context', round: 1, status: 'success', detail: 'fetch X' },
+    // The currently-running sub-agent (latest running).
     {
       id: 'sa-1',
       name: 'subagent:researcher',
@@ -456,24 +458,48 @@ describe('ToolTimelineBlock — compact chat mode (onViewDetails)', () => {
     },
   ];
 
-  it('renders compact rows with a "View details" link instead of inline expansion', () => {
+  it('collapses finished steps to a "View details" link but keeps the running step expanded inline', () => {
     const onViewDetails = vi.fn();
     renderInStore(<ToolTimelineBlock entries={entries} onViewDetails={onViewDetails} />);
 
-    // One "View details" link per row.
+    // Only the finished step collapses to a "View details →" link.
     const links = screen.getAllByTestId('view-details');
-    expect(links).toHaveLength(2);
+    expect(links).toHaveLength(1);
 
-    // No inline sub-agent activity / no per-row <details> — only the group
-    // header <details> remains.
-    expect(screen.queryByTestId('subagent-activity')).toBeNull();
-    const insights = screen.getByTestId('agent-task-insights');
-    expect(insights.querySelectorAll('details')).toHaveLength(0);
-    expect(insights.tagName).toBe('DETAILS');
+    // The currently-running sub-agent stays expanded inline in the main UI
+    // (its activity is visible) — and shows no "View details" link itself.
+    const activity = screen.getByTestId('subagent-activity');
+    expect(activity.textContent).toContain('pondering');
 
-    // Clicking a link opens the full-run panel via the callback.
+    // Clicking the finished step's link opens the full-run panel.
     fireEvent.click(links[0]);
     expect(onViewDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses an already-finished sub-agent (no longer running) to a "View details" link', () => {
+    const onViewDetails = vi.fn();
+    renderInStore(
+      <ToolTimelineBlock
+        entries={[
+          {
+            id: 'sa-done',
+            name: 'subagent:researcher',
+            round: 1,
+            status: 'success',
+            subagent: {
+              taskId: 'task-2',
+              agentId: 'researcher',
+              toolCalls: [],
+              transcript: [{ kind: 'thinking', iteration: 1, text: 'done thinking' }],
+            },
+          },
+        ]}
+        onViewDetails={onViewDetails}
+      />
+    );
+    // No running step → the finished sub-agent collapses (no inline activity).
+    expect(screen.getByTestId('view-details')).toBeInTheDocument();
+    expect(screen.queryByTestId('subagent-activity')).toBeNull();
   });
 
   it('still expands inline (no compact link) when onViewDetails is omitted (panel mode)', () => {
