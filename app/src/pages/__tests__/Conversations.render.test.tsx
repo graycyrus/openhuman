@@ -1555,12 +1555,12 @@ describe('Conversations — worker thread back-to-parent navigation (#1624)', ()
 
 // #3717 (Bug 2) — A single logical assistant turn can be persisted as multiple
 // agent ThreadMessages. The "Agentic task insights" panel used to be anchored
-// inside the per-message map, immediately before the LAST agent message, which
-// dropped it BETWEEN the earlier agent content and the final message — splitting
-// one response into two disconnected chunks. The panel (and the "View full agent
-// process" button) are now hoisted out of the map so they render exactly once,
-// AFTER the complete response, regardless of how many agent messages the turn
-// produced.
+// immediately before the LAST agent message, which dropped it BETWEEN the
+// earlier agent content and the final message — splitting one response into two
+// disconnected chunks. The panel (and the "View full agent process" button) now
+// render exactly once, anchored after the latest turn's USER message so they
+// sit ABOVE the whole answer (processing before result) — never split between
+// agent bubbles, regardless of how many agent messages the turn produced.
 describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1581,7 +1581,7 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
     });
   });
 
-  it('renders the insights panel exactly once, after the last agent message of a multi-message turn', async () => {
+  it('renders the insights panel exactly once, above the answer of a multi-message turn (not split between bubbles)', async () => {
     const thread = makeThread({ id: 'multi-agent-thread', title: 'Multi-message turn' });
     // One logical assistant turn persisted as TWO agent ThreadMessages.
     const messages: ThreadMessage[] = [
@@ -1656,14 +1656,21 @@ describe('Conversations — agent task insights panel anchoring (#3717 Bug 2)', 
     // The "View full agent process" button is hoisted alongside it — also once.
     expect(screen.getAllByTestId('view-process-source')).toHaveLength(1);
 
-    // DOM order: the panel must follow the LAST agent message's content, never
-    // sit between the two agent bubbles.
-    const lastAgentText = screen.getByText('Second part of the answer.');
+    // DOM order: processing happens before the result, so the panel sits ABOVE
+    // the answer — after the latest turn's user message and before BOTH agent
+    // bubbles (never split between them, preserving the #3717 invariant).
+    const userText = screen.getByText('Plan and then summarize.');
     const firstAgentText = screen.getByText('First part of the answer.');
-    expect(lastAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
+    const lastAgentText = screen.getByText('Second part of the answer.');
+    // The panel precedes the first agent bubble (and therefore both).
+    expect(firstAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_PRECEDING).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING
     );
-    expect(firstAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+    expect(lastAgentText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_PRECEDING).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING
+    );
+    // …and follows the user message.
+    expect(userText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
 
