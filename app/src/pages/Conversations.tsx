@@ -2635,6 +2635,25 @@ const Conversations = ({
           />
         )}
 
+        {/* Cancel the in-flight turn for composer modes that don't render the
+            text ChatComposer (mic-cloud + voice). The text composer carries its
+            own in-box Stop button, so the footer control only appears for the
+            non-text branches — otherwise voice/mic flows would have no way to
+            stop a long-running generation. */}
+        {isSending && rustChat && (composer === 'mic-cloud' || inputMode !== 'text') && (
+          <div className="mb-2 flex justify-start px-1">
+            <button
+              type="button"
+              data-analytics-id="chat-cancel-generation"
+              onClick={() => {
+                if (selectedThreadId) void chatCancel(selectedThreadId);
+              }}
+              className="text-xs text-stone-500 transition-colors hover:text-stone-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+              {t('common.cancel')}
+            </button>
+          </div>
+        )}
+
         {composer === 'mic-cloud' ? (
           <div className="flex flex-col items-center gap-3 py-1">
             <MicComposer

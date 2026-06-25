@@ -1058,7 +1058,11 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       profileId: 'default',
       locale: 'en',
     });
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    // The send cleared the composer; with an empty composer mid-send the Send
+    // button morphs into the Stop button, so there is no Send affordance left
+    // to fire a duplicate send.
+    expect(screen.getByTestId('stop-generation-button')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument();
     resolveSend?.();
   });
 
