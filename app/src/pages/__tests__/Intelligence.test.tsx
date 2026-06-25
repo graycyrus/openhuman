@@ -24,8 +24,12 @@ vi.mock('../../components/intelligence/Toast', () => ({ ToastContainer: () => nu
 vi.mock('../../components/intelligence/ConfirmationModal', () => ({
   ConfirmationModal: () => null,
 }));
+interface MockChipTabsProps {
+  value: string;
+  onChange: (tab: string) => void;
+}
 vi.mock('../../components/layout/ChipTabs', () => ({
-  default: ({ value, onChange }: { value: string; onChange: (tab: string) => void }) => (
+  default: ({ value, onChange }: MockChipTabsProps) => (
     <div data-testid="pilltabs">
       <span>selected:{value}</span>
       {['memory', 'subconscious', 'tasks', 'workflows', 'council'].map(tab => (
