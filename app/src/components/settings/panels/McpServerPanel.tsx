@@ -179,7 +179,7 @@ const McpServerPanel = ({ embedded = false }: McpServerPanelProps = {}) => {
           {MCP_TOOLS.map(tool => (
             <div
               key={tool.name}
-              className="flex items-start gap-3 px-4 py-2.5 bg-white dark:bg-neutral-900">
+              className="flex items-start gap-3 px-4 py-3 bg-white dark:bg-neutral-900">
               <span className="font-mono text-xs text-primary-700 dark:text-primary-400 mt-0.5 shrink-0">
                 {tool.name}
               </span>

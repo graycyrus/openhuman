@@ -788,7 +788,7 @@ const ProviderKeyDialog = ({
       aria-modal="true"
       aria-label={formatI18n(t('settings.ai.connectProviderDialog'), { label })}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="relative w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
+      <div className="relative w-full max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
         {platformLinkUrl ? (
           <a
             href={platformLinkUrl}
@@ -2195,7 +2195,7 @@ const CustomRoutingDialog = ({
         label: t(workload.labelKey),
       })}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
+      <div className="w-full max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
@@ -3143,12 +3143,12 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
       contentClassName=""
       description={embedded ? undefined : t('pages.settings.ai.llmDesc')}
       leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
-      <div className={embedded ? 'space-y-6' : 'space-y-6 p-4'}>
+      <div className={embedded ? 'space-y-5' : 'space-y-5 p-4'}>
         {/* ═══════════════════════════════════════════════════════════════
             AUTH — provider authentication (cloud providers + local Ollama
             setup). Everything the user needs to wire a model up.
             ═══════════════════════════════════════════════════════════════ */}
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="border-b border-neutral-200 dark:border-neutral-800 pb-2">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
               {t('settings.ai.llmProviders')}
@@ -3169,7 +3169,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
               <SettingsStatusLine saving={false} error={error} savedNote={null} savingLabel="" />
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               <ProviderToggleChip
                 key="openhuman"
                 slug="openhuman"
@@ -3369,7 +3369,7 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
             Own = one provider/model for everything. Custom = fine-grained
             per-workload routing.
             ═══════════════════════════════════════════════════════════════ */}
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="border-b border-neutral-200 dark:border-neutral-800 pb-2">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
               {t('settings.ai.routing')}

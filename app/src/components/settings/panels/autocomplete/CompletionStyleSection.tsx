@@ -1,6 +1,14 @@
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { AcceptedCompletion } from '../../../../utils/tauriCommands';
 import Button from '../../../ui/Button';
+import {
+  SettingsNumberField,
+  SettingsRow,
+  SettingsSection,
+  SettingsSelect,
+  SettingsSwitch,
+  SettingsTextArea,
+} from '../../controls';
 
 interface CompletionStyleSectionProps {
   enabled: boolean;
@@ -58,130 +66,150 @@ const CompletionStyleSection = ({
   const { t } = useT();
   return (
     <>
-      <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          {t('autocomplete.settings')}
-        </h3>
-        <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-neutral-800 dark:text-neutral-200">
-            {t('settings.autocomplete.completionStyle.enabled')}
-          </span>
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={event => onSetEnabled(event.target.checked)}
-          />
-        </label>
-        <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-neutral-800 dark:text-neutral-200">
-            {t('autocomplete.acceptWithTab')}
-          </span>
-          <input
-            type="checkbox"
-            checked={acceptWithTab}
-            onChange={event => onSetAcceptWithTab(event.target.checked)}
-          />
-        </label>
-        <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-neutral-800 dark:text-neutral-200">
-            {t('settings.autocomplete.completionStyle.debounce')}
-          </span>
-          <input
-            type="number"
-            min={50}
-            max={2000}
-            step={10}
-            value={debounceMs}
-            onChange={event => onSetDebounceMs(event.target.value)}
-            className="w-28 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-neutral-800 dark:text-neutral-200"
-          />
-        </label>
-        <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-neutral-800 dark:text-neutral-200">
-            {t('settings.autocomplete.completionStyle.maxChars')}
-          </span>
-          <input
-            type="number"
-            min={32}
-            max={1200}
-            step={8}
-            value={maxChars}
-            onChange={event => onSetMaxChars(event.target.value)}
-            className="w-28 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-neutral-800 dark:text-neutral-200"
-          />
-        </label>
-        <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-neutral-800 dark:text-neutral-200">
-            {t('settings.autocomplete.completionStyle.overlayTtl')}
-          </span>
-          <input
-            type="number"
-            min={300}
-            max={10000}
-            step={100}
-            value={overlayTtlMs}
-            onChange={event => onSetOverlayTtlMs(event.target.value)}
-            className="w-28 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-neutral-800 dark:text-neutral-200"
-          />
-        </label>
-        <label className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2">
-          <span className="text-sm text-neutral-800 dark:text-neutral-200">
-            {t('autocomplete.stylePreset')}
-          </span>
-          <select
-            value={stylePreset}
-            onChange={event => onSetStylePreset(event.target.value)}
-            className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-neutral-800 dark:text-neutral-200">
-            <option value="balanced">{t('autocomplete.style.balanced')}</option>
-            <option value="concise">{t('autocomplete.style.concise')}</option>
-            <option value="formal">{t('autocomplete.style.formal')}</option>
-            <option value="casual">{t('autocomplete.style.casual')}</option>
-            <option value="custom">{t('autocomplete.style.custom')}</option>
-          </select>
-        </label>
-        <div className="space-y-1">
-          <div className="text-xs text-neutral-600 dark:text-neutral-300">
-            {t('settings.autocomplete.completionStyle.styleInstructions')}
-          </div>
-          <textarea
-            value={styleInstructions}
-            onChange={event => onSetStyleInstructions(event.target.value)}
-            rows={3}
-            className="w-full rounded border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-neutral-800 dark:text-neutral-200"
-          />
+      <SettingsSection title={t('autocomplete.settings')}>
+        <SettingsRow
+          label={t('settings.autocomplete.completionStyle.enabled')}
+          control={
+            <SettingsSwitch
+              id="completion-style-enabled"
+              checked={enabled}
+              onCheckedChange={onSetEnabled}
+              aria-label={t('settings.autocomplete.completionStyle.enabled')}
+            />
+          }
+        />
+        <SettingsRow
+          label={t('autocomplete.acceptWithTab')}
+          control={
+            <SettingsSwitch
+              id="completion-style-accept-tab"
+              checked={acceptWithTab}
+              onCheckedChange={onSetAcceptWithTab}
+              aria-label={t('autocomplete.acceptWithTab')}
+            />
+          }
+        />
+        <SettingsRow
+          label={t('settings.autocomplete.completionStyle.debounce')}
+          control={
+            <SettingsNumberField
+              id="completion-style-debounce"
+              value={debounceMs}
+              onChange={onSetDebounceMs}
+              onCommit={onSaveConfig}
+              unit="ms"
+              min={50}
+              max={2000}
+              step={10}
+              aria-label={t('settings.autocomplete.completionStyle.debounce')}
+            />
+          }
+        />
+        <SettingsRow
+          label={t('settings.autocomplete.completionStyle.maxChars')}
+          control={
+            <SettingsNumberField
+              id="completion-style-max-chars"
+              value={maxChars}
+              onChange={onSetMaxChars}
+              onCommit={onSaveConfig}
+              min={32}
+              max={1200}
+              step={8}
+              aria-label={t('settings.autocomplete.completionStyle.maxChars')}
+            />
+          }
+        />
+        <SettingsRow
+          label={t('settings.autocomplete.completionStyle.overlayTtl')}
+          control={
+            <SettingsNumberField
+              id="completion-style-overlay-ttl"
+              value={overlayTtlMs}
+              onChange={onSetOverlayTtlMs}
+              onCommit={onSaveConfig}
+              unit="ms"
+              min={300}
+              max={10000}
+              step={100}
+              aria-label={t('settings.autocomplete.completionStyle.overlayTtl')}
+            />
+          }
+        />
+        <SettingsRow
+          htmlFor="completion-style-preset"
+          label={t('autocomplete.stylePreset')}
+          control={
+            <SettingsSelect
+              id="completion-style-preset"
+              value={stylePreset}
+              onChange={event => onSetStylePreset(event.target.value)}>
+              <option value="balanced">{t('autocomplete.style.balanced')}</option>
+              <option value="concise">{t('autocomplete.style.concise')}</option>
+              <option value="formal">{t('autocomplete.style.formal')}</option>
+              <option value="casual">{t('autocomplete.style.casual')}</option>
+              <option value="custom">{t('autocomplete.style.custom')}</option>
+            </SettingsSelect>
+          }
+        />
+        <SettingsRow
+          stacked
+          htmlFor="completion-style-instructions"
+          label={t('settings.autocomplete.completionStyle.styleInstructions')}
+          control={
+            <SettingsTextArea
+              id="completion-style-instructions"
+              value={styleInstructions}
+              onChange={event => onSetStyleInstructions(event.target.value)}
+              rows={3}
+            />
+          }
+        />
+        <SettingsRow
+          stacked
+          htmlFor="completion-style-examples"
+          label={t('settings.autocomplete.completionStyle.styleExamples')}
+          control={
+            <SettingsTextArea
+              id="completion-style-examples"
+              value={styleExamplesText}
+              onChange={event => onSetStyleExamplesText(event.target.value)}
+              rows={3}
+            />
+          }
+        />
+        <SettingsRow
+          stacked
+          htmlFor="completion-style-disabled-apps"
+          label={t('autocomplete.disabledApps')}
+          control={
+            <SettingsTextArea
+              id="completion-style-disabled-apps"
+              value={disabledAppsText}
+              onChange={event => onSetDisabledAppsText(event.target.value)}
+              rows={3}
+            />
+          }
+        />
+        <div className="flex items-center gap-2 px-4 py-3">
+          <Button variant="primary" size="sm" onClick={onSaveConfig} disabled={isSaving}>
+            {isSaving ? t('autocomplete.saving') : t('autocomplete.saveSettings')}
+          </Button>
         </div>
-        <div className="space-y-1">
-          <div className="text-xs text-neutral-600 dark:text-neutral-300">
-            {t('settings.autocomplete.completionStyle.styleExamples')}
-          </div>
-          <textarea
-            value={styleExamplesText}
-            onChange={event => onSetStyleExamplesText(event.target.value)}
-            rows={3}
-            className="w-full rounded border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-neutral-800 dark:text-neutral-200"
-          />
-        </div>
-        <div className="space-y-1">
-          <div className="text-xs text-neutral-600 dark:text-neutral-300">
-            {t('autocomplete.disabledApps')}
-          </div>
-          <textarea
-            value={disabledAppsText}
-            onChange={event => onSetDisabledAppsText(event.target.value)}
-            rows={3}
-            className="w-full rounded border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 text-xs text-neutral-800 dark:text-neutral-200"
-          />
-        </div>
-        <Button variant="primary" size="sm" onClick={onSaveConfig} disabled={isSaving}>
-          {isSaving ? t('autocomplete.saving') : t('autocomplete.saveSettings')}
-        </Button>
-      </section>
+      </SettingsSection>
 
-      <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            {t('settings.autocomplete.completionStyle.personalizationHistory')}
-          </h3>
+      <SettingsSection title={t('settings.autocomplete.completionStyle.personalizationHistory')}>
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            {isHistoryLoading
+              ? t('common.loading')
+              : historyEntries.length === 0
+                ? t('settings.autocomplete.completionStyle.noHistory')
+                : (historyEntries.length === 1
+                    ? t('settings.autocomplete.completionStyle.acceptedCompletion')
+                    : t('settings.autocomplete.completionStyle.acceptedCompletions')
+                  ).replace('{count}', String(historyEntries.length))}
+          </p>
           <Button
             variant="secondary"
             tone="danger"
@@ -193,43 +221,39 @@ const CompletionStyleSection = ({
               : t('settings.autocomplete.completionStyle.clearHistory')}
           </Button>
         </div>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          {isHistoryLoading
-            ? t('common.loading')
-            : historyEntries.length === 0
-              ? t('settings.autocomplete.completionStyle.noHistory')
-              : (historyEntries.length === 1
-                  ? t('settings.autocomplete.completionStyle.acceptedCompletion')
-                  : t('settings.autocomplete.completionStyle.acceptedCompletions')
-                ).replace('{count}', String(historyEntries.length))}
-        </p>
         {historyEntries.length > 0 && (
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2 space-y-1">
-            {historyEntries.map((entry, idx) => (
-              <div
-                key={`${String(entry.timestamp_ms)}-${String(idx)}`}
-                className="flex flex-col gap-0.5 rounded-lg bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs border border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
-                  <span className="shrink-0">{new Date(entry.timestamp_ms).toLocaleString()}</span>
-                  {entry.app_name && (
-                    <span className="rounded bg-neutral-100 dark:bg-neutral-800 px-1 text-neutral-600 dark:text-neutral-300">
-                      {entry.app_name}
+          <div className="px-4 py-3">
+            <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/60 p-2">
+              {historyEntries.map((entry, idx) => (
+                <div
+                  key={`${String(entry.timestamp_ms)}-${String(idx)}`}
+                  className="flex flex-col gap-0.5 rounded-lg border border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs">
+                  <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
+                    <span className="shrink-0">
+                      {new Date(entry.timestamp_ms).toLocaleString()}
                     </span>
-                  )}
+                    {entry.app_name && (
+                      <span className="rounded bg-neutral-100 px-1 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                        {entry.app_name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-1 truncate text-neutral-800 dark:text-neutral-200">
+                    <span className="shrink-0 text-neutral-400 dark:text-neutral-500">…</span>
+                    <span className="truncate text-neutral-500 dark:text-neutral-400">
+                      {entry.context.slice(-40)}
+                    </span>
+                    <span className="shrink-0 text-neutral-400 dark:text-neutral-500">→</span>
+                    <span className="truncate font-medium text-primary-500">
+                      {entry.suggestion}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-baseline gap-1 text-neutral-800 dark:text-neutral-200 truncate">
-                  <span className="shrink-0 text-neutral-400 dark:text-neutral-500">…</span>
-                  <span className="truncate text-neutral-500 dark:text-neutral-400">
-                    {entry.context.slice(-40)}
-                  </span>
-                  <span className="shrink-0 text-neutral-400 dark:text-neutral-500">→</span>
-                  <span className="font-medium text-primary-500 truncate">{entry.suggestion}</span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
-      </section>
+      </SettingsSection>
     </>
   );
 };

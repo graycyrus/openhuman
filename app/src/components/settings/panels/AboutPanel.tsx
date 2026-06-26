@@ -69,7 +69,7 @@ const AboutPanel = () => {
     <SettingsPanel description={t('settings.aboutDesc')}>
       {/* Version */}
       <SettingsSection>
-        <div className="px-4 py-4">
+        <div className="px-4 py-3">
           <div className="text-xs text-neutral-500 dark:text-neutral-400">
             {t('settings.about.version')}
           </div>
@@ -101,7 +101,7 @@ const AboutPanel = () => {
           }
         />
         {lastCheckedAt && (
-          <div className="px-4 pb-3 text-[11px] text-neutral-400 dark:text-neutral-500">
+          <div className="px-4 py-3 text-[11px] text-neutral-400 dark:text-neutral-500">
             {t('settings.about.lastChecked')} {formatRelative(lastCheckedAt, t)}
           </div>
         )}
@@ -131,7 +131,7 @@ const AboutPanel = () => {
             </span>
           }
         />
-        <div className="px-4 pb-3">
+        <div className="px-4 py-3">
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
             {coreMode.kind === 'cloud'
               ? t('settings.about.connectionHelperCloud')
@@ -142,7 +142,7 @@ const AboutPanel = () => {
 
       {/* Releases */}
       <SettingsSection>
-        <div className="px-4 py-4 space-y-2">
+        <div className="px-4 py-3 space-y-2">
           <div className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
             {t('settings.about.releases')}
           </div>

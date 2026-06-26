@@ -36,7 +36,7 @@ import {
   SUPPORTED_MASCOT_COLORS,
 } from '../../../store/mascotSlice';
 import Button from '../../ui/Button';
-import { SettingsTextField } from '../controls';
+import { SettingsSelect, SettingsTextField } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import {
   defaultVoiceIdForLocale,
@@ -480,20 +480,20 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
             <span className="text-xs font-medium text-neutral-500 dark:text-neutral-300">
               {t('settings.mascot.voice.presetHeading')}
             </span>
-            <select
+            <SettingsSelect
               aria-label={t('settings.mascot.voice.presetHeading')}
               data-testid="mascot-voice-select"
               disabled={presetPickerDisabled}
               value={isCustomVoice ? '__custom__' : effectiveVoiceId}
               onChange={e => onPresetChange(e.target.value)}
-              className="w-full rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary-400 disabled:cursor-not-allowed">
+              className="w-full">
               {visiblePresets.map(v => (
                 <option key={v.id} value={v.id}>
                   {v.label}
                 </option>
               ))}
               <option value="__custom__">{t('settings.mascot.voice.customOption')}</option>
-            </select>
+            </SettingsSelect>
           </label>
 
           {isCustomVoice && (
@@ -726,7 +726,7 @@ const MascotPanel = ({ embedded = false }: MascotPanelProps) => {
 
   // Embedded inside the tabbed Personality & Face page: the parent owns the
   // header, so render just the padded body.
-  if (embedded) return <div className="p-4 space-y-4">{body}</div>;
+  if (embedded) return <div className="p-4 space-y-5">{body}</div>;
 
   return <SettingsPanel>{body}</SettingsPanel>;
 };

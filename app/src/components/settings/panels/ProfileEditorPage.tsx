@@ -186,7 +186,7 @@ const ProfileEditorPage = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Identity */}
           <SettingsSection>
             <SettingsRow
@@ -442,27 +442,21 @@ function AllowlistField({
       stacked
       control={
         <div className="space-y-2">
-          <div className="inline-flex overflow-hidden rounded-md border border-neutral-200 text-xs dark:border-neutral-700">
-            <button
+          <div className="inline-flex gap-1.5">
+            <Button
               type="button"
-              onClick={() => onChange(null)}
-              className={`px-3 py-1 font-medium transition-colors ${
-                !restricted
-                  ? 'bg-ocean-500 text-white'
-                  : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'
-              }`}>
+              variant={!restricted ? 'primary' : 'secondary'}
+              size="xs"
+              onClick={() => onChange(null)}>
               {t('settings.profiles.editor.all')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={() => onChange(value ?? [])}
-              className={`px-3 py-1 font-medium transition-colors ${
-                restricted
-                  ? 'bg-ocean-500 text-white'
-                  : 'bg-white text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300'
-              }`}>
+              variant={restricted ? 'primary' : 'secondary'}
+              size="xs"
+              onClick={() => onChange(value ?? [])}>
               {t('settings.profiles.editor.selected')}
-            </button>
+            </Button>
           </div>
 
           {restricted && (

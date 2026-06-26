@@ -137,7 +137,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
       <p className="text-sm text-neutral-600 dark:text-neutral-300">{t('migration.description')}</p>
 
       <SettingsSection>
-        <div className="p-4 space-y-4" data-testid="migration-form">
+        <div className="p-4 space-y-5" data-testid="migration-form">
           <div className="space-y-1">
             <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300">
               {t('migration.vendorLabel')}
@@ -217,7 +217,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
           data-testid={
             appliedReport != null ? 'migration-report-applied' : 'migration-report-preview'
           }
-          className="bg-white dark:bg-neutral-900/40 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
+          className="bg-white dark:bg-neutral-900/40 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             {appliedReport != null
               ? t('migration.reportTitleApplied')
@@ -302,7 +302,7 @@ const MigrationPanel = ({ embedded = false }: MigrationPanelProps = {}) => {
   if (embedded) {
     return (
       <PanelPage className="z-10" contentClassName="">
-        <div className="space-y-6 p-6">{body}</div>
+        <div className="space-y-5 p-6">{body}</div>
       </PanelPage>
     );
   }

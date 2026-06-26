@@ -394,7 +394,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
       contentClassName=""
       description={embedded ? undefined : t('pages.settings.ai.embeddingsDesc')}
       leading={embedded ? undefined : <SettingsBackButton onBack={navigateBack} />}>
-      <div className={embedded ? 'space-y-4' : 'p-4 space-y-4'}>
+      <div className={embedded ? 'space-y-5' : 'p-4 space-y-5'}>
         <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
           {t('settings.embeddings.description')}
         </p>
@@ -586,7 +586,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
               setSetupProvider(null);
             }
           }}>
-          <div className="mx-4 max-w-md w-full rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-6 shadow-xl space-y-4">
+          <div className="mx-4 max-w-md w-full rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               {t('settings.embeddings.setupTitle').replace('{provider}', setupProvider.label)}
             </h3>
@@ -771,7 +771,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
       {/* ── Confirm wipe dialog ── */}
       {pendingWipe && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="mx-4 max-w-sm w-full rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-6 shadow-xl space-y-4">
+          <div className="mx-4 max-w-sm w-full rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               {t('settings.embeddings.wipeTitle')}
             </h3>
