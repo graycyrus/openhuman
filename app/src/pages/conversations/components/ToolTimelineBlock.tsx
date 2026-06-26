@@ -101,7 +101,9 @@ function ToolCallRow({
   const tone = toolCallTone(call.status);
   return (
     <div className="flex min-w-0 items-center gap-1.5" data-testid="subagent-tool-call">
-      <span aria-hidden className={`shrink-0 text-[11px] ${tone}`}>•</span>
+      <span aria-hidden className={`shrink-0 text-[11px] ${tone}`}>
+        •
+      </span>
       <span className="shrink-0 text-[12px] whitespace-nowrap text-content-secondary">
         {call.displayName ?? formatToolName(call.toolName)}
       </span>
