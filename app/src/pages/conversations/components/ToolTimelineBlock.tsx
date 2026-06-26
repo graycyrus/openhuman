@@ -146,11 +146,15 @@ function ThoughtBlock({ text }: { text: string }) {
   // code fences and emphasis instead of flattening them to one plain line.
   const clean = stripToolCallEnvelopes(text).trim();
   if (!clean) return null;
-  // Rendered through the shared `BubbleMarkdown` so a thought reads with the
-  // same markdown formatting as an agent message (no blockquote rail, no
-  // literal quote glyphs — the timeline position already marks it as narration).
+  // Rendered through the shared `BubbleMarkdown` so a thought formats markdown
+  // (bold, code, lists) — but scaled back to the original quiet thought look:
+  // small (12px) and light/muted, not the larger, darker agent-bubble prose.
+  // Descendant overrides on `.prose` beat the typography plugin's base sizing;
+  // code keeps its accent colour so inline `tool_names` still read clearly.
   return (
-    <div data-testid="subagent-thought" className="my-0.5 break-words">
+    <div
+      data-testid="subagent-thought"
+      className="my-0.5 break-words [&_.prose]:text-[12px] [&_.prose]:leading-relaxed [&_.prose]:text-content-muted [&_.prose_strong]:text-content-muted [&_.prose_:is(h1,h2,h3,h4,h5,h6)]:text-[12px] [&_.prose_:is(h1,h2,h3,h4,h5,h6)]:text-content-muted">
       <BubbleMarkdown content={clean} />
     </div>
   );
