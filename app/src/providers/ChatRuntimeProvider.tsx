@@ -9,6 +9,7 @@ import {
   type ChatDoneEvent,
   type ChatInferenceStartEvent,
   type ChatIterationStartEvent,
+  type ChatPlanReviewRequestEvent,
   type ChatSegmentEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
@@ -27,6 +28,7 @@ import {
   clearInferenceStatusForThread,
   clearParallelRequest,
   clearPendingApprovalForThread,
+  clearPendingPlanReviewForThread,
   clearProcessingForThread,
   clearStreamingAssistantForThread,
   endInferenceTurn,
@@ -38,6 +40,7 @@ import {
   setInferenceStatusForThread,
   setParallelStream,
   setPendingApprovalForThread,
+  setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
@@ -45,6 +48,7 @@ import {
   type ToolTimelineEntry,
   type ToolTimelineEntryStatus,
   upsertArtifactFailedForThread,
+  upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -194,6 +198,50 @@ function hasCompleteSegmentDelivery(
 
 function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | undefined {
   return event.citations?.length ? { citations: event.citations } : undefined;
+}
+
+/**
+ * Map a `chat_done` event's holistic usage onto the `recordChatTurnUsage`
+ * payload. Prefers the structured `usage` object (tokens + cost + context window
+ * + per-sub-agent breakdown); falls back to the deprecated flat token fields for
+ * any older core that still emits them.
+ */
+function chatTurnUsagePayload(event: ChatDoneEvent): {
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens?: number;
+  costUsd?: number;
+  contextWindow?: number;
+  threadId?: string;
+  subAgents?: Array<{
+    agentId: string;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+  }>;
+} {
+  const u = event.usage;
+  if (u) {
+    return {
+      inputTokens: u.input_tokens,
+      outputTokens: u.output_tokens,
+      cachedTokens: u.cached_input_tokens,
+      costUsd: u.cost_usd,
+      contextWindow: u.context_window,
+      threadId: event.thread_id,
+      subAgents: (u.subagents ?? []).map(s => ({
+        agentId: s.agent_id,
+        inputTokens: s.input_tokens,
+        outputTokens: s.output_tokens,
+        costUsd: s.cost_usd,
+      })),
+    };
+  }
+  return {
+    inputTokens: event.total_input_tokens ?? 0,
+    outputTokens: event.total_output_tokens ?? 0,
+    threadId: event.thread_id,
+  };
 }
 
 export function findPendingDelegationContext(
@@ -961,6 +1009,21 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           }
         });
       },
+      onArtifactPending: event => {
+        rtLog('artifact_pending', {
+          thread: event.thread_id,
+          artifact_id: event.artifact_id,
+          kind: event.kind,
+        });
+        dispatch(
+          upsertArtifactInProgressForThread({
+            threadId: event.thread_id,
+            artifactId: event.artifact_id,
+            kind: event.kind,
+            title: event.title,
+          })
+        );
+      },
       onArtifactReady: event => {
         rtLog('artifact_ready', {
           thread: event.thread_id,
@@ -1031,6 +1094,18 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           })
         );
       },
+      onPlanReviewRequest: (event: ChatPlanReviewRequestEvent) => {
+        rtLog('plan_review_request', { thread: event.thread_id, request: event.request_id });
+        const steps = Array.isArray(event.args?.steps)
+          ? event.args.steps.filter((s): s is string => typeof s === 'string')
+          : [];
+        dispatch(
+          setPendingPlanReviewForThread({
+            threadId: event.thread_id,
+            review: { requestId: event.request_id, summary: event.message, steps },
+          })
+        );
+      },
       onDone: event => {
         const eventKey = `done:${event.thread_id}:${event.request_id ?? 'none'}`;
         if (
@@ -1056,12 +1131,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
         ) {
           const parallelRequestId = event.request_id;
-          dispatch(
-            recordChatTurnUsage({
-              inputTokens: event.total_input_tokens,
-              outputTokens: event.total_output_tokens,
-            })
-          );
+          dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
           if (!event.segment_total && event.full_response.length > 0) {
             void (async () => {
               try {
@@ -1096,15 +1166,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
 
-        dispatch(
-          recordChatTurnUsage({
-            inputTokens: event.total_input_tokens,
-            outputTokens: event.total_output_tokens,
-          })
-        );
+        dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
         dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
         dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         if (existing.length > 0) {
@@ -1239,6 +1305,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
         dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
         const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
         if (existing.length > 0) {
@@ -1317,9 +1384,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     });
     for (const threadId of threadIds) {
       dispatch(clearInferenceStatusForThread({ threadId }));
-      // Clear any parked approval too: a disconnect before onDone/onError would
-      // otherwise leave the approval card stuck for a turn that can't complete.
+      // Clear any parked approval/plan-review too: a disconnect before
+      // onDone/onError would otherwise leave the card stuck for a turn that
+      // can't complete.
       dispatch(clearPendingApprovalForThread({ threadId }));
+      dispatch(clearPendingPlanReviewForThread({ threadId }));
       dispatch(endInferenceTurn({ threadId }));
     }
     // A disconnect kills every in-flight turn on the dead session, so clear all
