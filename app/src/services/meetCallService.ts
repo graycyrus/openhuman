@@ -219,6 +219,38 @@ export async function getMeetCallDetail(requestId: string): Promise<MeetCallDeta
 }
 
 // ---------------------------------------------------------------------------
+// Transcript parsing
+// ---------------------------------------------------------------------------
+
+/** A transcript line with its parsed timestamp/speaker prefix stripped out. */
+export interface ParsedTranscriptLine {
+  timestamp: string | null;
+  speaker: string | null;
+  text: string;
+  role: string;
+}
+
+const TRANSCRIPT_PREFIX_RE = /^\[(\d{1,2}:\d{2})\]\s*\[([^\]]+)\]\s*(.*)/s;
+
+/**
+ * Parse a raw transcript line's content for the optional `[MM:SS] [Name]` prefix.
+ * When the prefix is present, returns the parsed timestamp, speaker, and remaining text.
+ * When absent, timestamp and speaker are null and text is the full content.
+ */
+export function parseTranscriptLine(line: MeetCallTranscriptLine): ParsedTranscriptLine {
+  const match = TRANSCRIPT_PREFIX_RE.exec(line.content);
+  if (match) {
+    return {
+      timestamp: match[1] ?? null,
+      speaker: match[2] ?? null,
+      text: match[3] ?? '',
+      role: line.role,
+    };
+  }
+  return { timestamp: null, speaker: null, text: line.content, role: line.role };
+}
+
+// ---------------------------------------------------------------------------
 // Backend Meet Bot via Core Socket.IO bridge
 // ---------------------------------------------------------------------------
 

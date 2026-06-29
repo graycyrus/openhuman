@@ -9,15 +9,14 @@
  * flips to 'active' (same pattern as the original `MeetingBotsCard`).
  */
 import debug from 'debug';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { listMeetCalls, type MeetCallRecord } from '../../services/meetCallService';
 import { selectBackendMeetStatus } from '../../store/backendMeetSlice';
 import { useAppSelector } from '../../store/hooks';
 import { useT } from '../../lib/i18n/I18nContext';
 import BetaBanner from '../ui/BetaBanner';
-import { RecentCallsSection } from '../skills/RecentCallsSection';
 import { ActiveMeetingBanner } from './ActiveMeetingBanner';
+import HistorySection from './HistorySection';
 import { MeetComposer } from './MeetComposer';
 
 const log = debug('meetings:page');
@@ -55,35 +54,6 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
     }
   }, [status, onToast, t]);
 
-  // ── Recent calls ─────────────────────────────────────────────────────────
-  const [recentCalls, setRecentCalls] = useState<MeetCallRecord[] | null>(null);
-  const [recentError, setRecentError] = useState<string | null>(null);
-
-  const refreshRecentCalls = useCallback(async () => {
-    setRecentError(null);
-    try {
-      const rows = await listMeetCalls(20);
-      log('[page] loaded %d recent calls', rows.length);
-      setRecentCalls(rows);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load recent calls.';
-      console.warn('[meetings] listMeetCalls failed:', err);
-      setRecentError(message);
-      setRecentCalls([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshRecentCalls();
-    // The core writes the call record asynchronously a few ms after the
-    // transcript arrives — so the mount-time fetch can race ahead of that
-    // write. A couple of short delayed re-fetches reliably reflect it.
-    const retries = [1200, 3000].map(delay =>
-      setTimeout(() => void refreshRecentCalls(), delay)
-    );
-    return () => retries.forEach(clearTimeout);
-  }, [refreshRecentCalls]);
-
   return (
     <div className="space-y-3 animate-fade-up">
       <BetaBanner />
@@ -94,7 +64,7 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
         <MeetComposer onToast={onToast} hasSubmittedRef={hasSubmittedRef} />
       )}
 
-      <RecentCallsSection rows={recentCalls} error={recentError} />
+      <HistorySection />
     </div>
   );
 }

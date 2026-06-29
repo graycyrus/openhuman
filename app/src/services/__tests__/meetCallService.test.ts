@@ -7,6 +7,7 @@ import {
   joinMeetCall,
   joinMeetViaBackendBot,
   listMeetCalls,
+  parseTranscriptLine,
 } from '../meetCallService';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: vi.fn() }));
@@ -253,5 +254,37 @@ describe('closeMeetCall', () => {
 
     await expect(closeMeetCall('req-1')).resolves.toBe(false);
     expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseTranscriptLine', () => {
+  it('parses a line with a [MM:SS] [Name] prefix', () => {
+    const result = parseTranscriptLine({ role: 'participant', content: '[1:23] [Alice] Hello there!' });
+    expect(result.timestamp).toBe('1:23');
+    expect(result.speaker).toBe('Alice');
+    expect(result.text).toBe('Hello there!');
+    expect(result.role).toBe('participant');
+  });
+
+  it('returns null timestamp and speaker when prefix is absent', () => {
+    const result = parseTranscriptLine({ role: 'assistant', content: 'How can I help?' });
+    expect(result.timestamp).toBeNull();
+    expect(result.speaker).toBeNull();
+    expect(result.text).toBe('How can I help?');
+    expect(result.role).toBe('assistant');
+  });
+
+  it('handles partial brackets — no match, returns full content', () => {
+    const result = parseTranscriptLine({ role: 'participant', content: '[1:23] missing second bracket' });
+    expect(result.timestamp).toBeNull();
+    expect(result.speaker).toBeNull();
+    expect(result.text).toBe('[1:23] missing second bracket');
+  });
+
+  it('handles malformed content gracefully', () => {
+    const result = parseTranscriptLine({ role: 'participant', content: 'just plain text' });
+    expect(result.timestamp).toBeNull();
+    expect(result.speaker).toBeNull();
+    expect(result.text).toBe('just plain text');
   });
 });
