@@ -13622,3 +13622,107 @@ async fn json_rpc_meet_list_upcoming_returns_empty_when_no_calendar_connected() 
 
     rpc_join.abort();
 }
+
+/// `openhuman.meet_set_event_policy` / `openhuman.meet_get_event_policies` —
+/// verifies the per-event policy RPC round-trip.
+///
+/// Uses an in-process HTTP server so the store hits a real (temp) SQLite DB.
+#[tokio::test]
+async fn json_rpc_meet_event_policy_round_trip() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:9");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    // --- set a policy for two events ---
+    let resp_set1 = post_json_rpc(
+        &rpc_base,
+        9300,
+        "openhuman.meet_set_event_policy",
+        json!({ "calendar_event_id": "cal-evt-001", "policy": "auto" }),
+    )
+    .await;
+    let result1 = assert_no_jsonrpc_error(&resp_set1, "set_event_policy cal-evt-001");
+    let body1 = result1.get("result").unwrap_or(result1);
+    assert_eq!(body1.get("ok"), Some(&json!(true)));
+
+    let resp_set2 = post_json_rpc(
+        &rpc_base,
+        9301,
+        "openhuman.meet_set_event_policy",
+        json!({ "calendar_event_id": "cal-evt-002", "policy": "skip" }),
+    )
+    .await;
+    let result2 = assert_no_jsonrpc_error(&resp_set2, "set_event_policy cal-evt-002");
+    let body2 = result2.get("result").unwrap_or(result2);
+    assert_eq!(body2.get("ok"), Some(&json!(true)));
+
+    // --- retrieve them in a batch ---
+    let resp_get = post_json_rpc(
+        &rpc_base,
+        9302,
+        "openhuman.meet_get_event_policies",
+        json!({ "calendar_event_ids": ["cal-evt-001", "cal-evt-002", "cal-evt-missing"] }),
+    )
+    .await;
+    let result_get = assert_no_jsonrpc_error(&resp_get, "get_event_policies batch");
+    let body_get = result_get.get("result").unwrap_or(result_get);
+    assert_eq!(body_get.get("ok"), Some(&json!(true)));
+    let policies = body_get.get("policies").expect("policies field");
+    assert_eq!(policies.get("cal-evt-001"), Some(&json!("auto")));
+    assert_eq!(policies.get("cal-evt-002"), Some(&json!("skip")));
+    assert!(
+        policies.get("cal-evt-missing").is_none(),
+        "unknown event must be absent from policies map"
+    );
+
+    // --- overwrite a policy and verify the new value is returned ---
+    let resp_overwrite = post_json_rpc(
+        &rpc_base,
+        9303,
+        "openhuman.meet_set_event_policy",
+        json!({ "calendar_event_id": "cal-evt-001", "policy": "ask" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&resp_overwrite, "set_event_policy overwrite");
+
+    let resp_get2 = post_json_rpc(
+        &rpc_base,
+        9304,
+        "openhuman.meet_get_event_policies",
+        json!({ "calendar_event_ids": ["cal-evt-001"] }),
+    )
+    .await;
+    let result_get2 = assert_no_jsonrpc_error(&resp_get2, "get_event_policies after overwrite");
+    let body_get2 = result_get2.get("result").unwrap_or(result_get2);
+    let policies2 = body_get2.get("policies").expect("policies field after overwrite");
+    assert_eq!(
+        policies2.get("cal-evt-001"),
+        Some(&json!("ask")),
+        "overwritten policy must reflect the new value"
+    );
+
+    // --- invalid policy string is rejected ---
+    let resp_bad = post_json_rpc(
+        &rpc_base,
+        9305,
+        "openhuman.meet_set_event_policy",
+        json!({ "calendar_event_id": "cal-evt-001", "policy": "invalid_policy" }),
+    )
+    .await;
+    assert_jsonrpc_error(&resp_bad, "set_event_policy invalid policy");
+
+    rpc_join.abort();
+}

@@ -456,6 +456,54 @@ export async function listUpcomingMeetings(
   return result.meetings ?? [];
 }
 
+// ---------------------------------------------------------------------------
+// Per-event join-policy overrides
+// ---------------------------------------------------------------------------
+
+interface CoreSetEventPolicyResponse {
+  ok: boolean;
+}
+
+interface CoreGetEventPoliciesResponse {
+  ok: boolean;
+  policies: Record<string, string>;
+}
+
+/**
+ * Persist a per-event join-policy override for a specific calendar event.
+ * Resolution order (Rust side): per-event > per-platform > global.
+ */
+export async function setEventPolicy(
+  calendarEventId: string,
+  policy: 'auto' | 'ask' | 'skip'
+): Promise<void> {
+  const result = await callCoreRpc<CoreSetEventPolicyResponse>({
+    method: 'openhuman.meet_set_event_policy',
+    params: { calendar_event_id: calendarEventId, policy },
+  });
+  if (!result?.ok) {
+    throw new Error('Core rejected the meet_set_event_policy request.');
+  }
+}
+
+/**
+ * Batch-fetch per-event join-policy overrides for the given calendar event IDs.
+ * Only IDs that have an explicit override are present in the returned map.
+ */
+export async function getEventPolicies(
+  calendarEventIds: string[]
+): Promise<Record<string, string>> {
+  if (calendarEventIds.length === 0) return {};
+  const result = await callCoreRpc<CoreGetEventPoliciesResponse>({
+    method: 'openhuman.meet_get_event_policies',
+    params: { calendar_event_ids: calendarEventIds },
+  });
+  if (!result?.ok) {
+    throw new Error('Core rejected the meet_get_event_policies request.');
+  }
+  return result.policies ?? {};
+}
+
 export async function joinMeetingViaMascotBot(
   input: MascotJoinMeetingInput
 ): Promise<MascotJoinMeetingResult> {

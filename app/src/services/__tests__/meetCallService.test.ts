@@ -4,11 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { callCoreRpc } from '../coreRpcClient';
 import {
   closeMeetCall,
+  getEventPolicies,
   joinMeetCall,
   joinMeetViaBackendBot,
   listMeetCalls,
   listUpcomingMeetings,
   parseTranscriptLine,
+  setEventPolicy,
 } from '../meetCallService';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: vi.fn() }));
@@ -327,6 +329,61 @@ describe('listUpcomingMeetings', () => {
   it('throws when core returns a falsy result', async () => {
     vi.mocked(callCoreRpc).mockResolvedValueOnce(null as never);
     await expect(listUpcomingMeetings()).rejects.toThrow(/meet_list_upcoming/);
+  });
+});
+
+describe('setEventPolicy', () => {
+  beforeEach(() => {
+    vi.mocked(callCoreRpc).mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls meet_set_event_policy with correct params', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: true } as never);
+    await setEventPolicy('evt-123', 'skip');
+    expect(callCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.meet_set_event_policy',
+      params: { calendar_event_id: 'evt-123', policy: 'skip' },
+    });
+  });
+
+  it('throws when core returns ok=false', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: false } as never);
+    await expect(setEventPolicy('evt-123', 'auto')).rejects.toThrow('meet_set_event_policy');
+  });
+});
+
+describe('getEventPolicies', () => {
+  beforeEach(() => {
+    vi.mocked(callCoreRpc).mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls meet_get_event_policies with correct params', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: true, policies: { 'evt-1': 'skip' } } as never);
+    const result = await getEventPolicies(['evt-1', 'evt-2']);
+    expect(callCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.meet_get_event_policies',
+      params: { calendar_event_ids: ['evt-1', 'evt-2'] },
+    });
+    expect(result).toEqual({ 'evt-1': 'skip' });
+  });
+
+  it('returns empty object for empty input', async () => {
+    const result = await getEventPolicies([]);
+    expect(callCoreRpc).not.toHaveBeenCalled();
+    expect(result).toEqual({});
+  });
+
+  it('throws when core returns ok=false', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: false } as never);
+    await expect(getEventPolicies(['evt-x'])).rejects.toThrow('meet_get_event_policies');
   });
 });
 

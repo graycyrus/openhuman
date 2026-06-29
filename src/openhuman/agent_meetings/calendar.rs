@@ -145,7 +145,22 @@ impl EventHandler for MeetCalendarSubscriber {
             "[meet:calendar] detected imminent Google Meet meeting"
         );
 
-        handle_calendar_meeting_candidate(meet_url, event_title, owner_display_name).await;
+        // Extract the calendar event id from the payload so the per-event
+        // policy tier can fire. Google Calendar payloads expose the event id as
+        // `payload.id` or `payload.data.id`.
+        let calendar_event_id = payload
+            .get("id")
+            .or_else(|| payload.get("data").and_then(|d| d.get("id")))
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        handle_calendar_meeting_candidate(
+            meet_url,
+            event_title,
+            owner_display_name,
+            calendar_event_id,
+        )
+        .await;
     }
 }
 
@@ -274,6 +289,7 @@ pub async fn handle_calendar_meeting_candidate(
     meet_url: String,
     event_title: String,
     owner_display_name: Option<String>,
+    calendar_event_id: Option<String>,
 ) -> bool {
     // Resolve the reply anchor. Callers without payload context (the heartbeat
     // poller passes `None`) fall back to the signed-in account identity here so
@@ -312,7 +328,29 @@ pub async fn handle_calendar_meeting_candidate(
         }
     };
 
-    match config.meet.auto_join_policy {
+    // Resolve the effective join policy using the three-tier precedence:
+    // per-event override → per-platform default → global default.
+    let platform = url::Url::parse(&meet_url)
+        .ok()
+        .map(|u| super::ops::infer_platform(&u).to_string());
+    let effective_policy_str = super::ops::resolve_effective_join_policy(
+        calendar_event_id.as_deref(),
+        platform.as_deref(),
+        &config,
+    );
+    let effective_policy =
+        super::ops::str_to_auto_join_policy(&effective_policy_str)
+            .unwrap_or(crate::openhuman::config::schema::AutoJoinPolicy::AskEachTime);
+
+    tracing::debug!(
+        meet_url = %meet_url,
+        calendar_event_id = ?calendar_event_id,
+        platform = ?platform,
+        effective_policy = %effective_policy_str,
+        "[meet:calendar] resolved effective join policy"
+    );
+
+    match effective_policy {
         crate::openhuman::config::schema::AutoJoinPolicy::Never => {
             tracing::debug!("[meet:calendar] auto_join_policy=never, dropping");
             false

@@ -1,5 +1,7 @@
 //! SQLite persistence for `MeetingSession` records.
 
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 
@@ -25,6 +27,11 @@ CREATE INDEX IF NOT EXISTS idx_meeting_sessions_status
     ON meeting_sessions(status);
 CREATE INDEX IF NOT EXISTS idx_meeting_sessions_meet_url
     ON meeting_sessions(meet_url);
+CREATE TABLE IF NOT EXISTS meeting_event_policies (
+    calendar_event_id TEXT PRIMARY KEY,
+    policy            TEXT NOT NULL,
+    updated_at_ms     INTEGER NOT NULL
+);
 ";
 
 fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
@@ -240,6 +247,56 @@ pub fn mark_summary_generated(config: &Config, id: &str, now_ms: u64) -> Result<
     })
 }
 
+/// Persist or replace the join-policy override for a specific calendar event.
+pub fn set_event_policy(config: &Config, calendar_event_id: &str, policy: &str) -> Result<()> {
+    with_connection(config, |conn| {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        conn.execute(
+            "INSERT OR REPLACE INTO meeting_event_policies (calendar_event_id, policy, updated_at_ms) VALUES (?1, ?2, ?3)",
+            rusqlite::params![calendar_event_id, policy, now_ms],
+        )?;
+        Ok(())
+    })
+}
+
+/// Retrieve the join-policy override for a specific calendar event. Returns
+/// `None` when no override has been stored.
+pub fn get_event_policy(config: &Config, calendar_event_id: &str) -> Result<Option<String>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1",
+        )?;
+        let mut rows = stmt.query(rusqlite::params![calendar_event_id])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get(0)?))
+        } else {
+            Ok(None)
+        }
+    })
+}
+
+/// Retrieve join-policy overrides for a batch of calendar event IDs in a
+/// single database connection. IDs without a stored override are omitted from
+/// the returned map.
+pub fn get_event_policies_batch(config: &Config, ids: &[&str]) -> Result<HashMap<String, String>> {
+    with_connection(config, |conn| {
+        let mut map = HashMap::new();
+        for &id in ids {
+            let mut stmt = conn.prepare(
+                "SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1",
+            )?;
+            let mut rows = stmt.query(rusqlite::params![id])?;
+            if let Some(row) = rows.next()? {
+                map.insert(id.to_string(), row.get(0)?);
+            }
+        }
+        Ok(map)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,5 +419,49 @@ mod tests {
         let (config, _dir) = test_config();
         let result = get_session(&config, "nonexistent").unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn set_get_event_policy() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        set_event_policy(&config, "evt-1", "auto").unwrap();
+        let result = get_event_policy(&config, "evt-1").unwrap();
+        assert_eq!(result, Some("auto".to_string()));
+    }
+
+    #[test]
+    fn set_overwrites() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        set_event_policy(&config, "evt-2", "auto").unwrap();
+        set_event_policy(&config, "evt-2", "skip").unwrap();
+        let result = get_event_policy(&config, "evt-2").unwrap();
+        assert_eq!(result, Some("skip".to_string()));
+    }
+
+    #[test]
+    fn missing_event_policy_returns_none() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        let result = get_event_policy(&config, "nonexistent-evt").unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn batch_policies_round_trip() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        set_event_policy(&config, "evt-a", "auto").unwrap();
+        set_event_policy(&config, "evt-b", "skip").unwrap();
+        let map = get_event_policies_batch(&config, &["evt-a", "evt-b", "evt-missing"]).unwrap();
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get("evt-a"), Some(&"auto".to_string()));
+        assert_eq!(map.get("evt-b"), Some(&"skip".to_string()));
+        assert!(!map.contains_key("evt-missing"));
     }
 }

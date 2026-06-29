@@ -10,6 +10,7 @@ import { UpcomingTable } from '../UpcomingTable';
 
 const listMock = vi.fn();
 const joinMock = vi.fn();
+const setEventPolicyMock = vi.fn();
 
 vi.mock('../../../services/meetCallService', async () => {
   const actual = await vi.importActual<typeof import('../../../services/meetCallService')>(
@@ -19,6 +20,7 @@ vi.mock('../../../services/meetCallService', async () => {
     ...actual,
     listUpcomingMeetings: (...args: unknown[]) => listMock(...args),
     joinMeetViaBackendBot: (...args: unknown[]) => joinMock(...args),
+    setEventPolicy: (...args: unknown[]) => setEventPolicyMock(...args),
   };
 });
 
@@ -63,6 +65,8 @@ describe('UpcomingTable', () => {
   beforeEach(() => {
     listMock.mockReset();
     joinMock.mockReset();
+    setEventPolicyMock.mockReset();
+    setEventPolicyMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => cleanup());
@@ -193,5 +197,36 @@ describe('UpcomingTable', () => {
     renderWithProviders(<UpcomingTable />);
     await waitFor(() => expect(screen.getByText('Weekly Sync')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /^join/i })).not.toBeInTheDocument();
+  });
+
+  it('calls setEventPolicy when join policy toggle changes', async () => {
+    const meeting = makeMeeting({ join_policy: 'ask' });
+    listMock.mockResolvedValueOnce([meeting]);
+    renderWithProviders(<UpcomingTable />);
+    await waitFor(() => expect(screen.queryByRole('table')).toBeInTheDocument());
+    await waitFor(() => expect(listMock).toHaveBeenCalled());
+
+    // Find the Auto segment radio button
+    const autoBtn = screen.getByRole('radio', { name: /auto/i });
+    fireEvent.click(autoBtn);
+    await waitFor(() => expect(setEventPolicyMock).toHaveBeenCalledWith('evt-1', 'auto'));
+  });
+
+  it('reverts join policy on setEventPolicy failure', async () => {
+    const meeting = makeMeeting({ join_policy: 'ask' });
+    listMock.mockResolvedValueOnce([meeting]);
+    setEventPolicyMock.mockRejectedValueOnce(new Error('network error'));
+    renderWithProviders(<UpcomingTable />);
+    await waitFor(() => expect(listMock).toHaveBeenCalled());
+
+    const autoBtn = screen.getByRole('radio', { name: /auto/i });
+    fireEvent.click(autoBtn);
+    // Wait for rejection and revert
+    await waitFor(() => expect(setEventPolicyMock).toHaveBeenCalled());
+    // After revert, the "Ask" segment should be active again
+    await waitFor(() => {
+      const askBtn = screen.getByRole('radio', { name: /ask/i });
+      expect(askBtn).toHaveAttribute('aria-checked', 'true');
+    });
   });
 });

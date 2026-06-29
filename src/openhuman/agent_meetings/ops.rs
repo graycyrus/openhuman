@@ -25,6 +25,91 @@ const ALLOWED_HOSTS: &[(&str, &str)] = &[
     ("webex.com", "webex"),
 ];
 
+// ---------------------------------------------------------------------------
+// Phase 3 policy helpers
+// ---------------------------------------------------------------------------
+
+/// Map `AutoJoinPolicy` → the compact string used by the frontend and the
+/// per-event policy store ("auto" | "ask" | "skip").
+pub(crate) fn auto_join_policy_to_str(
+    p: &crate::openhuman::config::schema::AutoJoinPolicy,
+) -> &'static str {
+    use crate::openhuman::config::schema::AutoJoinPolicy;
+    match p {
+        AutoJoinPolicy::Always => "auto",
+        AutoJoinPolicy::AskEachTime => "ask",
+        AutoJoinPolicy::Never => "skip",
+    }
+}
+
+/// Map the compact policy string back to `AutoJoinPolicy`. Returns `None` for
+/// unrecognised strings.
+pub(crate) fn str_to_auto_join_policy(
+    s: &str,
+) -> Option<crate::openhuman::config::schema::AutoJoinPolicy> {
+    use crate::openhuman::config::schema::AutoJoinPolicy;
+    match s {
+        "auto" => Some(AutoJoinPolicy::Always),
+        "ask" => Some(AutoJoinPolicy::AskEachTime),
+        "skip" => Some(AutoJoinPolicy::Never),
+        _ => None,
+    }
+}
+
+/// Resolve the effective join policy for a meeting, applying a three-tier
+/// precedence:
+///
+/// 1. **Per-event override** — stored by `openhuman.meet_set_event_policy`.
+/// 2. **Per-platform default** — from `config.meet.platform_auto_join_policies`.
+/// 3. **Global default** — from `config.meet.auto_join_policy`.
+///
+/// Returns a compact string: "auto" | "ask" | "skip".
+pub(crate) fn resolve_effective_join_policy(
+    calendar_event_id: Option<&str>,
+    platform: Option<&str>,
+    config: &crate::openhuman::config::Config,
+) -> String {
+    // Tier 1: per-event override.
+    if let Some(event_id) = calendar_event_id {
+        match super::store::get_event_policy(config, event_id) {
+            Ok(Some(policy)) if !policy.is_empty() => {
+                tracing::debug!(
+                    event_id,
+                    policy = %policy,
+                    "[meet:policy] tier=per_event"
+                );
+                return policy;
+            }
+            Err(e) => {
+                tracing::debug!(
+                    event_id,
+                    error = %e,
+                    "[meet:policy] per-event lookup failed, falling through"
+                );
+            }
+            _ => {}
+        }
+    }
+
+    // Tier 2: per-platform default.
+    if let Some(plat) = platform {
+        if let Some(policy) = config.meet.platform_auto_join_policies.get(plat) {
+            let s = auto_join_policy_to_str(policy);
+            tracing::debug!(
+                platform = plat,
+                policy = s,
+                "[meet:policy] tier=per_platform"
+            );
+            return s.to_string();
+        }
+    }
+
+    // Tier 3: global default.
+    let s = auto_join_policy_to_str(&config.meet.auto_join_policy);
+    tracing::debug!(policy = s, "[meet:policy] tier=global");
+    s.to_string()
+}
+
 fn transcript_turns_to_chat_batch(
     turns: &[BackendMeetTurn],
     duration_ms: u64,
@@ -710,7 +795,6 @@ pub async fn handle_notification_action(params: Map<String, Value>) -> Result<Va
 ///
 /// Returns an error string only for hard failures (bad params, config load).
 pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, String> {
-    use crate::openhuman::config::schema::AutoJoinPolicy;
     use super::types::{ListUpcomingRequest, ListUpcomingResponse};
     use super::upcoming::{fetch_upcoming_meetings, DEFAULT_LOOKAHEAD_MINUTES, DEFAULT_LIMIT};
 
@@ -730,22 +814,32 @@ pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, S
     let config = crate::openhuman::config::ops::load_config_with_timeout().await
         .map_err(|e| format!("[meet:upcoming] config load failed: {e}"))?;
 
-    // Map AutoJoinPolicy → the string the frontend/table uses for the default
-    // join_policy field. Phase 3 will add per-event overrides; for now every
-    // returned meeting carries the global setting.
-    let join_policy = match config.meet.auto_join_policy {
-        AutoJoinPolicy::Always => "auto",
-        AutoJoinPolicy::AskEachTime => "ask",
-        AutoJoinPolicy::Never => "skip",
-    };
+    // The global fallback policy string (used when no per-event or per-platform override exists).
+    let global_policy = auto_join_policy_to_str(&config.meet.auto_join_policy);
 
-    let meetings = fetch_upcoming_meetings(&config, lookahead_minutes, limit, join_policy)
+    let mut meetings = fetch_upcoming_meetings(&config, lookahead_minutes, limit, global_policy)
         .await
         .map_err(|e| format!("[meet:upcoming] fetch failed: {e}"))?;
 
+    // Phase 3: resolve effective per-event policy overrides.
+    for meeting in &mut meetings {
+        let platform = meeting.platform.as_deref();
+        let event_id = Some(meeting.calendar_event_id.as_str());
+        let effective = resolve_effective_join_policy(event_id, platform, &config);
+        if effective != meeting.join_policy {
+            tracing::debug!(
+                calendar_event_id = %meeting.calendar_event_id,
+                global = %meeting.join_policy,
+                effective = %effective,
+                "[meet:upcoming] per-event/platform policy override applied"
+            );
+            meeting.join_policy = effective;
+        }
+    }
+
     tracing::info!(
         count = meetings.len(),
-        join_policy,
+        global_policy,
         "[meet:upcoming] returning meetings"
     );
 
@@ -756,6 +850,89 @@ pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, S
     let outcome = RpcOutcome::new(
         serde_json::to_value(response)
             .map_err(|e| format!("[meet:upcoming] serialize failed: {e}"))?,
+        vec![],
+    );
+    outcome.into_cli_compatible_json()
+}
+
+/// Handle `openhuman.meet_set_event_policy` — persist a per-event join-policy
+/// override for a specific calendar event.
+pub async fn handle_set_event_policy(params: Map<String, Value>) -> Result<Value, String> {
+    use super::types::{SetEventPolicyRequest, SetEventPolicyResponse};
+
+    let req: SetEventPolicyRequest = serde_json::from_value(Value::Object(params))
+        .map_err(|e| format!("[meet:set_event_policy] invalid params: {e}"))?;
+
+    let policy = req.policy.trim();
+    if !matches!(policy, "auto" | "ask" | "skip") {
+        return Err(format!(
+            "[meet:set_event_policy] invalid policy: {policy} (valid: auto, ask, skip)"
+        ));
+    }
+
+    let calendar_event_id = req.calendar_event_id.trim().to_string();
+    if calendar_event_id.is_empty() {
+        return Err("[meet:set_event_policy] calendar_event_id must not be empty".to_string());
+    }
+
+    tracing::debug!(
+        calendar_event_id = %calendar_event_id,
+        policy = %policy,
+        "[meet:set_event_policy] persisting policy override"
+    );
+
+    let config = crate::openhuman::config::ops::load_config_with_timeout()
+        .await
+        .map_err(|e| format!("[meet:set_event_policy] config load failed: {e}"))?;
+
+    super::store::set_event_policy(&config, &calendar_event_id, policy)
+        .map_err(|e| format!("[meet:set_event_policy] store failed: {e}"))?;
+
+    tracing::info!(
+        calendar_event_id = %calendar_event_id,
+        policy = %policy,
+        "[meet:set_event_policy] policy stored"
+    );
+
+    let response = SetEventPolicyResponse { ok: true };
+    let outcome = RpcOutcome::new(
+        serde_json::to_value(response)
+            .map_err(|e| format!("[meet:set_event_policy] serialize failed: {e}"))?,
+        vec![],
+    );
+    outcome.into_cli_compatible_json()
+}
+
+/// Handle `openhuman.meet_get_event_policies` — retrieve stored per-event
+/// join-policy overrides for a batch of calendar event IDs.
+pub async fn handle_get_event_policies(params: Map<String, Value>) -> Result<Value, String> {
+    use super::types::{GetEventPoliciesRequest, GetEventPoliciesResponse};
+
+    let req: GetEventPoliciesRequest = serde_json::from_value(Value::Object(params))
+        .map_err(|e| format!("[meet:get_event_policies] invalid params: {e}"))?;
+
+    tracing::debug!(
+        count = req.calendar_event_ids.len(),
+        "[meet:get_event_policies] fetching policies"
+    );
+
+    let config = crate::openhuman::config::ops::load_config_with_timeout()
+        .await
+        .map_err(|e| format!("[meet:get_event_policies] config load failed: {e}"))?;
+
+    let id_refs: Vec<&str> = req.calendar_event_ids.iter().map(String::as_str).collect();
+    let policies = super::store::get_event_policies_batch(&config, &id_refs)
+        .map_err(|e| format!("[meet:get_event_policies] store failed: {e}"))?;
+
+    tracing::debug!(
+        found = policies.len(),
+        "[meet:get_event_policies] returning policies"
+    );
+
+    let response = GetEventPoliciesResponse { ok: true, policies };
+    let outcome = RpcOutcome::new(
+        serde_json::to_value(response)
+            .map_err(|e| format!("[meet:get_event_policies] serialize failed: {e}"))?,
         vec![],
     );
     outcome.into_cli_compatible_json()
@@ -1181,5 +1358,51 @@ mod tests {
                 .unwrap();
         assert_eq!(rc.primary_color.as_deref(), Some("#abc"));
         assert_eq!(rc.secondary_color.as_deref(), Some("#def"));
+    }
+
+    // ── policy resolution tiers ─────────────────────────────────
+
+    #[test]
+    fn policy_resolution_tiers() {
+        use crate::openhuman::config::schema::AutoJoinPolicy;
+        use tempfile::TempDir;
+
+        let dir = TempDir::new().unwrap();
+        let mut config = crate::openhuman::config::Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+
+        // Global default is AskEachTime → "ask".
+        assert_eq!(
+            resolve_effective_join_policy(None, None, &config),
+            "ask"
+        );
+
+        // Per-platform override for "zoom" → "auto".
+        config
+            .meet
+            .platform_auto_join_policies
+            .insert("zoom".to_string(), AutoJoinPolicy::Always);
+        assert_eq!(
+            resolve_effective_join_policy(None, Some("zoom"), &config),
+            "auto"
+        );
+        // Other platforms still fall through to global.
+        assert_eq!(
+            resolve_effective_join_policy(None, Some("gmeet"), &config),
+            "ask"
+        );
+
+        // Per-event override wins over per-platform.
+        crate::openhuman::agent_meetings::store::set_event_policy(&config, "evt-zoom-1", "skip").unwrap();
+        assert_eq!(
+            resolve_effective_join_policy(Some("evt-zoom-1"), Some("zoom"), &config),
+            "skip"
+        );
+
+        // Different event still gets per-platform.
+        assert_eq!(
+            resolve_effective_join_policy(Some("evt-zoom-2"), Some("zoom"), &config),
+            "auto"
+        );
     }
 }

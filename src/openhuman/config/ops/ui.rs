@@ -1,6 +1,8 @@
 //! UI-facing config operations: browser, screen intelligence, analytics, meet,
 //! search, dictation, voice server, onboarding flags.
 
+use std::collections::HashMap;
+
 use serde_json::json;
 
 use crate::openhuman::config::{AutoJoinPolicy, AutoSummarizePolicy, Config};
@@ -44,6 +46,9 @@ pub struct MeetSettingsPatch {
     pub listen_only_default: Option<bool>,
     /// When `true`, backend-bot transcripts are ingested into memory.
     pub ingest_backend_transcripts: Option<bool>,
+    /// Per-platform auto-join policy overrides. Replaces the stored map wholesale
+    /// when present. Keys: "gmeet", "zoom", "teams", "webex".
+    pub platform_auto_join_policies: Option<HashMap<String, AutoJoinPolicy>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -229,6 +234,9 @@ pub async fn apply_meet_settings(
     }
     if let Some(ingest) = update.ingest_backend_transcripts {
         config.meet.ingest_backend_transcripts = ingest;
+    }
+    if let Some(policies) = update.platform_auto_join_policies {
+        config.meet.platform_auto_join_policies = policies;
     }
     config.save().await.map_err(|e| e.to_string())?;
     let snapshot = snapshot_config_json(config)?;

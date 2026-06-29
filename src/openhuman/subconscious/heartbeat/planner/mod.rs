@@ -161,6 +161,9 @@ pub async fn evaluate_and_dispatch(config: &Config, now: DateTime<Utc>) -> Plann
                         // candidate handler resolves the reply anchor from the
                         // signed-in account identity.
                         None,
+                        // Pass the stable source event id so the per-event policy
+                        // tier can apply overrides set via meet_set_event_policy.
+                        Some(event.source_event_id.clone()),
                     )
                     .await;
                 if owns_notification {

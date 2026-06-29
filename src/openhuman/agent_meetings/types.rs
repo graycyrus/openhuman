@@ -200,6 +200,37 @@ pub struct ListUpcomingResponse {
     pub meetings: Vec<UpcomingMeeting>,
 }
 
+// ---------------------------------------------------------------------------
+// Phase 3 per-event policy RPC types
+// ---------------------------------------------------------------------------
+
+/// Request for `openhuman.meet_set_event_policy`.
+#[derive(Debug, Deserialize)]
+pub struct SetEventPolicyRequest {
+    pub calendar_event_id: String,
+    /// "auto" | "ask" | "skip"
+    pub policy: String,
+}
+
+/// Response for `openhuman.meet_set_event_policy`.
+#[derive(Debug, Serialize)]
+pub struct SetEventPolicyResponse {
+    pub ok: bool,
+}
+
+/// Request for `openhuman.meet_get_event_policies`.
+#[derive(Debug, Deserialize)]
+pub struct GetEventPoliciesRequest {
+    pub calendar_event_ids: Vec<String>,
+}
+
+/// Response for `openhuman.meet_get_event_policies`.
+#[derive(Debug, Serialize)]
+pub struct GetEventPoliciesResponse {
+    pub ok: bool,
+    pub policies: std::collections::HashMap<String, String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -46,6 +46,16 @@ const DEFS: &[BackendMeetControllerDef] = &[
         schema: schema_list_upcoming,
         handler: handle_list_upcoming_wrap,
     },
+    BackendMeetControllerDef {
+        function: "set_event_policy",
+        schema: schema_set_event_policy,
+        handler: handle_set_event_policy_wrap,
+    },
+    BackendMeetControllerDef {
+        function: "get_event_policies",
+        schema: schema_get_event_policies,
+        handler: handle_get_event_policies_wrap,
+    },
 ];
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -332,6 +342,75 @@ fn handle_list_upcoming_wrap(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move { super::ops::handle_list_upcoming(params).await })
 }
 
+fn schema_set_event_policy() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "meet",
+        function: "set_event_policy",
+        description: "Persist a per-event join-policy override for a specific calendar event. \
+                      The stored policy takes precedence over per-platform and global defaults \
+                      when the same event ID appears in meet_list_upcoming.",
+        inputs: vec![
+            FieldSchema {
+                name: "calendar_event_id",
+                ty: TypeSchema::String,
+                comment: "Stable calendar provider event id (the same id returned by meet_list_upcoming).",
+                required: true,
+            },
+            FieldSchema {
+                name: "policy",
+                ty: TypeSchema::String,
+                comment: "Join policy for this event: \"auto\" (always join), \"ask\" (prompt), or \"skip\" (never join).",
+                required: true,
+            },
+        ],
+        outputs: vec![FieldSchema {
+            name: "ok",
+            ty: TypeSchema::Bool,
+            comment: "True when the policy was stored successfully.",
+            required: true,
+        }],
+    }
+}
+
+fn handle_set_event_policy_wrap(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move { super::ops::handle_set_event_policy(params).await })
+}
+
+fn schema_get_event_policies() -> ControllerSchema {
+    ControllerSchema {
+        namespace: "meet",
+        function: "get_event_policies",
+        description: "Retrieve stored per-event join-policy overrides for a batch of calendar \
+                      event IDs. Event IDs without a stored override are omitted from the \
+                      returned map.",
+        inputs: vec![FieldSchema {
+            name: "calendar_event_ids",
+            ty: TypeSchema::Json,
+            comment: "Array of calendar event id strings to look up.",
+            required: true,
+        }],
+        outputs: vec![
+            FieldSchema {
+                name: "ok",
+                ty: TypeSchema::Bool,
+                comment: "Always true on success.",
+                required: true,
+            },
+            FieldSchema {
+                name: "policies",
+                ty: TypeSchema::Json,
+                comment: "Object mapping calendar_event_id → policy string (\"auto\" | \"ask\" | \"skip\"). \
+                          Only IDs with a stored override are included.",
+                required: true,
+            },
+        ],
+    }
+}
+
+fn handle_get_event_policies_wrap(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move { super::ops::handle_get_event_policies(params).await })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -356,6 +435,8 @@ mod tests {
                 "speak",
                 "notification_action",
                 "list_upcoming",
+                "set_event_policy",
+                "get_event_policies",
             ]
         );
     }

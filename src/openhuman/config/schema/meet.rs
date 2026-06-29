@@ -6,6 +6,8 @@
 //!
 //! See epic tinyhumansai/openhuman#3505.
 
+use std::collections::HashMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -84,6 +86,12 @@ pub struct MeetConfig {
     /// reply. Set `false` to fall back to a single buffered `bot:speak`.
     #[serde(default = "default_in_call_streaming")]
     pub in_call_streaming: bool,
+
+    /// Per-platform auto-join policy overrides.
+    /// Keys are platform slugs: "gmeet", "zoom", "teams", "webex".
+    /// Falls back to `auto_join_policy` when not set for a platform.
+    #[serde(default)]
+    pub platform_auto_join_policies: HashMap<String, AutoJoinPolicy>,
 }
 
 fn default_auto_orchestrator_handoff() -> bool {
@@ -116,6 +124,7 @@ impl Default for MeetConfig {
             listen_only_default: true,
             enable_in_call_agency: false,
             in_call_streaming: true,
+            platform_auto_join_policies: HashMap::new(),
         }
     }
 }
@@ -204,6 +213,7 @@ mod tests {
             listen_only_default: false,
             enable_in_call_agency: true,
             in_call_streaming: false,
+            platform_auto_join_policies: HashMap::new(),
         };
         let s = serde_json::to_string(&original).unwrap();
         let back: MeetConfig = serde_json::from_str(&s).unwrap();
@@ -213,5 +223,19 @@ mod tests {
         assert_eq!(back.auto_summarize_policy, AutoSummarizePolicy::Always);
         assert!(!back.listen_only_default);
         assert!(back.enable_in_call_agency);
+    }
+
+    #[test]
+    fn platform_auto_join_policies_defaults_to_empty() {
+        let config = MeetConfig::default();
+        assert!(config.platform_auto_join_policies.is_empty());
+    }
+
+    #[test]
+    fn deserialize_with_platform_policies() {
+        let json = r#"{"platform_auto_join_policies": {"zoom": "always", "gmeet": "ask_each_time"}}"#;
+        let config: MeetConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.platform_auto_join_policies.get("zoom"), Some(&AutoJoinPolicy::Always));
+        assert_eq!(config.platform_auto_join_policies.get("gmeet"), Some(&AutoJoinPolicy::AskEachTime));
     }
 }

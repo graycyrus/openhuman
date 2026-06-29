@@ -790,6 +790,8 @@ export interface MeetSettings {
   auto_summarize_policy: MeetAutoSummarizePolicy;
   listen_only_default: boolean;
   ingest_backend_transcripts: boolean;
+  /** Per-platform auto-join policy overrides. Keys: "gmeet"|"zoom"|"teams"|"webex". */
+  platform_auto_join_policies?: Record<string, MeetAutoJoinPolicy>;
 }
 
 /** Partial update accepted by `openhuman.config_update_meet_settings`. */
@@ -799,6 +801,8 @@ export interface MeetSettingsUpdate {
   auto_summarize_policy?: MeetAutoSummarizePolicy;
   listen_only_default?: boolean;
   ingest_backend_transcripts?: boolean;
+  /** Per-platform auto-join policy overrides. Keys: "gmeet"|"zoom"|"teams"|"webex". */
+  platform_auto_join_policies?: Record<string, MeetAutoJoinPolicy>;
 }
 
 export async function openhumanUpdateMeetSettings(

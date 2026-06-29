@@ -644,13 +644,35 @@ fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
                 ));
             }
         };
+        // Parse platform_auto_join_policies: HashMap<String,String> → HashMap<String,AutoJoinPolicy>
+        let platform_auto_join_policies = if let Some(raw_map) = update.platform_auto_join_policies {
+            let mut parsed = std::collections::HashMap::new();
+            for (platform, policy_str) in raw_map {
+                let policy = match policy_str.as_str() {
+                    "ask_each_time" => AutoJoinPolicy::AskEachTime,
+                    "always" => AutoJoinPolicy::Always,
+                    "never" => AutoJoinPolicy::Never,
+                    other => {
+                        log::warn!("[config][rpc] update_meet_settings invalid platform policy {platform}={other}");
+                        return Err(format!(
+                            "invalid policy for platform {platform}: {other} (valid: ask_each_time, always, never)"
+                        ));
+                    }
+                };
+                parsed.insert(platform, policy);
+            }
+            Some(parsed)
+        } else {
+            None
+        };
         log::debug!(
-            "[config][rpc] update_meet_settings patch auto_orchestrator_handoff={:?} auto_join_policy={:?} auto_summarize_policy={:?} listen_only_default={:?} ingest_backend_transcripts={:?}",
+            "[config][rpc] update_meet_settings patch auto_orchestrator_handoff={:?} auto_join_policy={:?} auto_summarize_policy={:?} listen_only_default={:?} ingest_backend_transcripts={:?} platform_auto_join_policies={:?}",
             update.auto_orchestrator_handoff,
             auto_join_policy,
             auto_summarize_policy,
             update.listen_only_default,
-            update.ingest_backend_transcripts
+            update.ingest_backend_transcripts,
+            platform_auto_join_policies.as_ref().map(|m| m.len()),
         );
         let patch = config_rpc::MeetSettingsPatch {
             auto_orchestrator_handoff: update.auto_orchestrator_handoff,
@@ -658,6 +680,7 @@ fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
             auto_summarize_policy,
             listen_only_default: update.listen_only_default,
             ingest_backend_transcripts: update.ingest_backend_transcripts,
+            platform_auto_join_policies,
         };
         match config_rpc::load_and_apply_meet_settings(patch).await {
             Ok(outcome) => {
@@ -699,6 +722,7 @@ fn handle_get_meet_settings(_params: Map<String, Value>) -> ControllerFuture {
             "auto_summarize_policy": config.meet.auto_summarize_policy,
             "listen_only_default": config.meet.listen_only_default,
             "ingest_backend_transcripts": config.meet.ingest_backend_transcripts,
+            "platform_auto_join_policies": config.meet.platform_auto_join_policies,
         });
         to_json(RpcOutcome::new(
             result,

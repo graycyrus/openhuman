@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   joinMeetViaBackendBot,
+  setEventPolicy,
   type MeetingPlatform,
   type UpcomingMeeting,
 } from '../../services/meetCallService';
@@ -222,11 +223,26 @@ function MeetingRow({
 
       {/* JOIN POLICY */}
       <td className="py-2 px-3">
-        <JoinPolicyToggle
-          value={joinPolicy}
-          onChange={onJoinPolicyChange}
-          compact
-        />
+        <div className="flex flex-col gap-0.5">
+          <JoinPolicyToggle
+            value={joinPolicy}
+            onChange={onJoinPolicyChange}
+            compact
+          />
+          {joinPolicy === 'auto' && (
+            <span className="text-[10px] text-content-secondary/60 whitespace-nowrap">
+              {t('skills.meetingBots.upcoming.autoJoinsAt').replace(
+                '{time}',
+                new Date(meeting.start_time_ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+              )}
+            </span>
+          )}
+          {joinPolicy === 'ask' && (
+            <span className="text-[10px] text-content-secondary/60 whitespace-nowrap">
+              {t('skills.meetingBots.upcoming.asksAtStart')}
+            </span>
+          )}
+        </div>
       </td>
 
       {/* ACTION */}
@@ -330,8 +346,18 @@ export function UpcomingTable({ lookaheadMinutes, limit }: UpcomingTableProps) {
     }
   };
 
-  const handleJoinPolicyChange = (id: string, v: JoinPolicy) => {
-    setJoinPolicies(prev => ({ ...prev, [id]: v }));
+  const handleJoinPolicyChange = async (id: string, v: JoinPolicy) => {
+    const prev = joinPolicies[id] ?? (meetings.find(m => m.calendar_event_id === id)?.join_policy as JoinPolicy | undefined) ?? 'ask';
+    // Optimistic update
+    setJoinPolicies(current => ({ ...current, [id]: v }));
+    log('[upcoming] set event policy id=%s policy=%s', id, v);
+    try {
+      await setEventPolicy(id, v);
+    } catch (err) {
+      // Revert on failure
+      log('[upcoming] set event policy failed, reverting: %s', err instanceof Error ? err.message : String(err));
+      setJoinPolicies(current => ({ ...current, [id]: prev }));
+    }
   };
 
   const filtered = filterMeetings(meetings, platformFilter);
