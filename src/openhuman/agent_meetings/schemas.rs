@@ -41,6 +41,11 @@ const DEFS: &[BackendMeetControllerDef] = &[
         schema: schema_notification_action,
         handler: handle_notification_action_wrap,
     },
+    BackendMeetControllerDef {
+        function: "list_upcoming",
+        schema: schema_list_upcoming,
+        handler: handle_list_upcoming_wrap,
+    },
 ];
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -279,6 +284,54 @@ fn handle_notification_action_wrap(params: Map<String, Value>) -> ControllerFutu
     Box::pin(async move { super::ops::handle_notification_action(params).await })
 }
 
+fn schema_list_upcoming() -> ControllerSchema {
+    ControllerSchema {
+        // NOTE: namespace is "meet" (not "agent_meetings") so the RPC name is
+        // `openhuman.meet_list_upcoming`. The handler lives here in the
+        // agent_meetings module because the logic is tightly coupled to the
+        // calendar/meeting infrastructure already present in this domain.
+        namespace: "meet",
+        function: "list_upcoming",
+        description: "List upcoming calendar meetings that have a conferencing link (Google Meet, \
+                      Zoom, Teams, Webex), fetched from the user's connected Google Calendar via \
+                      Composio. Returns an empty list when no calendar is connected. Sort order: \
+                      soonest first. Each record includes the inferred platform, attendee count, \
+                      organizer, and the global auto-join policy as the default join_policy.",
+        inputs: vec![
+            FieldSchema {
+                name: "lookahead_minutes",
+                ty: TypeSchema::U64,
+                comment: "How many minutes ahead to look for meetings. Defaults to 480 (8 hours).",
+                required: false,
+            },
+            FieldSchema {
+                name: "limit",
+                ty: TypeSchema::U64,
+                comment: "Maximum number of meetings to return. Defaults to 20. Clamped to [1, 100].",
+                required: false,
+            },
+        ],
+        outputs: vec![
+            FieldSchema {
+                name: "ok",
+                ty: TypeSchema::Bool,
+                comment: "Always true on success.",
+                required: true,
+            },
+            FieldSchema {
+                name: "meetings",
+                ty: TypeSchema::Json,
+                comment: "Array of upcoming meeting records (may be empty).",
+                required: true,
+            },
+        ],
+    }
+}
+
+fn handle_list_upcoming_wrap(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move { super::ops::handle_list_upcoming(params).await })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -301,7 +354,8 @@ mod tests {
                 "leave",
                 "harness_response",
                 "speak",
-                "notification_action"
+                "notification_action",
+                "list_upcoming",
             ]
         );
     }

@@ -1,0 +1,495 @@
+/**
+ * UpcomingTable — full-width table of upcoming calendar meetings with
+ * conferencing links.
+ *
+ * Columns: WHEN / MEETING / PLATFORM / PEOPLE / JOIN POLICY / (action)
+ *
+ * Date-group separators: Today / Tomorrow / <date>
+ *
+ * Imminent meetings (≤ 5 min until start) get an accent row and a
+ * "Join now" button. Other rows show a quieter join/open-link affordance.
+ *
+ * JOIN POLICY toggle: local state only (Phase 2). Phase 3 adds persistence.
+ */
+import debug from 'debug';
+import { useState } from 'react';
+
+import { useT } from '../../lib/i18n/I18nContext';
+import {
+  joinMeetViaBackendBot,
+  type MeetingPlatform,
+  type UpcomingMeeting,
+} from '../../services/meetCallService';
+import {
+  selectCustomPrimaryColor,
+  selectCustomSecondaryColor,
+  selectMascotColor,
+  selectSelectedMascotId,
+} from '../../store/mascotSlice';
+import { selectPersonaDescription, selectPersonaDisplayName } from '../../store/personaSlice';
+import { useAppSelector } from '../../store/hooks';
+import Button from '../ui/Button';
+import { platformLabel, platformLogoUrl, inferPlatformFromUrl } from './meetingUtils';
+import { JoinPolicyToggle, type JoinPolicy } from './JoinPolicyToggle';
+import { useUpcomingMeetings } from './useUpcomingMeetings';
+
+const log = debug('meetings:upcoming-table');
+
+const IMMINENT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function localDayKey(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function todayKey(): string {
+  return localDayKey(Date.now());
+}
+
+function tomorrowKey(): string {
+  return localDayKey(Date.now() + 86_400_000);
+}
+
+/**
+ * Format a future time as a relative label ("in 5m", "in 2h") plus an
+ * absolute time string (e.g. "14:30").
+ */
+function formatWhen(ms: number): { relative: string; absolute: string } {
+  const diffMs = ms - Date.now();
+  const absolute = new Date(ms).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  if (diffMs < 0) {
+    return { relative: 'now', absolute };
+  }
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) {
+    return { relative: `in ${minutes}m`, absolute };
+  }
+  const hours = Math.floor(minutes / 60);
+  return { relative: `in ${hours}h`, absolute };
+}
+
+function isImminent(startTimeMs: number): boolean {
+  return startTimeMs - Date.now() <= IMMINENT_THRESHOLD_MS;
+}
+
+// ---------------------------------------------------------------------------
+// Group meetings by local date
+// ---------------------------------------------------------------------------
+
+interface DateGroup {
+  label: string;
+  meetings: UpcomingMeeting[];
+}
+
+function groupByDate(
+  meetings: UpcomingMeeting[],
+  todayLabel: string,
+  tomorrowLabel: string
+): DateGroup[] {
+  const today = todayKey();
+  const tomorrow = tomorrowKey();
+  const buckets = new Map<string, { label: string; meetings: UpcomingMeeting[] }>();
+
+  for (const m of meetings) {
+    const key = localDayKey(m.start_time_ms);
+    if (!buckets.has(key)) {
+      let label: string;
+      if (key === today) label = todayLabel;
+      else if (key === tomorrow) label = tomorrowLabel;
+      else {
+        label = new Date(m.start_time_ms).toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+      buckets.set(key, { label, meetings: [] });
+    }
+    buckets.get(key)!.meetings.push(m);
+  }
+
+  return Array.from(buckets.values());
+}
+
+// ---------------------------------------------------------------------------
+// Platform filter
+// ---------------------------------------------------------------------------
+
+type PlatformFilter = MeetingPlatform | 'all';
+
+function filterMeetings(meetings: UpcomingMeeting[], filter: PlatformFilter): UpcomingMeeting[] {
+  if (filter === 'all') return meetings;
+  return meetings.filter(m => m.platform === filter);
+}
+
+// ---------------------------------------------------------------------------
+// Row component
+// ---------------------------------------------------------------------------
+
+interface MeetingRowProps {
+  meeting: UpcomingMeeting;
+  joinPolicy: JoinPolicy;
+  onJoinPolicyChange: (v: JoinPolicy) => void;
+  onJoin: (m: UpcomingMeeting) => void;
+  joining: boolean;
+}
+
+function MeetingRow({
+  meeting,
+  joinPolicy,
+  onJoinPolicyChange,
+  onJoin,
+  joining,
+}: MeetingRowProps) {
+  const { t } = useT();
+  const imminent = isImminent(meeting.start_time_ms);
+  const { relative, absolute } = formatWhen(meeting.start_time_ms);
+
+  const platform = (meeting.platform ??
+    (meeting.meet_url ? inferPlatformFromUrl(meeting.meet_url) ?? null : null)) as MeetingPlatform | null;
+  const logoUrl = platform ? platformLogoUrl(platform) : null;
+  const platformName = platform ? platformLabel(platform, t) : '—';
+
+  return (
+    <tr
+      className={[
+        'border-b border-line/50 transition-colors',
+        imminent ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-surface-hover',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {/* WHEN */}
+      <td className="py-2 px-3 whitespace-nowrap">
+        <div className="flex flex-col">
+          <span
+            className={[
+              'text-xs font-medium',
+              imminent ? 'text-amber-400' : 'text-content-primary',
+            ].join(' ')}
+          >
+            {relative}
+          </span>
+          <span className="text-xs text-content-secondary">{absolute}</span>
+        </div>
+      </td>
+
+      {/* MEETING */}
+      <td className="py-2 px-3 min-w-0 max-w-xs">
+        <span
+          className="block truncate text-sm text-content-primary font-medium"
+          title={meeting.title}
+        >
+          {meeting.title}
+        </span>
+      </td>
+
+      {/* PLATFORM */}
+      <td className="py-2 px-3 whitespace-nowrap">
+        <div className="flex items-center gap-1.5">
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt=""
+              aria-hidden="true"
+              className="w-4 h-4 rounded-sm shrink-0"
+              onError={e => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          )}
+          <span className="text-xs text-content-secondary">{platformName}</span>
+        </div>
+      </td>
+
+      {/* PEOPLE */}
+      <td className="py-2 px-3 whitespace-nowrap text-xs text-content-secondary">
+        {meeting.participant_count != null
+          ? t('skills.meetingBots.upcoming.participants').replace(
+              '{count}',
+              String(meeting.participant_count)
+            )
+          : '—'}
+      </td>
+
+      {/* JOIN POLICY */}
+      <td className="py-2 px-3">
+        <JoinPolicyToggle
+          value={joinPolicy}
+          onChange={onJoinPolicyChange}
+          compact
+        />
+      </td>
+
+      {/* ACTION */}
+      <td className="py-2 px-3 whitespace-nowrap">
+        {imminent ? (
+          <Button
+            variant="primary"
+            size="xs"
+            disabled={joining || !meeting.meet_url}
+            aria-label={t('skills.meetingBots.upcoming.joinNowAriaLabel').replace(
+              '{title}',
+              meeting.title
+            )}
+            onClick={() => onJoin(meeting)}
+          >
+            {joining ? '…' : t('skills.meetingBots.upcoming.joinNow')}
+          </Button>
+        ) : meeting.meet_url ? (
+          <Button
+            variant="tertiary"
+            size="xs"
+            disabled={joining}
+            onClick={() => onJoin(meeting)}
+          >
+            {t('skills.meetingBots.upcoming.join')}
+          </Button>
+        ) : null}
+      </td>
+    </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Loading skeleton
+// ---------------------------------------------------------------------------
+
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-line/50 animate-pulse">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <td key={i} className="py-2 px-3">
+          <div className="h-4 bg-surface-hover rounded w-16" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export interface UpcomingTableProps {
+  lookaheadMinutes?: number;
+  limit?: number;
+}
+
+export function UpcomingTable({ lookaheadMinutes, limit }: UpcomingTableProps) {
+  const { t } = useT();
+  const { meetings, loading, error, refresh } = useUpcomingMeetings(lookaheadMinutes, limit);
+
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
+  const [joinPolicies, setJoinPolicies] = useState<Record<string, JoinPolicy>>({});
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  // Persona / mascot selectors for bot join params — mirrors MeetComposer.tsx.
+  const personaDisplayName = useAppSelector(selectPersonaDisplayName);
+  const personaDescription = useAppSelector(selectPersonaDescription);
+  const selectedMascotId = useAppSelector(selectSelectedMascotId);
+  const mascotColor = useAppSelector(selectMascotColor);
+  const customPrimaryColor = useAppSelector(selectCustomPrimaryColor);
+  const customSecondaryColor = useAppSelector(selectCustomSecondaryColor);
+
+  // Resolve bot join params the same way MeetComposer does.
+  const mascotId = selectedMascotId ?? (mascotColor === 'custom' ? undefined : mascotColor);
+  const riveColors =
+    mascotColor === 'custom'
+      ? { primaryColor: customPrimaryColor, secondaryColor: customSecondaryColor }
+      : undefined;
+
+  const handleJoin = async (meeting: UpcomingMeeting) => {
+    if (!meeting.meet_url) return;
+    const platform = meeting.platform ?? inferPlatformFromUrl(meeting.meet_url) ?? undefined;
+    log('[upcoming] joining %s platform=%s', meeting.calendar_event_id, platform);
+    setJoiningId(meeting.calendar_event_id);
+    try {
+      await joinMeetViaBackendBot({
+        meetUrl: meeting.meet_url,
+        platform: platform as MeetingPlatform | undefined,
+        agentName: personaDisplayName || undefined,
+        systemPrompt: personaDescription || undefined,
+        mascotId: mascotId || undefined,
+        listenOnly: true,
+        correlationId: meeting.calendar_event_id,
+        riveColors,
+      });
+    } catch (err) {
+      log('[upcoming] join error: %s', err instanceof Error ? err.message : String(err));
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
+  const handleJoinPolicyChange = (id: string, v: JoinPolicy) => {
+    setJoinPolicies(prev => ({ ...prev, [id]: v }));
+  };
+
+  const filtered = filterMeetings(meetings, platformFilter);
+  const groups = groupByDate(
+    filtered,
+    t('skills.meetingBots.upcoming.today'),
+    t('skills.meetingBots.upcoming.tomorrow')
+  );
+
+  // Collect unique platforms for the filter dropdown.
+  const presentPlatforms = Array.from(
+    new Set(
+      meetings
+        .map(m => m.platform)
+        .filter((p): p is MeetingPlatform => p != null && p !== '')
+    )
+  );
+
+  return (
+    <div className="w-full rounded-xl border border-line/50 bg-surface/50 overflow-hidden">
+      {/* Table header bar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-line/50">
+        <h3 className="text-sm font-semibold text-content-primary">
+          {t('skills.meetingBots.upcoming.heading')}
+        </h3>
+
+        <div className="flex items-center gap-2">
+          {/* Platform filter */}
+          {presentPlatforms.length > 1 && (
+            <select
+              className="text-xs bg-transparent text-content-secondary border border-line/50 rounded px-1.5 py-0.5 focus:outline-none"
+              value={platformFilter}
+              onChange={e => setPlatformFilter(e.target.value as PlatformFilter)}
+              aria-label={t('skills.meetingBots.upcoming.filterAll')}
+            >
+              <option value="all">{t('skills.meetingBots.upcoming.filterAll')}</option>
+              {presentPlatforms.map(p => (
+                <option key={p} value={p}>
+                  {platformLabel(p, t)}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Refresh button */}
+          <Button
+            variant="tertiary"
+            size="xs"
+            iconOnly
+            aria-label={t('skills.meetingBots.upcoming.refresh')}
+            onClick={refresh}
+            disabled={loading}
+          >
+            {/* Minimal SVG refresh icon */}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M10 6a4 4 0 1 1-1.17-2.83M10 2v3H7"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-content-secondary border-b border-line/50">
+              <th className="py-1.5 px-3 text-left font-medium">
+                {t('skills.meetingBots.upcoming.when')}
+              </th>
+              <th className="py-1.5 px-3 text-left font-medium">
+                {t('skills.meetingBots.upcoming.meeting')}
+              </th>
+              <th className="py-1.5 px-3 text-left font-medium">
+                {t('skills.meetingBots.upcoming.platform')}
+              </th>
+              <th className="py-1.5 px-3 text-left font-medium">
+                {t('skills.meetingBots.upcoming.people')}
+              </th>
+              <th className="py-1.5 px-3 text-left font-medium">
+                {t('skills.meetingBots.upcoming.joinPolicy')}
+              </th>
+              <th className="py-1.5 px-3 text-left font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {loading && meetings.length === 0 && (
+              <>
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow />
+              </>
+            )}
+
+            {!loading && error && (
+              <tr>
+                <td colSpan={6} className="py-6 px-3 text-center">
+                  <p className="text-sm text-coral-400 mb-2">
+                    {t('skills.meetingBots.upcoming.error')}
+                  </p>
+                  <Button variant="secondary" size="xs" onClick={refresh}>
+                    {t('skills.meetingBots.upcoming.retry')}
+                  </Button>
+                </td>
+              </tr>
+            )}
+
+            {!loading && !error && filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-8 px-3 text-center">
+                  <p className="text-sm text-content-secondary">
+                    {t('skills.meetingBots.upcoming.empty')}
+                  </p>
+                </td>
+              </tr>
+            )}
+
+            {groups.flatMap(group => [
+              /* Date-group separator row */
+              <tr key={`gh-${group.label}`}>
+                <td
+                  colSpan={6}
+                  className="py-1 px-3 text-xs font-semibold text-content-secondary uppercase tracking-wide bg-surface-hover/50 border-b border-line/30"
+                >
+                  {group.label}
+                </td>
+              </tr>,
+              /* Meeting rows for this group */
+              ...group.meetings.map(m => {
+                const policy: JoinPolicy =
+                  (joinPolicies[m.calendar_event_id] as JoinPolicy | undefined) ??
+                  ((m.join_policy as JoinPolicy) ?? 'ask');
+                return (
+                  <MeetingRow
+                    key={m.calendar_event_id}
+                    meeting={m}
+                    joinPolicy={policy}
+                    onJoinPolicyChange={v => handleJoinPolicyChange(m.calendar_event_id, v)}
+                    onJoin={handleJoin}
+                    joining={joiningId === m.calendar_event_id}
+                  />
+                );
+              }),
+            ])}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

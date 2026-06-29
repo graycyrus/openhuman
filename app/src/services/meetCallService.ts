@@ -405,6 +405,57 @@ function isApiErrorLike(value: unknown): value is { error?: unknown; message?: u
   return !!value && typeof value === 'object' && ('error' in value || 'message' in value);
 }
 
+// ---------------------------------------------------------------------------
+// Upcoming meetings (meet_list_upcoming RPC)
+// ---------------------------------------------------------------------------
+
+/**
+ * One upcoming calendar meeting returned by `openhuman.meet_list_upcoming`.
+ * Mirrors `UpcomingMeeting` in `src/openhuman/agent_meetings/types.rs`.
+ */
+export interface UpcomingMeeting {
+  calendar_event_id: string;
+  title: string;
+  /** Unix milliseconds */
+  start_time_ms: number;
+  /** Unix milliseconds */
+  end_time_ms: number;
+  meet_url: string | null;
+  /** Platform slug: "gmeet" | "zoom" | "teams" | "webex" */
+  platform: string | null;
+  participant_count: number | null;
+  organizer: string | null;
+  /** "auto" | "ask" | "skip" — local UI state only this phase */
+  join_policy: string;
+  calendar_source: string;
+}
+
+interface CoreListUpcomingResponse {
+  ok: boolean;
+  meetings: UpcomingMeeting[];
+}
+
+/**
+ * Fetch upcoming calendar meetings that have a conferencing link.
+ * Returns an empty array when no Google Calendar is connected.
+ */
+export async function listUpcomingMeetings(
+  lookaheadMinutes?: number,
+  limit?: number
+): Promise<UpcomingMeeting[]> {
+  const result = await callCoreRpc<CoreListUpcomingResponse>({
+    method: 'openhuman.meet_list_upcoming',
+    params: {
+      ...(lookaheadMinutes != null ? { lookahead_minutes: lookaheadMinutes } : {}),
+      ...(limit != null ? { limit } : {}),
+    },
+  });
+  if (!result?.ok) {
+    throw new Error('Core rejected the meet_list_upcoming request.');
+  }
+  return result.meetings ?? [];
+}
+
 export async function joinMeetingViaMascotBot(
   input: MascotJoinMeetingInput
 ): Promise<MascotJoinMeetingResult> {

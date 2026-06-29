@@ -7,6 +7,7 @@ import {
   joinMeetCall,
   joinMeetViaBackendBot,
   listMeetCalls,
+  listUpcomingMeetings,
   parseTranscriptLine,
 } from '../meetCallService';
 
@@ -254,6 +255,78 @@ describe('closeMeetCall', () => {
 
     await expect(closeMeetCall('req-1')).resolves.toBe(false);
     expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('listUpcomingMeetings', () => {
+  beforeEach(() => {
+    vi.mocked(callCoreRpc).mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const mockMeeting = {
+    calendar_event_id: 'evt-1',
+    title: 'Standup',
+    start_time_ms: Date.now() + 30 * 60 * 1000,
+    end_time_ms: Date.now() + 60 * 60 * 1000,
+    meet_url: 'https://meet.google.com/abc-def-ghi',
+    platform: 'gmeet',
+    participant_count: 4,
+    organizer: 'alice@example.com',
+    join_policy: 'ask',
+    calendar_source: 'google:alice@example.com',
+  };
+
+  it('calls openhuman.meet_list_upcoming with no params when no args given', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({
+      ok: true,
+      meetings: [mockMeeting],
+    } as never);
+
+    const result = await listUpcomingMeetings();
+
+    expect(callCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.meet_list_upcoming',
+      params: {},
+    });
+    expect(result).toEqual([mockMeeting]);
+  });
+
+  it('forwards lookahead_minutes and limit when provided', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({
+      ok: true,
+      meetings: [],
+    } as never);
+
+    await listUpcomingMeetings(120, 10);
+
+    expect(callCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.meet_list_upcoming',
+      params: { lookahead_minutes: 120, limit: 10 },
+    });
+  });
+
+  it('returns an empty array when core returns no meetings', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({
+      ok: true,
+      meetings: undefined,
+    } as never);
+
+    const result = await listUpcomingMeetings();
+    expect(result).toEqual([]);
+  });
+
+  it('throws when core returns ok: false', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: false } as never);
+    await expect(listUpcomingMeetings()).rejects.toThrow(/meet_list_upcoming/);
+  });
+
+  it('throws when core returns a falsy result', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce(null as never);
+    await expect(listUpcomingMeetings()).rejects.toThrow(/meet_list_upcoming/);
   });
 });
 

@@ -18,6 +18,7 @@ import BetaBanner from '../ui/BetaBanner';
 import { ActiveMeetingBanner } from './ActiveMeetingBanner';
 import HistorySection from './HistorySection';
 import { MeetComposer } from './MeetComposer';
+import { UpcomingTable } from './UpcomingTable';
 
 const log = debug('meetings:page');
 
@@ -63,6 +64,8 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
       ) : (
         <MeetComposer onToast={onToast} hasSubmittedRef={hasSubmittedRef} />
       )}
+
+      <UpcomingTable />
 
       <HistorySection />
     </div>

@@ -292,7 +292,7 @@ fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
     Ok(url)
 }
 
-fn infer_platform(url: &url::Url) -> &'static str {
+pub(crate) fn infer_platform(url: &url::Url) -> &'static str {
     let host = url.host_str().unwrap_or("");
     for (allowed, platform) in ALLOWED_HOSTS {
         if host == *allowed || host.ends_with(&format!(".{allowed}")) {
@@ -698,6 +698,67 @@ pub async fn handle_notification_action(params: Map<String, Value>) -> Result<Va
         }
         other => Err(format!("[agent_meetings] unknown action_id: {other}")),
     }
+}
+
+/// Handle `openhuman.meet_list_upcoming` — list upcoming calendar meetings that
+/// have a conferencing link, fetching from Composio's Google Calendar integration.
+///
+/// Returns an empty meetings list (ok=true) when:
+/// - No calendar is connected.
+/// - The user is not signed in to the backend.
+/// - All connections are inactive.
+///
+/// Returns an error string only for hard failures (bad params, config load).
+pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, String> {
+    use crate::openhuman::config::schema::AutoJoinPolicy;
+    use super::types::{ListUpcomingRequest, ListUpcomingResponse};
+    use super::upcoming::{fetch_upcoming_meetings, DEFAULT_LOOKAHEAD_MINUTES, DEFAULT_LIMIT};
+
+    let req: ListUpcomingRequest = serde_json::from_value(Value::Object(params))
+        .map_err(|e| format!("[meet:upcoming] invalid params: {e}"))?;
+
+    let lookahead_minutes = req.lookahead_minutes.unwrap_or(DEFAULT_LOOKAHEAD_MINUTES);
+    let limit = req.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, 100);
+
+    tracing::debug!(
+        lookahead_minutes,
+        limit,
+        "[meet:upcoming] handle_list_upcoming called"
+    );
+
+    // Load config to get the auto_join_policy and composio settings.
+    let config = crate::openhuman::config::ops::load_config_with_timeout().await
+        .map_err(|e| format!("[meet:upcoming] config load failed: {e}"))?;
+
+    // Map AutoJoinPolicy → the string the frontend/table uses for the default
+    // join_policy field. Phase 3 will add per-event overrides; for now every
+    // returned meeting carries the global setting.
+    let join_policy = match config.meet.auto_join_policy {
+        AutoJoinPolicy::Always => "auto",
+        AutoJoinPolicy::AskEachTime => "ask",
+        AutoJoinPolicy::Never => "skip",
+    };
+
+    let meetings = fetch_upcoming_meetings(&config, lookahead_minutes, limit, join_policy)
+        .await
+        .map_err(|e| format!("[meet:upcoming] fetch failed: {e}"))?;
+
+    tracing::info!(
+        count = meetings.len(),
+        join_policy,
+        "[meet:upcoming] returning meetings"
+    );
+
+    let response = ListUpcomingResponse {
+        ok: true,
+        meetings,
+    };
+    let outcome = RpcOutcome::new(
+        serde_json::to_value(response)
+            .map_err(|e| format!("[meet:upcoming] serialize failed: {e}"))?,
+        vec![],
+    );
+    outcome.into_cli_compatible_json()
 }
 
 #[cfg(test)]

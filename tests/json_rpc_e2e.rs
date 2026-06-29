@@ -13542,3 +13542,83 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
 
     rpc_join.abort();
 }
+
+/// `openhuman.meet_list_upcoming` — verifies the RPC is registered, accepts
+/// optional params, and returns the correct envelope shape.
+///
+/// In the test environment there is no backend session token, so
+/// `create_composio_client` fails gracefully and the handler returns an
+/// empty meetings list (ok=true, meetings=[]) rather than an error.
+/// This validates the graceful no-calendar path without requiring a live
+/// Composio connection.
+#[tokio::test]
+async fn json_rpc_meet_list_upcoming_returns_empty_when_no_calendar_connected() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:9");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    // --- no params: defaults apply, returns ok=true with empty meetings ---
+    let resp_default = post_json_rpc(
+        &rpc_base,
+        9200,
+        "openhuman.meet_list_upcoming",
+        json!({}),
+    )
+    .await;
+    let result = assert_no_jsonrpc_error(&resp_default, "meet_list_upcoming no-params");
+    let body = result.get("result").unwrap_or(result);
+    assert_eq!(
+        body.get("ok"),
+        Some(&json!(true)),
+        "ok must be true when no calendar connected"
+    );
+    let meetings = body
+        .get("meetings")
+        .and_then(|v| v.as_array())
+        .expect("meetings array must be present");
+    assert!(
+        meetings.is_empty(),
+        "meetings must be empty when no Composio client available"
+    );
+
+    // --- explicit lookahead_minutes + limit: still returns ok=true with empty ---
+    let resp_explicit = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.meet_list_upcoming",
+        json!({ "lookahead_minutes": 120, "limit": 5 }),
+    )
+    .await;
+    let result2 = assert_no_jsonrpc_error(&resp_explicit, "meet_list_upcoming explicit params");
+    let body2 = result2.get("result").unwrap_or(result2);
+    assert_eq!(body2.get("ok"), Some(&json!(true)));
+    assert!(body2
+        .get("meetings")
+        .and_then(|v| v.as_array())
+        .is_some_and(|arr| arr.is_empty()));
+
+    // --- invalid param type: lookahead_minutes must be a number ---
+    let resp_bad = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.meet_list_upcoming",
+        json!({ "lookahead_minutes": "not-a-number" }),
+    )
+    .await;
+    assert_jsonrpc_error(&resp_bad, "meet_list_upcoming bad lookahead type");
+
+    rpc_join.abort();
+}
