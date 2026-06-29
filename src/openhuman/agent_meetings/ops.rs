@@ -18,7 +18,7 @@ use super::types::{
     BackendMeetLeaveRequest, BackendMeetSpeakRequest, MeetingSessionStatus,
 };
 
-const ALLOWED_HOSTS: &[(&str, &str)] = &[
+pub(super) const ALLOWED_HOSTS: &[(&str, &str)] = &[
     ("meet.google.com", "gmeet"),
     ("zoom.us", "zoom"),
     ("teams.microsoft.com", "teams"),
@@ -296,6 +296,24 @@ fn infer_platform(url: &url::Url) -> &'static str {
     let host = url.host_str().unwrap_or("");
     for (allowed, platform) in ALLOWED_HOSTS {
         if host == *allowed || host.ends_with(&format!(".{allowed}")) {
+            return platform;
+        }
+    }
+    "gmeet"
+}
+
+/// Resolve the meeting platform from a meeting-URL string.
+///
+/// String adapter over [`infer_platform`] so the calendar auto-join path can
+/// reuse the same `ALLOWED_HOSTS` table (single source of truth). Free-form
+/// strings that don't parse as a URL fall back to a substring host match.
+/// Unknown/unrecognized hosts resolve to `"gmeet"`.
+pub(super) fn detect_platform(meet_url: &str) -> &'static str {
+    if let Ok(url) = url::Url::parse(meet_url) {
+        return infer_platform(&url);
+    }
+    for (host, platform) in ALLOWED_HOSTS {
+        if meet_url.contains(host) {
             return platform;
         }
     }
@@ -875,6 +893,26 @@ mod tests {
 
         let url = url::Url::parse("https://company.zoom.us/j/123").unwrap();
         assert_eq!(infer_platform(&url), "zoom");
+    }
+
+    #[test]
+    fn detect_platform_across_hosts() {
+        assert_eq!(
+            detect_platform("https://meet.google.com/abc-defg-hij"),
+            "gmeet"
+        );
+        assert_eq!(detect_platform("https://zoom.us/j/123"), "zoom");
+        assert_eq!(
+            detect_platform("https://teams.microsoft.com/l/meetup"),
+            "teams"
+        );
+        assert_eq!(detect_platform("https://meet.webex.com/meet/abc"), "webex");
+
+        // Unknown host → gmeet default.
+        assert_eq!(detect_platform("https://example.com/x"), "gmeet");
+
+        // Non-parseable free-form string → substring host fallback.
+        assert_eq!(detect_platform("Zoom Meeting zoom.us/j/123"), "zoom");
     }
 
     #[test]

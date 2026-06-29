@@ -565,17 +565,14 @@ fn is_meeting_imminent(payload: &serde_json::Value) -> bool {
     true
 }
 
-/// Supported meeting URL host patterns. A string is considered a meeting
-/// link when it contains any of these substrings.
-const MEETING_HOST_PATTERNS: &[&str] = &[
-    "meet.google.com",
-    "zoom.us",
-    "teams.microsoft.com",
-    "webex.com",
-];
-
+/// A string is considered a meeting link when it contains any supported host.
+///
+/// Derived from [`super::ops::ALLOWED_HOSTS`] so platform detection and link
+/// recognition share a single source of truth (no parallel host list).
 fn is_meeting_url(s: &str) -> bool {
-    MEETING_HOST_PATTERNS.iter().any(|pat| s.contains(pat))
+    super::ops::ALLOWED_HOSTS
+        .iter()
+        .any(|(host, _)| s.contains(host))
 }
 
 /// Pull the first parseable meeting URL out of a free-form string.
@@ -691,8 +688,11 @@ async fn auto_join_meeting(
         }
     };
 
+    let platform = super::ops::detect_platform(&meet_url);
+
     let payload = build_auto_join_payload(
         &meet_url,
+        platform,
         &correlation_id,
         listen_only,
         owner_display_name.as_deref(),
@@ -700,6 +700,7 @@ async fn auto_join_meeting(
 
     tracing::info!(
         meet_url = %meet_url,
+        platform = %platform,
         title = %event_title,
         correlation_id = %correlation_id,
         listen_only = listen_only,
@@ -745,12 +746,14 @@ fn build_action_payload(
 /// which the backend bot treats as "respond to everyone".
 fn build_auto_join_payload(
     meet_url: &str,
+    platform: &str,
     correlation_id: &str,
     listen_only: bool,
     owner_display_name: Option<&str>,
 ) -> serde_json::Value {
     let mut payload = serde_json::json!({
         "meetUrl": meet_url,
+        "platform": platform,
         "displayName": "Tiny",
         "correlationId": correlation_id,
         "listenOnly": listen_only,
@@ -1047,6 +1050,7 @@ mod tests {
     fn auto_join_payload_includes_respond_to_participant() {
         let p = build_auto_join_payload(
             "https://meet.google.com/abc",
+            "gmeet",
             "corr-1",
             false,
             Some("Aditya"),
@@ -1059,14 +1063,27 @@ mod tests {
 
     #[test]
     fn auto_join_payload_omits_respond_to_participant_when_absent() {
-        let p = build_auto_join_payload("https://meet.google.com/abc", "corr-1", true, None);
+        let p =
+            build_auto_join_payload("https://meet.google.com/abc", "gmeet", "corr-1", true, None);
         assert!(p.get("respondToParticipant").is_none());
     }
 
     #[test]
     fn auto_join_payload_omits_respond_to_participant_when_blank() {
-        let p = build_auto_join_payload("https://meet.google.com/abc", "corr-1", true, Some("   "));
+        let p = build_auto_join_payload(
+            "https://meet.google.com/abc",
+            "gmeet",
+            "corr-1",
+            true,
+            Some("   "),
+        );
         assert!(p.get("respondToParticipant").is_none());
+    }
+
+    #[test]
+    fn auto_join_payload_includes_platform() {
+        let p = build_auto_join_payload("https://zoom.us/j/123", "zoom", "corr-1", true, None);
+        assert_eq!(p["platform"], json!("zoom"));
     }
 
     // ── effective_listen_only ───────────────────────────────────
