@@ -259,14 +259,17 @@ describe('MeetingBotsCard — ActiveMeetingView', () => {
     expect(screen.getByText(/hi there/i)).toBeInTheDocument();
   });
 
-  it('shows the inline form (not ActiveMeetingView) while status is joining', () => {
+  it('shows the active banner (not the inline form) while status is joining', () => {
+    // The redesigned composer shows the live banner for 'joining' (not the inline
+    // form). The banner shows the LIVE badge and "Joining…" status text. The
+    // composer unmounts so there is no meeting-link input while joining.
     renderWithProviders(<MeetingBotsCard />, {
       preloadedState: {
         backendMeet: { ...activeMeetState.backendMeet, status: 'joining' as const },
       },
     });
-    expect(screen.getByLabelText(/meeting link/i)).toBeInTheDocument();
-    expect(screen.queryByText(/live in meeting/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/meeting link/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/joining/i)).toBeInTheDocument();
   });
 
   it('shows the inline form (not ActiveMeetingView) when status is ended', () => {

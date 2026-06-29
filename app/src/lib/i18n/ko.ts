@@ -5098,9 +5098,11 @@ const messages: TranslationMap = {
   'skills.meetingBots.platformComingSoon': '{label} 지원이 곧 제공될 예정입니다.',
   'skills.meetingBots.platformHints.gmeet': 'Meet.google.com/abc-defg-hij',
   'skills.meetingBots.platformHints.teams': 'Teams.microsoft.com/...',
+  'skills.meetingBots.platformHints.webex': 'webex.com/meet/...',
   'skills.meetingBots.platformHints.zoom': 'Zoom.us/j/...',
   'skills.meetingBots.platforms.gmeet': 'Google 모임',
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
+  'skills.meetingBots.platforms.webex': 'Webex',
   'skills.meetingBots.platforms.zoom': 'Zoom',
   'skills.meetingBots.sendTo': '보내기',
   'skills.meetingBots.serverOverloaded':

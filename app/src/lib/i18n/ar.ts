@@ -5042,9 +5042,11 @@ const messages: TranslationMap = {
   'skills.meetingBots.platformComingSoon': '{label} الدعم قريبًا.',
   'skills.meetingBots.platformHints.gmeet': 'meet.google.com/abc-defg-hij',
   'skills.meetingBots.platformHints.teams': 'Teams.microsoft.com/...',
+  'skills.meetingBots.platformHints.webex': 'webex.com/meet/...',
   'skills.meetingBots.platformHints.zoom': 'Zoom.us/j/...',
   'skills.meetingBots.platforms.gmeet': 'Google لقاء',
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
+  'skills.meetingBots.platforms.webex': 'Webex',
   'skills.meetingBots.platforms.zoom': 'تكبير',
   'skills.meetingBots.sendTo': 'إرسال إلى',
   'skills.meetingBots.serverOverloaded':

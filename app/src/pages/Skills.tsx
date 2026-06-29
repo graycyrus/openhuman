@@ -21,7 +21,7 @@ import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
-import MeetingBotsCard from '../components/skills/MeetingBotsCard';
+import MeetingsPage from '../components/meetings/MeetingsPage';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
 import { SKILL_CATEGORY_ORDER, type SkillCategory } from '../components/skills/skillCategories';
@@ -1030,7 +1030,7 @@ export default function Skills() {
           </div>
         ) : (
           <PanelPage contentClassName="p-4">
-            <div className="mx-auto w-full max-w-3xl space-y-4">
+            <div className={`mx-auto w-full space-y-4 ${activeTab !== 'meetings' ? 'max-w-3xl' : ''}`}>
               {/* <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h1 className="text-base font-semibold text-content">
@@ -1260,10 +1260,7 @@ export default function Skills() {
                   )}
 
                   {activeTab === 'meetings' && (
-                    <div className="space-y-3 animate-fade-up">
-                      <BetaBanner />
-                      <MeetingBotsCard onToast={addToast} />
-                    </div>
+                    <MeetingsPage onToast={addToast} />
                   )}
                 </>
               }

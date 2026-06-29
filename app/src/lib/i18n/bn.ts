@@ -5146,9 +5146,11 @@ const messages: TranslationMap = {
   'skills.meetingBots.platformComingSoon': '{label} সমর্থন শীঘ্রই আসছে।',
   'skills.meetingBots.platformHints.gmeet': 'meet.google.com/abc-defg-hij',
   'skills.meetingBots.platformHints.teams': 'teams.microsoft.com/...',
+  'skills.meetingBots.platformHints.webex': 'webex.com/meet/...',
   'skills.meetingBots.platformHints.zoom': 'zoom.us/j/...',
   'skills.meetingBots.platforms.gmeet': 'Google Meet',
   'skills.meetingBots.platforms.teams': 'মাইক্রোসফট টিম',
+  'skills.meetingBots.platforms.webex': 'Webex',
   'skills.meetingBots.platforms.zoom': 'জুম',
   'skills.meetingBots.sendTo': 'পাঠান',
   'skills.meetingBots.serverOverloaded':

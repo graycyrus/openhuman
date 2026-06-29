@@ -5242,9 +5242,11 @@ const messages: TranslationMap = {
   'skills.meetingBots.platformComingSoon': 'El soporte de {label} llegará pronto.',
   'skills.meetingBots.platformHints.gmeet': 'meet.google.com/abc-defg-hij',
   'skills.meetingBots.platformHints.teams': 'equipos.microsoft.com/...',
+  'skills.meetingBots.platformHints.webex': 'webex.com/meet/...',
   'skills.meetingBots.platformHints.zoom': 'zoom.us/j/...',
   'skills.meetingBots.platforms.gmeet': 'Google Conocer',
   'skills.meetingBots.platforms.teams': 'Equipos de Microsoft',
+  'skills.meetingBots.platforms.webex': 'Webex',
   'skills.meetingBots.platforms.zoom': 'Ampliar',
   'skills.meetingBots.sendTo': 'Enviar a',
   'skills.meetingBots.serverOverloaded':
