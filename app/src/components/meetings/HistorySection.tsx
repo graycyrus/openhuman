@@ -162,7 +162,7 @@ export function HistorySection() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 rounded-2xl border border-line bg-surface p-4 shadow-soft">
       <div className="flex items-baseline justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
           {t('skills.meetingBots.recentCallsHeading')}
