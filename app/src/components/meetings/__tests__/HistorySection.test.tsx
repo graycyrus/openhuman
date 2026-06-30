@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MeetCallDetail, MeetCallRecord } from '../../../services/meetCallService';
+import { setBackendMeetJoined, setBackendMeetLeft } from '../../../store/backendMeetSlice';
 import { renderWithProviders } from '../../../test/test-utils';
 import HistorySection from '../HistorySection';
 
@@ -171,6 +172,35 @@ describe('HistorySection', () => {
       expect(
         screen.getByText('Select a call to see its summary and transcript.')
       ).toBeInTheDocument();
+    });
+  });
+
+  // ── Auto-refresh when a meeting ends (#4341) ──────────────────────────────
+
+  it('re-fetches recent calls when the meeting status transitions to ended', async () => {
+    listMeetCallsMock.mockResolvedValue([todayCall]);
+    const { store } = renderWithProviders(<HistorySection />);
+
+    // Wait for the initial mount fetch to settle.
+    await waitFor(() => {
+      expect(screen.getAllByText('abc-def-ghi').length).toBeGreaterThan(0);
+    });
+
+    listMeetCallsMock.mockClear();
+
+    // Simulate the live meeting going active then ending.
+    act(() => {
+      store.dispatch(setBackendMeetJoined({ meetUrl: 'https://meet.google.com/abc-def-ghi' }));
+    });
+    expect(listMeetCallsMock).not.toHaveBeenCalled();
+
+    act(() => {
+      store.dispatch(setBackendMeetLeft({ reason: 'left' }));
+    });
+
+    // The transition to 'ended' triggers the delayed-retry fetch.
+    await waitFor(() => {
+      expect(listMeetCallsMock).toHaveBeenCalled();
     });
   });
 });

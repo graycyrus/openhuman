@@ -8,10 +8,12 @@
  * asynchronous writes from the core (same pattern as old MeetingsPage).
  */
 import debug from 'debug';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { listMeetCalls, type MeetCallRecord } from '../../services/meetCallService';
+import { selectBackendMeetStatus } from '../../store/backendMeetSlice';
+import { useAppSelector } from '../../store/hooks';
 import HistoryDetail from './HistoryDetail';
 import HistoryRail, { type CallGroup } from './HistoryRail';
 import { inferPlatformFromUrl } from './meetingUtils';
@@ -90,10 +92,13 @@ export function HistorySection() {
     }
   }, []);
 
-  useEffect(() => {
-    // Wrap the initial call in setTimeout so the rule's transitive analysis
-    // does not flag setState calls (which are all async-after-await in fetchCalls)
-    // as synchronous within the effect body.
+  // Fetch immediately, then re-fetch after 1.2s and 3s. The core writes the
+  // call record a few ms after the transcript arrives, so the delayed retries
+  // catch the just-written row. Returns a cleanup that cancels pending timers.
+  // Wrapping the initial call in setTimeout also keeps the rule's transitive
+  // analysis from flagging fetchCalls' (async-after-await) setState calls as
+  // synchronous within an effect body.
+  const fetchCallsWithRetries = useCallback(() => {
     const id = setTimeout(() => void fetchCalls(), 0);
     const retries = [1200, 3000].map(delay => setTimeout(() => void fetchCalls(), delay));
     return () => {
@@ -101,6 +106,23 @@ export function HistorySection() {
       retries.forEach(clearTimeout);
     };
   }, [fetchCalls]);
+
+  useEffect(() => fetchCallsWithRetries(), [fetchCallsWithRetries]);
+
+  // Auto-refresh when a meeting ends. The history list is rendered alongside
+  // the live meeting, so when the backend-meet status transitions to 'ended'
+  // (bot left / meeting finished) we re-run the delayed-retry fetch to surface
+  // the just-finished call without needing a tab switch or app reload (#4341).
+  const meetStatus = useAppSelector(selectBackendMeetStatus);
+  const prevMeetStatusRef = useRef(meetStatus);
+  useEffect(() => {
+    const prev = prevMeetStatusRef.current;
+    prevMeetStatusRef.current = meetStatus;
+    if (meetStatus === 'ended' && prev !== 'ended') {
+      log('[history] meeting ended → refreshing recent calls');
+      return fetchCallsWithRetries();
+    }
+  }, [meetStatus, fetchCallsWithRetries]);
 
   // Apply search + platform filter
   const filteredRecords = useMemo(() => {
