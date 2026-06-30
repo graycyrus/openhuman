@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
 import type { MeetCallRecord, MeetCallDetail } from '../../../services/meetCallService';
@@ -22,6 +22,12 @@ vi.mock('../../../services/meetCallService', async () => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+// A call is now auto-selected by default, so the detail pane mounts and calls
+// getMeetCallDetail in every populated test — give it a benign default.
+beforeEach(() => {
+  getMeetCallDetailMock.mockResolvedValue(detail);
 });
 
 const NOW = Date.now();
@@ -84,7 +90,9 @@ describe('HistorySection', () => {
     await waitFor(() => {
       expect(screen.getByText('Today')).toBeInTheDocument();
       expect(screen.getByText('Yesterday')).toBeInTheDocument();
-      expect(screen.getByText('abc-def-ghi')).toBeInTheDocument();
+      // abc-def-ghi is auto-selected, so it appears in both the rail and the
+      // detail header — assert at least one occurrence.
+      expect(screen.getAllByText('abc-def-ghi').length).toBeGreaterThan(0);
       expect(screen.getByText('j/999888')).toBeInTheDocument();
     });
   });
@@ -95,16 +103,7 @@ describe('HistorySection', () => {
     renderWithProviders(<HistorySection />);
 
     await waitFor(() => {
-      expect(screen.getByText('abc-def-ghi')).toBeInTheDocument();
-    });
-
-    // Click the call row button
-    const buttons = screen.getAllByRole('button');
-    const callButton = buttons.find(b => b.textContent?.includes('abc-def-ghi'));
-    expect(callButton).toBeDefined();
-    fireEvent.click(callButton!);
-
-    await waitFor(() => {
+      // Auto-selected → detail pane fetches it without a manual click.
       expect(getMeetCallDetailMock).toHaveBeenCalledWith('req-today');
     });
   });
@@ -114,7 +113,7 @@ describe('HistorySection', () => {
     renderWithProviders(<HistorySection />);
 
     await waitFor(() => {
-      expect(screen.getByText('abc-def-ghi')).toBeInTheDocument();
+      expect(screen.getAllByText('abc-def-ghi').length).toBeGreaterThan(0);
     });
 
     // Search for the Zoom meeting's code (part of the URL path)
@@ -123,7 +122,7 @@ describe('HistorySection', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('abc-def-ghi')).toBeNull();
-      expect(screen.getByText('j/999888')).toBeInTheDocument();
+      expect(screen.getAllByText('j/999888').length).toBeGreaterThan(0);
     });
   });
 
@@ -132,14 +131,15 @@ describe('HistorySection', () => {
     renderWithProviders(<HistorySection />);
 
     await waitFor(() => {
-      expect(screen.getByText('abc-def-ghi')).toBeInTheDocument();
+      expect(screen.getAllByText('abc-def-ghi').length).toBeGreaterThan(0);
     });
 
-    const platformSelect = screen.getByRole('combobox') as HTMLSelectElement;
-    fireEvent.change(platformSelect, { target: { value: 'gmeet' } });
+    // Open the compact platform filter menu and pick Google Meet.
+    fireEvent.click(screen.getByRole('button', { name: /all platforms/i }));
+    fireEvent.click(screen.getByRole('option', { name: /google meet/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('abc-def-ghi')).toBeInTheDocument();
+      expect(screen.getAllByText('abc-def-ghi').length).toBeGreaterThan(0);
       expect(screen.queryByText('j/999888')).toBeNull();
     });
   });

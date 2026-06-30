@@ -139,6 +139,18 @@ export function HistorySection() {
     [filteredRecords, t]
   );
 
+  // Keep a call selected by default: when nothing is selected (or the current
+  // selection falls outside the active search/platform filter), snap to the
+  // first (most recent) visible call so the detail pane is never empty.
+  useEffect(() => {
+    if (filteredRecords.length === 0) return;
+    const stillVisible =
+      selectedCallId !== null && filteredRecords.some(r => r.request_id === selectedCallId);
+    if (!stillVisible) {
+      setSelectedCallId(filteredRecords[0].request_id);
+    }
+  }, [filteredRecords, selectedCallId]);
+
   const selectedRecord = useMemo(
     () => records?.find(r => r.request_id === selectedCallId) ?? null,
     [records, selectedCallId]

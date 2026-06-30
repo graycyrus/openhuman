@@ -84,8 +84,13 @@ describe('HistoryRail', () => {
   it('fires onSelect when a row is clicked', () => {
     const onSelect = vi.fn();
     renderRail({ onSelect });
-    const button = screen.getAllByRole('button')[0];
-    fireEvent.click(button);
+    // The first button is now the platform-filter toggle; pick the call row by
+    // its meeting code instead.
+    const rowButton = screen
+      .getAllByRole('button')
+      .find(b => b.textContent?.includes('abc-def-ghi'));
+    expect(rowButton).toBeDefined();
+    fireEvent.click(rowButton!);
     expect(onSelect).toHaveBeenCalledWith('req-1');
   });
 
@@ -109,16 +114,21 @@ describe('HistoryRail', () => {
     expect(onSearchChange).toHaveBeenCalledWith('zoom');
   });
 
-  it('shows All platforms option in the select', () => {
+  it('shows platform options (with names) only after opening the filter menu', () => {
     renderRail();
+    // Collapsed: the filter is icon-only — names are not shown yet.
+    expect(screen.queryByText('All platforms')).not.toBeInTheDocument();
+    // Open the menu via the filter button.
+    fireEvent.click(screen.getByRole('button', { name: /all platforms/i }));
     expect(screen.getByText('All platforms')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /zoom/i })).toBeInTheDocument();
   });
 
-  it('calls onPlatformChange when platform filter changes', () => {
+  it('calls onPlatformChange when a platform is picked from the menu', () => {
     const onPlatformChange = vi.fn();
     renderRail({ onPlatformChange });
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'zoom' } });
+    fireEvent.click(screen.getByRole('button', { name: /all platforms/i }));
+    fireEvent.click(screen.getByRole('option', { name: /zoom/i }));
     expect(onPlatformChange).toHaveBeenCalledWith('zoom');
   });
 
