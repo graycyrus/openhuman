@@ -192,8 +192,14 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
       ? t('workspace.obsidianNotFoundHelp')
       : t('workspace.vaultNotRegisteredHelp');
 
+  // The guidance panel is rendered as an absolutely-positioned popover anchored
+  // to the button (out of normal flow) rather than as an inline sibling. This
+  // component lives inside the horizontal MemoryControls toolbar; an in-flow
+  // `w-full`/wide panel would grow this flex item and force the whole toolbar to
+  // wrap/misalign (issue #4266). Taking the panel out of flow keeps the toolbar
+  // row stable regardless of the panel's visibility.
   return (
-    <div className="flex flex-col items-end gap-2" data-testid="obsidian-vault-section">
+    <div className="relative inline-flex" data-testid="obsidian-vault-section">
       <Button
         variant="secondary"
         size="sm"
@@ -208,8 +214,9 @@ export function ObsidianVaultSection({ contentRootAbs, onToast }: ObsidianVaultS
       {expanded && (
         <div
           data-testid="obsidian-vault-guidance"
-          className="w-full max-w-xl rounded-lg border border-violet-200 bg-violet-50 p-4
-                     text-sm dark:border-violet-500/30 dark:bg-violet-500/10">
+          className="absolute right-0 top-full z-20 mt-2 w-[36rem] max-w-[calc(100vw-2rem)]
+                     rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm shadow-lg
+                     dark:border-violet-500/30 dark:bg-violet-500/10">
           <p className="text-content-secondary">{helpText}</p>
 
           <code

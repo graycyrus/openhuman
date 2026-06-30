@@ -66,6 +66,22 @@ describe('ObsidianVaultSection', () => {
     expect(screen.getByTestId('obsidian-vault-path')).toHaveTextContent(ROOT);
   });
 
+  // #4266: the section lives inside the horizontal MemoryControls toolbar, so
+  // the guidance panel must render out of normal flow (absolute popover) — an
+  // in-flow/`w-full` panel grows the flex item and reflows the whole toolbar.
+  it('guidance panel renders out of flow so the toolbar never reflows', async () => {
+    memoryTreeObsidianVaultStatus.mockResolvedValue(status());
+    renderWithProviders(<ObsidianVaultSection contentRootAbs={ROOT} />);
+
+    fireEvent.click(screen.getByTestId('memory-open-in-obsidian'));
+
+    const panel = await screen.findByTestId('obsidian-vault-guidance');
+    expect(panel).toHaveClass('absolute');
+    expect(panel).not.toHaveClass('w-full');
+    // The section itself stays inline (sized to the button), not a full-width column.
+    expect(screen.getByTestId('obsidian-vault-section')).toHaveClass('inline-flex');
+  });
+
   it('"Open anyway" fires the deep link even when unregistered', async () => {
     memoryTreeObsidianVaultStatus.mockResolvedValue(status());
     const onToast = vi.fn();
