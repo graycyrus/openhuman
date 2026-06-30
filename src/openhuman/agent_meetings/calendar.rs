@@ -719,8 +719,15 @@ async fn auto_join_meeting(
         }
     };
 
+    // Resolve the platform from the URL so the backend bot routes to the
+    // right provider instead of defaulting every auto-join to Google Meet.
+    // Uses the same strict host validation as the manual-join path; an
+    // unrecognized host falls back to "gmeet".
+    let platform = super::ops::infer_platform_from_url(&meet_url).unwrap_or("gmeet");
+
     let payload = build_auto_join_payload(
         &meet_url,
+        platform,
         &correlation_id,
         listen_only,
         owner_display_name.as_deref(),
@@ -728,6 +735,7 @@ async fn auto_join_meeting(
 
     tracing::info!(
         meet_url = %meet_url,
+        platform = %platform,
         title = %event_title,
         correlation_id = %correlation_id,
         listen_only = listen_only,
@@ -773,12 +781,14 @@ fn build_action_payload(
 /// which the backend bot treats as "respond to everyone".
 fn build_auto_join_payload(
     meet_url: &str,
+    platform: &str,
     correlation_id: &str,
     listen_only: bool,
     owner_display_name: Option<&str>,
 ) -> serde_json::Value {
     let mut payload = serde_json::json!({
         "meetUrl": meet_url,
+        "platform": platform,
         "displayName": "Tiny",
         "correlationId": correlation_id,
         "listenOnly": listen_only,
@@ -1110,6 +1120,7 @@ mod tests {
     fn auto_join_payload_includes_respond_to_participant() {
         let p = build_auto_join_payload(
             "https://meet.google.com/abc",
+            "gmeet",
             "corr-1",
             false,
             Some("Aditya"),
@@ -1122,14 +1133,27 @@ mod tests {
 
     #[test]
     fn auto_join_payload_omits_respond_to_participant_when_absent() {
-        let p = build_auto_join_payload("https://meet.google.com/abc", "corr-1", true, None);
+        let p =
+            build_auto_join_payload("https://meet.google.com/abc", "gmeet", "corr-1", true, None);
         assert!(p.get("respondToParticipant").is_none());
     }
 
     #[test]
     fn auto_join_payload_omits_respond_to_participant_when_blank() {
-        let p = build_auto_join_payload("https://meet.google.com/abc", "corr-1", true, Some("   "));
+        let p = build_auto_join_payload(
+            "https://meet.google.com/abc",
+            "gmeet",
+            "corr-1",
+            true,
+            Some("   "),
+        );
         assert!(p.get("respondToParticipant").is_none());
+    }
+
+    #[test]
+    fn auto_join_payload_includes_platform() {
+        let p = build_auto_join_payload("https://zoom.us/j/123", "zoom", "corr-1", true, None);
+        assert_eq!(p["platform"], json!("zoom"));
     }
 
     // ── effective_listen_only ───────────────────────────────────
