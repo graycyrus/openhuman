@@ -178,8 +178,8 @@ describe('BubbleMarkdown — syntax highlighting', () => {
 
   test('language label shows in the code block header', () => {
     render(<BubbleMarkdown content={'```javascript\nconsole.log("test");\n```'} />);
-    // Short tag (2 chars) → uppercase = "JS"; the factory title-cases ≤4-char tags
-    // differently: "js" has 2 chars so → "JS".
+    // "javascript" is >4 chars, so the factory title-cases it → "Javascript".
+    // (≤4-char tags like "js" would instead be uppercased to "JS".)
     expect(screen.getByText('Javascript')).toBeInTheDocument();
   });
 
