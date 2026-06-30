@@ -82,6 +82,55 @@ describe('ObsidianVaultSection', () => {
     expect(screen.getByTestId('obsidian-vault-section')).toHaveClass('inline-flex');
   });
 
+  // #4266: as a floating popover the panel overlays the graph, so its background
+  // must be opaque — the old translucent `dark:bg-violet-500/10` let content
+  // bleed through and made the text unreadable.
+  it('guidance panel has an opaque background (does not bleed through)', async () => {
+    memoryTreeObsidianVaultStatus.mockResolvedValue(status());
+    renderWithProviders(<ObsidianVaultSection contentRootAbs={ROOT} />);
+
+    fireEvent.click(screen.getByTestId('memory-open-in-obsidian'));
+
+    const panel = await screen.findByTestId('obsidian-vault-guidance');
+    expect(panel).toHaveClass('bg-violet-50');
+    expect(panel).toHaveClass('dark:bg-violet-950');
+    expect(panel).not.toHaveClass('dark:bg-violet-500/10');
+  });
+
+  // #4266: the floating panel needs explicit dismissal — close button, Escape,
+  // and click-outside all collapse it.
+  it('close button dismisses the guidance panel', async () => {
+    memoryTreeObsidianVaultStatus.mockResolvedValue(status());
+    renderWithProviders(<ObsidianVaultSection contentRootAbs={ROOT} />);
+
+    fireEvent.click(screen.getByTestId('memory-open-in-obsidian'));
+    fireEvent.click(await screen.findByTestId('obsidian-vault-close'));
+
+    await waitFor(() => expect(screen.queryByTestId('obsidian-vault-guidance')).toBeNull());
+  });
+
+  it('Escape key dismisses the guidance panel', async () => {
+    memoryTreeObsidianVaultStatus.mockResolvedValue(status());
+    renderWithProviders(<ObsidianVaultSection contentRootAbs={ROOT} />);
+
+    fireEvent.click(screen.getByTestId('memory-open-in-obsidian'));
+    await screen.findByTestId('obsidian-vault-guidance');
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByTestId('obsidian-vault-guidance')).toBeNull());
+  });
+
+  it('clicking outside the section dismisses the guidance panel', async () => {
+    memoryTreeObsidianVaultStatus.mockResolvedValue(status());
+    renderWithProviders(<ObsidianVaultSection contentRootAbs={ROOT} />);
+
+    fireEvent.click(screen.getByTestId('memory-open-in-obsidian'));
+    await screen.findByTestId('obsidian-vault-guidance');
+    fireEvent.mouseDown(document.body);
+
+    await waitFor(() => expect(screen.queryByTestId('obsidian-vault-guidance')).toBeNull());
+  });
+
   it('"Open anyway" fires the deep link even when unregistered', async () => {
     memoryTreeObsidianVaultStatus.mockResolvedValue(status());
     const onToast = vi.fn();
