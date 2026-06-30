@@ -1,9 +1,9 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setBackendMeetJoined, setBackendMeetLeft } from '../../../store/backendMeetSlice';
 import { renderWithProviders } from '../../../test/test-utils';
-import { ActiveMeetingBanner } from '../ActiveMeetingBanner';
+import { ActiveMeetingBanner, LEAVE_SAFETY_TIMEOUT_MS } from '../ActiveMeetingBanner';
 
 const leaveMock = vi.fn();
 
@@ -121,6 +121,30 @@ describe('ActiveMeetingBanner', () => {
       expect(screen.queryByRole('button', { name: /leaving/i })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
     });
+  });
+
+  it('re-enables the Leave button via safety timeout if no left event arrives', async () => {
+    vi.useFakeTimers();
+    try {
+      leaveMock.mockResolvedValueOnce(undefined);
+      renderWithProviders(<ActiveMeetingBanner />, { preloadedState: activeState });
+
+      fireEvent.click(screen.getByRole('button', { name: /leave/i }));
+      // Flush the resolved leave promise → pending "Leaving…" + safety timer armed.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByRole('button', { name: /leaving/i })).toBeDisabled();
+
+      // No status transition arrives; once the safety timeout elapses the button
+      // returns to an enabled "Leave" so the user can retry.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(LEAVE_SAFETY_TIMEOUT_MS + 100);
+      });
+      expect(screen.getByRole('button', { name: /^leave$/i })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('clears the pending state and toasts when leave fails', async () => {
