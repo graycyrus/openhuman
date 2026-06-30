@@ -5250,6 +5250,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'Titre de la bannière',
   'skills.meetingBots.busyTitle': 'OpenHuman est occupé',
   'skills.meetingBots.comingSoon': 'Bientôt disponible',
+  'skills.meetingBots.couldNotLeaveTitle': 'Impossible de quitter la réunion',
   'skills.meetingBots.couldNotStartTitle': 'Impossible de démarrer OpenHuman',
   'skills.meetingBots.displayName': "Nom d'affichage",
   'skills.meetingBots.failedToStart': "Échec du démarrage d'OpenHuman.",
@@ -5304,6 +5305,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveTranscriptHeading': 'Transcription en direct',
   'skills.meetingBots.liveTranscriptEmpty': 'En attente de parole…',
   'skills.meetingBots.leaveButton': 'Quitter',
+  'skills.meetingBots.leavingButton': 'Sortie en cours…',
   'skills.meetingBots.respondToParticipant': 'Votre nom dans cette réunion',
   'skills.meetingBots.respondToParticipantHint': 'ex. Alice (votre nom affiché dans l\u2019appel)',
   'skills.meetingBots.respondToParticipantDesc':

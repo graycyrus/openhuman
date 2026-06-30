@@ -5030,6 +5030,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'عنوان اللافتة',
   'skills.meetingBots.busyTitle': 'OpenHuman مشغول',
   'skills.meetingBots.comingSoon': 'قريبًا',
+  'skills.meetingBots.couldNotLeaveTitle': 'تعذّر مغادرة الاجتماع',
   'skills.meetingBots.couldNotStartTitle': 'تعذّر بدء OpenHuman',
   'skills.meetingBots.displayName': 'الاسم المعروض',
   'skills.meetingBots.failedToStart': 'فشل تشغيل OpenHuman.',
@@ -5081,6 +5082,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveTranscriptHeading': 'النص المباشر',
   'skills.meetingBots.liveTranscriptEmpty': 'في انتظار الكلام…',
   'skills.meetingBots.leaveButton': 'مغادرة',
+  'skills.meetingBots.leavingButton': 'جارٍ المغادرة…',
   'skills.meetingBots.respondToParticipant': 'اسمك في هذا الاجتماع',
   'skills.meetingBots.respondToParticipantHint': 'مثال: أحمد (اسمك في المكالمة)',
   'skills.meetingBots.respondToParticipantDesc':

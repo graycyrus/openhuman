@@ -5152,6 +5152,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'Judul banner',
   'skills.meetingBots.busyTitle': 'OpenHuman sedang sibuk',
   'skills.meetingBots.comingSoon': 'Segera hadir',
+  'skills.meetingBots.couldNotLeaveTitle': 'Tidak dapat keluar dari rapat',
   'skills.meetingBots.couldNotStartTitle': 'Tidak bisa memulai OpenHuman',
   'skills.meetingBots.displayName': 'Nama tampilan',
   'skills.meetingBots.failedToStart': 'Gagal memulai OpenHuman.',
@@ -5205,6 +5206,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveTranscriptHeading': 'Transkrip langsung',
   'skills.meetingBots.liveTranscriptEmpty': 'Menunggu ucapan…',
   'skills.meetingBots.leaveButton': 'Keluar',
+  'skills.meetingBots.leavingButton': 'Keluar\u2026',
   'skills.meetingBots.respondToParticipant': 'Nama Anda di Rapat Ini',
   'skills.meetingBots.respondToParticipantHint': 'mis. Budi (nama tampilan Anda di panggilan)',
   'skills.meetingBots.respondToParticipantDesc':
