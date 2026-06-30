@@ -5345,6 +5345,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Commence bientôt',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Rejoint automatiquement ~à {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Demande au début',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Activez 'Surveiller mon agenda' dans les Paramètres (icône engrenage) pour que Auto/Demander prenne effet — sinon ces politiques sont enregistrées mais ne se déclencheront pas.",
   'skills.meetingBots.relative.now': 'maintenant',
   'skills.meetingBots.relative.inMinutes': 'dans {count}m',
   'skills.meetingBots.relative.inHours': 'dans {count}h',
@@ -5355,6 +5357,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Paramètres de réunion',
   'skills.meetingBots.defaults.closeDrawer': 'Fermer',
   'skills.meetingBots.defaults.openDefaults': 'Paramètres de réunion',
+  'skills.meetingBots.defaults.watchCalendar': 'Surveiller mon agenda',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    "Laissez OpenHuman surveiller votre agenda connecté pour qu'il puisse rejoindre automatiquement ou vous inviter à des réunions selon les politiques ci-dessous. Cela est indépendant des notifications de rappel de réunion.",
   'skills.meetingBots.defaults.globalPolicy': "Politique d'adhésion automatique globale",
   'skills.meetingBots.defaults.perPlatformTitle': 'Paramètres par plateforme',
   'skills.meetingBots.defaults.perPlatformDesc': 'Remplacer la politique globale pour des plateformes spécifiques.',

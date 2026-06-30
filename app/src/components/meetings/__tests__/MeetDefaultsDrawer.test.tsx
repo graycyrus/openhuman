@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
     listen_only_default: true,
     ingest_backend_transcripts: false,
     platform_auto_join_policies: {},
+    watch_calendar: false,
   },
 };
 
@@ -106,5 +107,56 @@ describe('MeetDefaultsDrawer', () => {
       fireEvent.click(backdrop);
       expect(onClose).toHaveBeenCalled();
     }
+  });
+
+  // ── watch_calendar master switch ──────────────────────────────────────────
+
+  it('renders the watch-calendar switch', async () => {
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+    expect(screen.getByRole('switch', { name: /watch my calendar/i })).toBeInTheDocument();
+  });
+
+  it('reflects watch_calendar=false as unchecked', async () => {
+    getMock.mockResolvedValueOnce({ ...DEFAULT_SETTINGS });
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    const sw = await screen.findByRole('switch', { name: /watch my calendar/i });
+    expect(sw).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('reflects watch_calendar=true as checked', async () => {
+    getMock.mockResolvedValueOnce({
+      result: { ...DEFAULT_SETTINGS.result, watch_calendar: true },
+    });
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    const sw = await screen.findByRole('switch', { name: /watch my calendar/i });
+    expect(sw).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('toggling the switch calls updateMeetSettings with watch_calendar', async () => {
+    getMock.mockResolvedValueOnce({ ...DEFAULT_SETTINGS });
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    const sw = await screen.findByRole('switch', { name: /watch my calendar/i });
+
+    fireEvent.click(sw);
+
+    await waitFor(() =>
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ watch_calendar: true })
+      )
+    );
+  });
+
+  it('reverts optimistic state when update fails', async () => {
+    getMock.mockResolvedValueOnce({ ...DEFAULT_SETTINGS });
+    updateMock.mockReset();
+    updateMock.mockRejectedValueOnce(new Error('network error'));
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    const sw = await screen.findByRole('switch', { name: /watch my calendar/i });
+
+    // Toggle from false → true (optimistic update)
+    fireEvent.click(sw);
+    // Wait for the rejection to revert the switch back to false
+    await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'false'));
   });
 });

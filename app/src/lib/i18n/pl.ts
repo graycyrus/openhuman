@@ -5301,6 +5301,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Zaczyna się wkrótce',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Auto-dołącza ~o {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Pyta na początku',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Włącz 'Monitoruj mój kalendarz' w Ustawieniach domyślnych (ikona koła zębatego), aby Auto/Pytaj działały — w przeciwnym razie te zasady są zapisane, ale nie będą wyzwalane.",
   'skills.meetingBots.relative.now': 'teraz',
   'skills.meetingBots.relative.inMinutes': 'za {count}m',
   'skills.meetingBots.relative.inHours': 'za {count}h',
@@ -5311,6 +5313,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Domyślne ustawienia spotkań',
   'skills.meetingBots.defaults.closeDrawer': 'Zamknij',
   'skills.meetingBots.defaults.openDefaults': 'Ustawienia spotkań',
+  'skills.meetingBots.defaults.watchCalendar': 'Monitoruj mój kalendarz',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Pozwól OpenHuman monitorować Twój połączony kalendarz, aby mógł automatycznie dołączać do spotkań lub pytać o dołączenie zgodnie z poniższymi zasadami. Jest to niezależne od przypomnień o spotkaniach.',
   'skills.meetingBots.defaults.globalPolicy': 'Globalna zasada automatycznego dołączania',
   'skills.meetingBots.defaults.perPlatformTitle': 'Ustawienia według platformy',
   'skills.meetingBots.defaults.perPlatformDesc': 'Zastąp globalną zasadę dla określonych platform.',

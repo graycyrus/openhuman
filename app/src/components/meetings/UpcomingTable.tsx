@@ -310,9 +310,16 @@ function SkeletonRow() {
 export interface UpcomingTableProps {
   lookaheadMinutes?: number;
   limit?: number;
+  /**
+   * Master calendar-watch switch value from meet settings.
+   * `null` = unknown (fetch in progress / failed) — hint is suppressed.
+   * `false` = off — show hint when there are upcoming meetings.
+   * `true` = on — no hint needed.
+   */
+  watchCalendar?: boolean | null;
 }
 
-export function UpcomingTable({ lookaheadMinutes, limit }: UpcomingTableProps) {
+export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }: UpcomingTableProps) {
   const { t } = useT();
   const { meetings, loading, error, refresh } = useUpcomingMeetings(lookaheadMinutes, limit);
 
@@ -444,6 +451,32 @@ export function UpcomingTable({ lookaheadMinutes, limit }: UpcomingTableProps) {
           </Button>
         </div>
       </div>
+
+      {/* Watch-calendar off hint — only when there are meetings and watchCalendar is explicitly false */}
+      {meetings.length > 0 && watchCalendar === false && (
+        <div
+          role="note"
+          className="flex items-start gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-600 dark:text-amber-400"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+          >
+            <path
+              d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 3.5v3m0 2h.01"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>{t('skills.meetingBots.upcoming.watchCalendarHint')}</span>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto">

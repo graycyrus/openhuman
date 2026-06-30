@@ -5314,6 +5314,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Inizia presto',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Partecipazione automatica ~alle {time}',
   'skills.meetingBots.upcoming.asksAtStart': "Chiede all'inizio",
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Attiva 'Monitora il mio calendario' nelle Impostazioni predefinite (icona a ingranaggio) affinché Auto/Chiedi abbiano effetto — altrimenti queste politiche vengono salvate ma non si attivano.",
   'skills.meetingBots.relative.now': 'adesso',
   'skills.meetingBots.relative.inMinutes': 'tra {count}m',
   'skills.meetingBots.relative.inHours': 'tra {count}h',
@@ -5324,6 +5326,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Impostazioni riunione',
   'skills.meetingBots.defaults.closeDrawer': 'Chiudi',
   'skills.meetingBots.defaults.openDefaults': 'Impostazioni riunione',
+  'skills.meetingBots.defaults.watchCalendar': 'Monitora il mio calendario',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Consenti a OpenHuman di monitorare il tuo calendario connesso per poter partecipare automaticamente o richiedere conferma per le riunioni in base alle politiche seguenti. Questo è separato dalle notifiche di promemoria delle riunioni.',
   'skills.meetingBots.defaults.globalPolicy': 'Politica di partecipazione automatica globale',
   'skills.meetingBots.defaults.perPlatformTitle': 'Impostazioni per piattaforma',
   'skills.meetingBots.defaults.perPlatformDesc': 'Sostituire la politica globale per piattaforme specifiche.',

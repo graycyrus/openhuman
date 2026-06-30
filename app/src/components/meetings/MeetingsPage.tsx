@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { selectBackendMeetStatus } from '../../store/backendMeetSlice';
 import { useAppSelector } from '../../store/hooks';
 import { useT } from '../../lib/i18n/I18nContext';
+import { isTauri, openhumanGetMeetSettings } from '../../utils/tauriCommands';
 import BetaBanner from '../ui/BetaBanner';
 import { ActiveMeetingBanner } from './ActiveMeetingBanner';
 import HistorySection from './HistorySection';
@@ -33,6 +34,8 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
   const { t } = useT();
   const status = useAppSelector(selectBackendMeetStatus);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // watchCalendar: null = unknown (don't show hint), false = off (show hint when there are meetings)
+  const [watchCalendar, setWatchCalendar] = useState<boolean | null>(null);
   // Show the live banner while joining or in an active meeting. All other
   // states ('idle', 'ended', 'error') render the composer so the user can
   // submit a new join or see the inline error from a failed attempt.
@@ -56,6 +59,26 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
       });
     }
   }, [status, onToast, t]);
+
+  // Fetch watch_calendar once on mount (stale-60s is fine; re-fetched when drawer closes).
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    openhumanGetMeetSettings()
+      .then(resp => {
+        if (!cancelled) {
+          log('[page] watch_calendar=%s', resp.result.watch_calendar);
+          setWatchCalendar(resp.result.watch_calendar ?? false);
+        }
+      })
+      .catch(err => {
+        log('[page] failed to fetch meet settings for watchCalendar: %o', err);
+        // Leave null → no hint shown (fail open, don't nag)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-3 animate-fade-up">
@@ -93,11 +116,21 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
         <MeetComposer onToast={onToast} hasSubmittedRef={hasSubmittedRef} />
       )}
 
-      <UpcomingTable />
+      <UpcomingTable watchCalendar={watchCalendar} />
 
       <HistorySection />
 
-      <MeetDefaultsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <MeetDefaultsDrawer
+        open={drawerOpen}
+        onClose={() => {
+          setDrawerOpen(false);
+          // Re-fetch watch_calendar after drawer closes so the hint updates.
+          if (!isTauri()) return;
+          openhumanGetMeetSettings()
+            .then(resp => setWatchCalendar(resp.result.watch_calendar ?? false))
+            .catch(() => {/* leave unchanged */});
+        }}
+      />
     </div>
   );
 }

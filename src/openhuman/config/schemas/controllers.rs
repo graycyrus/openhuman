@@ -666,13 +666,14 @@ fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
             None
         };
         log::debug!(
-            "[config][rpc] update_meet_settings patch auto_orchestrator_handoff={:?} auto_join_policy={:?} auto_summarize_policy={:?} listen_only_default={:?} ingest_backend_transcripts={:?} platform_auto_join_policies={:?}",
+            "[config][rpc] update_meet_settings patch auto_orchestrator_handoff={:?} auto_join_policy={:?} auto_summarize_policy={:?} listen_only_default={:?} ingest_backend_transcripts={:?} platform_auto_join_policies={:?} watch_calendar={:?}",
             update.auto_orchestrator_handoff,
             auto_join_policy,
             auto_summarize_policy,
             update.listen_only_default,
             update.ingest_backend_transcripts,
             platform_auto_join_policies.as_ref().map(|m| m.len()),
+            update.watch_calendar,
         );
         let patch = config_rpc::MeetSettingsPatch {
             auto_orchestrator_handoff: update.auto_orchestrator_handoff,
@@ -681,6 +682,7 @@ fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
             listen_only_default: update.listen_only_default,
             ingest_backend_transcripts: update.ingest_backend_transcripts,
             platform_auto_join_policies,
+            watch_calendar: update.watch_calendar,
         };
         match config_rpc::load_and_apply_meet_settings(patch).await {
             Ok(outcome) => {
@@ -708,11 +710,12 @@ fn handle_get_meet_settings(_params: Map<String, Value>) -> ControllerFuture {
         };
         let auto_orchestrator_handoff = config.meet.auto_orchestrator_handoff;
         log::debug!(
-            "[config][rpc] get_meet_settings ok auto_orchestrator_handoff={auto_orchestrator_handoff} auto_join_policy={:?} auto_summarize_policy={:?} listen_only_default={} ingest_backend_transcripts={}",
+            "[config][rpc] get_meet_settings ok auto_orchestrator_handoff={auto_orchestrator_handoff} auto_join_policy={:?} auto_summarize_policy={:?} listen_only_default={} ingest_backend_transcripts={} watch_calendar={}",
             config.meet.auto_join_policy,
             config.meet.auto_summarize_policy,
             config.meet.listen_only_default,
-            config.meet.ingest_backend_transcripts
+            config.meet.ingest_backend_transcripts,
+            config.meet.watch_calendar,
         );
         // Enums serialize via `#[serde(rename_all = "snake_case")]` →
         // "ask_each_time"/"always"/"never" and "ask"/"always"/"never".
@@ -723,6 +726,7 @@ fn handle_get_meet_settings(_params: Map<String, Value>) -> ControllerFuture {
             "listen_only_default": config.meet.listen_only_default,
             "ingest_backend_transcripts": config.meet.ingest_backend_transcripts,
             "platform_auto_join_policies": config.meet.platform_auto_join_policies,
+            "watch_calendar": config.meet.watch_calendar,
         });
         to_json(RpcOutcome::new(
             result,

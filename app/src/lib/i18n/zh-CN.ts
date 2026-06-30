@@ -4971,6 +4971,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': '即将开始',
   'skills.meetingBots.upcoming.autoJoinsAt': '自动加入 ~{time}',
   'skills.meetingBots.upcoming.asksAtStart': '开始时询问',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    '在默认设置（齿轮图标）中开启「监控我的日历」，以使自动/询问生效——否则这些策略已保存但不会触发。',
   'skills.meetingBots.relative.now': '现在',
   'skills.meetingBots.relative.inMinutes': '{count}分钟后',
   'skills.meetingBots.relative.inHours': '{count}小时后',
@@ -4981,6 +4983,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': '会议默认设置',
   'skills.meetingBots.defaults.closeDrawer': '关闭',
   'skills.meetingBots.defaults.openDefaults': '会议设置',
+  'skills.meetingBots.defaults.watchCalendar': '监控我的日历',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    '让 OpenHuman 监控您连接的日历，以便根据以下策略自动加入会议或提示参加会议。这与会议提醒通知是分开的。',
   'skills.meetingBots.defaults.globalPolicy': '全局自动加入策略',
   'skills.meetingBots.defaults.perPlatformTitle': '平台特定设置',
   'skills.meetingBots.defaults.perPlatformDesc': '覆盖特定平台的全局策略。',

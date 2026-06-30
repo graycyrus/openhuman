@@ -5178,6 +5178,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': '곧 시작',
   'skills.meetingBots.upcoming.autoJoinsAt': '~{time}에 자동 참가',
   'skills.meetingBots.upcoming.asksAtStart': '시작 시 묻기',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "자동/묻기가 적용되도록 기본값(기어 아이콘)에서 '내 캘린더 감시'를 활성화하세요 — 그렇지 않으면 이 정책들은 저장되지만 트리거되지 않습니다.",
   'skills.meetingBots.relative.now': '지금',
   'skills.meetingBots.relative.inMinutes': '{count}분 후',
   'skills.meetingBots.relative.inHours': '{count}시간 후',
@@ -5188,6 +5190,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': '회의 기본값',
   'skills.meetingBots.defaults.closeDrawer': '닫기',
   'skills.meetingBots.defaults.openDefaults': '회의 설정',
+  'skills.meetingBots.defaults.watchCalendar': '내 캘린더 감시',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'OpenHuman이 연결된 캘린더를 감시하여 아래 정책에 따라 회의에 자동 참가하거나 참가 여부를 묻도록 허용합니다. 이는 회의 알림과는 별개입니다.',
   'skills.meetingBots.defaults.globalPolicy': '전역 자동 참가 정책',
   'skills.meetingBots.defaults.perPlatformTitle': '플랫폼별 설정',
   'skills.meetingBots.defaults.perPlatformDesc': '특정 플랫폼에 대한 전역 정책을 재정의합니다.',

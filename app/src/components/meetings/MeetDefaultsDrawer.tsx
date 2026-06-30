@@ -66,6 +66,9 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
 
+  // Master calendar-watch switch
+  const [watchCalendar, setWatchCalendar] = useState(false);
+
   // Global settings
   const [autoJoin, setAutoJoin] = useState<MeetAutoJoinPolicy>('ask_each_time');
   const [autoSummarize, setAutoSummarize] = useState<MeetAutoSummarizePolicy>('ask');
@@ -93,7 +96,8 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
         const resp = await openhumanGetMeetSettings();
         if (cancelled) return;
         const s = resp.result;
-        log('load ok auto_join=%s', s.auto_join_policy);
+        log('load ok auto_join=%s watch_calendar=%s', s.auto_join_policy, s.watch_calendar);
+        setWatchCalendar(s.watch_calendar ?? false);
         setAutoJoin(s.auto_join_policy);
         setAutoSummarize(s.auto_summarize_policy);
         setListenOnly(s.listen_only_default);
@@ -140,6 +144,13 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
     } finally {
       if (seq === persistSeqRef.current) setSaving(false);
     }
+  };
+
+  const handleWatchCalendarChange = (next: boolean) => {
+    const prev = watchCalendar;
+    setWatchCalendar(next);
+    log('watch_calendar change next=%s', next);
+    void persist({ watch_calendar: next }, () => setWatchCalendar(prev));
   };
 
   const handleAutoJoinChange = (next: MeetAutoJoinPolicy) => {
@@ -232,6 +243,23 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
             <p className="text-sm text-content-secondary">{t('settings.meetings.desktopOnly')}</p>
           ) : (
             <>
+              {/* Master calendar-watch switch */}
+              <SettingsSection>
+                <SettingsRow
+                  htmlFor="drawer-switch-watch-calendar"
+                  label={t('skills.meetingBots.defaults.watchCalendar')}
+                  description={t('skills.meetingBots.defaults.watchCalendarDesc')}
+                  control={
+                    <SettingsSwitch
+                      id="drawer-switch-watch-calendar"
+                      checked={watchCalendar}
+                      onCheckedChange={handleWatchCalendarChange}
+                      aria-label={t('skills.meetingBots.defaults.watchCalendar')}
+                    />
+                  }
+                />
+              </SettingsSection>
+
               {/* Global auto-join */}
               <SettingsSection title={t('skills.meetingBots.defaults.globalPolicy')}>
                 <SettingsRow

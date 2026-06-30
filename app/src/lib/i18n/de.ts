@@ -5360,6 +5360,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Beginnt bald',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Auto-Beitritt ~um {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Fragt beim Start',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Aktivieren Sie 'Meinen Kalender überwachen' in den Standardeinstellungen (Zahnrad-Symbol), damit Auto/Fragen wirksam wird — andernfalls werden diese Richtlinien gespeichert, aber nicht ausgelöst.",
   'skills.meetingBots.relative.now': 'jetzt',
   'skills.meetingBots.relative.inMinutes': 'in {count} Min',
   'skills.meetingBots.relative.inHours': 'in {count} Std',
@@ -5370,6 +5372,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Besprechungsstandards',
   'skills.meetingBots.defaults.closeDrawer': 'Schließen',
   'skills.meetingBots.defaults.openDefaults': 'Besprechungsstandards',
+  'skills.meetingBots.defaults.watchCalendar': 'Meinen Kalender überwachen',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Lassen Sie OpenHuman Ihren verbundenen Kalender überwachen, damit er Meetings automatisch beitreten oder Sie gemäß den folgenden Richtlinien dazu auffordern kann. Dies ist von Meeting-Erinnerungsbenachrichtigungen getrennt.',
   'skills.meetingBots.defaults.globalPolicy': 'Globale Auto-Beitrittsrichtlinie',
   'skills.meetingBots.defaults.perPlatformTitle': 'Plattformspezifische Einstellungen',
   'skills.meetingBots.defaults.perPlatformDesc': 'Globale Richtlinie für bestimmte Plattformen überschreiben.',

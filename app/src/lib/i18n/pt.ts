@@ -5316,6 +5316,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Começa em breve',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Entra automaticamente ~às {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Pergunta no início',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Ative 'Monitorar meu calendário' nos Padrões (ícone de engrenagem) para que Auto/Perguntar entre em vigor — caso contrário, essas políticas ficam salvas mas não serão acionadas.",
   'skills.meetingBots.relative.now': 'agora',
   'skills.meetingBots.relative.inMinutes': 'em {count}m',
   'skills.meetingBots.relative.inHours': 'em {count}h',
@@ -5326,6 +5328,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Padrões de reunião',
   'skills.meetingBots.defaults.closeDrawer': 'Fechar',
   'skills.meetingBots.defaults.openDefaults': 'Configurações de reunião',
+  'skills.meetingBots.defaults.watchCalendar': 'Monitorar meu calendário',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Permita que o OpenHuman monitore seu calendário conectado para entrar automaticamente em reuniões ou solicitar confirmação com base nas políticas abaixo. Isso é separado das notificações de lembrete de reunião.',
   'skills.meetingBots.defaults.globalPolicy': 'Política global de entrada automática',
   'skills.meetingBots.defaults.perPlatformTitle': 'Configurações por plataforma',
   'skills.meetingBots.defaults.perPlatformDesc': 'Substituir a política global para plataformas específicas.',

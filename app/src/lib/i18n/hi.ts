@@ -5232,6 +5232,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'जल्द शुरू हो रही है',
   'skills.meetingBots.upcoming.autoJoinsAt': 'ऑटो-जॉइन ~{time} पर',
   'skills.meetingBots.upcoming.asksAtStart': 'शुरुआत में पूछता है',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "ऑटो/पूछें प्रभावी करने के लिए डिफ़ॉल्ट (गियर आइकन) में 'मेरा कैलेंडर देखें' चालू करें — अन्यथा ये नीतियाँ सहेजी जाती हैं लेकिन ट्रिगर नहीं होंगी।",
   'skills.meetingBots.relative.now': 'अभी',
   'skills.meetingBots.relative.inMinutes': '{count}म में',
   'skills.meetingBots.relative.inHours': '{count}घ में',
@@ -5242,6 +5244,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'मीटिंग डिफ़ॉल्ट',
   'skills.meetingBots.defaults.closeDrawer': 'बंद करें',
   'skills.meetingBots.defaults.openDefaults': 'मीटिंग सेटिंग',
+  'skills.meetingBots.defaults.watchCalendar': 'मेरा कैलेंडर देखें',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'OpenHuman को अपना कनेक्टेड कैलेंडर देखने दें ताकि यह नीचे दी गई नीतियों के आधार पर बैठकों में स्वचालित रूप से शामिल हो सके या संकेत दे सके। यह बैठक अनुस्मारक सूचनाओं से अलग है।',
   'skills.meetingBots.defaults.globalPolicy': 'वैश्विक ऑटो-जॉइन नीति',
   'skills.meetingBots.defaults.perPlatformTitle': 'प्रति-प्लेटफ़ॉर्म ओवरराइड',
   'skills.meetingBots.defaults.perPlatformDesc': 'विशिष्ट प्लेटफ़ॉर्म के लिए वैश्विक नीति को ओवरराइड करें।',

@@ -5273,6 +5273,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Скоро начнётся',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Автовход ~в {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Спрашивает при старте',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Включите «Следить за календарём» в настройках по умолчанию (значок шестерёнки), чтобы политики «Авто» и «Спросить» работали — иначе они сохранятся, но не будут срабатывать.",
   'skills.meetingBots.relative.now': 'сейчас',
   'skills.meetingBots.relative.inMinutes': 'через {count}м',
   'skills.meetingBots.relative.inHours': 'через {count}ч',
@@ -5283,6 +5285,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Настройки встреч',
   'skills.meetingBots.defaults.closeDrawer': 'Закрыть',
   'skills.meetingBots.defaults.openDefaults': 'Настройки встреч',
+  'skills.meetingBots.defaults.watchCalendar': 'Следить за календарём',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Разрешите OpenHuman отслеживать подключённый календарь, чтобы автоматически входить на встречи или запрашивать подтверждение в соответствии с приведёнными ниже политиками. Это не зависит от уведомлений-напоминаний о встречах.',
   'skills.meetingBots.defaults.globalPolicy': 'Глобальная политика автовхода',
   'skills.meetingBots.defaults.perPlatformTitle': 'Настройки по платформам',
   'skills.meetingBots.defaults.perPlatformDesc': 'Переопределить глобальную политику для конкретных платформ.',

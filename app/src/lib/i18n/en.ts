@@ -5885,10 +5885,15 @@ const en: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Meeting Defaults',
   'skills.meetingBots.defaults.closeDrawer': 'Close defaults',
   'skills.meetingBots.defaults.openDefaults': 'Meeting defaults',
+  'skills.meetingBots.defaults.watchCalendar': 'Watch my calendar',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Let OpenHuman watch your connected calendar so it can auto-join or prompt for meetings based on the policies below. This is separate from meeting reminder notifications.',
   'skills.meetingBots.defaults.globalPolicy': 'Global auto-join policy',
   'skills.meetingBots.defaults.perPlatformTitle': 'Per-platform overrides',
   'skills.meetingBots.defaults.perPlatformDesc': 'Override the global policy for specific platforms.',
   'skills.meetingBots.defaults.useDefault': 'Use default',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Turn on 'Watch my calendar' in Defaults (gear icon) for Auto/Ask to take effect — otherwise these policies are saved but won't trigger.",
   'skills.resource.preview.closeAriaLabel': 'Close preview',
   'skills.resource.preview.failed': 'Preview failed',
   'skills.resource.preview.loading': 'Loading preview…',

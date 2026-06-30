@@ -5325,6 +5325,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Comienza pronto',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Se une automáticamente ~a las {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Pregunta al inicio',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Activa 'Vigilar mi calendario' en Predeterminados (icono de engranaje) para que Auto/Preguntar surta efecto — de lo contrario, estas políticas se guardan pero no se activarán.",
   'skills.meetingBots.relative.now': 'ahora',
   'skills.meetingBots.relative.inMinutes': 'en {count}m',
   'skills.meetingBots.relative.inHours': 'en {count}h',
@@ -5335,6 +5337,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Valores predeterminados de reuniones',
   'skills.meetingBots.defaults.closeDrawer': 'Cerrar',
   'skills.meetingBots.defaults.openDefaults': 'Valores predeterminados',
+  'skills.meetingBots.defaults.watchCalendar': 'Vigilar mi calendario',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Permite que OpenHuman observe tu calendario conectado para que pueda unirse automáticamente o solicitar reuniones según las políticas a continuación. Esto es independiente de las notificaciones de recordatorio de reuniones.',
   'skills.meetingBots.defaults.globalPolicy': 'Política global de unión automática',
   'skills.meetingBots.defaults.perPlatformTitle': 'Configuración por plataforma',
   'skills.meetingBots.defaults.perPlatformDesc': 'Anular la política global para plataformas específicas.',

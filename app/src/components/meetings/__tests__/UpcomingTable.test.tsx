@@ -272,6 +272,38 @@ describe('UpcomingTable', () => {
     expect(screen.getByRole('radio', { name: /ask/i })).toHaveAttribute('aria-checked', 'false');
   });
 
+  // ── watch_calendar hint ────────────────────────────────────────────────────
+
+  it('shows the watch-calendar hint when watchCalendar=false and there are meetings', async () => {
+    listMock.mockResolvedValueOnce([makeMeeting()]);
+    renderWithProviders(<UpcomingTable watchCalendar={false} />);
+    // Wait for meetings to render
+    await waitFor(() => expect(screen.getByText('Weekly Sync')).toBeInTheDocument());
+    // Hint text from i18n key 'skills.meetingBots.upcoming.watchCalendarHint'
+    expect(screen.getByRole('note')).toBeInTheDocument();
+  });
+
+  it('does not show the watch-calendar hint when watchCalendar=true', async () => {
+    listMock.mockResolvedValueOnce([makeMeeting()]);
+    renderWithProviders(<UpcomingTable watchCalendar={true} />);
+    await waitFor(() => expect(screen.getByText('Weekly Sync')).toBeInTheDocument());
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('does not show the watch-calendar hint when watchCalendar=null (unknown)', async () => {
+    listMock.mockResolvedValueOnce([makeMeeting()]);
+    renderWithProviders(<UpcomingTable watchCalendar={null} />);
+    await waitFor(() => expect(screen.getByText('Weekly Sync')).toBeInTheDocument());
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('does not show the watch-calendar hint when there are no meetings even if watchCalendar=false', async () => {
+    listMock.mockResolvedValueOnce([]);
+    renderWithProviders(<UpcomingTable watchCalendar={false} />);
+    await waitFor(() => expect(screen.queryByText(/no upcoming meetings/i)).toBeInTheDocument());
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
   it('relative time strings come from i18n (default en locale)', async () => {
     // A meeting ~30 minutes and 30 seconds away → formatWhen should produce
     // "in 30m" via the 'skills.meetingBots.relative.inMinutes' key.

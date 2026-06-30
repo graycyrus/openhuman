@@ -5246,6 +5246,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'Segera dimulai',
   'skills.meetingBots.upcoming.autoJoinsAt': 'Bergabung otomatis ~pukul {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Bertanya saat mulai',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "Aktifkan 'Pantau kalender saya' di Pengaturan Default (ikon gigi) agar Auto/Tanya berlaku — jika tidak, kebijakan ini disimpan tetapi tidak akan dipicu.",
   'skills.meetingBots.relative.now': 'sekarang',
   'skills.meetingBots.relative.inMinutes': 'dalam {count}m',
   'skills.meetingBots.relative.inHours': 'dalam {count}j',
@@ -5256,6 +5258,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'Default Rapat',
   'skills.meetingBots.defaults.closeDrawer': 'Tutup',
   'skills.meetingBots.defaults.openDefaults': 'Pengaturan rapat',
+  'skills.meetingBots.defaults.watchCalendar': 'Pantau kalender saya',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'Biarkan OpenHuman memantau kalender yang terhubung agar dapat bergabung otomatis atau meminta konfirmasi untuk rapat berdasarkan kebijakan di bawah ini. Ini terpisah dari notifikasi pengingat rapat.',
   'skills.meetingBots.defaults.globalPolicy': 'Kebijakan bergabung otomatis global',
   'skills.meetingBots.defaults.perPlatformTitle': 'Pengaturan per platform',
   'skills.meetingBots.defaults.perPlatformDesc': 'Timpa kebijakan global untuk platform tertentu.',

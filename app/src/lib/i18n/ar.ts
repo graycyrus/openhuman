@@ -5122,6 +5122,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'يبدأ قريباً',
   'skills.meetingBots.upcoming.autoJoinsAt': 'ينضم تلقائيًا ~في {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'يسأل عند البدء',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "فعِّل 'مراقبة التقويم' في الإعدادات الافتراضية (أيقونة الترس) حتى يصبح الانضمام التلقائي/السؤال فعالاً — وإلا فإن هذه السياسات محفوظة لكنها لن تُفعَّل.",
   'skills.meetingBots.relative.now': 'الآن',
   'skills.meetingBots.relative.inMinutes': 'في {count} د',
   'skills.meetingBots.relative.inHours': 'في {count} س',
@@ -5132,6 +5134,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'إعدادات الاجتماع الافتراضية',
   'skills.meetingBots.defaults.closeDrawer': 'إغلاق',
   'skills.meetingBots.defaults.openDefaults': 'إعدادات الاجتماع',
+  'skills.meetingBots.defaults.watchCalendar': 'مراقبة التقويم',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'اسمح لـ OpenHuman بمراقبة التقويم المتصل حتى يتمكن من الانضمام تلقائياً أو مطالبتك بالاجتماعات بناءً على السياسات أدناه. هذا منفصل عن إشعارات تذكير الاجتماعات.',
   'skills.meetingBots.defaults.globalPolicy': 'سياسة الانضمام التلقائي العامة',
   'skills.meetingBots.defaults.perPlatformTitle': 'إعدادات خاصة بالمنصة',
   'skills.meetingBots.defaults.perPlatformDesc': 'تجاوز السياسة العامة لمنصات محددة.',

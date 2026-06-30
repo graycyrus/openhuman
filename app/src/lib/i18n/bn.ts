@@ -5227,6 +5227,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.imminent': 'শীঘ্রই শুরু হচ্ছে',
   'skills.meetingBots.upcoming.autoJoinsAt': 'স্বয়ংক্রিয়-যোগ ~{time}-এ',
   'skills.meetingBots.upcoming.asksAtStart': 'শুরুতে জিজ্ঞাসা করে',
+  'skills.meetingBots.upcoming.watchCalendarHint':
+    "'আমার ক্যালেন্ডার দেখুন' ডিফল্টস (গিয়ার আইকন)-এ চালু করুন যাতে স্বয়ংক্রিয়/জিজ্ঞাসা কার্যকর হয় — অন্যথায় এই নীতিগুলি সংরক্ষিত কিন্তু ট্রিগার হবে না।",
   'skills.meetingBots.relative.now': 'এখন',
   'skills.meetingBots.relative.inMinutes': '{count} মিনিটে',
   'skills.meetingBots.relative.inHours': '{count} ঘন্টায়',
@@ -5237,6 +5239,9 @@ const messages: TranslationMap = {
   'skills.meetingBots.defaults.drawerTitle': 'মিটিং ডিফল্ট',
   'skills.meetingBots.defaults.closeDrawer': 'বন্ধ করুন',
   'skills.meetingBots.defaults.openDefaults': 'মিটিং সেটিং',
+  'skills.meetingBots.defaults.watchCalendar': 'আমার ক্যালেন্ডার দেখুন',
+  'skills.meetingBots.defaults.watchCalendarDesc':
+    'OpenHuman-কে আপনার সংযুক্ত ক্যালেন্ডার দেখতে দিন যাতে এটি নীচের নীতিগুলির উপর ভিত্তি করে মিটিংয়ে স্বয়ংক্রিয়ভাবে যোগ দিতে বা অনুরোধ করতে পারে। এটি মিটিং অনুস্মারক বিজ্ঞপ্তি থেকে আলাদা।',
   'skills.meetingBots.defaults.globalPolicy': 'বৈশ্বিক স্বয়ংক্রিয়-যোগ দেওয়ার নীতি',
   'skills.meetingBots.defaults.perPlatformTitle': 'প্রতি-প্ল্যাটফর্ম ওভাররাইড',
   'skills.meetingBots.defaults.perPlatformDesc': 'নির্দিষ্ট প্ল্যাটফর্মের জন্য বৈশ্বিক নীতি ওভাররাইড করুন।',
