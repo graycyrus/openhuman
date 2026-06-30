@@ -5170,7 +5170,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': '건너뛰기',
   'skills.meetingBots.upcoming.today': '오늘',
   'skills.meetingBots.upcoming.tomorrow': '내일',
-  'skills.meetingBots.upcoming.empty': '예정된 회의가 없습니다 — Google Calendar를 연결하여 여기에서 확인하세요.',
+  'skills.meetingBots.upcoming.empty':
+    '예정된 회의가 없습니다 — Google Calendar를 연결하여 여기에서 확인하세요.',
   'skills.meetingBots.upcoming.error': '예정된 회의를 불러올 수 없습니다.',
   'skills.meetingBots.upcoming.retry': '다시 시도',
   'skills.meetingBots.upcoming.refresh': '새로 고침',

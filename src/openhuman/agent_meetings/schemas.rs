@@ -317,7 +317,8 @@ fn schema_list_upcoming() -> ControllerSchema {
             FieldSchema {
                 name: "limit",
                 ty: TypeSchema::U64,
-                comment: "Maximum number of meetings to return. Defaults to 20. Clamped to [1, 100].",
+                comment:
+                    "Maximum number of meetings to return. Defaults to 20. Clamped to [1, 100].",
                 required: false,
             },
         ],

@@ -930,7 +930,7 @@ pub async fn handle_notification_action(params: Map<String, Value>) -> Result<Va
 /// Returns an error string only for hard failures (bad params, config load).
 pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, String> {
     use super::types::{ListUpcomingRequest, ListUpcomingResponse};
-    use super::upcoming::{fetch_upcoming_meetings, DEFAULT_LOOKAHEAD_MINUTES, DEFAULT_LIMIT};
+    use super::upcoming::{fetch_upcoming_meetings, DEFAULT_LIMIT, DEFAULT_LOOKAHEAD_MINUTES};
 
     let req: ListUpcomingRequest = serde_json::from_value(Value::Object(params))
         .map_err(|e| format!("[meet:upcoming] invalid params: {e}"))?;
@@ -945,7 +945,8 @@ pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, S
     );
 
     // Load config to get the auto_join_policy and composio settings.
-    let config = crate::openhuman::config::ops::load_config_with_timeout().await
+    let config = crate::openhuman::config::ops::load_config_with_timeout()
+        .await
         .map_err(|e| format!("[meet:upcoming] config load failed: {e}"))?;
 
     // The global fallback policy string (used when no per-event or per-platform override exists).
@@ -1001,10 +1002,7 @@ pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, S
         "[meet:upcoming] returning meetings"
     );
 
-    let response = ListUpcomingResponse {
-        ok: true,
-        meetings,
-    };
+    let response = ListUpcomingResponse { ok: true, meetings };
     let outcome = RpcOutcome::new(
         serde_json::to_value(response)
             .map_err(|e| format!("[meet:upcoming] serialize failed: {e}"))?,
@@ -1150,13 +1148,18 @@ mod tests {
         assert!(is_meeting_url("https://meet.google.com/abc-defg-hij"));
         assert!(is_meeting_url("https://zoom.us/j/123"));
         assert!(is_meeting_url("https://company.zoom.us/j/123"));
-        assert!(is_meeting_url("https://teams.microsoft.com/l/meetup-join/abc"));
+        assert!(is_meeting_url(
+            "https://teams.microsoft.com/l/meetup-join/abc"
+        ));
         assert!(is_meeting_url("https://meet.webex.com/meet/abc"));
     }
 
     #[test]
     fn infer_platform_from_url_strict() {
-        assert_eq!(infer_platform_from_url("https://company.zoom.us/j/1"), Some("zoom"));
+        assert_eq!(
+            infer_platform_from_url("https://company.zoom.us/j/1"),
+            Some("zoom")
+        );
         assert_eq!(
             infer_platform_from_url("https://meet.google.com/abc"),
             Some("gmeet")
@@ -1173,9 +1176,7 @@ mod tests {
             Some("https://zoom.us/j/123".to_string())
         );
         // Spoofed host embedded in free-form text is rejected.
-        assert!(
-            extract_url_from_text("Join https://meet.google.com.attacker.com/x now").is_none()
-        );
+        assert!(extract_url_from_text("Join https://meet.google.com.attacker.com/x now").is_none());
     }
 
     #[test]
@@ -1715,10 +1716,7 @@ mod tests {
         config.workspace_dir = dir.path().to_path_buf();
 
         // Global default is AskEachTime → "ask".
-        assert_eq!(
-            resolve_effective_join_policy(None, None, &config),
-            "ask"
-        );
+        assert_eq!(resolve_effective_join_policy(None, None, &config), "ask");
 
         // Per-platform override for "zoom" → "auto".
         config
@@ -1736,7 +1734,8 @@ mod tests {
         );
 
         // Per-event override wins over per-platform.
-        crate::openhuman::agent_meetings::store::set_event_policy(&config, "evt-zoom-1", "skip").unwrap();
+        crate::openhuman::agent_meetings::store::set_event_policy(&config, "evt-zoom-1", "skip")
+            .unwrap();
         assert_eq!(
             resolve_effective_join_policy(Some("evt-zoom-1"), Some("zoom"), &config),
             "skip"

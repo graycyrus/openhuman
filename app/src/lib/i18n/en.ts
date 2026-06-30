@@ -5891,7 +5891,8 @@ const en: TranslationMap = {
     'Let OpenHuman watch your connected calendar so it can auto-join or prompt for meetings based on the policies below. This is separate from meeting reminder notifications.',
   'skills.meetingBots.defaults.globalPolicy': 'Global auto-join policy',
   'skills.meetingBots.defaults.perPlatformTitle': 'Per-platform overrides',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Override the global policy for specific platforms.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Override the global policy for specific platforms.',
   'skills.meetingBots.defaults.useDefault': 'Use default',
   'skills.meetingBots.upcoming.watchCalendarHint':
     "Turn on 'Watch my calendar' in Defaults (gear icon) for Auto/Ask to take effect — otherwise these policies are saved but won't trigger.",

@@ -17,10 +17,11 @@ import { useState } from 'react';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   joinMeetViaBackendBot,
-  setEventPolicy,
   type MeetingPlatform,
+  setEventPolicy,
   type UpcomingMeeting,
 } from '../../services/meetCallService';
+import { useAppSelector } from '../../store/hooks';
 import {
   selectCustomPrimaryColor,
   selectCustomSecondaryColor,
@@ -28,10 +29,9 @@ import {
   selectSelectedMascotId,
 } from '../../store/mascotSlice';
 import { selectPersonaDescription, selectPersonaDisplayName } from '../../store/personaSlice';
-import { useAppSelector } from '../../store/hooks';
 import Button from '../ui/Button';
-import { platformLabel, platformLogoUrl, inferPlatformFromUrl } from './meetingUtils';
-import { JoinPolicyToggle, type JoinPolicy } from './JoinPolicyToggle';
+import { type JoinPolicy, JoinPolicyToggle } from './JoinPolicyToggle';
+import { inferPlatformFromUrl, platformLabel, platformLogoUrl } from './meetingUtils';
 import { useUpcomingMeetings } from './useUpcomingMeetings';
 
 const log = debug('meetings:upcoming-table');
@@ -166,19 +166,15 @@ interface MeetingRowProps {
   joining: boolean;
 }
 
-function MeetingRow({
-  meeting,
-  joinPolicy,
-  onJoinPolicyChange,
-  onJoin,
-  joining,
-}: MeetingRowProps) {
+function MeetingRow({ meeting, joinPolicy, onJoinPolicyChange, onJoin, joining }: MeetingRowProps) {
   const { t } = useT();
   const imminent = isImminent(meeting.start_time_ms);
   const { relative, absolute } = formatWhen(meeting.start_time_ms, t);
 
   const platform = (meeting.platform ??
-    (meeting.meet_url ? inferPlatformFromUrl(meeting.meet_url) ?? null : null)) as MeetingPlatform | null;
+    (meeting.meet_url
+      ? (inferPlatformFromUrl(meeting.meet_url) ?? null)
+      : null)) as MeetingPlatform | null;
   const logoUrl = platform ? platformLogoUrl(platform) : null;
   const platformName = platform ? platformLabel(platform, t) : '—';
 
@@ -189,8 +185,7 @@ function MeetingRow({
         imminent ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-surface-hover',
       ]
         .filter(Boolean)
-        .join(' ')}
-    >
+        .join(' ')}>
       {/* WHEN */}
       <td className="py-2 px-3 whitespace-nowrap">
         <div className="flex flex-col">
@@ -198,8 +193,7 @@ function MeetingRow({
             className={[
               'text-xs font-medium',
               imminent ? 'text-amber-400' : 'text-content-primary',
-            ].join(' ')}
-          >
+            ].join(' ')}>
             {relative}
           </span>
           <span className="text-xs text-content-secondary">{absolute}</span>
@@ -210,8 +204,7 @@ function MeetingRow({
       <td className="py-2 px-3 min-w-0 max-w-xs">
         <span
           className="block truncate text-sm text-content-primary font-medium"
-          title={meeting.title}
-        >
+          title={meeting.title}>
           {meeting.title}
         </span>
       </td>
@@ -247,16 +240,15 @@ function MeetingRow({
       {/* JOIN POLICY */}
       <td className="py-2 px-3">
         <div className="flex flex-col gap-0.5">
-          <JoinPolicyToggle
-            value={joinPolicy}
-            onChange={onJoinPolicyChange}
-            compact
-          />
+          <JoinPolicyToggle value={joinPolicy} onChange={onJoinPolicyChange} compact />
           {joinPolicy === 'auto' && (
             <span className="text-[10px] text-content-secondary/60 whitespace-nowrap">
               {t('skills.meetingBots.upcoming.autoJoinsAt').replace(
                 '{time}',
-                new Date(meeting.start_time_ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                new Date(meeting.start_time_ms).toLocaleTimeString(undefined, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
               )}
             </span>
           )}
@@ -279,17 +271,11 @@ function MeetingRow({
               '{title}',
               meeting.title
             )}
-            onClick={() => onJoin(meeting)}
-          >
+            onClick={() => onJoin(meeting)}>
             {joining ? '…' : t('skills.meetingBots.upcoming.joinNow')}
           </Button>
         ) : meeting.meet_url ? (
-          <Button
-            variant="tertiary"
-            size="xs"
-            disabled={joining}
-            onClick={() => onJoin(meeting)}
-          >
+          <Button variant="tertiary" size="xs" disabled={joining} onClick={() => onJoin(meeting)}>
             {t('skills.meetingBots.upcoming.join')}
           </Button>
         ) : null}
@@ -330,7 +316,11 @@ export interface UpcomingTableProps {
   watchCalendar?: boolean | null;
 }
 
-export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }: UpcomingTableProps) {
+export function UpcomingTable({
+  lookaheadMinutes,
+  limit,
+  watchCalendar = null,
+}: UpcomingTableProps) {
   const { t } = useT();
   const { meetings, loading, error, refresh } = useUpcomingMeetings(lookaheadMinutes, limit);
 
@@ -377,7 +367,10 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
   };
 
   const handleJoinPolicyChange = async (id: string, v: JoinPolicy) => {
-    const prev = joinPolicies[id] ?? (meetings.find(m => m.calendar_event_id === id)?.join_policy as JoinPolicy | undefined) ?? 'ask';
+    const prev =
+      joinPolicies[id] ??
+      (meetings.find(m => m.calendar_event_id === id)?.join_policy as JoinPolicy | undefined) ??
+      'ask';
     // Optimistic update
     setJoinPolicies(current => ({ ...current, [id]: v }));
     log('[upcoming] set event policy id=%s policy=%s', id, v);
@@ -387,8 +380,11 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
       // Revert on failure — but ONLY if the value still matches what THIS call
       // optimistically set. A newer concurrent call may have already moved the
       // value to something else; clobbering it would discard that change.
-      log('[upcoming] set event policy failed, reverting: %s', err instanceof Error ? err.message : String(err));
-      setJoinPolicies(curr => curr[id] === v ? { ...curr, [id]: prev } : curr);
+      log(
+        '[upcoming] set event policy failed, reverting: %s',
+        err instanceof Error ? err.message : String(err)
+      );
+      setJoinPolicies(curr => (curr[id] === v ? { ...curr, [id]: prev } : curr));
     }
   };
 
@@ -403,11 +399,7 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
   // effectivePlatform() helper as filterMeetings() so the options are consistent
   // with what each row displays (including inferred-from-URL platforms).
   const presentPlatforms = Array.from(
-    new Set(
-      meetings
-        .map(m => effectivePlatform(m))
-        .filter((p): p is MeetingPlatform => p != null)
-    )
+    new Set(meetings.map(m => effectivePlatform(m)).filter((p): p is MeetingPlatform => p != null))
   );
 
   return (
@@ -425,8 +417,7 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
               className="text-xs bg-transparent text-content-secondary border border-line/50 rounded px-1.5 py-0.5 focus:outline-none"
               value={platformFilter}
               onChange={e => setPlatformFilter(e.target.value as PlatformFilter)}
-              aria-label={t('skills.meetingBots.upcoming.filterAll')}
-            >
+              aria-label={t('skills.meetingBots.upcoming.filterAll')}>
               <option value="all">{t('skills.meetingBots.upcoming.filterAll')}</option>
               {presentPlatforms.map(p => (
                 <option key={p} value={p}>
@@ -443,16 +434,9 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
             iconOnly
             aria-label={t('skills.meetingBots.upcoming.refresh')}
             onClick={refresh}
-            disabled={loading}
-          >
+            disabled={loading}>
             {/* Minimal SVG refresh icon */}
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              aria-hidden="true"
-            >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path
                 d="M10 6a4 4 0 1 1-1.17-2.83M10 2v3H7"
                 stroke="currentColor"
@@ -469,16 +453,14 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
       {meetings.length > 0 && watchCalendar === false && (
         <div
           role="note"
-          className="flex items-start gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-600 dark:text-amber-400"
-        >
+          className="flex items-start gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-600 dark:text-amber-400">
           <svg
             width="14"
             height="14"
             viewBox="0 0 16 16"
             fill="none"
             aria-hidden="true"
-            className="mt-0.5 shrink-0"
-          >
+            className="mt-0.5 shrink-0">
             <path
               d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 3.5v3m0 2h.01"
               stroke="currentColor"
@@ -551,8 +533,7 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
               <tr key={`gh-${group.label}`}>
                 <td
                   colSpan={6}
-                  className="py-1 px-3 text-xs font-semibold text-content-secondary uppercase tracking-wide bg-surface-hover/50 border-b border-line/30"
-                >
+                  className="py-1 px-3 text-xs font-semibold text-content-secondary uppercase tracking-wide bg-surface-hover/50 border-b border-line/30">
                   {group.label}
                 </td>
               </tr>,
@@ -560,7 +541,8 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
               ...group.meetings.map(m => {
                 const policy: JoinPolicy =
                   (joinPolicies[m.calendar_event_id] as JoinPolicy | undefined) ??
-                  ((m.join_policy as JoinPolicy) ?? 'ask');
+                  (m.join_policy as JoinPolicy) ??
+                  'ask';
                 return (
                   <MeetingRow
                     key={m.calendar_event_id}

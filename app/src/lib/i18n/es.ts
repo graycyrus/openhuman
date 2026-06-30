@@ -5300,7 +5300,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} participantes',
   'skills.meetingBots.history.runWithOpenHuman': 'Ejecutar con OpenHuman',
   'skills.meetingBots.history.searchPlaceholder': 'Buscar llamadas…',
-  'skills.meetingBots.history.selectPrompt': 'Selecciona una llamada para ver su resumen y transcripción.',
+  'skills.meetingBots.history.selectPrompt':
+    'Selecciona una llamada para ver su resumen y transcripción.',
   'skills.meetingBots.history.today': 'Hoy',
   'skills.meetingBots.history.yesterday': 'Ayer',
   'skills.meetingBots.upcoming.heading': 'Próximas',
@@ -5317,7 +5318,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Omitir',
   'skills.meetingBots.upcoming.today': 'Hoy',
   'skills.meetingBots.upcoming.tomorrow': 'Mañana',
-  'skills.meetingBots.upcoming.empty': 'No hay reuniones próximas — conecta Google Calendar para verlas aquí.',
+  'skills.meetingBots.upcoming.empty':
+    'No hay reuniones próximas — conecta Google Calendar para verlas aquí.',
   'skills.meetingBots.upcoming.error': 'No se pudieron cargar las reuniones próximas.',
   'skills.meetingBots.upcoming.retry': 'Reintentar',
   'skills.meetingBots.upcoming.refresh': 'Actualizar',
@@ -5343,7 +5345,8 @@ const messages: TranslationMap = {
     'Permite que OpenHuman observe tu calendario conectado para que pueda unirse automáticamente o solicitar reuniones según las políticas a continuación. Esto es independiente de las notificaciones de recordatorio de reuniones.',
   'skills.meetingBots.defaults.globalPolicy': 'Política global de unión automática',
   'skills.meetingBots.defaults.perPlatformTitle': 'Configuración por plataforma',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Anular la política global para plataformas específicas.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Anular la política global para plataformas específicas.',
   'skills.meetingBots.defaults.useDefault': 'Usar predeterminado',
   'skills.resource.preview.closeAriaLabel': 'Cerrar vista previa',
   'skills.resource.preview.failed': 'Vista previa fallida',

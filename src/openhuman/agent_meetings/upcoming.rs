@@ -52,8 +52,7 @@ pub(crate) async fn fetch_upcoming_meetings(
     join_policy: &str,
 ) -> Result<Vec<UpcomingMeeting>, String> {
     let now = Utc::now();
-    let end_window = now
-        + chrono::Duration::minutes(i64::from(lookahead_minutes.max(1)));
+    let end_window = now + chrono::Duration::minutes(i64::from(lookahead_minutes.max(1)));
 
     tracing::debug!(
         lookahead_minutes,
@@ -121,10 +120,7 @@ pub(crate) async fn fetch_upcoming_meetings(
     all_meetings.sort_by_key(|m| m.start_time_ms);
     all_meetings.truncate(limit as usize);
 
-    tracing::info!(
-        total = all_meetings.len(),
-        "[meet:upcoming] fetch complete"
-    );
+    tracing::info!(total = all_meetings.len(), "[meet:upcoming] fetch complete");
 
     Ok(all_meetings)
 }
@@ -300,7 +296,14 @@ fn extract_upcoming_meetings(
     seen_ids: &mut HashSet<String>,
 ) -> Vec<UpcomingMeeting> {
     let mut out = Vec::new();
-    collect_recursive(data, start_window, end_window, join_policy, seen_ids, &mut out);
+    collect_recursive(
+        data,
+        start_window,
+        end_window,
+        join_policy,
+        seen_ids,
+        &mut out,
+    );
     out
 }
 
@@ -319,9 +322,7 @@ fn collect_recursive(
             }
         }
         serde_json::Value::Object(map) => {
-            if let Some(meeting) =
-                try_extract_meeting(map, start_window, end_window, join_policy)
-            {
+            if let Some(meeting) = try_extract_meeting(map, start_window, end_window, join_policy) {
                 // Global dedup: skip if this event id was already extracted from
                 // a different connection or an earlier part of the same response.
                 if seen_ids.insert(meeting.calendar_event_id.clone()) {
@@ -451,9 +452,7 @@ fn try_extract_meeting(
 /// 2. `conferenceData.entryPoints[].uri`
 /// 3. `location` field (Zoom/Teams links often pasted here as free-form text)
 /// 4. `description` field (fallback — some invites embed the link in the body)
-fn extract_meet_url_from_event(
-    map: &serde_json::Map<String, serde_json::Value>,
-) -> Option<String> {
+fn extract_meet_url_from_event(map: &serde_json::Map<String, serde_json::Value>) -> Option<String> {
     // 1. hangoutLink
     if let Some(link) = map.get("hangoutLink").and_then(|v| v.as_str()) {
         if super::ops::is_meeting_url(link) {
@@ -667,7 +666,14 @@ mod tests {
         ]);
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        collect_recursive(&events, start_window, end_window, "ask", &mut seen, &mut out);
+        collect_recursive(
+            &events,
+            start_window,
+            end_window,
+            "ask",
+            &mut seen,
+            &mut out,
+        );
         assert_eq!(out.len(), 1, "link event at position 4 must survive filter");
         assert_eq!(out[0].calendar_event_id, "link-ev-1");
     }
@@ -746,7 +752,14 @@ mod tests {
         let events = json!([ev1, ev2]);
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        collect_recursive(&events, start_window, end_window, "ask", &mut seen, &mut out);
+        collect_recursive(
+            &events,
+            start_window,
+            end_window,
+            "ask",
+            &mut seen,
+            &mut out,
+        );
         assert_eq!(out.len(), 2, "id-less events should not collapse");
         // Synthetic keys are URL@startMs and must differ.
         assert_ne!(out[0].calendar_event_id, out[1].calendar_event_id);
@@ -768,7 +781,14 @@ mod tests {
         let events = json!([ev, ev]);
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        collect_recursive(&events, start_window, end_window, "ask", &mut seen, &mut out);
+        collect_recursive(
+            &events,
+            start_window,
+            end_window,
+            "ask",
+            &mut seen,
+            &mut out,
+        );
         assert_eq!(out.len(), 1);
     }
 
@@ -843,11 +863,7 @@ mod tests {
     #[test]
     fn extract_respects_window_and_sorts_by_start() {
         let (start_window, end_window) = window();
-        let events = json!([
-            future_event(120),
-            future_event(30),
-            future_event(60),
-        ]);
+        let events = json!([future_event(120), future_event(30), future_event(60),]);
         let mut seen = HashSet::new();
         let mut out = Vec::new();
         collect_recursive(

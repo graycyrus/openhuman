@@ -221,19 +221,14 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/40"
-        aria-hidden="true"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-40 bg-black/40" aria-hidden="true" onClick={onClose} />
 
       {/* Drawer panel */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={t('skills.meetingBots.defaults.drawerTitle')}
-        className="fixed inset-y-0 right-0 z-50 w-80 bg-surface border-l border-line/50 flex flex-col shadow-xl overflow-hidden"
-      >
+        className="fixed inset-y-0 right-0 z-50 w-80 bg-surface border-l border-line/50 flex flex-col shadow-xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line/50 shrink-0">
           <h2 className="text-sm font-semibold text-content-primary">
@@ -243,8 +238,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
             type="button"
             aria-label={t('skills.meetingBots.defaults.closeDrawer')}
             onClick={onClose}
-            className="text-content-secondary hover:text-content-primary transition-colors p-1 rounded"
-          >
+            className="text-content-secondary hover:text-content-primary transition-colors p-1 rounded">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path
                 d="M12 4L4 12M4 4l8 8"
@@ -274,8 +268,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
                   log('retry load');
                   setRetryCount(c => c + 1);
                 }}
-                className="self-start text-sm text-primary-500 hover:text-primary-400 transition-colors underline"
-              >
+                className="self-start text-sm text-primary-500 hover:text-primary-400 transition-colors underline">
                 {t('common.retry')}
               </button>
             </div>
@@ -306,8 +299,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
                     <SettingsSelect
                       value={autoJoin}
                       onChange={e => handleAutoJoinChange(e.target.value as MeetAutoJoinPolicy)}
-                      aria-label={t('skills.meetingBots.defaults.globalPolicy')}
-                    >
+                      aria-label={t('skills.meetingBots.defaults.globalPolicy')}>
                       {AUTO_JOIN_OPTIONS.map(opt => (
                         <option key={opt} value={opt}>
                           {t(AUTO_JOIN_LABEL_KEY[opt])}
@@ -321,8 +313,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
               {/* Per-platform overrides */}
               <SettingsSection
                 title={t('skills.meetingBots.defaults.perPlatformTitle')}
-                description={t('skills.meetingBots.defaults.perPlatformDesc')}
-              >
+                description={t('skills.meetingBots.defaults.perPlatformDesc')}>
                 {PLATFORMS.map(({ key, labelKey }) => (
                   <SettingsRow
                     key={key}
@@ -333,8 +324,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
                         onChange={e =>
                           handlePlatformPolicyChange(key, e.target.value as PlatformPolicy)
                         }
-                        aria-label={t(labelKey)}
-                      >
+                        aria-label={t(labelKey)}>
                         {PLATFORM_OPTIONS.map(opt => (
                           <option key={opt} value={opt}>
                             {opt === 'default'
@@ -372,8 +362,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
                       onChange={e =>
                         handleAutoSummarizeChange(e.target.value as MeetAutoSummarizePolicy)
                       }
-                      aria-label={t('settings.meetings.autoSummarize.title')}
-                    >
+                      aria-label={t('settings.meetings.autoSummarize.title')}>
                       {AUTO_SUMMARIZE_OPTIONS.map(opt => (
                         <option key={opt} value={opt}>
                           {t(AUTO_SUMMARIZE_LABEL_KEY[opt])}

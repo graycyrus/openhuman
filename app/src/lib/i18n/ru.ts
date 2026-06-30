@@ -5265,7 +5265,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Пропустить',
   'skills.meetingBots.upcoming.today': 'Сегодня',
   'skills.meetingBots.upcoming.tomorrow': 'Завтра',
-  'skills.meetingBots.upcoming.empty': 'Нет предстоящих встреч — подключите Google Calendar, чтобы увидеть их здесь.',
+  'skills.meetingBots.upcoming.empty':
+    'Нет предстоящих встреч — подключите Google Calendar, чтобы увидеть их здесь.',
   'skills.meetingBots.upcoming.error': 'Не удалось загрузить предстоящие встречи.',
   'skills.meetingBots.upcoming.retry': 'Повторить',
   'skills.meetingBots.upcoming.refresh': 'Обновить',
@@ -5275,7 +5276,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.autoJoinsAt': 'Автовход ~в {time}',
   'skills.meetingBots.upcoming.asksAtStart': 'Спрашивает при старте',
   'skills.meetingBots.upcoming.watchCalendarHint':
-    "Включите «Следить за календарём» в настройках по умолчанию (значок шестерёнки), чтобы политики «Авто» и «Спросить» работали — иначе они сохранятся, но не будут срабатывать.",
+    'Включите «Следить за календарём» в настройках по умолчанию (значок шестерёнки), чтобы политики «Авто» и «Спросить» работали — иначе они сохранятся, но не будут срабатывать.',
   'skills.meetingBots.relative.now': 'сейчас',
   'skills.meetingBots.relative.inMinutes': 'через {count}м',
   'skills.meetingBots.relative.inHours': 'через {count}ч',
@@ -5291,7 +5292,8 @@ const messages: TranslationMap = {
     'Разрешите OpenHuman отслеживать подключённый календарь, чтобы автоматически входить на встречи или запрашивать подтверждение в соответствии с приведёнными ниже политиками. Это не зависит от уведомлений-напоминаний о встречах.',
   'skills.meetingBots.defaults.globalPolicy': 'Глобальная политика автовхода',
   'skills.meetingBots.defaults.perPlatformTitle': 'Настройки по платформам',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Переопределить глобальную политику для конкретных платформ.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Переопределить глобальную политику для конкретных платформ.',
   'skills.meetingBots.defaults.useDefault': 'Использовать по умолчанию',
   'skills.resource.preview.closeAriaLabel': 'Закрыть предпросмотр',
   'skills.resource.preview.failed': 'Не удалось показать превью',

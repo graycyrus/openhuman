@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { renderWithProviders } from '../../../test/test-utils';
 import type { MeetCallActionItem } from '../../../services/meetCallService';
+import { renderWithProviders } from '../../../test/test-utils';
 import ActionItemChecklist from '../ActionItemChecklist';
 
 const mockNavigate = vi.fn();

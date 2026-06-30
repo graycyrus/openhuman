@@ -5224,7 +5224,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'छोड़ें',
   'skills.meetingBots.upcoming.today': 'आज',
   'skills.meetingBots.upcoming.tomorrow': 'कल',
-  'skills.meetingBots.upcoming.empty': 'कोई आगामी मीटिंग नहीं — यहाँ देखने के लिए Google Calendar कनेक्ट करें।',
+  'skills.meetingBots.upcoming.empty':
+    'कोई आगामी मीटिंग नहीं — यहाँ देखने के लिए Google Calendar कनेक्ट करें।',
   'skills.meetingBots.upcoming.error': 'आगामी मीटिंग लोड नहीं हो सकीं।',
   'skills.meetingBots.upcoming.retry': 'पुनः प्रयास करें',
   'skills.meetingBots.upcoming.refresh': 'रिफ्रेश करें',
@@ -5250,7 +5251,8 @@ const messages: TranslationMap = {
     'OpenHuman को अपना कनेक्टेड कैलेंडर देखने दें ताकि यह नीचे दी गई नीतियों के आधार पर बैठकों में स्वचालित रूप से शामिल हो सके या संकेत दे सके। यह बैठक अनुस्मारक सूचनाओं से अलग है।',
   'skills.meetingBots.defaults.globalPolicy': 'वैश्विक ऑटो-जॉइन नीति',
   'skills.meetingBots.defaults.perPlatformTitle': 'प्रति-प्लेटफ़ॉर्म ओवरराइड',
-  'skills.meetingBots.defaults.perPlatformDesc': 'विशिष्ट प्लेटफ़ॉर्म के लिए वैश्विक नीति को ओवरराइड करें।',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'विशिष्ट प्लेटफ़ॉर्म के लिए वैश्विक नीति को ओवरराइड करें।',
   'skills.meetingBots.defaults.useDefault': 'डिफ़ॉल्ट उपयोग करें',
   'skills.resource.preview.closeAriaLabel': 'प्रीव्यू बंद करें',
   'skills.resource.preview.failed': 'पूर्वावलोकन विफल',

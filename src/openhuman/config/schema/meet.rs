@@ -250,13 +250,19 @@ mod tests {
     #[test]
     fn watch_calendar_round_trips_via_json() {
         // off → serialise → deserialise
-        let off = MeetConfig { watch_calendar: false, ..MeetConfig::default() };
+        let off = MeetConfig {
+            watch_calendar: false,
+            ..MeetConfig::default()
+        };
         let s_off = serde_json::to_string(&off).unwrap();
         let back_off: MeetConfig = serde_json::from_str(&s_off).unwrap();
         assert!(!back_off.watch_calendar);
 
         // on → serialise → deserialise
-        let on = MeetConfig { watch_calendar: true, ..MeetConfig::default() };
+        let on = MeetConfig {
+            watch_calendar: true,
+            ..MeetConfig::default()
+        };
         let s_on = serde_json::to_string(&on).unwrap();
         let back_on: MeetConfig = serde_json::from_str(&s_on).unwrap();
         assert!(back_on.watch_calendar);
@@ -270,9 +276,16 @@ mod tests {
 
     #[test]
     fn deserialize_with_platform_policies() {
-        let json = r#"{"platform_auto_join_policies": {"zoom": "always", "gmeet": "ask_each_time"}}"#;
+        let json =
+            r#"{"platform_auto_join_policies": {"zoom": "always", "gmeet": "ask_each_time"}}"#;
         let config: MeetConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.platform_auto_join_policies.get("zoom"), Some(&AutoJoinPolicy::Always));
-        assert_eq!(config.platform_auto_join_policies.get("gmeet"), Some(&AutoJoinPolicy::AskEachTime));
+        assert_eq!(
+            config.platform_auto_join_policies.get("zoom"),
+            Some(&AutoJoinPolicy::Always)
+        );
+        assert_eq!(
+            config.platform_auto_join_policies.get("gmeet"),
+            Some(&AutoJoinPolicy::AskEachTime)
+        );
     }
 }

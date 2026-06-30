@@ -13571,13 +13571,8 @@ async fn json_rpc_meet_list_upcoming_returns_empty_when_no_calendar_connected() 
     tokio::time::sleep(Duration::from_millis(50)).await;
 
     // --- no params: defaults apply, returns ok=true with empty meetings ---
-    let resp_default = post_json_rpc(
-        &rpc_base,
-        9200,
-        "openhuman.meet_list_upcoming",
-        json!({}),
-    )
-    .await;
+    let resp_default =
+        post_json_rpc(&rpc_base, 9200, "openhuman.meet_list_upcoming", json!({})).await;
     let result = assert_no_jsonrpc_error(&resp_default, "meet_list_upcoming no-params");
     let body = result.get("result").unwrap_or(result);
     assert_eq!(
@@ -13707,7 +13702,9 @@ async fn json_rpc_meet_event_policy_round_trip() {
     .await;
     let result_get2 = assert_no_jsonrpc_error(&resp_get2, "get_event_policies after overwrite");
     let body_get2 = result_get2.get("result").unwrap_or(result_get2);
-    let policies2 = body_get2.get("policies").expect("policies field after overwrite");
+    let policies2 = body_get2
+        .get("policies")
+        .expect("policies field after overwrite");
     assert_eq!(
         policies2.get("cal-evt-001"),
         Some(&json!("ask")),

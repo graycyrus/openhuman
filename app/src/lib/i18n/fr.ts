@@ -5318,9 +5318,10 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.earlier': 'Plus tôt',
   'skills.meetingBots.history.participantCount': '{count} participant',
   'skills.meetingBots.history.participantCountPlural': '{count} participants',
-  'skills.meetingBots.history.runWithOpenHuman': "Exécuter avec OpenHuman",
+  'skills.meetingBots.history.runWithOpenHuman': 'Exécuter avec OpenHuman',
   'skills.meetingBots.history.searchPlaceholder': 'Rechercher des appels…',
-  'skills.meetingBots.history.selectPrompt': 'Sélectionnez un appel pour voir son résumé et sa transcription.',
+  'skills.meetingBots.history.selectPrompt':
+    'Sélectionnez un appel pour voir son résumé et sa transcription.',
   'skills.meetingBots.history.today': "Aujourd'hui",
   'skills.meetingBots.history.yesterday': 'Hier',
   'skills.meetingBots.upcoming.heading': 'À venir',
@@ -5337,7 +5338,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Ignorer',
   'skills.meetingBots.upcoming.today': "Aujourd'hui",
   'skills.meetingBots.upcoming.tomorrow': 'Demain',
-  'skills.meetingBots.upcoming.empty': 'Aucune réunion à venir — connectez Google Calendar pour les voir ici.',
+  'skills.meetingBots.upcoming.empty':
+    'Aucune réunion à venir — connectez Google Calendar pour les voir ici.',
   'skills.meetingBots.upcoming.error': 'Impossible de charger les réunions à venir.',
   'skills.meetingBots.upcoming.retry': 'Réessayer',
   'skills.meetingBots.upcoming.refresh': 'Actualiser',
@@ -5363,7 +5365,8 @@ const messages: TranslationMap = {
     "Laissez OpenHuman surveiller votre agenda connecté pour qu'il puisse rejoindre automatiquement ou vous inviter à des réunions selon les politiques ci-dessous. Cela est indépendant des notifications de rappel de réunion.",
   'skills.meetingBots.defaults.globalPolicy': "Politique d'adhésion automatique globale",
   'skills.meetingBots.defaults.perPlatformTitle': 'Paramètres par plateforme',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Remplacer la politique globale pour des plateformes spécifiques.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Remplacer la politique globale pour des plateformes spécifiques.',
   'skills.meetingBots.defaults.useDefault': 'Utiliser par défaut',
   'skills.resource.preview.closeAriaLabel': "Fermer l'aperçu",
   'skills.resource.preview.failed': "Échec de l'aperçu",

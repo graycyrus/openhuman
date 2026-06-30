@@ -11,13 +11,10 @@ import debug from 'debug';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import {
-  listMeetCalls,
-  type MeetCallRecord,
-} from '../../services/meetCallService';
-import { inferPlatformFromUrl } from './meetingUtils';
-import HistoryRail, { type CallGroup } from './HistoryRail';
+import { listMeetCalls, type MeetCallRecord } from '../../services/meetCallService';
 import HistoryDetail from './HistoryDetail';
+import HistoryRail, { type CallGroup } from './HistoryRail';
+import { inferPlatformFromUrl } from './meetingUtils';
 
 const log = debug('meetings:history');
 
@@ -126,11 +123,7 @@ export function HistorySection() {
         })();
         const participantStr = (r.participants ?? []).join(' ').toLowerCase();
         const owner = (r.owner_display_name ?? '').toLowerCase();
-        if (
-          !code.toLowerCase().includes(q) &&
-          !participantStr.includes(q) &&
-          !owner.includes(q)
-        ) {
+        if (!code.toLowerCase().includes(q) && !participantStr.includes(q) && !owner.includes(q)) {
           return false;
         }
       }
@@ -185,9 +178,7 @@ export function HistorySection() {
         </h3>
       </div>
 
-      {error && (
-        <p className="text-[11px] text-coral-600 dark:text-coral-400">{error}</p>
-      )}
+      {error && <p className="text-[11px] text-coral-600 dark:text-coral-400">{error}</p>}
 
       {loading && records === null ? (
         <p className="text-[11px] text-content-faint">

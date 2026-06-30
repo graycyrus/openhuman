@@ -42,8 +42,7 @@ export function JoinPolicyToggle({
         disabled ? 'opacity-50 pointer-events-none' : '',
       ]
         .filter(Boolean)
-        .join(' ')}
-    >
+        .join(' ')}>
       {SEGMENTS.map(seg => {
         const isActive = seg === value;
         return (
@@ -62,8 +61,7 @@ export function JoinPolicyToggle({
                 : 'bg-transparent text-content-secondary hover:text-content hover:bg-surface-hover',
             ]
               .filter(Boolean)
-              .join(' ')}
-          >
+              .join(' ')}>
             {t(KEY_MAP[seg])}
           </button>
         );

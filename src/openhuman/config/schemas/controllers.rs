@@ -622,9 +622,7 @@ fn parse_platform_auto_join_policies(
     let mut parsed = std::collections::HashMap::new();
     for (platform, policy_str) in raw_map {
         if !KNOWN_PLATFORM_SLUGS.contains(&platform.as_str()) {
-            log::warn!(
-                "[config][rpc] update_meet_settings unknown platform slug: {platform}"
-            );
+            log::warn!("[config][rpc] update_meet_settings unknown platform slug: {platform}");
             return Err(format!(
                 "unknown platform slug: {platform} (valid: {})",
                 KNOWN_PLATFORM_SLUGS.join(", ")
@@ -686,7 +684,8 @@ fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
         };
         // Parse and validate platform_auto_join_policies: rejects unknown platform
         // slugs and invalid policy values before touching config.
-        let platform_auto_join_policies = if let Some(raw_map) = update.platform_auto_join_policies {
+        let platform_auto_join_policies = if let Some(raw_map) = update.platform_auto_join_policies
+        {
             Some(parse_platform_auto_join_policies(raw_map)?)
         } else {
             None

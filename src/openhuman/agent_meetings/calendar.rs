@@ -363,9 +363,8 @@ pub async fn handle_calendar_meeting_candidate(
         platform.as_deref(),
         &config,
     );
-    let effective_policy =
-        super::ops::str_to_auto_join_policy(&effective_policy_str)
-            .unwrap_or(crate::openhuman::config::schema::AutoJoinPolicy::AskEachTime);
+    let effective_policy = super::ops::str_to_auto_join_policy(&effective_policy_str)
+        .unwrap_or(crate::openhuman::config::schema::AutoJoinPolicy::AskEachTime);
 
     tracing::debug!(
         meet_url = %meet_url,

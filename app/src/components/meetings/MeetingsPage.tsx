@@ -11,9 +11,9 @@
 import debug from 'debug';
 import { useEffect, useRef, useState } from 'react';
 
+import { useT } from '../../lib/i18n/I18nContext';
 import { selectBackendMeetStatus } from '../../store/backendMeetSlice';
 import { useAppSelector } from '../../store/hooks';
-import { useT } from '../../lib/i18n/I18nContext';
 import { isTauri, openhumanGetMeetSettings } from '../../utils/tauriCommands';
 import BetaBanner from '../ui/BetaBanner';
 import { ActiveMeetingBanner } from './ActiveMeetingBanner';
@@ -89,8 +89,7 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
           type="button"
           aria-label={t('skills.meetingBots.defaults.openDefaults')}
           onClick={() => setDrawerOpen(true)}
-          className="p-1.5 rounded text-content-secondary hover:text-content-primary hover:bg-surface-hover transition-colors"
-        >
+          className="p-1.5 rounded text-content-secondary hover:text-content-primary hover:bg-surface-hover transition-colors">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
@@ -128,7 +127,9 @@ export default function MeetingsPage({ onToast }: MeetingsPageProps) {
           if (!isTauri()) return;
           openhumanGetMeetSettings()
             .then(resp => setWatchCalendar(resp.result.watch_calendar ?? false))
-            .catch(() => {/* leave unchanged */});
+            .catch(() => {
+              /* leave unchanged */
+            });
         }}
       />
     </div>

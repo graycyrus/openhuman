@@ -58,13 +58,7 @@ function AllPlatformsIcon() {
  * (or a funnel glyph for "all"), opening a menu that lists each platform with
  * its icon AND name.
  */
-function PlatformFilterMenu({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (p: string) => void;
-}) {
+function PlatformFilterMenu({ value, onChange }: { value: string; onChange: (p: string) => void }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

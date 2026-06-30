@@ -16,8 +16,8 @@ import {
   type MeetCallDetail,
   type MeetCallRecord,
 } from '../../services/meetCallService';
-import { inferPlatformFromUrl, platformLabel, platformLogoUrl } from './meetingUtils';
 import ActionItemChecklist from './ActionItemChecklist';
+import { inferPlatformFromUrl, platformLabel, platformLogoUrl } from './meetingUtils';
 import TranscriptViewer from './TranscriptViewer';
 
 const log = debug('meetings:detail');
@@ -81,7 +81,7 @@ export function HistoryDetail({ record }: HistoryDetailProps) {
   // Derive the displayed status and detail from whether `loaded` belongs to
   // the currently selected record.
   const isCurrentRecord = record !== null && loaded.requestId === record.request_id;
-  const status: DetailStatus = isCurrentRecord ? loaded.status : (record ? 'loading' : 'idle');
+  const status: DetailStatus = isCurrentRecord ? loaded.status : record ? 'loading' : 'idle';
   const detail: MeetCallDetail | null = isCurrentRecord ? loaded.detail : null;
 
   async function loadDetail(requestId: string) {
@@ -90,7 +90,13 @@ export function HistoryDetail({ record }: HistoryDetailProps) {
       const result = await getMeetCallDetail(requestId);
       // Guard: ignore stale responses from superseded record selections.
       if (latestRequestIdRef.current !== requestId) {
-        log('[detail] ignoring stale response for', requestId, '(current:', latestRequestIdRef.current, ')');
+        log(
+          '[detail] ignoring stale response for',
+          requestId,
+          '(current:',
+          latestRequestIdRef.current,
+          ')'
+        );
         return;
       }
       log('[detail] loaded detail for', requestId, 'hasSummary=%s', hasSummaryDetail(result));
@@ -222,41 +228,44 @@ export function HistoryDetail({ record }: HistoryDetailProps) {
         </p>
       )}
 
-      {status === 'loaded' && !hasSummaryDetail(detail) && (detail?.transcript ?? []).length === 0 && (
-        <p className="text-[11px] text-content-faint">
-          {t('skills.meetingBots.callDetailEmpty')}
-        </p>
-      )}
+      {status === 'loaded' &&
+        !hasSummaryDetail(detail) &&
+        (detail?.transcript ?? []).length === 0 && (
+          <p className="text-[11px] text-content-faint">
+            {t('skills.meetingBots.callDetailEmpty')}
+          </p>
+        )}
 
-      {status === 'loaded' && (hasSummaryDetail(detail) || (detail?.transcript ?? []).length > 0) && (
-        <div className="space-y-4">
-          {hasSummaryDetail(detail) && detail?.summary && (
-            <div className="space-y-2">
-              {detail.summary.headline.trim() && (
-                <p className="text-[12px] text-content-secondary">{detail.summary.headline}</p>
-              )}
-              {detail.summary.key_points.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-medium text-content-muted">
-                    {t('skills.meetingBots.callKeyPointsHeading')}
-                  </p>
-                  <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[11px] text-content-secondary">
-                    {detail.summary.key_points.map((point, i) => (
-                      <li key={i}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {detail.summary.action_items.length > 0 && (
-                <ActionItemChecklist items={detail.summary.action_items} />
-              )}
-            </div>
-          )}
-          {(detail?.transcript ?? []).length > 0 && (
-            <TranscriptViewer lines={detail!.transcript} />
-          )}
-        </div>
-      )}
+      {status === 'loaded' &&
+        (hasSummaryDetail(detail) || (detail?.transcript ?? []).length > 0) && (
+          <div className="space-y-4">
+            {hasSummaryDetail(detail) && detail?.summary && (
+              <div className="space-y-2">
+                {detail.summary.headline.trim() && (
+                  <p className="text-[12px] text-content-secondary">{detail.summary.headline}</p>
+                )}
+                {detail.summary.key_points.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium text-content-muted">
+                      {t('skills.meetingBots.callKeyPointsHeading')}
+                    </p>
+                    <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[11px] text-content-secondary">
+                      {detail.summary.key_points.map((point, i) => (
+                        <li key={i}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {detail.summary.action_items.length > 0 && (
+                  <ActionItemChecklist items={detail.summary.action_items} />
+                )}
+              </div>
+            )}
+            {(detail?.transcript ?? []).length > 0 && (
+              <TranscriptViewer lines={detail!.transcript} />
+            )}
+          </div>
+        )}
     </div>
   );
 }

@@ -5276,7 +5276,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} uczestników',
   'skills.meetingBots.history.runWithOpenHuman': 'Uruchom z OpenHuman',
   'skills.meetingBots.history.searchPlaceholder': 'Szukaj połączeń…',
-  'skills.meetingBots.history.selectPrompt': 'Wybierz połączenie, aby zobaczyć podsumowanie i transkrypt.',
+  'skills.meetingBots.history.selectPrompt':
+    'Wybierz połączenie, aby zobaczyć podsumowanie i transkrypt.',
   'skills.meetingBots.history.today': 'Dzisiaj',
   'skills.meetingBots.history.yesterday': 'Wczoraj',
   'skills.meetingBots.upcoming.heading': 'Nadchodzące',
@@ -5293,7 +5294,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Pomiń',
   'skills.meetingBots.upcoming.today': 'Dziś',
   'skills.meetingBots.upcoming.tomorrow': 'Jutro',
-  'skills.meetingBots.upcoming.empty': 'Brak nadchodzących spotkań — połącz Google Calendar, aby je zobaczyć.',
+  'skills.meetingBots.upcoming.empty':
+    'Brak nadchodzących spotkań — połącz Google Calendar, aby je zobaczyć.',
   'skills.meetingBots.upcoming.error': 'Nie można załadować nadchodzących spotkań.',
   'skills.meetingBots.upcoming.retry': 'Ponów',
   'skills.meetingBots.upcoming.refresh': 'Odśwież',

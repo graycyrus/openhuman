@@ -5114,7 +5114,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'تخطَّ',
   'skills.meetingBots.upcoming.today': 'اليوم',
   'skills.meetingBots.upcoming.tomorrow': 'غداً',
-  'skills.meetingBots.upcoming.empty': 'لا توجد اجتماعات قادمة — قم بربط Google Calendar لرؤيتها هنا.',
+  'skills.meetingBots.upcoming.empty':
+    'لا توجد اجتماعات قادمة — قم بربط Google Calendar لرؤيتها هنا.',
   'skills.meetingBots.upcoming.error': 'تعذّر تحميل الاجتماعات القادمة.',
   'skills.meetingBots.upcoming.retry': 'إعادة المحاولة',
   'skills.meetingBots.upcoming.refresh': 'تحديث',

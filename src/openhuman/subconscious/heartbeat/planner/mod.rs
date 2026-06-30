@@ -195,8 +195,7 @@ pub async fn evaluate_and_dispatch(config: &Config, now: DateTime<Utc>) -> Plann
         // Watch-calendar-only mode: the calendar was polled solely to drive
         // auto-join / ask (handled above). The user has NOT enabled meeting
         // reminders, so don't emit the plain reminder card for meetings.
-        if event.category == types::HeartbeatCategory::Meetings
-            && !config.heartbeat.notify_meetings
+        if event.category == types::HeartbeatCategory::Meetings && !config.heartbeat.notify_meetings
         {
             tracing::debug!(
                 source = %event.source,

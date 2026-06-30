@@ -22,13 +22,7 @@ export interface PlatformChipsProps {
   disabled?: boolean;
 }
 
-function PlatformLogo({
-  platform,
-  label,
-}: {
-  platform: MeetingPlatform;
-  label: string;
-}) {
+function PlatformLogo({ platform, label }: { platform: MeetingPlatform; label: string }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {

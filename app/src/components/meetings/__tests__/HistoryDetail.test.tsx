@@ -1,8 +1,8 @@
 import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { MeetCallDetail, MeetCallRecord } from '../../../services/meetCallService';
 import { renderWithProviders } from '../../../test/test-utils';
-import type { MeetCallRecord, MeetCallDetail } from '../../../services/meetCallService';
 import HistoryDetail from '../HistoryDetail';
 
 const getMeetCallDetailMock = vi.fn();
@@ -11,10 +11,7 @@ vi.mock('../../../services/meetCallService', async () => {
   const actual = await vi.importActual<typeof import('../../../services/meetCallService')>(
     '../../../services/meetCallService'
   );
-  return {
-    ...actual,
-    getMeetCallDetail: (...args: unknown[]) => getMeetCallDetailMock(...args),
-  };
+  return { ...actual, getMeetCallDetail: (...args: unknown[]) => getMeetCallDetailMock(...args) };
 });
 
 // Also mock ActionItemChecklist and TranscriptViewer for isolation
@@ -117,11 +114,7 @@ describe('HistoryDetail', () => {
   });
 
   it('shows empty state when detail has no summary or transcript', async () => {
-    const emptyDetail: MeetCallDetail = {
-      request_id: 'req-1',
-      summary: null,
-      transcript: [],
-    };
+    const emptyDetail: MeetCallDetail = { request_id: 'req-1', summary: null, transcript: [] };
     getMeetCallDetailMock.mockResolvedValue(emptyDetail);
     renderWithProviders(<HistoryDetail record={record} />);
     await waitFor(() => {
@@ -183,7 +176,9 @@ describe('HistoryDetail', () => {
     // Route mock responses by request_id so call order doesn't matter.
     getMeetCallDetailMock.mockImplementation((reqId: string) => {
       if (reqId === 'req-1') {
-        return new Promise<MeetCallDetail>(r => { resolveRecord1 = r; });
+        return new Promise<MeetCallDetail>(r => {
+          resolveRecord1 = r;
+        });
       }
       return Promise.resolve(record2Detail);
     });
@@ -232,15 +227,21 @@ describe('HistoryDetail', () => {
       renderWithProviders(<HistoryDetail record={record} />);
 
       // Advance past the 0ms initial-fetch timer and flush the async resolution.
-      await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10);
+      });
       expect(getMeetCallDetailMock).toHaveBeenCalledTimes(1);
 
       // Advance 2 s to trigger the one auto-retry.
-      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
       expect(getMeetCallDetailMock).toHaveBeenCalledTimes(2);
 
       // Advance another 2 s — retry must NOT fire again.
-      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
       expect(getMeetCallDetailMock).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
@@ -265,7 +266,9 @@ describe('HistoryDetail', () => {
 
     getMeetCallDetailMock.mockImplementation((reqId: string) => {
       if (reqId === 'req-early') {
-        return new Promise(r => { resolveEarly = r; });
+        return new Promise(r => {
+          resolveEarly = r;
+        });
       }
       return Promise.resolve(lateDetail);
     });

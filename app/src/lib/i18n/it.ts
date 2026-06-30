@@ -5289,7 +5289,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} partecipanti',
   'skills.meetingBots.history.runWithOpenHuman': 'Esegui con OpenHuman',
   'skills.meetingBots.history.searchPlaceholder': 'Cerca chiamate…',
-  'skills.meetingBots.history.selectPrompt': 'Seleziona una chiamata per vedere il riepilogo e la trascrizione.',
+  'skills.meetingBots.history.selectPrompt':
+    'Seleziona una chiamata per vedere il riepilogo e la trascrizione.',
   'skills.meetingBots.history.today': 'Oggi',
   'skills.meetingBots.history.yesterday': 'Ieri',
   'skills.meetingBots.upcoming.heading': 'In arrivo',
@@ -5306,7 +5307,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Salta',
   'skills.meetingBots.upcoming.today': 'Oggi',
   'skills.meetingBots.upcoming.tomorrow': 'Domani',
-  'skills.meetingBots.upcoming.empty': 'Nessuna riunione in arrivo — collega Google Calendar per vederle qui.',
+  'skills.meetingBots.upcoming.empty':
+    'Nessuna riunione in arrivo — collega Google Calendar per vederle qui.',
   'skills.meetingBots.upcoming.error': 'Impossibile caricare le riunioni in arrivo.',
   'skills.meetingBots.upcoming.retry': 'Riprova',
   'skills.meetingBots.upcoming.refresh': 'Aggiorna',
@@ -5332,7 +5334,8 @@ const messages: TranslationMap = {
     'Consenti a OpenHuman di monitorare il tuo calendario connesso per poter partecipare automaticamente o richiedere conferma per le riunioni in base alle politiche seguenti. Questo è separato dalle notifiche di promemoria delle riunioni.',
   'skills.meetingBots.defaults.globalPolicy': 'Politica di partecipazione automatica globale',
   'skills.meetingBots.defaults.perPlatformTitle': 'Impostazioni per piattaforma',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Sostituire la politica globale per piattaforme specifiche.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Sostituire la politica globale per piattaforme specifiche.',
   'skills.meetingBots.defaults.useDefault': 'Usa predefinito',
   'skills.resource.preview.closeAriaLabel': 'Chiudi anteprima',
   'skills.resource.preview.failed': 'Anteprima fallita',

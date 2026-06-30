@@ -66,9 +66,11 @@ describe('MeetDefaultsDrawer', () => {
     // Find the global auto-join select (first select) and change it
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: 'always' } });
-    await waitFor(() => expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ auto_join_policy: 'always' })
-    ));
+    await waitFor(() =>
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ auto_join_policy: 'always' })
+      )
+    );
   });
 
   it('closes via the close button', async () => {
@@ -90,9 +92,11 @@ describe('MeetDefaultsDrawer', () => {
     // selects[1] is the first platform (gmeet) override
     if (selects.length > 1) {
       fireEvent.change(selects[1], { target: { value: 'always' } });
-      await waitFor(() => expect(updateMock).toHaveBeenCalledWith(
-        expect.objectContaining({ platform_auto_join_policies: expect.any(Object) })
-      ));
+      await waitFor(() =>
+        expect(updateMock).toHaveBeenCalledWith(
+          expect.objectContaining({ platform_auto_join_policies: expect.any(Object) })
+        )
+      );
     }
   });
 
@@ -125,9 +129,7 @@ describe('MeetDefaultsDrawer', () => {
   });
 
   it('reflects watch_calendar=true as checked', async () => {
-    getMock.mockResolvedValueOnce({
-      result: { ...DEFAULT_SETTINGS.result, watch_calendar: true },
-    });
+    getMock.mockResolvedValueOnce({ result: { ...DEFAULT_SETTINGS.result, watch_calendar: true } });
     renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
     const sw = await screen.findByRole('switch', { name: /watch my calendar/i });
     expect(sw).toHaveAttribute('aria-checked', 'true');
@@ -141,9 +143,7 @@ describe('MeetDefaultsDrawer', () => {
     fireEvent.click(sw);
 
     await waitFor(() =>
-      expect(updateMock).toHaveBeenCalledWith(
-        expect.objectContaining({ watch_calendar: true })
-      )
+      expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ watch_calendar: true }))
     );
   });
 

@@ -8,10 +8,7 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  listUpcomingMeetings,
-  type UpcomingMeeting,
-} from '../../services/meetCallService';
+import { listUpcomingMeetings, type UpcomingMeeting } from '../../services/meetCallService';
 
 const log = debug('meetings:upcoming');
 
@@ -44,27 +41,34 @@ export function useUpcomingMeetings(
    *   avoid the skeleton re-appearing every 60 s; the initial mount and the
    *   manual refresh button pass `true`.
    */
-  const fetchMeetings = useCallback(async (showLoading: boolean) => {
-    // Claim a sequence number before the await so concurrent callers each get
-    // a unique stamp and only the latest response is applied.
-    const requestId = ++fetchCounterRef.current;
-    log('[useUpcomingMeetings] fetching upcoming meetings showLoading=%s requestId=%d', showLoading, requestId);
-    if (showLoading) setLoading(true);
-    setError(null);
-    try {
-      const data = await listUpcomingMeetings(lookaheadMinutes, limit);
-      if (!mountedRef.current || fetchCounterRef.current !== requestId) return;
-      log('[useUpcomingMeetings] fetched %d meetings (requestId=%d)', data.length, requestId);
-      setMeetings(data);
-    } catch (err) {
-      if (!mountedRef.current || fetchCounterRef.current !== requestId) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      log('[useUpcomingMeetings] fetch error: %s (requestId=%d)', msg, requestId);
-      setError(msg);
-    } finally {
-      if (mountedRef.current && fetchCounterRef.current === requestId) setLoading(false);
-    }
-  }, [lookaheadMinutes, limit]);
+  const fetchMeetings = useCallback(
+    async (showLoading: boolean) => {
+      // Claim a sequence number before the await so concurrent callers each get
+      // a unique stamp and only the latest response is applied.
+      const requestId = ++fetchCounterRef.current;
+      log(
+        '[useUpcomingMeetings] fetching upcoming meetings showLoading=%s requestId=%d',
+        showLoading,
+        requestId
+      );
+      if (showLoading) setLoading(true);
+      setError(null);
+      try {
+        const data = await listUpcomingMeetings(lookaheadMinutes, limit);
+        if (!mountedRef.current || fetchCounterRef.current !== requestId) return;
+        log('[useUpcomingMeetings] fetched %d meetings (requestId=%d)', data.length, requestId);
+        setMeetings(data);
+      } catch (err) {
+        if (!mountedRef.current || fetchCounterRef.current !== requestId) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        log('[useUpcomingMeetings] fetch error: %s (requestId=%d)', msg, requestId);
+        setError(msg);
+      } finally {
+        if (mountedRef.current && fetchCounterRef.current === requestId) setLoading(false);
+      }
+    },
+    [lookaheadMinutes, limit]
+  );
 
   useEffect(() => {
     mountedRef.current = true;

@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { MeetCallDetail, MeetCallRecord } from '../../../services/meetCallService';
 import { renderWithProviders } from '../../../test/test-utils';
-import type { MeetCallRecord, MeetCallDetail } from '../../../services/meetCallService';
 import HistorySection from '../HistorySection';
 
 const listMeetCallsMock = vi.fn();
@@ -60,11 +60,7 @@ const yesterdayCall: MeetCallRecord = {
 
 const detail: MeetCallDetail = {
   request_id: 'req-today',
-  summary: {
-    headline: 'Sync meeting',
-    key_points: [],
-    action_items: [],
-  },
+  summary: { headline: 'Sync meeting', key_points: [], action_items: [] },
   transcript: [{ role: 'participant', content: 'Hello' }],
 };
 
@@ -80,7 +76,9 @@ describe('HistorySection', () => {
     renderWithProviders(<HistorySection />);
     await waitFor(() => {
       // HistoryRail shows the i18n empty text when all groups have no calls
-      expect(screen.getByText(/no previous calls yet|your meeting history will appear|no.*call/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/no previous calls yet|your meeting history will appear|no.*call/i)
+      ).toBeInTheDocument();
     });
   });
 

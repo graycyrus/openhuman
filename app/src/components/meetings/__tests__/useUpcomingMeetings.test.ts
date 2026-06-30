@@ -41,7 +41,10 @@ describe('useUpcomingMeetings', () => {
   it('starts in loading=true, meetings=[] state', async () => {
     let resolve: (v: unknown) => void;
     listMock.mockImplementation(
-      () => new Promise(r => { resolve = r; })
+      () =>
+        new Promise(r => {
+          resolve = r;
+        })
     );
 
     const { result, unmount } = renderHook(() => useUpcomingMeetings());
@@ -50,7 +53,9 @@ describe('useUpcomingMeetings', () => {
     expect(result.current.meetings).toEqual([]);
     expect(result.current.error).toBeNull();
 
-    await act(async () => { resolve!([]); });
+    await act(async () => {
+      resolve!([]);
+    });
     unmount();
   });
 
@@ -77,15 +82,15 @@ describe('useUpcomingMeetings', () => {
   });
 
   it('re-fetches on refresh()', async () => {
-    listMock
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([MEETING]);
+    listMock.mockResolvedValueOnce([]).mockResolvedValueOnce([MEETING]);
 
     const { result, unmount } = renderHook(() => useUpcomingMeetings());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.meetings).toEqual([]);
 
-    await act(async () => { result.current.refresh(); });
+    await act(async () => {
+      result.current.refresh();
+    });
     await waitFor(() => expect(result.current.meetings).toEqual([MEETING]));
     unmount();
   });
@@ -106,11 +111,15 @@ describe('useUpcomingMeetings', () => {
       const { unmount } = renderHook(() => useUpcomingMeetings());
 
       // Flush initial fetch
-      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
       expect(listMock).toHaveBeenCalledTimes(1);
 
       // Advance 60 seconds to trigger the poll
-      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
       expect(listMock).toHaveBeenCalledTimes(2);
       unmount();
     } finally {
@@ -126,12 +135,16 @@ describe('useUpcomingMeetings', () => {
       const { result, unmount } = renderHook(() => useUpcomingMeetings());
 
       // Flush initial fetch — loading goes true then false.
-      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
       expect(result.current.loading).toBe(false);
       expect(result.current.meetings).toEqual([MEETING]);
 
       // Advance 60 s to trigger the background poll.
-      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
 
       // Loading must NOT have flipped back to true — no skeleton flicker.
       expect(result.current.loading).toBe(false);
@@ -148,14 +161,18 @@ describe('useUpcomingMeetings', () => {
       listMock.mockResolvedValue([]);
 
       const { unmount } = renderHook(() => useUpcomingMeetings());
-      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
       expect(listMock).toHaveBeenCalledTimes(1);
 
       unmount();
       listMock.mockClear();
 
       // Advance past the poll interval — no further calls expected.
-      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
       expect(listMock).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
@@ -171,19 +188,28 @@ describe('useUpcomingMeetings', () => {
     // First fetch (initial mount) is slow.
     let resolveFirst!: (v: typeof STALE) => void;
     listMock
-      .mockImplementationOnce(() => new Promise<typeof STALE>(r => { resolveFirst = r; }))
+      .mockImplementationOnce(
+        () =>
+          new Promise<typeof STALE>(r => {
+            resolveFirst = r;
+          })
+      )
       .mockResolvedValueOnce(FRESH); // Second fetch (manual refresh) resolves fast.
 
     const { result, unmount } = renderHook(() => useUpcomingMeetings());
 
     // Trigger the manual refresh while the first fetch is still in-flight.
-    await act(async () => { result.current.refresh(); });
+    await act(async () => {
+      result.current.refresh();
+    });
 
     // Wait for the second (faster) fetch to complete and populate meetings.
     await waitFor(() => expect(result.current.meetings).toEqual(FRESH));
 
     // Now deliver the stale first response.
-    await act(async () => { resolveFirst(STALE); });
+    await act(async () => {
+      resolveFirst(STALE);
+    });
 
     // Stale result must NOT overwrite the already-applied fresh result.
     expect(result.current.meetings).toEqual(FRESH);

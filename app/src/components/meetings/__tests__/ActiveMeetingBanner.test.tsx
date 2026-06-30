@@ -1,10 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  setBackendMeetJoined,
-  setBackendMeetLeft,
-} from '../../../store/backendMeetSlice';
+import { setBackendMeetJoined, setBackendMeetLeft } from '../../../store/backendMeetSlice';
 import { renderWithProviders } from '../../../test/test-utils';
 import { ActiveMeetingBanner } from '../ActiveMeetingBanner';
 
@@ -14,17 +11,12 @@ vi.mock('../../../services/meetCallService', async () => {
   const actual = await vi.importActual<typeof import('../../../services/meetCallService')>(
     '../../../services/meetCallService'
   );
-  return {
-    ...actual,
-    leaveBackendMeetBot: (...args: unknown[]) => leaveMock(...args),
-  };
+  return { ...actual, leaveBackendMeetBot: (...args: unknown[]) => leaveMock(...args) };
 });
 
 // RiveMascot is heavy — stub it out
 vi.mock('../../../features/human/Mascot', () => ({
-  RiveMascot: ({ face }: { face: string }) => (
-    <div data-testid="rive-mascot" data-face={face} />
-  ),
+  RiveMascot: ({ face }: { face: string }) => <div data-testid="rive-mascot" data-face={face} />,
 }));
 
 const joiningState = {
@@ -90,10 +82,7 @@ describe('ActiveMeetingBanner', () => {
   });
 
   it('renders ended state with Close button', () => {
-    const { store } = renderWithProviders(
-      <ActiveMeetingBanner />,
-      { preloadedState: activeState }
-    );
+    const { store } = renderWithProviders(<ActiveMeetingBanner />, { preloadedState: activeState });
 
     store.dispatch(setBackendMeetLeft({ reason: 'done' }));
 
@@ -147,24 +136,19 @@ describe('ActiveMeetingBanner', () => {
     leaveMock.mockRejectedValueOnce(new Error('Network error'));
     const onToast = vi.fn();
 
-    renderWithProviders(<ActiveMeetingBanner onToast={onToast} />, {
-      preloadedState: activeState,
-    });
+    renderWithProviders(<ActiveMeetingBanner onToast={onToast} />, { preloadedState: activeState });
 
     fireEvent.click(screen.getByRole('button', { name: /leave/i }));
 
     await waitFor(() => {
-      expect(onToast).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'error' })
-      );
+      expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
     });
   });
 
   it('transitions mascot face based on state', () => {
-    const { store } = renderWithProviders(
-      <ActiveMeetingBanner />,
-      { preloadedState: joiningState }
-    );
+    const { store } = renderWithProviders(<ActiveMeetingBanner />, {
+      preloadedState: joiningState,
+    });
 
     // Joining → thinking face
     expect(screen.getByTestId('rive-mascot')).toHaveAttribute('data-face', 'thinking');

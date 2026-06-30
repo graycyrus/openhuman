@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { createRef } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setBackendMeetError } from '../../../store/backendMeetSlice';
 import { renderWithProviders } from '../../../test/test-utils';
@@ -23,7 +22,9 @@ vi.mock('../../../services/meetCallService', async () => {
   };
 });
 
-const mockConnectionByToolkit = vi.fn(() => new Map<string, { id: string; toolkit: string; status: string; accountEmail?: string }>());
+const mockConnectionByToolkit = vi.fn(
+  () => new Map<string, { id: string; toolkit: string; status: string; accountEmail?: string }>()
+);
 
 vi.mock('../../../lib/composio/hooks', () => ({
   useComposioIntegrations: () => ({
@@ -103,7 +104,15 @@ describe('MeetComposer', () => {
   it('prefills the name field from a connected Composio account', async () => {
     mockConnectionByToolkit.mockReturnValue(
       new Map([
-        ['googlemeet', { id: 'c1', toolkit: 'googlemeet', status: 'ACTIVE', accountEmail: 'alice.smith@gmail.com' }],
+        [
+          'googlemeet',
+          {
+            id: 'c1',
+            toolkit: 'googlemeet',
+            status: 'ACTIVE',
+            accountEmail: 'alice.smith@gmail.com',
+          },
+        ],
       ])
     );
 
@@ -117,8 +126,19 @@ describe('MeetComposer', () => {
   it('re-derives name from platform-specific account when platform changes (untouched)', async () => {
     mockConnectionByToolkit.mockReturnValue(
       new Map([
-        ['googlemeet', { id: 'c1', toolkit: 'googlemeet', status: 'ACTIVE', accountEmail: 'alice.gmeet@company.com' }],
-        ['zoom', { id: 'c2', toolkit: 'zoom', status: 'ACTIVE', accountEmail: 'alice.zoom@company.com' }],
+        [
+          'googlemeet',
+          {
+            id: 'c1',
+            toolkit: 'googlemeet',
+            status: 'ACTIVE',
+            accountEmail: 'alice.gmeet@company.com',
+          },
+        ],
+        [
+          'zoom',
+          { id: 'c2', toolkit: 'zoom', status: 'ACTIVE', accountEmail: 'alice.zoom@company.com' },
+        ],
       ])
     );
 
@@ -199,11 +219,7 @@ describe('MeetComposer', () => {
     fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(joinMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          platform: 'gmeet',
-        })
-      );
+      expect(joinMock).toHaveBeenCalledWith(expect.objectContaining({ platform: 'gmeet' }));
     });
   });
 
@@ -221,9 +237,7 @@ describe('MeetComposer', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Bot failed to join.');
     });
 
-    expect(onToast).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error' })
-    );
+    expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
   });
 
   it('shows the capacity-gate message when the server is overloaded', async () => {
@@ -233,13 +247,13 @@ describe('MeetComposer', () => {
     hasSubmittedRef.current = true;
 
     store.dispatch(
-      setBackendMeetError({ error: 'Mascot streaming capacity is exhausted. Please try again later.' })
+      setBackendMeetError({
+        error: 'Mascot streaming capacity is exhausted. Please try again later.',
+      })
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        /heavy load/i
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent(/heavy load/i);
     });
   });
 
@@ -263,9 +277,7 @@ describe('MeetComposer', () => {
 
     // hasSubmittedRef should be reset so a second attempt works
     expect(hasSubmittedRef.current).toBe(false);
-    expect(onToast).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error' })
-    );
+    expect(onToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
   });
 
   it('disables submit when meetUrl or name is empty', () => {

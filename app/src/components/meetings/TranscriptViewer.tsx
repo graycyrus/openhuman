@@ -5,10 +5,7 @@
 import debug from 'debug';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import {
-  parseTranscriptLine,
-  type MeetCallTranscriptLine,
-} from '../../services/meetCallService';
+import { type MeetCallTranscriptLine, parseTranscriptLine } from '../../services/meetCallService';
 import Button from '../ui/Button';
 
 const log = debug('meetings:transcript');
@@ -83,9 +80,7 @@ export function TranscriptViewer({ lines }: TranscriptViewerProps) {
               {parsed.timestamp && (
                 <span className="mr-1 text-content-faint">{parsed.timestamp}</span>
               )}
-              {parsed.speaker && (
-                <span className="mr-1 font-medium">{parsed.speaker}:</span>
-              )}
+              {parsed.speaker && <span className="mr-1 font-medium">{parsed.speaker}:</span>}
               {parsed.text}
             </p>
           );

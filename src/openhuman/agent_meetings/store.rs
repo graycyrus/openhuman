@@ -275,9 +275,8 @@ pub fn set_event_policy(config: &Config, calendar_event_id: &str, policy: &str) 
 /// `None` when no override has been stored.
 pub fn get_event_policy(config: &Config, calendar_event_id: &str) -> Result<Option<String>> {
     with_connection(config, |conn| {
-        let mut stmt = conn.prepare(
-            "SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1")?;
         let mut rows = stmt.query(rusqlite::params![calendar_event_id])?;
         if let Some(row) = rows.next()? {
             Ok(Some(row.get(0)?))
@@ -297,8 +296,8 @@ pub fn get_event_policies_batch(config: &Config, ids: &[&str]) -> Result<HashMap
             return Ok(map);
         }
         // Prepare the SELECT once and reuse it for every id — not once per id.
-        let mut stmt = conn
-            .prepare("SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1")?;
         for &id in ids {
             let mut rows = stmt.query(rusqlite::params![id])?;
             if let Some(row) = rows.next()? {

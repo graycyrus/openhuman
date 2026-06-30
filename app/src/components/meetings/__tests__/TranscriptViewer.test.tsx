@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { renderWithProviders } from '../../../test/test-utils';
 import {
-  parseTranscriptLine,
   type MeetCallTranscriptLine,
+  parseTranscriptLine,
 } from '../../../services/meetCallService';
+import { renderWithProviders } from '../../../test/test-utils';
 import TranscriptViewer from '../TranscriptViewer';
 
 afterEach(() => {
@@ -43,7 +43,10 @@ describe('parseTranscriptLine', () => {
   });
 
   it('handles partial brackets — no match, returns full content', () => {
-    const line: MeetCallTranscriptLine = { role: 'participant', content: '[1:23] missing second bracket' };
+    const line: MeetCallTranscriptLine = {
+      role: 'participant',
+      content: '[1:23] missing second bracket',
+    };
     const result = parseTranscriptLine(line);
     expect(result.timestamp).toBeNull();
     expect(result.speaker).toBeNull();
@@ -108,19 +111,29 @@ describe('TranscriptViewer', () => {
   it('download button creates a blob and triggers download', () => {
     const createObjectURL = vi.fn().mockReturnValue('blob:test');
     const revokeObjectURL = vi.fn();
-    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, writable: true, configurable: true });
-    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, writable: true, configurable: true });
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: createObjectURL,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: revokeObjectURL,
+      writable: true,
+      configurable: true,
+    });
 
     // Save original before mocking to avoid infinite recursion
     const originalCreateElement = document.createElement.bind(document);
     const clickSpy = vi.fn();
-    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
-      const el = originalCreateElement(tag);
-      if (tag === 'a') {
-        el.click = clickSpy;
-      }
-      return el;
-    });
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation((tag: string) => {
+        const el = originalCreateElement(tag);
+        if (tag === 'a') {
+          el.click = clickSpy;
+        }
+        return el;
+      });
 
     renderWithProviders(<TranscriptViewer lines={[lineWithPrefix]} />);
     fireEvent.click(screen.getByText('Download'));

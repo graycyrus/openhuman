@@ -5335,7 +5335,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} Teilnehmer',
   'skills.meetingBots.history.runWithOpenHuman': 'Mit OpenHuman ausführen',
   'skills.meetingBots.history.searchPlaceholder': 'Anrufe suchen…',
-  'skills.meetingBots.history.selectPrompt': 'Wähle einen Anruf aus, um die Zusammenfassung und das Transkript zu sehen.',
+  'skills.meetingBots.history.selectPrompt':
+    'Wähle einen Anruf aus, um die Zusammenfassung und das Transkript zu sehen.',
   'skills.meetingBots.history.today': 'Heute',
   'skills.meetingBots.history.yesterday': 'Gestern',
   'skills.meetingBots.upcoming.heading': 'Bevorstehend',
@@ -5352,7 +5353,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Überspringen',
   'skills.meetingBots.upcoming.today': 'Heute',
   'skills.meetingBots.upcoming.tomorrow': 'Morgen',
-  'skills.meetingBots.upcoming.empty': 'Keine bevorstehenden Meetings — verbinde Google Calendar, um sie hier zu sehen.',
+  'skills.meetingBots.upcoming.empty':
+    'Keine bevorstehenden Meetings — verbinde Google Calendar, um sie hier zu sehen.',
   'skills.meetingBots.upcoming.error': 'Bevorstehende Meetings konnten nicht geladen werden.',
   'skills.meetingBots.upcoming.retry': 'Erneut versuchen',
   'skills.meetingBots.upcoming.refresh': 'Aktualisieren',
@@ -5378,7 +5380,8 @@ const messages: TranslationMap = {
     'Lassen Sie OpenHuman Ihren verbundenen Kalender überwachen, damit er Meetings automatisch beitreten oder Sie gemäß den folgenden Richtlinien dazu auffordern kann. Dies ist von Meeting-Erinnerungsbenachrichtigungen getrennt.',
   'skills.meetingBots.defaults.globalPolicy': 'Globale Auto-Beitrittsrichtlinie',
   'skills.meetingBots.defaults.perPlatformTitle': 'Plattformspezifische Einstellungen',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Globale Richtlinie für bestimmte Plattformen überschreiben.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Globale Richtlinie für bestimmte Plattformen überschreiben.',
   'skills.meetingBots.defaults.useDefault': 'Standard verwenden',
   'skills.resource.preview.closeAriaLabel': 'Vorschau schließen',
   'skills.resource.preview.failed': 'Vorschau fehlgeschlagen',

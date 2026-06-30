@@ -5291,7 +5291,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} participantes',
   'skills.meetingBots.history.runWithOpenHuman': 'Executar com OpenHuman',
   'skills.meetingBots.history.searchPlaceholder': 'Pesquisar chamadas…',
-  'skills.meetingBots.history.selectPrompt': 'Selecione uma chamada para ver seu resumo e transcrição.',
+  'skills.meetingBots.history.selectPrompt':
+    'Selecione uma chamada para ver seu resumo e transcrição.',
   'skills.meetingBots.history.today': 'Hoje',
   'skills.meetingBots.history.yesterday': 'Ontem',
   'skills.meetingBots.upcoming.heading': 'Próximas',
@@ -5308,7 +5309,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Ignorar',
   'skills.meetingBots.upcoming.today': 'Hoje',
   'skills.meetingBots.upcoming.tomorrow': 'Amanhã',
-  'skills.meetingBots.upcoming.empty': 'Sem reuniões próximas — conecte o Google Calendar para vê-las aqui.',
+  'skills.meetingBots.upcoming.empty':
+    'Sem reuniões próximas — conecte o Google Calendar para vê-las aqui.',
   'skills.meetingBots.upcoming.error': 'Não foi possível carregar as reuniões próximas.',
   'skills.meetingBots.upcoming.retry': 'Tentar novamente',
   'skills.meetingBots.upcoming.refresh': 'Atualizar',
@@ -5334,7 +5336,8 @@ const messages: TranslationMap = {
     'Permita que o OpenHuman monitore seu calendário conectado para entrar automaticamente em reuniões ou solicitar confirmação com base nas políticas abaixo. Isso é separado das notificações de lembrete de reunião.',
   'skills.meetingBots.defaults.globalPolicy': 'Política global de entrada automática',
   'skills.meetingBots.defaults.perPlatformTitle': 'Configurações por plataforma',
-  'skills.meetingBots.defaults.perPlatformDesc': 'Substituir a política global para plataformas específicas.',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'Substituir a política global para plataformas específicas.',
   'skills.meetingBots.defaults.useDefault': 'Usar padrão',
   'skills.resource.preview.closeAriaLabel': 'Fechar visualização',
   'skills.resource.preview.failed': 'Falha na pré-visualização',

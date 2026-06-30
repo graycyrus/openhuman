@@ -5221,7 +5221,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} peserta',
   'skills.meetingBots.history.runWithOpenHuman': 'Jalankan dengan OpenHuman',
   'skills.meetingBots.history.searchPlaceholder': 'Cari panggilan…',
-  'skills.meetingBots.history.selectPrompt': 'Pilih panggilan untuk melihat ringkasan dan transkripnya.',
+  'skills.meetingBots.history.selectPrompt':
+    'Pilih panggilan untuk melihat ringkasan dan transkripnya.',
   'skills.meetingBots.history.today': 'Hari ini',
   'skills.meetingBots.history.yesterday': 'Kemarin',
   'skills.meetingBots.upcoming.heading': 'Mendatang',
@@ -5238,7 +5239,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'Lewati',
   'skills.meetingBots.upcoming.today': 'Hari ini',
   'skills.meetingBots.upcoming.tomorrow': 'Besok',
-  'skills.meetingBots.upcoming.empty': 'Tidak ada rapat mendatang — hubungkan Google Calendar untuk melihatnya di sini.',
+  'skills.meetingBots.upcoming.empty':
+    'Tidak ada rapat mendatang — hubungkan Google Calendar untuk melihatnya di sini.',
   'skills.meetingBots.upcoming.error': 'Tidak dapat memuat rapat mendatang.',
   'skills.meetingBots.upcoming.retry': 'Coba lagi',
   'skills.meetingBots.upcoming.refresh': 'Segarkan',

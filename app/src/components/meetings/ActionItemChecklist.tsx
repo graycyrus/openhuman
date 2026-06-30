@@ -31,7 +31,10 @@ export function ActionItemChecklist({ items }: ActionItemChecklistProps) {
   }
 
   function handleRun(item: MeetCallActionItem) {
-    log('[action] run with OpenHuman clicked', { description: item.description, tool: item.tool_name });
+    log('[action] run with OpenHuman clicked', {
+      description: item.description,
+      tool: item.tool_name,
+    });
     // TODO: prefill chat with action item description — prefill not yet supported
     void navigate('/chat');
   }
@@ -61,23 +64,16 @@ export function ActionItemChecklist({ items }: ActionItemChecklistProps) {
               <div className="min-w-0 flex-1">
                 <span
                   className={
-                    checked[i]
-                      ? 'text-content-faint line-through'
-                      : 'text-content-secondary'
+                    checked[i] ? 'text-content-faint line-through' : 'text-content-secondary'
                   }>
                   {item.description}
                 </span>
                 {meta.length > 0 && (
-                  <span className="ml-1 text-content-faint text-[10px]">
-                    ({meta.join(' · ')})
-                  </span>
+                  <span className="ml-1 text-content-faint text-[10px]">({meta.join(' · ')})</span>
                 )}
                 {isExecutable && (
                   <span className="ml-2">
-                    <Button
-                      variant="tertiary"
-                      size="xs"
-                      onClick={() => handleRun(item)}>
+                    <Button variant="tertiary" size="xs" onClick={() => handleRun(item)}>
                       {t('skills.meetingBots.history.runWithOpenHuman')}
                     </Button>
                   </span>

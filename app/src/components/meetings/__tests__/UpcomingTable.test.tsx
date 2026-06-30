@@ -30,18 +30,20 @@ vi.mock('../../../services/meetCallService', async () => {
 
 const NOW = Date.now();
 
-function makeMeeting(overrides: Partial<{
-  calendar_event_id: string;
-  title: string;
-  start_time_ms: number;
-  end_time_ms: number;
-  meet_url: string | null;
-  platform: string | null;
-  participant_count: number | null;
-  organizer: string | null;
-  join_policy: string;
-  calendar_source: string;
-}> = {}) {
+function makeMeeting(
+  overrides: Partial<{
+    calendar_event_id: string;
+    title: string;
+    start_time_ms: number;
+    end_time_ms: number;
+    meet_url: string | null;
+    platform: string | null;
+    participant_count: number | null;
+    organizer: string | null;
+    join_policy: string;
+    calendar_source: string;
+  }> = {}
+) {
   return {
     calendar_event_id: 'evt-1',
     title: 'Weekly Sync',
@@ -89,9 +91,7 @@ describe('UpcomingTable', () => {
   it('shows empty state when no meetings are returned', async () => {
     listMock.mockResolvedValueOnce([]);
     renderWithProviders(<UpcomingTable />);
-    await waitFor(() =>
-      expect(screen.getByText(/no upcoming meetings/i)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/no upcoming meetings/i)).toBeInTheDocument());
   });
 
   it('renders a meeting row with title, platform, and participant count', async () => {
@@ -136,9 +136,7 @@ describe('UpcomingTable', () => {
     renderWithProviders(<UpcomingTable />);
     // The button has an aria-label for screen readers ("Join {title}") so
     // we query by visible text content instead of accessible name.
-    await waitFor(() =>
-      expect(screen.getByText('Join now')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText('Join now')).toBeInTheDocument());
   });
 
   it('shows error state and retry button when fetch fails', async () => {
@@ -146,9 +144,7 @@ describe('UpcomingTable', () => {
     renderWithProviders(<UpcomingTable />);
     // Wait for the error state: the retry button is the reliable indicator
     // (the error text uses a curly apostrophe that a straight-quote regex won't match).
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument());
     // The error message is also present in the DOM (accept any apostrophe variant).
     expect(screen.getByText(/load upcoming meetings/i)).toBeInTheDocument();
   });
@@ -175,7 +171,10 @@ describe('UpcomingTable', () => {
   });
 
   it('calls joinMeetViaBackendBot when Join button is clicked', async () => {
-    joinMock.mockResolvedValueOnce({ meetUrl: 'https://meet.google.com/abc-def-ghi', platform: 'gmeet' });
+    joinMock.mockResolvedValueOnce({
+      meetUrl: 'https://meet.google.com/abc-def-ghi',
+      platform: 'gmeet',
+    });
     listMock.mockResolvedValueOnce([makeMeeting()]);
     renderWithProviders(<UpcomingTable />);
 
@@ -241,8 +240,8 @@ describe('UpcomingTable', () => {
     });
 
     setEventPolicyMock
-      .mockImplementationOnce(() => slowFailure)  // ask → auto: slow failure
-      .mockResolvedValueOnce(undefined);           // auto → skip: fast success
+      .mockImplementationOnce(() => slowFailure) // ask → auto: slow failure
+      .mockResolvedValueOnce(undefined); // auto → skip: fast success
 
     listMock.mockResolvedValueOnce([makeMeeting({ join_policy: 'ask' })]);
     renderWithProviders(<UpcomingTable />);
@@ -357,8 +356,6 @@ describe('UpcomingTable', () => {
     renderWithProviders(<UpcomingTable />);
     // Match the en-locale pattern "in Xm" — proves the string came from i18n,
     // not a hardcoded English fallback.
-    await waitFor(() =>
-      expect(screen.getByText(/^in \d+m$/)).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText(/^in \d+m$/)).toBeInTheDocument());
   });
 });

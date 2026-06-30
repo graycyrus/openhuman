@@ -30,13 +30,13 @@ import {
 } from '../../store/mascotSlice';
 import { selectPersonaDescription, selectPersonaDisplayName } from '../../store/personaSlice';
 import Button from '../ui/Button';
-import { PlatformChips } from './PlatformChips';
 import {
   platformLabel,
   platformUrlPlaceholder,
   resolveMeetingBotMascotId,
   resolveMeetingDisplayName,
 } from './meetingUtils';
+import { PlatformChips } from './PlatformChips';
 
 const log = debug('meetings:composer');
 
@@ -110,9 +110,7 @@ export function MeetComposer({ onToast, hasSubmittedRef }: MeetComposerProps) {
 
     hasSubmittedRef.current = false;
     const raw = meetError?.trim() || t('skills.meetingBots.failedToStart');
-    const message = isCapacityGateMessage(raw)
-      ? t('skills.meetingBots.serverOverloaded')
-      : raw;
+    const message = isCapacityGateMessage(raw) ? t('skills.meetingBots.serverOverloaded') : raw;
     log('[composer] join error: %s', message);
     onToast?.({ type: 'error', title: t('skills.meetingBots.couldNotStartTitle'), message });
 
@@ -139,7 +137,12 @@ export function MeetComposer({ onToast, hasSubmittedRef }: MeetComposerProps) {
     setSubmitting(true);
     hasSubmittedRef.current = true;
     const meetingId = crypto.randomUUID();
-    log('[composer] submit platform=%s active=%s correlationId=%s', platform, !listenOnly, meetingId);
+    log(
+      '[composer] submit platform=%s active=%s correlationId=%s',
+      platform,
+      !listenOnly,
+      meetingId
+    );
     try {
       // Await the RPC BEFORE dispatching setBackendMeetJoining so that a
       // synchronous rejection (bad URL, auth failure) can be shown inline
@@ -165,9 +168,7 @@ export function MeetComposer({ onToast, hasSubmittedRef }: MeetComposerProps) {
       dispatch(setBackendMeetJoining({ meetUrl: meetUrl.trim(), meetingId, listenOnly }));
     } catch (err) {
       const raw = err instanceof Error ? err.message : t('skills.meetingBots.failedToStart');
-      const message = isCapacityGateMessage(raw)
-        ? t('skills.meetingBots.serverOverloaded')
-        : raw;
+      const message = isCapacityGateMessage(raw) ? t('skills.meetingBots.serverOverloaded') : raw;
       log('[composer] join threw: %s', message);
       setError(message);
       setSubmitting(false);
@@ -183,9 +184,7 @@ export function MeetComposer({ onToast, hasSubmittedRef }: MeetComposerProps) {
     <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft animate-fade-up">
       {/* Header */}
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-content">
-          {t('skills.meetingBots.modalTitle')}
-        </h2>
+        <h2 className="text-sm font-semibold text-content">{t('skills.meetingBots.modalTitle')}</h2>
         <p className="mt-1 text-xs leading-relaxed text-content-secondary">
           {t('skills.meetingBots.modalDesc')}
         </p>
@@ -193,11 +192,7 @@ export function MeetComposer({ onToast, hasSubmittedRef }: MeetComposerProps) {
 
       {/* Platform selector */}
       <div className="mb-4">
-        <PlatformChips
-          selected={platform}
-          onSelect={handlePlatformChange}
-          disabled={submitting}
-        />
+        <PlatformChips selected={platform} onSelect={handlePlatformChange} disabled={submitting} />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">

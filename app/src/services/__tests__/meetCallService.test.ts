@@ -283,10 +283,7 @@ describe('listUpcomingMeetings', () => {
   };
 
   it('calls openhuman.meet_list_upcoming with no params when no args given', async () => {
-    vi.mocked(callCoreRpc).mockResolvedValueOnce({
-      ok: true,
-      meetings: [mockMeeting],
-    } as never);
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: true, meetings: [mockMeeting] } as never);
 
     const result = await listUpcomingMeetings();
 
@@ -298,10 +295,7 @@ describe('listUpcomingMeetings', () => {
   });
 
   it('forwards lookahead_minutes and limit when provided', async () => {
-    vi.mocked(callCoreRpc).mockResolvedValueOnce({
-      ok: true,
-      meetings: [],
-    } as never);
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: true, meetings: [] } as never);
 
     await listUpcomingMeetings(120, 10);
 
@@ -312,10 +306,7 @@ describe('listUpcomingMeetings', () => {
   });
 
   it('returns an empty array when core returns no meetings', async () => {
-    vi.mocked(callCoreRpc).mockResolvedValueOnce({
-      ok: true,
-      meetings: undefined,
-    } as never);
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: true, meetings: undefined } as never);
 
     const result = await listUpcomingMeetings();
     expect(result).toEqual([]);
@@ -366,7 +357,10 @@ describe('getEventPolicies', () => {
   });
 
   it('calls meet_get_event_policies with correct params', async () => {
-    vi.mocked(callCoreRpc).mockResolvedValueOnce({ ok: true, policies: { 'evt-1': 'skip' } } as never);
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({
+      ok: true,
+      policies: { 'evt-1': 'skip' },
+    } as never);
     const result = await getEventPolicies(['evt-1', 'evt-2']);
     expect(callCoreRpc).toHaveBeenCalledWith({
       method: 'openhuman.meet_get_event_policies',
@@ -389,7 +383,10 @@ describe('getEventPolicies', () => {
 
 describe('parseTranscriptLine', () => {
   it('parses a line with a [MM:SS] [Name] prefix', () => {
-    const result = parseTranscriptLine({ role: 'participant', content: '[1:23] [Alice] Hello there!' });
+    const result = parseTranscriptLine({
+      role: 'participant',
+      content: '[1:23] [Alice] Hello there!',
+    });
     expect(result.timestamp).toBe('1:23');
     expect(result.speaker).toBe('Alice');
     expect(result.text).toBe('Hello there!');
@@ -405,7 +402,10 @@ describe('parseTranscriptLine', () => {
   });
 
   it('handles partial brackets — no match, returns full content', () => {
-    const result = parseTranscriptLine({ role: 'participant', content: '[1:23] missing second bracket' });
+    const result = parseTranscriptLine({
+      role: 'participant',
+      content: '[1:23] missing second bracket',
+    });
     expect(result.timestamp).toBeNull();
     expect(result.speaker).toBeNull();
     expect(result.text).toBe('[1:23] missing second bracket');

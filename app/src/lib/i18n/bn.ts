@@ -5202,7 +5202,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.history.participantCountPlural': '{count} অংশগ্রহণকারী',
   'skills.meetingBots.history.runWithOpenHuman': 'OpenHuman দিয়ে চালান',
   'skills.meetingBots.history.searchPlaceholder': 'কল খুঁজুন…',
-  'skills.meetingBots.history.selectPrompt': 'সারাংশ এবং ট্রান্সক্রিপ্ট দেখতে একটি কল নির্বাচন করুন।',
+  'skills.meetingBots.history.selectPrompt':
+    'সারাংশ এবং ট্রান্সক্রিপ্ট দেখতে একটি কল নির্বাচন করুন।',
   'skills.meetingBots.history.today': 'আজ',
   'skills.meetingBots.history.yesterday': 'গতকাল',
   'skills.meetingBots.upcoming.heading': 'আসন্ন',
@@ -5219,7 +5220,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.upcoming.skip': 'এড়িয়ে যান',
   'skills.meetingBots.upcoming.today': 'আজ',
   'skills.meetingBots.upcoming.tomorrow': 'আগামীকাল',
-  'skills.meetingBots.upcoming.empty': 'কোনো আসন্ন মিটিং নেই — এখানে দেখতে Google Calendar সংযুক্ত করুন।',
+  'skills.meetingBots.upcoming.empty':
+    'কোনো আসন্ন মিটিং নেই — এখানে দেখতে Google Calendar সংযুক্ত করুন।',
   'skills.meetingBots.upcoming.error': 'আসন্ন মিটিং লোড করা যায়নি।',
   'skills.meetingBots.upcoming.retry': 'পুনরায় চেষ্টা করুন',
   'skills.meetingBots.upcoming.refresh': 'রিফ্রেশ',
@@ -5245,7 +5247,8 @@ const messages: TranslationMap = {
     'OpenHuman-কে আপনার সংযুক্ত ক্যালেন্ডার দেখতে দিন যাতে এটি নীচের নীতিগুলির উপর ভিত্তি করে মিটিংয়ে স্বয়ংক্রিয়ভাবে যোগ দিতে বা অনুরোধ করতে পারে। এটি মিটিং অনুস্মারক বিজ্ঞপ্তি থেকে আলাদা।',
   'skills.meetingBots.defaults.globalPolicy': 'বৈশ্বিক স্বয়ংক্রিয়-যোগ দেওয়ার নীতি',
   'skills.meetingBots.defaults.perPlatformTitle': 'প্রতি-প্ল্যাটফর্ম ওভাররাইড',
-  'skills.meetingBots.defaults.perPlatformDesc': 'নির্দিষ্ট প্ল্যাটফর্মের জন্য বৈশ্বিক নীতি ওভাররাইড করুন।',
+  'skills.meetingBots.defaults.perPlatformDesc':
+    'নির্দিষ্ট প্ল্যাটফর্মের জন্য বৈশ্বিক নীতি ওভাররাইড করুন।',
   'skills.meetingBots.defaults.useDefault': 'ডিফল্ট ব্যবহার করুন',
   'skills.resource.preview.closeAriaLabel': 'প্রিভিউ বন্ধ করুন',
   'skills.resource.preview.failed': 'প্রিভিউ ব্যর্থ',
