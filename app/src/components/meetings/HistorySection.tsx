@@ -148,10 +148,16 @@ export function HistorySection() {
     prevMeetStatusRef.current = meetStatus;
     if (meetStatus === 'ended' && prev !== 'ended') {
       log('[history] meeting ended → refreshing recent calls');
-      // Snapshot the calls we already know about so the refresh can detect the
-      // just-finished one and move the selection (and detail pane) onto it.
-      knownIdsAtEndRef.current = new Set((recordsRef.current ?? []).map(r => r.request_id));
-      pendingSelectLatestRef.current = true;
+      // Only arm auto-select when history is already loaded. With a known
+      // baseline we can snapshot the existing call IDs and tell which row is
+      // the just-finished one. If history hasn't loaded yet (recordsRef null),
+      // there is no explicit user selection to preserve, so the default
+      // auto-snap to the newest row already lands on the new call — arming from
+      // an empty snapshot would instead misclassify an old row as new (#4341).
+      if (recordsRef.current !== null) {
+        knownIdsAtEndRef.current = new Set(recordsRef.current.map(r => r.request_id));
+        pendingSelectLatestRef.current = true;
+      }
       return fetchCallsWithRetries();
     }
   }, [meetStatus, fetchCallsWithRetries]);
@@ -216,6 +222,9 @@ export function HistorySection() {
 
   function handleSelect(id: string) {
     log('[history] selected call', id);
+    // An explicit pick wins over a pending end-of-meeting auto-select so a
+    // delayed retry doesn't yank the user off the call they just opened.
+    pendingSelectLatestRef.current = false;
     setSelectedCallId(id);
   }
 
