@@ -62,6 +62,12 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
   const { t } = useT();
 
   const [loading, setLoading] = useState(true);
+  // Finding A: track whether the initial load completed successfully
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumping this triggers a retry of the initial load
+  const [retryCount, setRetryCount] = useState(0);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -78,9 +84,11 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
   // Per-platform overrides: key → MeetAutoJoinPolicy | undefined (undefined = use default)
   const [platformPolicies, setPlatformPolicies] = useState<Record<string, PlatformPolicy>>({});
 
-  const persistSeqRef = useRef(0);
+  // Finding B: per-setting sequence counters so a failed save for one setting
+  // does not get masked by a successful save for a different setting.
+  const persistSeqRef = useRef<Record<string, number>>({});
 
-  // Load settings when opened
+  // Load settings when opened (also re-runs when retryCount is bumped)
   useEffect(() => {
     if (!open) return;
     if (!isTauri()) {
@@ -89,9 +97,10 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
     }
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setLoaded(false);
+    setLoadError(null);
     const load = async () => {
-      log('load start');
+      log('load start retryCount=%d', retryCount);
       try {
         const resp = await openhumanGetMeetSettings();
         if (cancelled) return;
@@ -109,9 +118,12 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
           pp[plat] = (stored[plat] as MeetAutoJoinPolicy | undefined) ?? 'default';
         }
         setPlatformPolicies(pp);
+        setLoaded(true);
       } catch (e) {
         log('load failed err=%o', e);
-        if (!cancelled) setError(e instanceof Error ? e.message : t('settings.meetings.loadError'));
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : t('settings.meetings.loadError'));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -121,28 +133,32 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, retryCount]);
 
+  // Finding B: settingKey scopes the seq counter to this specific setting so that
+  // a failed save for one setting is not silently dropped because another setting's
+  // save incremented the shared counter in between.
   const persist = async (
+    settingKey: string,
     patch: Parameters<typeof openhumanUpdateMeetSettings>[0],
     onFailure?: () => void
   ) => {
-    const seq = ++persistSeqRef.current;
+    const seq = (persistSeqRef.current[settingKey] = (persistSeqRef.current[settingKey] ?? 0) + 1);
     if (!isTauri()) return;
-    log('persist patch=%o', patch);
+    log('persist settingKey=%s patch=%o seq=%d', settingKey, patch, seq);
     setError(null);
     setSavedNote(null);
     setSaving(true);
     try {
       await openhumanUpdateMeetSettings(patch);
-      if (seq !== persistSeqRef.current) return;
+      if (seq !== persistSeqRef.current[settingKey]) return;
       setSavedNote(t('settings.meetings.saved'));
     } catch (e) {
-      if (seq !== persistSeqRef.current) return;
+      if (seq !== persistSeqRef.current[settingKey]) return;
       onFailure?.();
       setError(e instanceof Error ? e.message : t('settings.meetings.saveError'));
     } finally {
-      if (seq === persistSeqRef.current) setSaving(false);
+      if (seq === persistSeqRef.current[settingKey]) setSaving(false);
     }
   };
 
@@ -150,31 +166,35 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
     const prev = watchCalendar;
     setWatchCalendar(next);
     log('watch_calendar change next=%s', next);
-    void persist({ watch_calendar: next }, () => setWatchCalendar(prev));
+    void persist('watch_calendar', { watch_calendar: next }, () => setWatchCalendar(prev));
   };
 
   const handleAutoJoinChange = (next: MeetAutoJoinPolicy) => {
     const prev = autoJoin;
     setAutoJoin(next);
-    void persist({ auto_join_policy: next }, () => setAutoJoin(prev));
+    void persist('auto_join_policy', { auto_join_policy: next }, () => setAutoJoin(prev));
   };
 
   const handleAutoSummarizeChange = (next: MeetAutoSummarizePolicy) => {
     const prev = autoSummarize;
     setAutoSummarize(next);
-    void persist({ auto_summarize_policy: next }, () => setAutoSummarize(prev));
+    void persist('auto_summarize_policy', { auto_summarize_policy: next }, () =>
+      setAutoSummarize(prev)
+    );
   };
 
   const handleListenOnlyChange = (next: boolean) => {
     const prev = listenOnly;
     setListenOnly(next);
-    void persist({ listen_only_default: next }, () => setListenOnly(prev));
+    void persist('listen_only_default', { listen_only_default: next }, () => setListenOnly(prev));
   };
 
   const handleIngestChange = (next: boolean) => {
     const prev = ingestTranscripts;
     setIngestTranscripts(next);
-    void persist({ ingest_backend_transcripts: next }, () => setIngestTranscripts(prev));
+    void persist('ingest_backend_transcripts', { ingest_backend_transcripts: next }, () =>
+      setIngestTranscripts(prev)
+    );
   };
 
   const handlePlatformPolicyChange = (platform: string, next: PlatformPolicy) => {
@@ -190,6 +210,7 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
       }
     }
     void persist(
+      `platform_auto_join_policies.${platform}`,
       { platform_auto_join_policies: toSave },
       () => setPlatformPolicies(current => ({ ...current, [platform]: prevValue }))
     );
@@ -241,6 +262,23 @@ export function MeetDefaultsDrawer({ open, onClose }: MeetDefaultsDrawerProps) {
             <p className="text-sm text-content-secondary">{t('settings.meetings.loading')}</p>
           ) : !isTauri() ? (
             <p className="text-sm text-content-secondary">{t('settings.meetings.desktopOnly')}</p>
+          ) : !loaded ? (
+            // Finding A: load failed — show error + retry instead of stale-defaults form
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-status-error">
+                {loadError ?? t('settings.meetings.loadError')}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  log('retry load');
+                  setRetryCount(c => c + 1);
+                }}
+                className="self-start text-sm text-primary-500 hover:text-primary-400 transition-colors underline"
+              >
+                {t('common.retry')}
+              </button>
+            </div>
           ) : (
             <>
               {/* Master calendar-watch switch */}

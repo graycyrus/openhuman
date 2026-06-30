@@ -159,4 +159,129 @@ describe('MeetDefaultsDrawer', () => {
     // Wait for the rejection to revert the switch back to false
     await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'false'));
   });
+
+  // ── Finding A: load-failure state ─────────────────────────────────────────
+
+  it('shows error + retry when initial load fails — does NOT render controls', async () => {
+    getMock.mockRejectedValueOnce(new Error('RPC timeout'));
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+
+    // Should eventually show error (not loading, not controls)
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+
+    // Error message is visible (the thrown error's message is surfaced directly)
+    expect(screen.getByText(/rpc timeout/i)).toBeInTheDocument();
+
+    // Retry button is shown
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+
+    // No editable controls — no comboboxes or switches
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+
+    // No save was ever attempted
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it('retry re-runs the load and renders the form on success', async () => {
+    // First load fails, second (retry) succeeds
+    getMock
+      .mockRejectedValueOnce(new Error('transient error'))
+      .mockResolvedValueOnce(DEFAULT_SETTINGS);
+
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+
+    // Wait for error state
+    const retryBtn = await screen.findByRole('button', { name: /try again/i });
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+
+    // Click retry
+    fireEvent.click(retryBtn);
+
+    // After retry the form should appear
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
+    );
+    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
+    expect(screen.getByRole('switch', { name: /watch my calendar/i })).toBeInTheDocument();
+
+    // No save was fired during the error phase
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  // ── Finding B: per-setting sequence isolation ──────────────────────────────
+
+  it('per-setting revert: failed save for A is not masked by succeeded save for B', async () => {
+    getMock.mockResolvedValueOnce({ ...DEFAULT_SETTINGS });
+
+    // Save A (auto_join_policy) is a controlled promise that we will reject later
+    let rejectAutoJoin!: (e: Error) => void;
+    const autoJoinPromise = new Promise<{ result: object }>((_, rej) => {
+      rejectAutoJoin = rej;
+    });
+
+    // First updateMock call (auto_join_policy) → controlled; subsequent calls resolve immediately
+    updateMock.mockReturnValueOnce(autoJoinPromise).mockResolvedValue({ result: {} });
+
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+
+    // Optimistically change setting A (auto_join_policy: 'ask_each_time' → 'always')
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[0], { target: { value: 'always' } });
+
+    // Optimistically change setting B (listen_only: true → false)
+    const listenSwitch = screen.getByRole('switch', { name: /listen.only/i });
+    fireEvent.click(listenSwitch);
+
+    // Wait for both saves to have been dispatched
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(2));
+
+    // Save B (listen_only) has already resolved successfully; now reject save A
+    rejectAutoJoin(new Error('network error'));
+
+    // Setting A should revert to its original value
+    await waitFor(() => {
+      const autoJoinSelect = screen.getAllByRole('combobox')[0];
+      expect(autoJoinSelect).toHaveValue('ask_each_time');
+    });
+
+    // Setting B must keep the new value (was true, clicked → false)
+    const listenSwitchAfter = screen.getByRole('switch', { name: /listen.only/i });
+    expect(listenSwitchAfter).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('superseded response for the same setting is silently ignored', async () => {
+    getMock.mockResolvedValueOnce({ ...DEFAULT_SETTINGS });
+
+    // First change (→ 'always') returns a controlled promise; second (→ 'never') resolves fast
+    let resolveFirstSave!: (v: { result: object }) => void;
+    const firstSavePromise = new Promise<{ result: object }>(res => {
+      resolveFirstSave = res;
+    });
+    updateMock.mockReturnValueOnce(firstSavePromise).mockResolvedValue({ result: {} });
+
+    renderWithProviders(<MeetDefaultsDrawer open onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+
+    const selects = screen.getAllByRole('combobox');
+
+    // First rapid change: ask_each_time → always
+    fireEvent.change(selects[0], { target: { value: 'always' } });
+    // Second rapid change for the SAME setting: always → never (supersedes the first)
+    fireEvent.change(selects[0], { target: { value: 'never' } });
+
+    // Wait for the second (fast) save to complete
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(2));
+
+    // Resolve the first (now-superseded) save
+    resolveFirstSave({ result: {} });
+
+    // The select value should remain 'never' (the current committed value)
+    // A short wait ensures the first save's then() handler has run
+    await waitFor(() => {
+      const autoJoinSelect = screen.getAllByRole('combobox')[0];
+      expect(autoJoinSelect).toHaveValue('never');
+    });
+  });
 });
