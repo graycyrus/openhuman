@@ -5,9 +5,31 @@
  * previously embedded inside MeetingBotsCard so they can be unit-tested in
  * isolation and shared across the split composer components.
  */
+import type { MascotColor } from '../../features/human/Mascot/mascotPalette';
 import type { ComposioConnection } from '../../lib/composio/types';
 import type { MeetingPlatform } from '../../services/meetCallService';
 import { composioLogoUrl } from '../composio/toolkitMeta';
+
+/**
+ * Mascot ids the meeting-bot backend recognizes. Newer manifest-only mascot
+ * ids (e.g. "river-guide") aren't supported there, so the bot falls back to the
+ * legacy mascot color for them.
+ */
+const MEETING_BOT_MASCOT_IDS = new Set(['yellow', 'blue', 'burgundy', 'black', 'navy']);
+
+/**
+ * Resolve the mascot id to send to the meeting bot: the selected mascot id when
+ * the backend recognizes it, otherwise the legacy mascot color (or undefined
+ * for `custom`, which has no backend mascot id).
+ */
+export function resolveMeetingBotMascotId(
+  selectedMascotId: string | null,
+  mascotColor: MascotColor
+): string | undefined {
+  if (selectedMascotId && MEETING_BOT_MASCOT_IDS.has(selectedMascotId)) return selectedMascotId;
+  if (mascotColor !== 'custom') return mascotColor;
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Platform registry

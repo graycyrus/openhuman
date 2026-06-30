@@ -34,6 +34,7 @@ import { PlatformChips } from './PlatformChips';
 import {
   platformLabel,
   platformUrlPlaceholder,
+  resolveMeetingBotMascotId,
   resolveMeetingDisplayName,
 } from './meetingUtils';
 
@@ -125,7 +126,7 @@ export function MeetComposer({ onToast, hasSubmittedRef }: MeetComposerProps) {
   // ── Submit ───────────────────────────────────────────────────────────────
   const agentName = personaDisplayName.trim() || 'Tiny';
   const systemPrompt = personaDescription.trim() || undefined;
-  const mascotId = selectedMascotId ?? (mascotColor === 'custom' ? undefined : mascotColor);
+  const mascotId = resolveMeetingBotMascotId(selectedMascotId, mascotColor);
   const riveColors =
     mascotColor === 'custom'
       ? { primaryColor: customPrimaryColor, secondaryColor: customSecondaryColor }

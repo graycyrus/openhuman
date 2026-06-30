@@ -8,6 +8,7 @@ import {
   platformLabel,
   platformPrimaryToolkit,
   platformUrlPlaceholder,
+  resolveMeetingBotMascotId,
   resolveMeetingDisplayName,
 } from '../meetingUtils';
 
@@ -248,5 +249,23 @@ describe('inferPlatformFromUrl', () => {
 
   it('returns null for an invalid (unparseable) URL string', () => {
     expect(inferPlatformFromUrl('not-a-url')).toBeNull();
+  });
+});
+
+describe('resolveMeetingBotMascotId', () => {
+  it('keeps a selected mascot id the backend recognizes', () => {
+    expect(resolveMeetingBotMascotId('navy', 'yellow')).toBe('navy');
+  });
+
+  it('falls back to the legacy mascot color for a manifest-only mascot id', () => {
+    expect(resolveMeetingBotMascotId('river-guide', 'yellow')).toBe('yellow');
+  });
+
+  it('uses the mascot color when no mascot id is selected', () => {
+    expect(resolveMeetingBotMascotId(null, 'burgundy')).toBe('burgundy');
+  });
+
+  it('returns undefined for custom color with an unrecognized mascot id', () => {
+    expect(resolveMeetingBotMascotId('river-guide', 'custom')).toBeUndefined();
   });
 });
