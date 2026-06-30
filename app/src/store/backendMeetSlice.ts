@@ -52,14 +52,17 @@ export interface BackendMeetState {
   transcript: BackendMeetTranscriptEvent | null;
   /**
    * Live transcript turns accumulated from `transcript_delta` events during an
-   * active call, ordered by `index`. Cleared on join and on leave, and
-   * reconciled away (emptied) when the authoritative final `transcript`
-   * arrives at call end so the same lines aren't shown twice.
+   * active call, keyed by the backend's transcript `index` (the array position
+   * IS that index). The array can be sparse — skipped `[System]` turns occupy
+   * an index but are never sent as deltas — so consumers must skip empty slots.
+   * Cleared on join and on leave, and reconciled away (emptied) when the
+   * authoritative final `transcript` arrives at call end so lines aren't shown
+   * twice.
    */
   liveTranscript: BackendMeetTurn[];
   /**
-   * Index of the turn currently marked partial (greyed) in `liveTranscript`,
-   * or `null` when the tail is finalized.
+   * Backend transcript index of the turn currently marked partial (greyed), or
+   * `null` when the latest delta finalized its line.
    */
   livePartialIndex: number | null;
   error: string | null;
@@ -132,18 +135,19 @@ const backendMeetSlice = createSlice({
       action: PayloadAction<BackendMeetTranscriptDeltaEvent>
     ) {
       const { turn, index, is_partial } = action.payload;
-      // Place the turn at its stable slot. Backend deltas are sequential, so a
-      // delta whose index is at/after the current tail appends; one targeting
-      // an existing index supersedes it (e.g. a partial line being finalized).
-      if (index >= 0 && index < state.liveTranscript.length) {
-        state.liveTranscript[index] = turn;
-      } else {
-        state.liveTranscript.push(turn);
-      }
-      const placedIndex = Math.min(Math.max(index, 0), state.liveTranscript.length - 1);
+      // Guard against a malformed negative index.
+      if (index < 0) return;
+      // Key strictly by the backend's transcript index. The backend reconciles
+      // deltas by index: a partial preview and its finalized turn share the
+      // same index, so writing at `index` makes the final supersede the partial
+      // in place. Indices are NOT guaranteed contiguous or zero-based — skipped
+      // `[System]` turns occupy an index but are never sent as deltas — so we
+      // leave a gap (a sparse slot) rather than shifting later turns. Rendering
+      // skips the empty slots.
+      state.liveTranscript[index] = turn;
       if (is_partial) {
-        state.livePartialIndex = placedIndex;
-      } else if (state.livePartialIndex === placedIndex) {
+        state.livePartialIndex = index;
+      } else if (state.livePartialIndex === index) {
         // This delta finalizes the line that was previously partial.
         state.livePartialIndex = null;
       }

@@ -29,6 +29,20 @@ describe('LiveTranscriptPanel (#4304)', () => {
     expect(screen.queryByText(/waiting for speech/i)).not.toBeInTheDocument();
   });
 
+  it('renders the inline [Speaker] tag as a label, not raw bracket text', () => {
+    renderWithProviders(
+      <LiveTranscriptPanel
+        turns={[{ role: 'user', content: '[Alice] hello there' }]}
+        partialIndex={null}
+      />
+    );
+    // Speaker is pulled out of the content and shown as a label.
+    expect(screen.getByText('Alice:')).toBeInTheDocument();
+    expect(screen.getByText('hello there')).toBeInTheDocument();
+    // The raw bracketed form is not shown.
+    expect(screen.queryByText(/\[Alice\]/)).not.toBeInTheDocument();
+  });
+
   it('greys the partial line at partialIndex', () => {
     renderWithProviders(
       <LiveTranscriptPanel

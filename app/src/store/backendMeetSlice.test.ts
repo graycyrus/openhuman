@@ -149,6 +149,57 @@ describe('backendMeetSlice', () => {
       expect(state.livePartialIndex).toBeNull();
     });
 
+    it('keys by backend index: gaps (skipped [System] turns) do not break supersede', () => {
+      // index 0 finalized, then a partial preview lands at index 2 (index 1 is a
+      // skipped [System] turn never sent as a delta), then index 2 is finalized.
+      let state = backendMeetReducer(
+        initial,
+        appendBackendMeetTranscriptDelta({
+          turn: { role: 'user', content: '[Alice] hi' },
+          index: 0,
+          is_partial: false,
+        })
+      );
+      state = backendMeetReducer(
+        state,
+        appendBackendMeetTranscriptDelta({
+          turn: { role: 'user', content: '[Bob] in pro' },
+          index: 2,
+          is_partial: true,
+        })
+      );
+      expect(state.livePartialIndex).toBe(2);
+      // Finalize at the SAME backend index → replaces the partial in place, no dup.
+      state = backendMeetReducer(
+        state,
+        appendBackendMeetTranscriptDelta({
+          turn: { role: 'user', content: '[Bob] in progress' },
+          index: 2,
+          is_partial: false,
+        })
+      );
+      expect(state.livePartialIndex).toBeNull();
+      expect(state.liveTranscript[0]?.content).toBe('[Alice] hi');
+      expect(state.liveTranscript[2]?.content).toBe('[Bob] in progress');
+      // The gap at index 1 stays empty; no duplicate Bob turn was appended.
+      expect(state.liveTranscript[1]).toBeUndefined();
+      const populated = state.liveTranscript.filter(Boolean);
+      expect(populated).toHaveLength(2);
+    });
+
+    it('ignores a delta with a negative index', () => {
+      const state = backendMeetReducer(
+        initial,
+        appendBackendMeetTranscriptDelta({
+          turn: { role: 'user', content: 'bad' },
+          index: -1,
+          is_partial: false,
+        })
+      );
+      expect(state.liveTranscript.filter(Boolean)).toHaveLength(0);
+      expect(state.livePartialIndex).toBeNull();
+    });
+
     it('clears the live buffer on join', () => {
       const withLive = backendMeetReducer(
         initial,
