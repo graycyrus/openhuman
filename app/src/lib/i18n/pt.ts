@@ -5273,6 +5273,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'Reunião encerrada',
   'skills.meetingBots.liveStatusError': 'Falha ao entrar',
   'skills.meetingBots.leaveButton': 'Sair',
+  'skills.meetingBots.leavingButton': 'Saindo…',
   'skills.meetingBots.respondToParticipant': 'Seu nome nesta reunião',
   'skills.meetingBots.respondToParticipantHint': 'ex. João (seu nome exibido na chamada)',
   'skills.meetingBots.respondToParticipantDesc':

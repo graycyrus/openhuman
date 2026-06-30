@@ -5203,6 +5203,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'Rapat selesai',
   'skills.meetingBots.liveStatusError': 'Gagal bergabung',
   'skills.meetingBots.leaveButton': 'Keluar',
+  'skills.meetingBots.leavingButton': 'Keluar...',
   'skills.meetingBots.respondToParticipant': 'Nama Anda di Rapat Ini',
   'skills.meetingBots.respondToParticipantHint': 'mis. Budi (nama tampilan Anda di panggilan)',
   'skills.meetingBots.respondToParticipantDesc':

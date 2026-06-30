@@ -5184,6 +5184,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'মিটিং শেষ',
   'skills.meetingBots.liveStatusError': 'যোগ দিতে ব্যর্থ',
   'skills.meetingBots.leaveButton': 'ছেড়ে দিন',
+  'skills.meetingBots.leavingButton': 'বেরিয়ে যাচ্ছে…',
   'skills.meetingBots.respondToParticipant': 'এই মিটিংয়ে আপনার নাম',
   'skills.meetingBots.respondToParticipantHint': 'যেমন: রিয়া (কলে আপনার প্রদর্শনী নাম)',
   'skills.meetingBots.respondToParticipantDesc':

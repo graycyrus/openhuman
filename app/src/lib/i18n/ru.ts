@@ -5230,6 +5230,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'Встреча завершена',
   'skills.meetingBots.liveStatusError': 'Ошибка подключения',
   'skills.meetingBots.leaveButton': 'Выйти',
+  'skills.meetingBots.leavingButton': 'Выход…',
   'skills.meetingBots.respondToParticipant': 'Ваше имя на этой встрече',
   'skills.meetingBots.respondToParticipantHint': 'напр. Иван (ваше отображаемое имя в звонке)',
   'skills.meetingBots.respondToParticipantDesc':

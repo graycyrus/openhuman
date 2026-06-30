@@ -5079,6 +5079,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'انتهى الاجتماع',
   'skills.meetingBots.liveStatusError': 'فشل الانضمام',
   'skills.meetingBots.leaveButton': 'مغادرة',
+  'skills.meetingBots.leavingButton': 'جارٍ المغادرة…',
   'skills.meetingBots.respondToParticipant': 'اسمك في هذا الاجتماع',
   'skills.meetingBots.respondToParticipantHint': 'مثال: أحمد (اسمك في المكالمة)',
   'skills.meetingBots.respondToParticipantDesc':

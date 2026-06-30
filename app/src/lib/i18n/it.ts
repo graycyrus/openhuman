@@ -5270,6 +5270,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'Riunione terminata',
   'skills.meetingBots.liveStatusError': 'Partecipazione fallita',
   'skills.meetingBots.leaveButton': 'Esci',
+  'skills.meetingBots.leavingButton': 'Uscita in corso…',
   'skills.meetingBots.respondToParticipant': 'Il tuo nome in questa riunione',
   'skills.meetingBots.respondToParticipantHint':
     'es. Mario (il tuo nome visualizzato nella chiamata)',

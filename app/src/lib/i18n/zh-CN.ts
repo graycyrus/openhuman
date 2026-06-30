@@ -4928,6 +4928,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': '会议已结束',
   'skills.meetingBots.liveStatusError': '加入失败',
   'skills.meetingBots.leaveButton': '离开',
+  'skills.meetingBots.leavingButton': '正在离开…',
   'skills.meetingBots.respondToParticipant': '您在此会议中的姓名',
   'skills.meetingBots.respondToParticipantHint': '例如：小明（通话中的显示名称）',
   'skills.meetingBots.respondToParticipantDesc':

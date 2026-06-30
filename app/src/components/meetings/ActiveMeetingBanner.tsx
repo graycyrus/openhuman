@@ -24,6 +24,7 @@ import {
 } from '../../store/backendMeetSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import Button from '../ui/Button';
+import { Spinner } from '../ui/icons';
 
 type Toast = { type: 'success' | 'error' | 'info'; title: string; message?: string };
 
@@ -80,14 +81,16 @@ export function ActiveMeetingBanner({ onToast }: ActiveMeetingBannerProps) {
     setLeaving(true);
     try {
       await leaveBackendMeetBot('user-requested');
+      // Stay in the pending "Leaving…" state on success: when the bot actually
+      // leaves, `status` flips to ended/error and this banner unmounts (the
+      // parent only renders it while joining/active), so the flag never lingers.
     } catch (err) {
+      setLeaving(false);
       onToast?.({
         type: 'error',
         title: t('skills.meetingBots.couldNotStartTitle'),
         message: String(err),
       });
-    } finally {
-      setLeaving(false);
     }
   };
 
@@ -118,8 +121,13 @@ export function ActiveMeetingBanner({ onToast }: ActiveMeetingBannerProps) {
           {t('skills.meetingBots.liveBadge')}
         </span>
         {canLeave && (
-          <Button variant="secondary" size="sm" onClick={handleLeave} disabled={leaving}>
-            {t('skills.meetingBots.leaveButton')}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleLeave}
+            disabled={leaving}
+            leadingIcon={leaving ? <Spinner className="h-3.5 w-3.5" /> : undefined}>
+            {leaving ? t('skills.meetingBots.leavingButton') : t('skills.meetingBots.leaveButton')}
           </Button>
         )}
         {isDone && (

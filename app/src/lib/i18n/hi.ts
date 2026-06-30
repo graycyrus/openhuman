@@ -5189,6 +5189,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusEnded': 'मीटिंग समाप्त',
   'skills.meetingBots.liveStatusError': 'शामिल होने में विफल',
   'skills.meetingBots.leaveButton': 'छोड़ें',
+  'skills.meetingBots.leavingButton': 'छोड़ रहे हैं…',
   'skills.meetingBots.respondToParticipant': 'इस मीटिंग में आपका नाम',
   'skills.meetingBots.respondToParticipantHint': 'जैसे: अनीता (कॉल में आपका प्रदर्शन नाम)',
   'skills.meetingBots.respondToParticipantDesc':
