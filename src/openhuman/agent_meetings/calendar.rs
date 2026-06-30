@@ -416,12 +416,15 @@ pub async fn handle_calendar_meeting_candidate(
 
             // Persist a session keyed by correlation_id so future trigger
             // firings find the existing entry and skip (see dedup guard above).
+            // Persist the resolved calendar_event_id so per-event policy
+            // lookups and dedup can key off the calendar event rather than
+            // only the meeting URL.
             let now_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
             let session = MeetingSession {
                 id: correlation_id.clone(),
                 meet_url: meet_url.clone(),
                 title: Some(event_title.clone()),
-                calendar_event_id: None,
+                calendar_event_id: calendar_event_id.clone(),
                 status: MeetingSessionStatus::Joined,
                 source: AutoJoinSource::Calendar,
                 thread_id: None,
@@ -480,11 +483,14 @@ pub async fn handle_calendar_meeting_candidate(
 
             let meeting_id = uuid::Uuid::new_v4().to_string();
             let now_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
+            // Persist the resolved calendar_event_id so per-event policy
+            // lookups and dedup can key off the calendar event rather than
+            // only the meeting URL.
             let session = MeetingSession {
                 id: meeting_id.clone(),
                 meet_url: meet_url.clone(),
                 title: Some(event_title.clone()),
-                calendar_event_id: None,
+                calendar_event_id: calendar_event_id.clone(),
                 status: MeetingSessionStatus::Pending,
                 source: AutoJoinSource::Calendar,
                 thread_id: None,
@@ -1279,6 +1285,50 @@ mod tests {
         assert_eq!(
             extract_meet_url(&payload).as_deref(),
             Some("https://teams.microsoft.com/l/meetup-join/abc")
+        );
+    }
+
+    // ── calendar_event_id persisted on session (finding #3) ─────
+
+    #[test]
+    fn session_persists_calendar_event_id_round_trip() {
+        use crate::openhuman::agent_meetings::store;
+        use crate::openhuman::agent_meetings::types::{
+            AutoJoinSource, MeetingSession, MeetingSessionStatus,
+        };
+        use crate::openhuman::config::Config;
+        use tempfile::TempDir;
+
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+
+        // Simulate what handle_calendar_meeting_candidate does after the fix:
+        // it populates calendar_event_id from the resolved payload id.
+        let now_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
+        let session = MeetingSession {
+            id: "corr-id-abc".to_string(),
+            meet_url: "https://meet.google.com/cal-test".to_string(),
+            title: Some("Calendar meeting".to_string()),
+            // After finding #3 fix this is Some("cal-ev-xyz"), not None.
+            calendar_event_id: Some("cal-ev-xyz".to_string()),
+            status: MeetingSessionStatus::Joined,
+            source: AutoJoinSource::Calendar,
+            thread_id: None,
+            transcript_received: false,
+            summary_generated: false,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        };
+        store::create_session(&config, &session).unwrap();
+
+        let fetched = store::get_session(&config, "corr-id-abc")
+            .unwrap()
+            .expect("session must exist");
+        assert_eq!(
+            fetched.calendar_event_id.as_deref(),
+            Some("cal-ev-xyz"),
+            "calendar_event_id must survive store round-trip (finding #3)"
         );
     }
 }

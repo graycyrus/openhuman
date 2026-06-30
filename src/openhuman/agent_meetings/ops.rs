@@ -498,15 +498,27 @@ pub(crate) fn extract_calendar_event_id(
 /// the event resource under `data`. Uses the same `id`/`eventId`/`icalUID`
 /// priority as [`extract_calendar_event_id`] so the webhook auto-join path keys
 /// per-event policy lookups by the SAME id the UI persists them under.
+///
+/// The `data` sub-object is checked **first** so the actual calendar event id
+/// nested under `data` wins over any top-level `id` that might belong to the
+/// Composio trigger wrapper rather than to the calendar event itself. Falls back
+/// to the top-level object (events.list shape where `id` is directly on the
+/// event).
 pub(crate) fn extract_calendar_event_id_from_payload(payload: &Value) -> Option<String> {
-    for root in [payload, payload.get("data").unwrap_or(payload)] {
-        if let Some(obj) = root.as_object() {
+    // Prefer nested `data` (Composio webhook trigger shape).
+    if let Some(data) = payload.get("data") {
+        if let Some(obj) = data.as_object() {
             if let Some(id) = extract_calendar_event_id(obj) {
                 return Some(id);
             }
         }
     }
-    None
+    // Fall back to top-level (events.list shape).
+    if let Some(obj) = payload.as_object() {
+        extract_calendar_event_id(obj)
+    } else {
+        None
+    }
 }
 
 /// Build the `bot:join` Socket.IO payload from a validated request.
@@ -1193,6 +1205,60 @@ mod tests {
         assert_eq!(
             extract_calendar_event_id_from_payload(&payload).as_deref(),
             Some("top-id")
+        );
+    }
+
+    // ── nested data preferred over top-level (finding #4) ──────
+
+    #[test]
+    fn extract_calendar_event_id_from_payload_prefers_nested_data_when_both_present() {
+        // A Composio trigger wrapper may carry its own top-level `id` (trigger
+        // metadata) while the actual calendar event id is under `data.id`.
+        // The nested value must always win.
+        let payload = json!({
+            "id": "trigger-wrapper-id",
+            "data": { "id": "calendar-event-id-real" }
+        });
+        assert_eq!(
+            extract_calendar_event_id_from_payload(&payload).as_deref(),
+            Some("calendar-event-id-real"),
+            "nested data.id must win over top-level trigger wrapper id"
+        );
+    }
+
+    #[test]
+    fn extract_calendar_event_id_from_payload_uses_nested_event_id_fallback() {
+        // data.eventId when data.id is absent.
+        let payload = json!({ "id": "outer-id", "data": { "eventId": "ev-nested-456" } });
+        assert_eq!(
+            extract_calendar_event_id_from_payload(&payload).as_deref(),
+            Some("ev-nested-456"),
+            "nested data.eventId must win over top-level id"
+        );
+    }
+
+    #[test]
+    fn extract_calendar_event_id_from_payload_uses_nested_ical_uid() {
+        // data.icalUID as last resort in nested data.
+        let payload = json!({
+            "id": "outer-id",
+            "data": { "icalUID": "ical-uid-nested@calendar.google.com" }
+        });
+        assert_eq!(
+            extract_calendar_event_id_from_payload(&payload).as_deref(),
+            Some("ical-uid-nested@calendar.google.com"),
+            "nested data.icalUID must win over top-level id"
+        );
+    }
+
+    #[test]
+    fn extract_calendar_event_id_from_payload_falls_back_to_top_level_when_data_has_no_id() {
+        // data is present but has no id fields → fall back to top-level.
+        let payload = json!({ "id": "top-id", "data": { "summary": "No id here" } });
+        assert_eq!(
+            extract_calendar_event_id_from_payload(&payload).as_deref(),
+            Some("top-id"),
+            "top-level id used when data has no id fields"
         );
     }
 

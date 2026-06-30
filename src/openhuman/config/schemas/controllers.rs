@@ -608,6 +608,46 @@ fn handle_get_dashboard_settings(_params: Map<String, Value>) -> ControllerFutur
     Box::pin(async { to_json(config_rpc::get_dashboard_settings().await?) })
 }
 
+/// Known platform slugs for per-platform auto-join policies.
+const KNOWN_PLATFORM_SLUGS: &[&str] = &["gmeet", "zoom", "teams", "webex"];
+
+/// Parse and validate a raw `platform_auto_join_policies` map.
+///
+/// Rejects any unknown platform slug (not in `KNOWN_PLATFORM_SLUGS`) and any
+/// unknown policy value, returning a descriptive error. This keeps the config
+/// table free of unmappable entries that would silently persist.
+fn parse_platform_auto_join_policies(
+    raw_map: std::collections::HashMap<String, String>,
+) -> Result<std::collections::HashMap<String, AutoJoinPolicy>, String> {
+    let mut parsed = std::collections::HashMap::new();
+    for (platform, policy_str) in raw_map {
+        if !KNOWN_PLATFORM_SLUGS.contains(&platform.as_str()) {
+            log::warn!(
+                "[config][rpc] update_meet_settings unknown platform slug: {platform}"
+            );
+            return Err(format!(
+                "unknown platform slug: {platform} (valid: {})",
+                KNOWN_PLATFORM_SLUGS.join(", ")
+            ));
+        }
+        let policy = match policy_str.as_str() {
+            "ask_each_time" => AutoJoinPolicy::AskEachTime,
+            "always" => AutoJoinPolicy::Always,
+            "never" => AutoJoinPolicy::Never,
+            other => {
+                log::warn!(
+                    "[config][rpc] update_meet_settings invalid platform policy {platform}={other}"
+                );
+                return Err(format!(
+                    "invalid policy for platform {platform}: {other} (valid: ask_each_time, always, never)"
+                ));
+            }
+        };
+        parsed.insert(platform, policy);
+    }
+    Ok(parsed)
+}
+
 fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         log::debug!("[config][rpc] update_meet_settings enter");
@@ -644,24 +684,10 @@ fn handle_update_meet_settings(params: Map<String, Value>) -> ControllerFuture {
                 ));
             }
         };
-        // Parse platform_auto_join_policies: HashMap<String,String> → HashMap<String,AutoJoinPolicy>
+        // Parse and validate platform_auto_join_policies: rejects unknown platform
+        // slugs and invalid policy values before touching config.
         let platform_auto_join_policies = if let Some(raw_map) = update.platform_auto_join_policies {
-            let mut parsed = std::collections::HashMap::new();
-            for (platform, policy_str) in raw_map {
-                let policy = match policy_str.as_str() {
-                    "ask_each_time" => AutoJoinPolicy::AskEachTime,
-                    "always" => AutoJoinPolicy::Always,
-                    "never" => AutoJoinPolicy::Never,
-                    other => {
-                        log::warn!("[config][rpc] update_meet_settings invalid platform policy {platform}={other}");
-                        return Err(format!(
-                            "invalid policy for platform {platform}: {other} (valid: ask_each_time, always, never)"
-                        ));
-                    }
-                };
-                parsed.insert(platform, policy);
-            }
-            Some(parsed)
+            Some(parse_platform_auto_join_policies(raw_map)?)
         } else {
             None
         };
@@ -1018,4 +1044,75 @@ fn handle_update_sandbox_settings(params: Map<String, Value>) -> ControllerFutur
         };
         to_json(config_rpc::load_and_apply_sandbox_settings(patch).await?)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── platform slug validation (finding #6) ───────────────────
+
+    #[test]
+    fn parse_platform_policies_accepts_all_known_slugs() {
+        use std::collections::HashMap;
+        let mut raw = HashMap::new();
+        raw.insert("gmeet".to_string(), "always".to_string());
+        raw.insert("zoom".to_string(), "ask_each_time".to_string());
+        raw.insert("teams".to_string(), "never".to_string());
+        raw.insert("webex".to_string(), "always".to_string());
+        let result = parse_platform_auto_join_policies(raw).unwrap();
+        assert_eq!(result.len(), 4);
+        assert!(matches!(result["gmeet"], AutoJoinPolicy::Always));
+        assert!(matches!(result["zoom"], AutoJoinPolicy::AskEachTime));
+        assert!(matches!(result["teams"], AutoJoinPolicy::Never));
+        assert!(matches!(result["webex"], AutoJoinPolicy::Always));
+    }
+
+    #[test]
+    fn parse_platform_policies_rejects_unknown_slug() {
+        use std::collections::HashMap;
+        let mut raw = HashMap::new();
+        raw.insert("discord".to_string(), "always".to_string());
+        let err = parse_platform_auto_join_policies(raw).unwrap_err();
+        assert!(
+            err.contains("discord"),
+            "error must identify the unknown slug: {err}"
+        );
+        assert!(
+            err.contains("gmeet") || err.contains("valid"),
+            "error must hint at valid slugs: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_platform_policies_rejects_non_meeting_platforms() {
+        use std::collections::HashMap;
+        for bad in &["slack", "meet", "google", "microsoft", "jitsi", ""] {
+            let mut raw = HashMap::new();
+            raw.insert(bad.to_string(), "always".to_string());
+            assert!(
+                parse_platform_auto_join_policies(raw).is_err(),
+                "slug {bad:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_platform_policies_rejects_invalid_policy_value() {
+        use std::collections::HashMap;
+        let mut raw = HashMap::new();
+        raw.insert("zoom".to_string(), "sometimes".to_string());
+        let err = parse_platform_auto_join_policies(raw).unwrap_err();
+        assert!(
+            err.contains("sometimes") || err.contains("invalid"),
+            "error must identify the bad policy: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_platform_policies_empty_map_is_ok() {
+        use std::collections::HashMap;
+        let result = parse_platform_auto_join_policies(HashMap::new()).unwrap();
+        assert!(result.is_empty());
+    }
 }

@@ -78,7 +78,9 @@ pub(crate) async fn fetch_upcoming_meetings(
     };
 
     // List connections and filter to active Google Calendar connections only.
-    let connections = fetch_connections(&kind).await;
+    // Propagate API errors — a failed list_connections is not the same as
+    // "no connections"; it means we could not determine the connection state.
+    let connections = fetch_connections(&kind).await?;
     let calendar_connections: Vec<_> = connections
         .into_iter()
         .filter(|c| c.is_active() && is_calendar_connection(c))
@@ -98,6 +100,9 @@ pub(crate) async fn fetch_upcoming_meetings(
     let mut seen_ids: HashSet<String> = HashSet::new();
 
     for conn in &calendar_connections {
+        // Propagate per-connection fetch errors — an API failure for a
+        // connected calendar is not an empty-calendar case and must surface as
+        // an error so the UI can show its error state rather than a blank list.
         let events = fetch_events_for_connection(
             &kind,
             conn,
@@ -108,7 +113,7 @@ pub(crate) async fn fetch_upcoming_meetings(
             join_policy,
             &mut seen_ids,
         )
-        .await;
+        .await?;
         all_meetings.extend(events);
     }
 
@@ -128,7 +133,13 @@ pub(crate) async fn fetch_upcoming_meetings(
 // Connection helpers
 // ---------------------------------------------------------------------------
 
-async fn fetch_connections(kind: &ComposioClientKind) -> Vec<ComposioConnection> {
+/// Fetch the full list of Composio connections.
+///
+/// Returns `Ok(connections)` on success or `Err(message)` on any API /
+/// transport failure.  An empty `Ok(vec![])` is a valid response when the
+/// user has no connections configured — callers must NOT conflate that with
+/// an error.
+async fn fetch_connections(kind: &ComposioClientKind) -> Result<Vec<ComposioConnection>, String> {
     match kind {
         ComposioClientKind::Backend(client) => match client.list_connections().await {
             Ok(resp) => {
@@ -136,11 +147,11 @@ async fn fetch_connections(kind: &ComposioClientKind) -> Vec<ComposioConnection>
                     count = resp.connections.len(),
                     "[meet:upcoming] list_connections (backend) ok"
                 );
-                resp.connections
+                Ok(resp.connections)
             }
             Err(e) => {
                 tracing::warn!(error = %e, "[meet:upcoming] list_connections (backend) failed");
-                Vec::new()
+                Err(format!("[meet:upcoming] list_connections failed: {e}"))
             }
         },
         ComposioClientKind::Direct(direct) => match direct_list_connections(direct).await {
@@ -149,11 +160,11 @@ async fn fetch_connections(kind: &ComposioClientKind) -> Vec<ComposioConnection>
                     count = resp.connections.len(),
                     "[meet:upcoming] list_connections (direct) ok"
                 );
-                resp.connections
+                Ok(resp.connections)
             }
             Err(e) => {
                 tracing::warn!(error = %e, "[meet:upcoming] list_connections (direct) failed");
-                Vec::new()
+                Err(format!("[meet:upcoming] list_connections failed: {e}"))
             }
         },
     }
@@ -168,13 +179,26 @@ fn is_calendar_connection(conn: &ComposioConnection) -> bool {
 // Per-connection event fetch
 // ---------------------------------------------------------------------------
 
-/// Clamp the caller's `limit` to the Google Calendar `maxResults` page size
-/// bound of [1, 100]. Threaded from the RPC caller rather than hardcoded so a
-/// caller asking for more (or fewer) than the old fixed 20 is honored.
-fn page_size(limit: u32) -> u32 {
-    limit.clamp(1, 100)
+/// Compute the Google Calendar `maxResults` page size for a fetch.
+///
+/// Always returns 100 (the API maximum) regardless of the caller's `limit`.
+/// Conferencing-link events are only identified AFTER fetching, so passing
+/// `limit` as `maxResults` silently drops link-bearing events that fall past
+/// position N in the raw calendar page (behind reminders, OOO blocks, etc.).
+/// The real cap is applied by `truncate(limit)` in `fetch_upcoming_meetings`
+/// once the filter has run.
+fn page_size(_limit: u32) -> u32 {
+    100
 }
 
+/// Fetch calendar events for one Composio connection and extract upcoming
+/// meetings with conferencing links.
+///
+/// Returns `Ok(meetings)` when the API call succeeds (possibly empty when no
+/// link-bearing events fall within the window).  Returns `Err(message)` on an
+/// API transport failure or when the Google Calendar tool reports
+/// `successful = false` — the caller should surface this as an error state
+/// rather than silently treating it as an empty calendar.
 async fn fetch_events_for_connection(
     kind: &ComposioClientKind,
     conn: &ComposioConnection,
@@ -184,11 +208,12 @@ async fn fetch_events_for_connection(
     limit: u32,
     join_policy: &str,
     seen_ids: &mut HashSet<String>,
-) -> Vec<UpcomingMeeting> {
-    // Honor the caller's limit for the page size (clamped to a sane [1, 100]).
-    // `timeMin = now` filters on an event's *end* time, so events that are
-    // currently in progress (started before now but ending after it) are still
-    // returned and surface in the Upcoming list (see `try_extract_meeting`).
+) -> Result<Vec<UpcomingMeeting>, String> {
+    // Always fetch a full page (100) so that link-bearing events sitting past
+    // the first `limit` raw entries (behind reminders, OOO blocks, etc.) are
+    // not silently dropped before the conferencing-link filter runs.
+    // `timeMin = now` filters on an event's *end* time so in-progress meetings
+    // are also returned.
     let max_results = page_size(limit);
     let arguments = json!({
         "connectionId": conn.id,
@@ -235,15 +260,19 @@ async fn fetch_events_for_connection(
                 event_count = events.len(),
                 "[meet:upcoming] events with conferencing link extracted"
             );
-            events
+            Ok(events)
         }
         Ok(r) => {
+            let detail = r.error.as_deref().unwrap_or("unsuccessful=true");
             tracing::warn!(
                 connection_id = %conn.id,
-                error = %r.error.as_deref().unwrap_or("unsuccessful=true"),
+                error = %detail,
                 "[meet:upcoming] GOOGLECALENDAR_EVENTS_LIST returned unsuccessful"
             );
-            Vec::new()
+            Err(format!(
+                "[meet:upcoming] GOOGLECALENDAR_EVENTS_LIST unsuccessful for connection {}: {detail}",
+                conn.id
+            ))
         }
         Err(e) => {
             tracing::warn!(
@@ -251,7 +280,10 @@ async fn fetch_events_for_connection(
                 error = %e,
                 "[meet:upcoming] GOOGLECALENDAR_EVENTS_LIST transport error"
             );
-            Vec::new()
+            Err(format!(
+                "[meet:upcoming] GOOGLECALENDAR_EVENTS_LIST transport error for connection {}: {e}",
+                conn.id
+            ))
         }
     }
 }
@@ -587,13 +619,71 @@ mod tests {
     }
 
     #[test]
-    fn page_size_honors_caller_limit() {
-        // The old code hardcoded maxResults to DEFAULT_LIMIT.max(20) and ignored
-        // the caller. Now the caller's limit flows through, clamped to [1, 100].
-        assert_eq!(page_size(5), 5);
-        assert_eq!(page_size(50), 50);
-        assert_eq!(page_size(0), 1); // clamp floor
-        assert_eq!(page_size(1000), 100); // clamp ceiling
+    fn page_size_always_uses_api_max() {
+        // page_size must always return 100 (the API maximum) so that
+        // link-bearing events that fall past the first `limit` raw calendar
+        // entries (buried behind reminders, OOO blocks, etc.) survive the
+        // conferencing-link filter. The actual limit is applied via truncate()
+        // in fetch_upcoming_meetings after filtering.
+        assert_eq!(page_size(1), 100);
+        assert_eq!(page_size(5), 100);
+        assert_eq!(page_size(20), 100);
+        assert_eq!(page_size(100), 100);
+    }
+
+    #[test]
+    fn link_event_past_first_n_raw_entries_is_returned() {
+        // Core guarantee of finding #1: a link-bearing event sitting behind
+        // 3 link-free events must still be collected even when limit=1.
+        // Before the fix, page_size(1)=1 meant only the first raw entry was
+        // fetched and the link event was never seen.
+        let (start_window, end_window) = window();
+        let no_link = |offset: i64, id: &str| {
+            let start = Utc::now() + chrono::Duration::minutes(offset);
+            let end = start + chrono::Duration::hours(1);
+            json!({
+                "id": id,
+                "summary": format!("No link {offset}m"),
+                "start": { "dateTime": start.to_rfc3339() },
+                "end": { "dateTime": end.to_rfc3339() },
+                "location": "Office"
+            })
+        };
+        let link_start = Utc::now() + chrono::Duration::minutes(45);
+        let link_end = link_start + chrono::Duration::hours(1);
+        let link_event = json!({
+            "id": "link-ev-1",
+            "summary": "Zoom sync",
+            "start": { "dateTime": link_start.to_rfc3339() },
+            "end": { "dateTime": link_end.to_rfc3339() },
+            "hangoutLink": "https://meet.google.com/abc-defg-hij"
+        });
+        // 3 link-free events, then 1 link event (position 4 in a raw page).
+        let events = json!([
+            no_link(10, "nl-1"),
+            no_link(20, "nl-2"),
+            no_link(30, "nl-3"),
+            link_event
+        ]);
+        let mut seen = HashSet::new();
+        let mut out = Vec::new();
+        collect_recursive(&events, start_window, end_window, "ask", &mut seen, &mut out);
+        assert_eq!(out.len(), 1, "link event at position 4 must survive filter");
+        assert_eq!(out[0].calendar_event_id, "link-ev-1");
+    }
+
+    #[tokio::test]
+    async fn fetch_upcoming_returns_empty_when_no_composio_config() {
+        // When no Composio API key or backend URL is configured,
+        // create_composio_client fails gracefully → fetch_upcoming_meetings
+        // returns Ok([]) (no calendar = empty, not an error).
+        let config = crate::openhuman::config::Config::default();
+        let result = fetch_upcoming_meetings(&config, 60, 10, "ask").await;
+        assert!(
+            result.is_ok(),
+            "missing Composio config must not be an error: {result:?}"
+        );
+        assert!(result.unwrap().is_empty());
     }
 
     #[test]

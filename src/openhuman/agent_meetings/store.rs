@@ -248,7 +248,16 @@ pub fn mark_summary_generated(config: &Config, id: &str, now_ms: u64) -> Result<
 }
 
 /// Persist or replace the join-policy override for a specific calendar event.
+///
+/// The `policy` must be one of "auto" | "ask" | "skip" — anything else is
+/// rejected with an error so the table cannot accumulate invalid values.
 pub fn set_event_policy(config: &Config, calendar_event_id: &str, policy: &str) -> Result<()> {
+    if !matches!(policy, "auto" | "ask" | "skip") {
+        anyhow::bail!(
+            "[meetings::store] set_event_policy: unknown policy {:?} (valid: auto, ask, skip)",
+            policy
+        );
+    }
     with_connection(config, |conn| {
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -466,5 +475,83 @@ mod tests {
         assert_eq!(map.get("evt-a"), Some(&"auto".to_string()));
         assert_eq!(map.get("evt-b"), Some(&"skip".to_string()));
         assert!(!map.contains_key("evt-missing"));
+    }
+
+    // ── policy validation (finding #5) ──────────────────────────
+
+    #[test]
+    fn set_event_policy_accepts_all_known_values() {
+        let (config, _dir) = test_config();
+        set_event_policy(&config, "evt-auto", "auto").unwrap();
+        set_event_policy(&config, "evt-ask", "ask").unwrap();
+        set_event_policy(&config, "evt-skip", "skip").unwrap();
+        assert_eq!(
+            get_event_policy(&config, "evt-auto").unwrap().as_deref(),
+            Some("auto")
+        );
+        assert_eq!(
+            get_event_policy(&config, "evt-ask").unwrap().as_deref(),
+            Some("ask")
+        );
+        assert_eq!(
+            get_event_policy(&config, "evt-skip").unwrap().as_deref(),
+            Some("skip")
+        );
+    }
+
+    #[test]
+    fn set_event_policy_rejects_unknown_value() {
+        let (config, _dir) = test_config();
+        let err = set_event_policy(&config, "evt-bad", "invalid").unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid") || msg.contains("unknown"),
+            "error must describe the rejected value: {msg}"
+        );
+        // Must NOT have been persisted.
+        assert!(
+            get_event_policy(&config, "evt-bad").unwrap().is_none(),
+            "unknown policy must not be written to the store"
+        );
+    }
+
+    #[test]
+    fn set_event_policy_rejects_empty_string() {
+        let (config, _dir) = test_config();
+        let err = set_event_policy(&config, "evt-empty", "").unwrap_err();
+        assert!(
+            err.to_string().contains("unknown") || err.to_string().contains("valid"),
+            "empty string should be rejected: {err}"
+        );
+    }
+
+    #[test]
+    fn session_calendar_event_id_persisted_and_retrieved() {
+        // Regression test for finding #3: calendar_event_id on a session must
+        // survive the store round-trip (was previously stored as None).
+        let (config, _dir) = test_config();
+        let now_ms = 99_000u64;
+        let session = MeetingSession {
+            id: "sess-cev-test".into(),
+            meet_url: "https://meet.google.com/cev-test".into(),
+            title: Some("Finding #3 test meeting".into()),
+            calendar_event_id: Some("actual-calendar-event-id-xyz".into()),
+            status: MeetingSessionStatus::Joined,
+            source: AutoJoinSource::Calendar,
+            thread_id: None,
+            transcript_received: false,
+            summary_generated: false,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        };
+        create_session(&config, &session).unwrap();
+        let fetched = get_session(&config, "sess-cev-test")
+            .unwrap()
+            .expect("session must exist");
+        assert_eq!(
+            fetched.calendar_event_id.as_deref(),
+            Some("actual-calendar-event-id-xyz"),
+            "calendar_event_id must survive store round-trip"
+        );
     }
 }
