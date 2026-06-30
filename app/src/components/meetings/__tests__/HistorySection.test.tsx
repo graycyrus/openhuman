@@ -151,4 +151,28 @@ describe('HistorySection', () => {
       expect(screen.getByText(/network error/i)).toBeInTheDocument();
     });
   });
+
+  // ── Selection clearing when filter empties list (#4) ──────────────────────
+
+  it('clears the selection when a search query matches no records', async () => {
+    listMeetCallsMock.mockResolvedValue([todayCall]);
+    renderWithProviders(<HistorySection />);
+
+    // Wait for auto-selection and detail render.
+    await waitFor(() => {
+      // abc-def-ghi appears in the rail and/or detail pane header.
+      expect(screen.getAllByText('abc-def-ghi').length).toBeGreaterThan(0);
+    });
+
+    // Search for a term that matches nothing.
+    const searchInput = screen.getByRole('searchbox');
+    fireEvent.change(searchInput, { target: { value: 'no-match-xyz-999' } });
+
+    // Detail pane should show the "select a call" placeholder when selection clears.
+    await waitFor(() => {
+      expect(
+        screen.getByText('Select a call to see its summary and transcript.')
+      ).toBeInTheDocument();
+    });
+  });
 });

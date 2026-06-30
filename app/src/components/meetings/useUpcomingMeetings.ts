@@ -32,6 +32,9 @@ export function useUpcomingMeetings(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  // Monotonically increasing request counter — used to ignore stale responses
+  // when overlapping fetches (poll + manual refresh) resolve out of order.
+  const fetchCounterRef = useRef(0);
 
   /**
    * Fetch meetings from the core.
@@ -42,21 +45,24 @@ export function useUpcomingMeetings(
    *   manual refresh button pass `true`.
    */
   const fetchMeetings = useCallback(async (showLoading: boolean) => {
-    log('[useUpcomingMeetings] fetching upcoming meetings showLoading=%s', showLoading);
+    // Claim a sequence number before the await so concurrent callers each get
+    // a unique stamp and only the latest response is applied.
+    const requestId = ++fetchCounterRef.current;
+    log('[useUpcomingMeetings] fetching upcoming meetings showLoading=%s requestId=%d', showLoading, requestId);
     if (showLoading) setLoading(true);
     setError(null);
     try {
       const data = await listUpcomingMeetings(lookaheadMinutes, limit);
-      if (!mountedRef.current) return;
-      log('[useUpcomingMeetings] fetched %d meetings', data.length);
+      if (!mountedRef.current || fetchCounterRef.current !== requestId) return;
+      log('[useUpcomingMeetings] fetched %d meetings (requestId=%d)', data.length, requestId);
       setMeetings(data);
     } catch (err) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || fetchCounterRef.current !== requestId) return;
       const msg = err instanceof Error ? err.message : String(err);
-      log('[useUpcomingMeetings] fetch error: %s', msg);
+      log('[useUpcomingMeetings] fetch error: %s (requestId=%d)', msg, requestId);
       setError(msg);
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current && fetchCounterRef.current === requestId) setLoading(false);
     }
   }, [lookaheadMinutes, limit]);
 

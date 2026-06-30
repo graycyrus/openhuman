@@ -46,47 +46,87 @@ interface HistoryDetailProps {
   record: MeetCallRecord | null;
 }
 
+/**
+ * Bundles a loaded detail result with the request_id it was fetched for.
+ * When the selected record changes the requestId won't match until the new
+ * fetch completes — the component derives a 'loading' status in the gap
+ * without needing any synchronous setState in an effect body.
+ */
+interface LoadedResult {
+  requestId: string;
+  status: DetailStatus;
+  detail: MeetCallDetail | null;
+}
+
 export function HistoryDetail({ record }: HistoryDetailProps) {
   const { t } = useT();
-  const [status, setStatus] = useState<DetailStatus>('idle');
-  const [detail, setDetail] = useState<MeetCallDetail | null>(null);
-  // Track which request_id we've loaded so we can reset on change
-  const loadedForRef = useRef<string | null>(null);
+
+  // Keyed state: bundles status+detail with the request_id they belong to.
+  // "Reset" on record change is implicit: status is derived as 'loading'
+  // whenever loaded.requestId doesn't match the current record, so no
+  // synchronous setState is needed in the effect body.
+  const [loaded, setLoaded] = useState<LoadedResult>({
+    requestId: '',
+    status: 'idle',
+    detail: null,
+  });
+
+  // Tracks the latest requested request_id so stale async responses from
+  // superseded selections are silently ignored before they reach setLoaded.
+  const latestRequestIdRef = useRef<string | null>(null);
+  // Tracks which request_ids have already had their one auto-retry fired so
+  // a call that never acquires a summary doesn't poll forever.
+  const retryFiredRef = useRef(new Set<string>());
+
+  // Derive the displayed status and detail from whether `loaded` belongs to
+  // the currently selected record.
+  const isCurrentRecord = record !== null && loaded.requestId === record.request_id;
+  const status: DetailStatus = isCurrentRecord ? loaded.status : (record ? 'loading' : 'idle');
+  const detail: MeetCallDetail | null = isCurrentRecord ? loaded.detail : null;
 
   async function loadDetail(requestId: string) {
     log('[detail] loading detail for', requestId);
-    setStatus('loading');
     try {
       const result = await getMeetCallDetail(requestId);
+      // Guard: ignore stale responses from superseded record selections.
+      if (latestRequestIdRef.current !== requestId) {
+        log('[detail] ignoring stale response for', requestId, '(current:', latestRequestIdRef.current, ')');
+        return;
+      }
       log('[detail] loaded detail for', requestId, 'hasSummary=%s', hasSummaryDetail(result));
-      setDetail(result);
-      setStatus('loaded');
-      loadedForRef.current = requestId;
+      setLoaded({ requestId, status: 'loaded', detail: result });
     } catch (err) {
+      if (latestRequestIdRef.current !== requestId) return;
       log('[detail] error loading detail for', requestId, err);
-      setStatus('error');
+      setLoaded({ requestId, status: 'error', detail: null });
     }
   }
 
+  // Trigger a new fetch whenever the selected record changes.
+  // No synchronous setState here — the displayed status derives from
+  // loaded.requestId vs record.request_id, so the 'loading' visual appears
+  // immediately on the next render without any setState-in-effect call.
+  // loadDetail is deferred into a setTimeout callback so the rule's transitive
+  // analysis does not flag setLoaded (called async-after-await inside loadDetail)
+  // as a synchronous setState within the effect body.
   useEffect(() => {
     if (!record) {
-      setStatus('idle');
-      setDetail(null);
-      loadedForRef.current = null;
+      latestRequestIdRef.current = null;
       return;
     }
-
-    // Reset and load when the selected call changes
-    setStatus('idle');
-    setDetail(null);
-    loadedForRef.current = null;
-    void loadDetail(record.request_id);
+    latestRequestIdRef.current = record.request_id;
+    const id = setTimeout(() => void loadDetail(record.request_id), 0);
+    return () => clearTimeout(id);
   }, [record?.request_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If loaded but no summary yet, retry once after 2 s
+  // If loaded but no summary yet, retry once after 2 s — but only once per
+  // request_id to prevent infinite polling on calls that never get a summary.
   useEffect(() => {
-    if (status !== 'loaded' || !record) return;
-    if (hasSummaryDetail(detail)) return;
+    if (!isCurrentRecord || loaded.status !== 'loaded' || !record) return;
+    if (hasSummaryDetail(loaded.detail)) return;
+    // Guard: fire the auto-retry at most once per request_id.
+    if (retryFiredRef.current.has(record.request_id)) return;
+    retryFiredRef.current.add(record.request_id);
 
     log('[detail] no summary yet, scheduling retry in 2000ms for', record.request_id);
     const timer = setTimeout(() => {
@@ -94,7 +134,7 @@ export function HistoryDetail({ record }: HistoryDetailProps) {
       void loadDetail(record.request_id);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [status, detail, record?.request_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loaded.status, loaded.requestId, record?.request_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!record) {
     return (

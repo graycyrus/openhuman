@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ComposioConnection } from '../../../lib/composio/types';
 import {
   deriveDisplayNameFromEmail,
+  inferPlatformFromUrl,
   MEETING_PLATFORMS,
   platformLabel,
   platformPrimaryToolkit,
@@ -192,5 +193,60 @@ describe('platformUrlPlaceholder', () => {
 
   it('returns the webex URL hint', () => {
     expect(platformUrlPlaceholder('webex', t)).toBe('webex.com/meet/...');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inferPlatformFromUrl — strict host matching (#6 security fix)
+// ---------------------------------------------------------------------------
+
+describe('inferPlatformFromUrl', () => {
+  it('returns gmeet for a standard Google Meet URL', () => {
+    expect(inferPlatformFromUrl('https://meet.google.com/abc-def-ghi')).toBe('gmeet');
+  });
+
+  it('returns gmeet for a subdomain of meet.google.com', () => {
+    expect(inferPlatformFromUrl('https://sub.meet.google.com/abc-def-ghi')).toBe('gmeet');
+  });
+
+  it('rejects a host that contains meet.google.com as a suffix of a label (spoofed)', () => {
+    // meet.google.com.attacker.com must NOT match
+    expect(inferPlatformFromUrl('https://meet.google.com.attacker.com/abc')).toBeNull();
+  });
+
+  it('returns zoom for zoom.us', () => {
+    expect(inferPlatformFromUrl('https://zoom.us/j/123456')).toBe('zoom');
+  });
+
+  it('returns zoom for a subdomain of zoom.us (e.g. my.zoom.us)', () => {
+    expect(inferPlatformFromUrl('https://my.zoom.us/j/123')).toBe('zoom');
+  });
+
+  it('rejects a host that ends in a word that happens to contain zoom.us', () => {
+    expect(inferPlatformFromUrl('https://evil-zoom.us/j/123')).toBeNull();
+  });
+
+  it('returns teams for teams.microsoft.com', () => {
+    expect(inferPlatformFromUrl('https://teams.microsoft.com/l/meetup-join/123')).toBe('teams');
+  });
+
+  it('rejects a spoofed teams host', () => {
+    expect(inferPlatformFromUrl('https://teams.microsoft.com.evil.org/meeting')).toBeNull();
+  });
+
+  it('returns webex for webex.com', () => {
+    expect(inferPlatformFromUrl('https://webex.com/meet/abc')).toBe('webex');
+  });
+
+  it('returns webex for a subdomain of webex.com', () => {
+    expect(inferPlatformFromUrl('https://cisco.webex.com/meet/abc')).toBe('webex');
+  });
+
+  it('returns null for an unrecognized URL', () => {
+    expect(inferPlatformFromUrl('https://example.com/meeting')).toBeNull();
+  });
+
+  it('returns null for an invalid (unparseable) URL string', () => {
+    expect(inferPlatformFromUrl('not-a-url')).toBeNull();
   });
 });

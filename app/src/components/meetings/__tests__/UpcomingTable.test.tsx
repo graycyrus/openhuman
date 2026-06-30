@@ -304,6 +304,48 @@ describe('UpcomingTable', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
+  // ── Platform filter uses effective (inferred) platform (#8) ───────────────
+
+  it('filters out a meeting whose effective platform (inferred from URL) does not match', async () => {
+    // Meeting has no explicit platform but the URL implies gmeet.
+    const gmeetInferred = makeMeeting({
+      calendar_event_id: 'evt-gmeet',
+      title: 'GMeet Inferred',
+      platform: null,
+      meet_url: 'https://meet.google.com/abc-def-ghi',
+    });
+    const zoomExplicit = makeMeeting({
+      calendar_event_id: 'evt-zoom',
+      title: 'Zoom Explicit',
+      platform: 'zoom',
+      meet_url: 'https://zoom.us/j/456',
+    });
+    listMock.mockResolvedValueOnce([gmeetInferred, zoomExplicit]);
+    renderWithProviders(<UpcomingTable />);
+
+    await waitFor(() => {
+      expect(screen.getByText('GMeet Inferred')).toBeInTheDocument();
+      expect(screen.getByText('Zoom Explicit')).toBeInTheDocument();
+    });
+
+    // The platform filter dropdown should appear (two distinct effective platforms).
+    const select = screen.getByRole('combobox');
+
+    // Filter to Google Meet — inferred-gmeet meeting must remain, zoom must go.
+    fireEvent.change(select, { target: { value: 'gmeet' } });
+    await waitFor(() => {
+      expect(screen.getByText('GMeet Inferred')).toBeInTheDocument();
+      expect(screen.queryByText('Zoom Explicit')).toBeNull();
+    });
+
+    // Filter to Zoom — zoom must appear, inferred-gmeet must go.
+    fireEvent.change(select, { target: { value: 'zoom' } });
+    await waitFor(() => {
+      expect(screen.getByText('Zoom Explicit')).toBeInTheDocument();
+      expect(screen.queryByText('GMeet Inferred')).toBeNull();
+    });
+  });
+
   it('relative time strings come from i18n (default en locale)', async () => {
     // A meeting ~30 minutes and 30 seconds away → formatWhen should produce
     // "in 30m" via the 'skills.meetingBots.relative.inMinutes' key.

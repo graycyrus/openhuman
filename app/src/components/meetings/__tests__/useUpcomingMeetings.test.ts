@@ -161,4 +161,32 @@ describe('useUpcomingMeetings', () => {
       vi.useRealTimers();
     }
   });
+
+  // ── Stale-fetch guard (#7) ─────────────────────────────────────────────────
+
+  it('ignores a stale fetch result when a newer fetch completes first', async () => {
+    const STALE = [{ ...MEETING, title: 'Stale Result' }];
+    const FRESH = [{ ...MEETING, title: 'Fresh Result' }];
+
+    // First fetch (initial mount) is slow.
+    let resolveFirst!: (v: typeof STALE) => void;
+    listMock
+      .mockImplementationOnce(() => new Promise<typeof STALE>(r => { resolveFirst = r; }))
+      .mockResolvedValueOnce(FRESH); // Second fetch (manual refresh) resolves fast.
+
+    const { result, unmount } = renderHook(() => useUpcomingMeetings());
+
+    // Trigger the manual refresh while the first fetch is still in-flight.
+    await act(async () => { result.current.refresh(); });
+
+    // Wait for the second (faster) fetch to complete and populate meetings.
+    await waitFor(() => expect(result.current.meetings).toEqual(FRESH));
+
+    // Now deliver the stale first response.
+    await act(async () => { resolveFirst(STALE); });
+
+    // Stale result must NOT overwrite the already-applied fresh result.
+    expect(result.current.meetings).toEqual(FRESH);
+    unmount();
+  });
 });

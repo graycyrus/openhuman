@@ -138,9 +138,20 @@ function groupByDate(
 
 type PlatformFilter = MeetingPlatform | 'all';
 
+/**
+ * Resolve the platform that a meeting row actually displays: the explicit
+ * `platform` field first, then inferred from the conferencing URL.  This must
+ * match exactly what `MeetingRow` renders so that filtering is consistent
+ * with what the user sees.
+ */
+function effectivePlatform(m: UpcomingMeeting): MeetingPlatform | null {
+  if (m.platform) return m.platform as MeetingPlatform;
+  return m.meet_url ? inferPlatformFromUrl(m.meet_url) : null;
+}
+
 function filterMeetings(meetings: UpcomingMeeting[], filter: PlatformFilter): UpcomingMeeting[] {
   if (filter === 'all') return meetings;
-  return meetings.filter(m => m.platform === filter);
+  return meetings.filter(m => effectivePlatform(m) === filter);
 }
 
 // ---------------------------------------------------------------------------
@@ -388,12 +399,14 @@ export function UpcomingTable({ lookaheadMinutes, limit, watchCalendar = null }:
     t('skills.meetingBots.upcoming.tomorrow')
   );
 
-  // Collect unique platforms for the filter dropdown.
+  // Collect unique effective platforms for the filter dropdown — uses the same
+  // effectivePlatform() helper as filterMeetings() so the options are consistent
+  // with what each row displays (including inferred-from-URL platforms).
   const presentPlatforms = Array.from(
     new Set(
       meetings
-        .map(m => m.platform)
-        .filter((p): p is MeetingPlatform => p != null && p !== '')
+        .map(m => effectivePlatform(m))
+        .filter((p): p is MeetingPlatform => p != null)
     )
   );
 

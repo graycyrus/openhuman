@@ -114,17 +114,22 @@ export function resolveMeetingDisplayName(
 
 /**
  * Infer the meeting platform from a URL's hostname.
- * Returns null when the host doesn't match any known platform.
+ * Returns null when the host doesn't match any known platform or the URL is
+ * unparseable.
+ *
+ * Uses exact-match or proper dot-suffix (e.g. `sub.zoom.us`) to prevent
+ * spoofed hosts such as `meet.google.com.attacker.com` from matching.
  */
 export function inferPlatformFromUrl(url: string): MeetingPlatform | null {
+  let host: string;
   try {
-    const host = new URL(url).hostname.toLowerCase();
-    if (host.includes('meet.google.com')) return 'gmeet';
-    if (host.includes('zoom.us')) return 'zoom';
-    if (host.includes('teams.microsoft.com')) return 'teams';
-    if (host.includes('webex.com')) return 'webex';
-    return null;
+    host = new URL(url).hostname.toLowerCase();
   } catch {
     return null;
   }
+  if (host === 'meet.google.com' || host.endsWith('.meet.google.com')) return 'gmeet';
+  if (host === 'zoom.us' || host.endsWith('.zoom.us')) return 'zoom';
+  if (host === 'teams.microsoft.com' || host.endsWith('.teams.microsoft.com')) return 'teams';
+  if (host === 'webex.com' || host.endsWith('.webex.com')) return 'webex';
+  return null;
 }
