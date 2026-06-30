@@ -5780,6 +5780,7 @@ const en: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'Send OpenHuman to your next meeting',
   'skills.meetingBots.busyTitle': 'OpenHuman is busy',
   'skills.meetingBots.comingSoon': 'coming soon',
+  'skills.meetingBots.couldNotLeaveTitle': 'Couldn’t leave the meeting',
   'skills.meetingBots.couldNotStartTitle': 'Could not start OpenHuman',
   'skills.meetingBots.displayName': 'Display name',
   'skills.meetingBots.failedToStart': 'Failed to start OpenHuman.',

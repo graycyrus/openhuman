@@ -5030,6 +5030,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'عنوان اللافتة',
   'skills.meetingBots.busyTitle': 'OpenHuman مشغول',
   'skills.meetingBots.comingSoon': 'قريبًا',
+  'skills.meetingBots.couldNotLeaveTitle': 'تعذّر مغادرة الاجتماع',
   'skills.meetingBots.couldNotStartTitle': 'تعذّر بدء OpenHuman',
   'skills.meetingBots.displayName': 'الاسم المعروض',
   'skills.meetingBots.failedToStart': 'فشل تشغيل OpenHuman.',

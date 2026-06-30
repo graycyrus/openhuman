@@ -114,7 +114,7 @@ export function ActiveMeetingBanner({ onToast }: ActiveMeetingBannerProps) {
       setLeaving(false);
       onToast?.({
         type: 'error',
-        title: t('skills.meetingBots.couldNotStartTitle'),
+        title: t('skills.meetingBots.couldNotLeaveTitle'),
         message: String(err),
       });
     }

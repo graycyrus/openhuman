@@ -5137,6 +5137,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'बैनर शीर्षक',
   'skills.meetingBots.busyTitle': 'OpenHuman व्यस्त है',
   'skills.meetingBots.comingSoon': 'जल्द आ रहा है',
+  'skills.meetingBots.couldNotLeaveTitle': 'मीटिंग से नहीं निकल सके',
   'skills.meetingBots.couldNotStartTitle': 'OpenHuman प्रारंभ नहीं हो सका',
   'skills.meetingBots.displayName': 'डिस्प्ले नाम',
   'skills.meetingBots.failedToStart': 'OpenHuman शुरू नहीं हो पाया।',

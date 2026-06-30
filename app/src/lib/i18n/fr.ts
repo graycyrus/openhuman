@@ -5250,6 +5250,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'Titre de la bannière',
   'skills.meetingBots.busyTitle': 'OpenHuman est occupé',
   'skills.meetingBots.comingSoon': 'Bientôt disponible',
+  'skills.meetingBots.couldNotLeaveTitle': 'Impossible de quitter la réunion',
   'skills.meetingBots.couldNotStartTitle': 'Impossible de démarrer OpenHuman',
   'skills.meetingBots.displayName': "Nom d'affichage",
   'skills.meetingBots.failedToStart': "Échec du démarrage d'OpenHuman.",

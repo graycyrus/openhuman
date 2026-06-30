@@ -4880,6 +4880,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': '会议机器人',
   'skills.meetingBots.busyTitle': 'OpenHuman 正忙',
   'skills.meetingBots.comingSoon': '即将推出',
+  'skills.meetingBots.couldNotLeaveTitle': '无法离开会议',
   'skills.meetingBots.couldNotStartTitle': '无法启动 OpenHuman',
   'skills.meetingBots.displayName': '显示名称',
   'skills.meetingBots.failedToStart': '启动 OpenHuman 失败。',

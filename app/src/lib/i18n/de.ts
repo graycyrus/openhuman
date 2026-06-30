@@ -5265,6 +5265,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.bannerTitle': 'Sende OpenHuman an eine Besprechung',
   'skills.meetingBots.busyTitle': 'OpenHuman ist beschäftigt',
   'skills.meetingBots.comingSoon': 'Kommt bald',
+  'skills.meetingBots.couldNotLeaveTitle': 'Meeting konnte nicht verlassen werden',
   'skills.meetingBots.couldNotStartTitle': 'OpenHuman konnte nicht gestartet werden',
   'skills.meetingBots.displayName': 'Anzeigename',
   'skills.meetingBots.failedToStart': 'OpenHuman konnte nicht gestartet werden.',
