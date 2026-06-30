@@ -284,10 +284,13 @@ pub fn get_event_policy(config: &Config, calendar_event_id: &str) -> Result<Opti
 pub fn get_event_policies_batch(config: &Config, ids: &[&str]) -> Result<HashMap<String, String>> {
     with_connection(config, |conn| {
         let mut map = HashMap::new();
+        if ids.is_empty() {
+            return Ok(map);
+        }
+        // Prepare the SELECT once and reuse it for every id — not once per id.
+        let mut stmt = conn
+            .prepare("SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1")?;
         for &id in ids {
-            let mut stmt = conn.prepare(
-                "SELECT policy FROM meeting_event_policies WHERE calendar_event_id = ?1",
-            )?;
             let mut rows = stmt.query(rusqlite::params![id])?;
             if let Some(row) = rows.next()? {
                 map.insert(id.to_string(), row.get(0)?);

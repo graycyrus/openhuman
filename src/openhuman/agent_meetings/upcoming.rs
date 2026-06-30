@@ -33,13 +33,9 @@ use super::types::UpcomingMeeting;
 pub(crate) const DEFAULT_LOOKAHEAD_MINUTES: u32 = 480; // 8 hours
 pub(crate) const DEFAULT_LIMIT: u32 = 20;
 
-/// Supported meeting host patterns and their platform slugs.
-const MEETING_HOST_PATTERNS: &[(&str, &str)] = &[
-    ("meet.google.com", "gmeet"),
-    ("zoom.us", "zoom"),
-    ("teams.microsoft.com", "teams"),
-    ("webex.com", "webex"),
-];
+// URL/host/platform helpers (`is_meeting_url`, `extract_url_from_text`,
+// `infer_platform_from_url`) are the canonical strict versions in `super::ops`
+// — see finding #9 consolidation. This module no longer carries its own copies.
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -108,6 +104,7 @@ pub(crate) async fn fetch_upcoming_meetings(
             &config.composio.entity_id,
             now,
             end_window,
+            limit,
             join_policy,
             &mut seen_ids,
         )
@@ -171,20 +168,33 @@ fn is_calendar_connection(conn: &ComposioConnection) -> bool {
 // Per-connection event fetch
 // ---------------------------------------------------------------------------
 
+/// Clamp the caller's `limit` to the Google Calendar `maxResults` page size
+/// bound of [1, 100]. Threaded from the RPC caller rather than hardcoded so a
+/// caller asking for more (or fewer) than the old fixed 20 is honored.
+fn page_size(limit: u32) -> u32 {
+    limit.clamp(1, 100)
+}
+
 async fn fetch_events_for_connection(
     kind: &ComposioClientKind,
     conn: &ComposioConnection,
     entity_id: &str,
     now: DateTime<Utc>,
     end_window: DateTime<Utc>,
+    limit: u32,
     join_policy: &str,
     seen_ids: &mut HashSet<String>,
 ) -> Vec<UpcomingMeeting> {
+    // Honor the caller's limit for the page size (clamped to a sane [1, 100]).
+    // `timeMin = now` filters on an event's *end* time, so events that are
+    // currently in progress (started before now but ending after it) are still
+    // returned and surface in the Upcoming list (see `try_extract_meeting`).
+    let max_results = page_size(limit);
     let arguments = json!({
         "connectionId": conn.id,
         "timeMin": now.to_rfc3339(),
         "timeMax": end_window.to_rfc3339(),
-        "maxResults": DEFAULT_LIMIT.max(20),
+        "maxResults": max_results,
     });
     let iana = crate::openhuman::composio::googlecalendar_args::current_iana_timezone();
     let arguments = crate::openhuman::composio::googlecalendar_args::apply_calendar_query_defaults(
@@ -312,15 +322,25 @@ fn try_extract_meeting(
     let start_dt = chrono::DateTime::parse_from_rfc3339(start_str).ok()?;
     let start_utc = start_dt.with_timezone(&Utc);
 
-    // Must be within the requested window.
-    if start_utc < start_window || start_utc > end_window {
+    // Parse the end time up front (default 1-hour duration when absent) so we
+    // can keep meetings that are *currently in progress*.
+    let end_utc = datetime_field(map, "end", "dateTime")
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc));
+
+    // Window check that INCLUDES in-progress meetings: keep an event when it
+    // hasn't ended yet (end >= now, where `start_window` == now) and it starts
+    // before the window end. A meeting that started 10 min ago and ends in
+    // 20 min must still appear — the previous `start_utc < start_window` check
+    // dropped it.
+    let effective_end = end_utc.unwrap_or(start_utc);
+    if effective_end < start_window || start_utc > end_window {
         return None;
     }
 
     let start_ms = start_utc.timestamp_millis().max(0) as u64;
 
-    let end_ms = datetime_field(map, "end", "dateTime")
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+    let end_ms = end_utc
         .map(|dt| dt.timestamp_millis().max(0) as u64)
         .unwrap_or_else(|| start_ms + 3_600_000); // Default 1-hour duration
 
@@ -329,7 +349,7 @@ fn try_extract_meeting(
     // Upcoming table doesn't need to show.
     let meet_url = extract_meet_url_from_event(map)?;
 
-    let platform = infer_platform_from_url(&meet_url).map(str::to_string);
+    let platform = super::ops::infer_platform_from_url(&meet_url).map(str::to_string);
 
     let title = map
         .get("summary")
@@ -339,13 +359,13 @@ fn try_extract_meeting(
         .unwrap_or("Untitled meeting")
         .to_string();
 
-    let calendar_event_id = map
-        .get("id")
-        .or_else(|| map.get("eventId"))
-        .or_else(|| map.get("icalUID"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
+    // Stable event id for dedup + per-event policy keying. When the event has no
+    // real id (id/eventId/icalUID all absent), fall back to a STABLE synthetic
+    // key from the meeting URL + start time rather than a shared literal
+    // "unknown" — otherwise every id-less event collapses onto the same dedup
+    // key and only the first survives.
+    let calendar_event_id = super::ops::extract_calendar_event_id(map)
+        .unwrap_or_else(|| format!("{meet_url}@{start_ms}"));
 
     let participant_count = map
         .get("attendees")
@@ -385,37 +405,12 @@ fn try_extract_meeting(
 }
 
 // ---------------------------------------------------------------------------
-// URL and platform helpers
+// Event URL extraction
+//
+// The strict URL/host/platform primitives (`is_meeting_url`,
+// `extract_url_from_text`, `infer_platform_from_url`) live in `super::ops` —
+// this module just composes them over the Google Calendar event shape.
 // ---------------------------------------------------------------------------
-
-fn is_meeting_url(s: &str) -> bool {
-    MEETING_HOST_PATTERNS.iter().any(|(host, _)| s.contains(host))
-}
-
-pub(crate) fn infer_platform_from_url(url: &str) -> Option<&'static str> {
-    MEETING_HOST_PATTERNS
-        .iter()
-        .find(|(host, _)| url.contains(host))
-        .map(|(_, platform)| *platform)
-}
-
-/// Extract the first parseable meeting URL from a free-form text string.
-fn extract_url_from_text(text: &str) -> Option<String> {
-    text.split_whitespace()
-        .map(|tok| {
-            tok.trim_matches(|c: char| {
-                matches!(
-                    c,
-                    '(' | ')' | '[' | ']' | '<' | '>' | ',' | ';' | '"' | '\'' | '.'
-                )
-            })
-        })
-        .filter(|tok| is_meeting_url(tok))
-        .find_map(|tok| {
-            let parsed = url::Url::parse(tok).ok()?;
-            matches!(parsed.scheme(), "http" | "https").then(|| parsed.to_string())
-        })
-}
 
 /// Extract the conferencing URL from a Google Calendar event object, checking
 /// in priority order:
@@ -429,7 +424,7 @@ fn extract_meet_url_from_event(
 ) -> Option<String> {
     // 1. hangoutLink
     if let Some(link) = map.get("hangoutLink").and_then(|v| v.as_str()) {
-        if is_meeting_url(link) {
+        if super::ops::is_meeting_url(link) {
             return Some(link.to_string());
         }
     }
@@ -441,7 +436,7 @@ fn extract_meet_url_from_event(
     {
         for entry in entries {
             if let Some(uri) = entry.get("uri").and_then(|v| v.as_str()) {
-                if is_meeting_url(uri) {
+                if super::ops::is_meeting_url(uri) {
                     return Some(uri.to_string());
                 }
             }
@@ -449,13 +444,13 @@ fn extract_meet_url_from_event(
     }
     // 3. location (free-form, e.g. "Zoom Meeting: https://zoom.us/j/123")
     if let Some(loc) = map.get("location").and_then(|v| v.as_str()) {
-        if let Some(url) = extract_url_from_text(loc) {
+        if let Some(url) = super::ops::extract_url_from_text(loc) {
             return Some(url);
         }
     }
     // 4. description (last resort)
     if let Some(desc) = map.get("description").and_then(|v| v.as_str()) {
-        if let Some(url) = extract_url_from_text(desc) {
+        if let Some(url) = super::ops::extract_url_from_text(desc) {
             return Some(url);
         }
     }
@@ -481,6 +476,7 @@ fn datetime_field<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::agent_meetings::ops::infer_platform_from_url;
     use serde_json::json;
 
     fn window() -> (DateTime<Utc>, DateTime<Utc>) {
@@ -588,6 +584,102 @@ mod tests {
         });
         let map = event.as_object().unwrap();
         assert!(try_extract_meeting(map, start_window, end_window, "ask").is_none());
+    }
+
+    #[test]
+    fn page_size_honors_caller_limit() {
+        // The old code hardcoded maxResults to DEFAULT_LIMIT.max(20) and ignored
+        // the caller. Now the caller's limit flows through, clamped to [1, 100].
+        assert_eq!(page_size(5), 5);
+        assert_eq!(page_size(50), 50);
+        assert_eq!(page_size(0), 1); // clamp floor
+        assert_eq!(page_size(1000), 100); // clamp ceiling
+    }
+
+    #[test]
+    fn includes_in_progress_meeting() {
+        // Started 10 min ago, ends in 20 min. `start_window` == now, so the old
+        // `start_utc < start_window` rule dropped this; it must now be kept.
+        let (start_window, end_window) = window();
+        let start = Utc::now() - chrono::Duration::minutes(10);
+        let end = Utc::now() + chrono::Duration::minutes(20);
+        let event = json!({
+            "id": "ev-inprogress",
+            "summary": "Already running",
+            "start": { "dateTime": start.to_rfc3339() },
+            "end": { "dateTime": end.to_rfc3339() },
+            "hangoutLink": "https://meet.google.com/in-progress"
+        });
+        let map = event.as_object().unwrap();
+        let meeting = try_extract_meeting(map, start_window, end_window, "ask").unwrap();
+        assert_eq!(meeting.title, "Already running");
+        assert_eq!(meeting.calendar_event_id, "ev-inprogress");
+    }
+
+    #[test]
+    fn skips_already_ended_meeting() {
+        // Started 2h ago, ended 1h ago — must be dropped.
+        let (start_window, end_window) = window();
+        let start = Utc::now() - chrono::Duration::hours(2);
+        let end = Utc::now() - chrono::Duration::hours(1);
+        let event = json!({
+            "id": "ev-ended",
+            "summary": "Done",
+            "start": { "dateTime": start.to_rfc3339() },
+            "end": { "dateTime": end.to_rfc3339() },
+            "hangoutLink": "https://meet.google.com/ended"
+        });
+        let map = event.as_object().unwrap();
+        assert!(try_extract_meeting(map, start_window, end_window, "ask").is_none());
+    }
+
+    #[test]
+    fn id_less_events_stay_distinct() {
+        // Two events with NO id/eventId/icalUID but different URLs + start times
+        // must each get a distinct synthetic key and both survive dedup — the
+        // old literal "unknown" fallback collapsed them to one.
+        let (start_window, end_window) = window();
+        let s1 = Utc::now() + chrono::Duration::minutes(15);
+        let s2 = Utc::now() + chrono::Duration::minutes(45);
+        let ev1 = json!({
+            "summary": "Anon A",
+            "start": { "dateTime": s1.to_rfc3339() },
+            "end": { "dateTime": (s1 + chrono::Duration::hours(1)).to_rfc3339() },
+            "hangoutLink": "https://meet.google.com/anon-a"
+        });
+        let ev2 = json!({
+            "summary": "Anon B",
+            "start": { "dateTime": s2.to_rfc3339() },
+            "end": { "dateTime": (s2 + chrono::Duration::hours(1)).to_rfc3339() },
+            "hangoutLink": "https://meet.google.com/anon-b"
+        });
+        let events = json!([ev1, ev2]);
+        let mut seen = HashSet::new();
+        let mut out = Vec::new();
+        collect_recursive(&events, start_window, end_window, "ask", &mut seen, &mut out);
+        assert_eq!(out.len(), 2, "id-less events should not collapse");
+        // Synthetic keys are URL@startMs and must differ.
+        assert_ne!(out[0].calendar_event_id, out[1].calendar_event_id);
+        assert!(out[0].calendar_event_id.contains('@'));
+    }
+
+    #[test]
+    fn id_less_duplicate_event_still_dedups() {
+        // The SAME id-less event appearing twice must still collapse to one
+        // (stable synthetic key on URL + start time).
+        let (start_window, end_window) = window();
+        let s = Utc::now() + chrono::Duration::minutes(20);
+        let ev = json!({
+            "summary": "Anon dup",
+            "start": { "dateTime": s.to_rfc3339() },
+            "end": { "dateTime": (s + chrono::Duration::hours(1)).to_rfc3339() },
+            "hangoutLink": "https://meet.google.com/anon-dup"
+        });
+        let events = json!([ev, ev]);
+        let mut seen = HashSet::new();
+        let mut out = Vec::new();
+        collect_recursive(&events, start_window, end_window, "ask", &mut seen, &mut out);
+        assert_eq!(out.len(), 1);
     }
 
     // ── platform inference ────────────────────────────────────────

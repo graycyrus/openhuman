@@ -4,6 +4,8 @@
 //! `SocketManager`. The backend's meeting bot handler picks these up and
 //! drives the Recall.ai (or Camoufox) session.
 
+use std::collections::HashMap;
+
 use serde_json::{json, Map, Value};
 
 use crate::core::event_bus::BackendMeetTurn;
@@ -69,16 +71,14 @@ pub(crate) fn resolve_effective_join_policy(
     platform: Option<&str>,
     config: &crate::openhuman::config::Config,
 ) -> String {
-    // Tier 1: per-event override.
+    // Single-event path: fetch this one override (opens one connection) and
+    // delegate to the prefetch-aware resolver so the tier logic lives in exactly
+    // one place.
+    let mut overrides: HashMap<String, String> = HashMap::new();
     if let Some(event_id) = calendar_event_id {
         match super::store::get_event_policy(config, event_id) {
             Ok(Some(policy)) if !policy.is_empty() => {
-                tracing::debug!(
-                    event_id,
-                    policy = %policy,
-                    "[meet:policy] tier=per_event"
-                );
-                return policy;
+                overrides.insert(event_id.to_string(), policy);
             }
             Err(e) => {
                 tracing::debug!(
@@ -88,6 +88,35 @@ pub(crate) fn resolve_effective_join_policy(
                 );
             }
             _ => {}
+        }
+    }
+    resolve_effective_join_policy_with_overrides(calendar_event_id, platform, config, &overrides)
+}
+
+/// Prefetch-aware variant of [`resolve_effective_join_policy`].
+///
+/// Takes a map of per-event overrides already loaded from the store (see
+/// [`super::store::get_event_policies_batch`]) so a batch RPC like
+/// `handle_list_upcoming` can resolve every meeting's effective policy fully
+/// in-memory — no per-event SQLite connection / schema migration. Applies the
+/// same three-tier precedence: per-event override → per-platform → global.
+pub(crate) fn resolve_effective_join_policy_with_overrides(
+    calendar_event_id: Option<&str>,
+    platform: Option<&str>,
+    config: &crate::openhuman::config::Config,
+    event_overrides: &HashMap<String, String>,
+) -> String {
+    // Tier 1: per-event override (from the prefetched map).
+    if let Some(event_id) = calendar_event_id {
+        if let Some(policy) = event_overrides.get(event_id) {
+            if !policy.is_empty() {
+                tracing::debug!(
+                    event_id,
+                    policy = %policy,
+                    "[meet:policy] tier=per_event"
+                );
+                return policy.clone();
+            }
         }
     }
 
@@ -350,7 +379,25 @@ pub async fn create_meeting_thread_with_transcript(
     Ok(())
 }
 
-fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
+// ---------------------------------------------------------------------------
+// Canonical URL / host helpers (single source of truth)
+//
+// `calendar.rs` and `upcoming.rs` both call into these instead of carrying
+// their own near-duplicate copies. Host matching is STRICT — it parses the URL
+// and compares the host against `ALLOWED_HOSTS` exactly (or as a subdomain), so
+// a spoofed host like `meet.google.com.attacker.com` is rejected (it would have
+// passed a loose `contains("meet.google.com")` check).
+// ---------------------------------------------------------------------------
+
+/// `true` when `host` is one of the allowed meeting hosts, either exactly or as
+/// a subdomain (e.g. `company.zoom.us` matches `zoom.us`).
+fn host_is_allowed(host: &str) -> bool {
+    ALLOWED_HOSTS
+        .iter()
+        .any(|(allowed, _)| host == *allowed || host.ends_with(&format!(".{allowed}")))
+}
+
+pub(crate) fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
     let url = url::Url::parse(raw.trim()).map_err(|e| format!("invalid meeting URL: {e}"))?;
 
     if url.scheme() != "https" && url.scheme() != "http" {
@@ -364,11 +411,7 @@ fn validate_meeting_url(raw: &str) -> Result<url::Url, String> {
         .host_str()
         .ok_or_else(|| "invalid meeting URL: missing host".to_string())?;
 
-    let is_allowed = ALLOWED_HOSTS
-        .iter()
-        .any(|(allowed, _)| host == *allowed || host.ends_with(&format!(".{allowed}")));
-
-    if !is_allowed {
+    if !host_is_allowed(host) {
         return Err(format!(
             "invalid meeting URL: host `{host}` not recognized (supported: Google Meet, Zoom, Teams, Webex)"
         ));
@@ -385,6 +428,85 @@ pub(crate) fn infer_platform(url: &url::Url) -> &'static str {
         }
     }
     "gmeet"
+}
+
+/// Strict check: does `s` parse as an http(s) URL whose host is an allowed
+/// meeting host? This is the single canonical `is_meeting_url` used by both the
+/// calendar auto-join subscriber and the upcoming-meetings fetcher. Unlike a
+/// loose substring match, this rejects `https://meet.google.com.attacker.com/x`.
+pub(crate) fn is_meeting_url(s: &str) -> bool {
+    match url::Url::parse(s.trim()) {
+        Ok(u) => {
+            matches!(u.scheme(), "http" | "https")
+                && u.host_str().map(host_is_allowed).unwrap_or(false)
+        }
+        Err(_) => false,
+    }
+}
+
+/// Infer the platform slug from a URL string using strict host matching.
+/// Returns `None` when the host is not a recognized meeting host.
+pub(crate) fn infer_platform_from_url(url_str: &str) -> Option<&'static str> {
+    let parsed = url::Url::parse(url_str.trim()).ok()?;
+    let host = parsed.host_str()?;
+    ALLOWED_HOSTS
+        .iter()
+        .find(|(allowed, _)| host == *allowed || host.ends_with(&format!(".{allowed}")))
+        .map(|(_, platform)| *platform)
+}
+
+/// Extract the first strictly-validated meeting URL from a free-form text
+/// string (e.g. a calendar `location`/`description` like
+/// `"Zoom Meeting: https://zoom.us/j/123"`). Scans whitespace-separated tokens,
+/// strips surrounding punctuation (including trailing `.`), and returns the
+/// first token that parses as an http(s) URL with an allowed meeting host.
+pub(crate) fn extract_url_from_text(text: &str) -> Option<String> {
+    text.split_whitespace()
+        .map(|tok| {
+            tok.trim_matches(|c: char| {
+                matches!(
+                    c,
+                    '(' | ')' | '[' | ']' | '<' | '>' | ',' | ';' | '"' | '\'' | '.'
+                )
+            })
+        })
+        .find_map(|tok| {
+            let parsed = url::Url::parse(tok).ok()?;
+            (matches!(parsed.scheme(), "http" | "https")
+                && parsed.host_str().map(host_is_allowed).unwrap_or(false))
+            .then(|| parsed.to_string())
+        })
+}
+
+/// Extract a stable calendar event id from a calendar event object map, in the
+/// canonical priority order shared by every meeting consumer (the UI
+/// `meet_list_upcoming` table, the heartbeat planner, and the calendar
+/// auto-join subscriber): `id` → `eventId` → `icalUID`. Returns `None` when the
+/// object carries none of these.
+pub(crate) fn extract_calendar_event_id(
+    map: &serde_json::Map<String, serde_json::Value>,
+) -> Option<String> {
+    map.get("id")
+        .or_else(|| map.get("eventId"))
+        .or_else(|| map.get("icalUID"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// Extract the calendar event id from a Composio trigger payload, which may nest
+/// the event resource under `data`. Uses the same `id`/`eventId`/`icalUID`
+/// priority as [`extract_calendar_event_id`] so the webhook auto-join path keys
+/// per-event policy lookups by the SAME id the UI persists them under.
+pub(crate) fn extract_calendar_event_id_from_payload(payload: &Value) -> Option<String> {
+    for root in [payload, payload.get("data").unwrap_or(payload)] {
+        if let Some(obj) = root.as_object() {
+            if let Some(id) = extract_calendar_event_id(obj) {
+                return Some(id);
+            }
+        }
+    }
+    None
 }
 
 /// Build the `bot:join` Socket.IO payload from a validated request.
@@ -822,10 +944,34 @@ pub async fn handle_list_upcoming(params: Map<String, Value>) -> Result<Value, S
         .map_err(|e| format!("[meet:upcoming] fetch failed: {e}"))?;
 
     // Phase 3: resolve effective per-event policy overrides.
+    //
+    // Batch-load every meeting's per-event override in ONE SQLite connection
+    // (single schema migration) up front, then resolve each meeting's effective
+    // policy fully in-memory. The previous per-meeting `get_event_policy` call
+    // opened a fresh connection AND re-ran the full schema migration once per
+    // meeting — up to ~100× per RPC.
+    let event_overrides = {
+        let event_ids: Vec<&str> = meetings
+            .iter()
+            .map(|m| m.calendar_event_id.as_str())
+            .collect();
+        super::store::get_event_policies_batch(&config, &event_ids).unwrap_or_else(|e| {
+            tracing::warn!(
+                error = %e,
+                "[meet:upcoming] batch policy fetch failed — falling back to global/per-platform only"
+            );
+            HashMap::new()
+        })
+    };
     for meeting in &mut meetings {
         let platform = meeting.platform.as_deref();
         let event_id = Some(meeting.calendar_event_id.as_str());
-        let effective = resolve_effective_join_policy(event_id, platform, &config);
+        let effective = resolve_effective_join_policy_with_overrides(
+            event_id,
+            platform,
+            &config,
+            &event_overrides,
+        );
         if effective != meeting.join_policy {
             tracing::debug!(
                 calendar_event_id = %meeting.calendar_event_id,
@@ -967,6 +1113,137 @@ mod tests {
     #[test]
     fn rejects_unknown_host() {
         assert!(validate_meeting_url("https://example.com/meeting").is_err());
+    }
+
+    // ── strict host matching (anti-spoof) ───────────────────────
+
+    #[test]
+    fn validate_rejects_spoofed_suffix_host() {
+        // A loose `contains("meet.google.com")` check would let these through.
+        assert!(validate_meeting_url("https://meet.google.com.attacker.com/x").is_err());
+        assert!(validate_meeting_url("https://zoom.us.evil.example/x").is_err());
+        assert!(validate_meeting_url("https://notzoom.us/x").is_err());
+    }
+
+    #[test]
+    fn is_meeting_url_strict_rejects_spoofed_host() {
+        assert!(!is_meeting_url("https://meet.google.com.attacker.com/x"));
+        assert!(!is_meeting_url("https://evilzoom.us.attacker.com/j/1"));
+        // Bare host with no scheme is not a usable meeting URL.
+        assert!(!is_meeting_url("meet.google.com/abc"));
+    }
+
+    #[test]
+    fn is_meeting_url_accepts_allowed_hosts_and_subdomains() {
+        assert!(is_meeting_url("https://meet.google.com/abc-defg-hij"));
+        assert!(is_meeting_url("https://zoom.us/j/123"));
+        assert!(is_meeting_url("https://company.zoom.us/j/123"));
+        assert!(is_meeting_url("https://teams.microsoft.com/l/meetup-join/abc"));
+        assert!(is_meeting_url("https://meet.webex.com/meet/abc"));
+    }
+
+    #[test]
+    fn infer_platform_from_url_strict() {
+        assert_eq!(infer_platform_from_url("https://company.zoom.us/j/1"), Some("zoom"));
+        assert_eq!(
+            infer_platform_from_url("https://meet.google.com/abc"),
+            Some("gmeet")
+        );
+        // Spoofed host must not infer a platform.
+        assert!(infer_platform_from_url("https://meet.google.com.attacker.com/x").is_none());
+        assert!(infer_platform_from_url("https://example.com/x").is_none());
+    }
+
+    #[test]
+    fn extract_url_from_text_strict() {
+        assert_eq!(
+            extract_url_from_text("Zoom Meeting: https://zoom.us/j/123"),
+            Some("https://zoom.us/j/123".to_string())
+        );
+        // Spoofed host embedded in free-form text is rejected.
+        assert!(
+            extract_url_from_text("Join https://meet.google.com.attacker.com/x now").is_none()
+        );
+    }
+
+    #[test]
+    fn extract_calendar_event_id_priority() {
+        let map = json!({ "id": "real-id", "eventId": "ev", "icalUID": "ical" });
+        assert_eq!(
+            extract_calendar_event_id(map.as_object().unwrap()).as_deref(),
+            Some("real-id")
+        );
+        let map = json!({ "eventId": "ev", "icalUID": "ical" });
+        assert_eq!(
+            extract_calendar_event_id(map.as_object().unwrap()).as_deref(),
+            Some("ev")
+        );
+        let map = json!({ "summary": "no id" });
+        assert!(extract_calendar_event_id(map.as_object().unwrap()).is_none());
+    }
+
+    #[test]
+    fn extract_calendar_event_id_from_payload_handles_nested_data() {
+        let payload = json!({ "data": { "id": "nested-id" } });
+        assert_eq!(
+            extract_calendar_event_id_from_payload(&payload).as_deref(),
+            Some("nested-id")
+        );
+        let payload = json!({ "id": "top-id" });
+        assert_eq!(
+            extract_calendar_event_id_from_payload(&payload).as_deref(),
+            Some("top-id")
+        );
+    }
+
+    // ── batch policy resolution ─────────────────────────────────
+
+    #[test]
+    fn resolve_with_overrides_tiers() {
+        use crate::openhuman::config::schema::AutoJoinPolicy;
+        use tempfile::TempDir;
+
+        let dir = TempDir::new().unwrap();
+        let mut config = crate::openhuman::config::Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        config
+            .meet
+            .platform_auto_join_policies
+            .insert("zoom".to_string(), AutoJoinPolicy::Always);
+
+        let mut overrides = HashMap::new();
+        overrides.insert("evt-1".to_string(), "skip".to_string());
+
+        // Tier 1: per-event override wins.
+        assert_eq!(
+            resolve_effective_join_policy_with_overrides(
+                Some("evt-1"),
+                Some("zoom"),
+                &config,
+                &overrides
+            ),
+            "skip"
+        );
+        // Tier 2: no override for this event → per-platform.
+        assert_eq!(
+            resolve_effective_join_policy_with_overrides(
+                Some("evt-2"),
+                Some("zoom"),
+                &config,
+                &overrides
+            ),
+            "auto"
+        );
+        // Tier 3: no override, unknown platform → global default ("ask").
+        assert_eq!(
+            resolve_effective_join_policy_with_overrides(
+                Some("evt-2"),
+                Some("gmeet"),
+                &config,
+                &overrides
+            ),
+            "ask"
+        );
     }
 
     #[tokio::test]
