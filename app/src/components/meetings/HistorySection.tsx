@@ -72,6 +72,22 @@ export function HistorySection() {
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState('');
 
+  // Live mirror of `records` so the meeting-ended effect can snapshot the
+  // currently-known calls without taking `records` as a dependency (which
+  // would re-run the effect on every fetch).
+  const recordsRef = useRef<MeetCallRecord[] | null>(records);
+  useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
+
+  // When a meeting ends we want to auto-select the just-finished call as soon
+  // as it lands. `pendingSelectLatestRef` arms that intent; `knownIdsAtEndRef`
+  // holds the call IDs that already existed when the meeting ended, so we can
+  // tell which row is the genuinely-new one (the retries may fire before the
+  // core has written it).
+  const pendingSelectLatestRef = useRef(false);
+  const knownIdsAtEndRef = useRef<Set<string>>(new Set());
+
   const fetchCalls = useCallback(async () => {
     log('[history] fetching calls');
     try {
@@ -81,6 +97,18 @@ export function HistorySection() {
       // doesn't flicker between error and loading on retry.
       setError(null);
       setRecords(rows);
+      // If a meeting just ended, select the newly-finished call once it shows
+      // up at the top (rows are newest-first). Guard on the pre-end snapshot so
+      // an early retry that hasn't picked up the new record yet doesn't steal
+      // selection, and so we don't clobber a later manual pick once it's done.
+      if (pendingSelectLatestRef.current && rows.length > 0) {
+        const newest = rows[0];
+        if (!knownIdsAtEndRef.current.has(newest.request_id)) {
+          log('[history] auto-selecting newly-finished call %s', newest.request_id);
+          setSelectedCallId(newest.request_id);
+          pendingSelectLatestRef.current = false;
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load calls.';
       log('[history] fetch error', err);
@@ -120,6 +148,10 @@ export function HistorySection() {
     prevMeetStatusRef.current = meetStatus;
     if (meetStatus === 'ended' && prev !== 'ended') {
       log('[history] meeting ended → refreshing recent calls');
+      // Snapshot the calls we already know about so the refresh can detect the
+      // just-finished one and move the selection (and detail pane) onto it.
+      knownIdsAtEndRef.current = new Set((recordsRef.current ?? []).map(r => r.request_id));
+      pendingSelectLatestRef.current = true;
       return fetchCallsWithRetries();
     }
   }, [meetStatus, fetchCallsWithRetries]);

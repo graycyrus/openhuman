@@ -203,4 +203,48 @@ describe('HistorySection', () => {
       expect(listMeetCallsMock).toHaveBeenCalled();
     });
   });
+
+  it('auto-selects the just-finished call after a meeting ends', async () => {
+    const newCall: MeetCallRecord = {
+      request_id: 'req-new',
+      meet_url: 'https://meet.google.com/new-call-xyz',
+      bot_display_name: 'OpenHuman',
+      owner_display_name: 'Alice',
+      started_at_ms: NOW - 1000,
+      ended_at_ms: NOW,
+      listened_seconds: 5,
+      spoken_seconds: 0,
+      turn_count: 2,
+      participants: ['Alice'],
+    };
+
+    // Initially two calls; the user manually selects the older (yesterday) one.
+    listMeetCallsMock.mockResolvedValue([todayCall, yesterdayCall]);
+    const { store } = renderWithProviders(<HistorySection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('j/999888')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('j/999888'));
+    await waitFor(() => {
+      expect(getMeetCallDetailMock).toHaveBeenCalledWith('req-yesterday');
+    });
+
+    getMeetCallDetailMock.mockClear();
+    // After the meeting ends the list gains a brand-new call at the top.
+    listMeetCallsMock.mockResolvedValue([newCall, todayCall, yesterdayCall]);
+
+    act(() => {
+      store.dispatch(setBackendMeetJoined({ meetUrl: newCall.meet_url }));
+    });
+    act(() => {
+      store.dispatch(setBackendMeetLeft({ reason: 'left' }));
+    });
+
+    // Selection should jump from the manually-picked older call to the
+    // newly-finished one, so its detail is fetched.
+    await waitFor(() => {
+      expect(getMeetCallDetailMock).toHaveBeenCalledWith('req-new');
+    });
+  });
 });
