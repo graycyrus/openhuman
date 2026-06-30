@@ -377,7 +377,7 @@ export function UpcomingTable({ lookaheadMinutes, limit }: UpcomingTableProps) {
   );
 
   return (
-    <div className="w-full rounded-xl border border-line/50 bg-surface/50 overflow-hidden">
+    <div className="w-full rounded-2xl border border-line bg-surface shadow-soft overflow-hidden">
       {/* Table header bar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-line/50">
         <h3 className="text-sm font-semibold text-content-primary">
