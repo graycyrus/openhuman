@@ -804,7 +804,7 @@ export function MicComposer({
             <button
               ref={gearButtonRef}
               type="button"
-              aria-label={t('mic.deviceSelector') || 'Microphone device'}
+              aria-label={t('mic.deviceSelector')}
               aria-expanded={deviceMenuOpen}
               onClick={() => {
                 const willOpen = !deviceMenuOpen;
@@ -846,7 +846,7 @@ export function MicComposer({
                   <div
                     ref={menuRef}
                     role="menu"
-                    aria-label={t('mic.deviceSelector') || 'Microphone device'}
+                    aria-label={t('mic.deviceSelector')}
                     style={{
                       position: 'fixed',
                       top: menuAnchor?.top ?? 0,
