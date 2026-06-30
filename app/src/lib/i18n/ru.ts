@@ -5229,6 +5229,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusListening': 'Прослушивание (без звука)',
   'skills.meetingBots.liveStatusEnded': 'Встреча завершена',
   'skills.meetingBots.liveStatusError': 'Ошибка подключения',
+  'skills.meetingBots.liveTranscriptHeading': 'Транскрипция в реальном времени',
+  'skills.meetingBots.liveTranscriptEmpty': 'Ожидание речи…',
   'skills.meetingBots.leaveButton': 'Выйти',
   'skills.meetingBots.respondToParticipant': 'Ваше имя на этой встрече',
   'skills.meetingBots.respondToParticipantHint': 'напр. Иван (ваше отображаемое имя в звонке)',

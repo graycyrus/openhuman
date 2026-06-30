@@ -5183,6 +5183,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusListening': 'শুনছে (নিঃশব্দ)',
   'skills.meetingBots.liveStatusEnded': 'মিটিং শেষ',
   'skills.meetingBots.liveStatusError': 'যোগ দিতে ব্যর্থ',
+  'skills.meetingBots.liveTranscriptHeading': 'লাইভ ট্রান্সক্রিপ্ট',
+  'skills.meetingBots.liveTranscriptEmpty': 'কথার জন্য অপেক্ষা করা হচ্ছে…',
   'skills.meetingBots.leaveButton': 'ছেড়ে দিন',
   'skills.meetingBots.respondToParticipant': 'এই মিটিংয়ে আপনার নাম',
   'skills.meetingBots.respondToParticipantHint': 'যেমন: রিয়া (কলে আপনার প্রদর্শনী নাম)',

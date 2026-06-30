@@ -5301,6 +5301,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusListening': 'Écoute (muet)',
   'skills.meetingBots.liveStatusEnded': 'Réunion terminée',
   'skills.meetingBots.liveStatusError': 'Échec de connexion',
+  'skills.meetingBots.liveTranscriptHeading': 'Transcription en direct',
+  'skills.meetingBots.liveTranscriptEmpty': 'En attente de parole…',
   'skills.meetingBots.leaveButton': 'Quitter',
   'skills.meetingBots.respondToParticipant': 'Votre nom dans cette réunion',
   'skills.meetingBots.respondToParticipantHint': 'ex. Alice (votre nom affiché dans l\u2019appel)',

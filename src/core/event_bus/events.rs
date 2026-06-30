@@ -1106,6 +1106,18 @@ pub enum DomainEvent {
         duration_ms: u64,
         correlation_id: Option<String>,
     },
+    /// Backend gmeet bot emitted an incremental transcript turn mid-call
+    /// (`bot:transcript_delta`, issue #4304). Relayed live to the renderer so
+    /// the active-call UI can render turns as they're spoken. `is_partial`
+    /// marks a not-yet-finalized line at `index`; a later delta (partial or
+    /// final) at the same `index` supersedes it. The terminal
+    /// `BackendMeetTranscript` stays authoritative for thread/summary.
+    BackendMeetTranscriptDelta {
+        turn: BackendMeetTurn,
+        index: u64,
+        is_partial: bool,
+        correlation_id: Option<String>,
+    },
     /// Backend gmeet bot emitted an error.
     BackendMeetError {
         error: String,
@@ -1335,6 +1347,7 @@ impl DomainEvent {
             | Self::BackendMeetReply { .. }
             | Self::BackendMeetHarness { .. }
             | Self::BackendMeetTranscript { .. }
+            | Self::BackendMeetTranscriptDelta { .. }
             | Self::BackendMeetError { .. }
             | Self::BackendMeetInCallRequest { .. }
             | Self::BackendMeetSpeak { .. }
@@ -1471,6 +1484,7 @@ impl DomainEvent {
             Self::BackendMeetReply { .. } => "BackendMeetReply",
             Self::BackendMeetHarness { .. } => "BackendMeetHarness",
             Self::BackendMeetTranscript { .. } => "BackendMeetTranscript",
+            Self::BackendMeetTranscriptDelta { .. } => "BackendMeetTranscriptDelta",
             Self::BackendMeetError { .. } => "BackendMeetError",
             Self::BackendMeetInCallRequest { .. } => "BackendMeetInCallRequest",
             Self::BackendMeetSpeak { .. } => "BackendMeetSpeak",

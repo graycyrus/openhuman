@@ -5830,6 +5830,8 @@ const en: TranslationMap = {
   'skills.meetingBots.liveStatusListening': 'Listening (muted)',
   'skills.meetingBots.liveStatusEnded': 'Meeting ended',
   'skills.meetingBots.liveStatusError': 'Failed to join',
+  'skills.meetingBots.liveTranscriptHeading': 'Live transcript',
+  'skills.meetingBots.liveTranscriptEmpty': 'Waiting for speech…',
   'skills.meetingBots.leaveButton': 'Leave',
   'skills.meetingBots.respondToParticipant': 'Your Name in This Meeting',
   'skills.meetingBots.respondToParticipantHint': 'e.g. Alice (your display name in the call)',

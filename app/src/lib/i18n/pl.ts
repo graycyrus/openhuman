@@ -5256,6 +5256,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusListening': 'Słuchanie (wyciszony)',
   'skills.meetingBots.liveStatusEnded': 'Spotkanie zakończone',
   'skills.meetingBots.liveStatusError': 'Nie można dołączyć',
+  'skills.meetingBots.liveTranscriptHeading': 'Transkrypcja na żywo',
+  'skills.meetingBots.liveTranscriptEmpty': 'Oczekiwanie na mowę…',
   'skills.meetingBots.leaveButton': 'Wyjdź',
   'skills.meetingBots.respondToParticipant': 'Twoje imię na tym spotkaniu',
   'skills.meetingBots.respondToParticipantHint':

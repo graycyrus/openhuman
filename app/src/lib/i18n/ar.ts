@@ -5078,6 +5078,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.liveStatusListening': 'الاستماع (صامت)',
   'skills.meetingBots.liveStatusEnded': 'انتهى الاجتماع',
   'skills.meetingBots.liveStatusError': 'فشل الانضمام',
+  'skills.meetingBots.liveTranscriptHeading': 'النص المباشر',
+  'skills.meetingBots.liveTranscriptEmpty': 'في انتظار الكلام…',
   'skills.meetingBots.leaveButton': 'مغادرة',
   'skills.meetingBots.respondToParticipant': 'اسمك في هذا الاجتماع',
   'skills.meetingBots.respondToParticipantHint': 'مثال: أحمد (اسمك في المكالمة)',
