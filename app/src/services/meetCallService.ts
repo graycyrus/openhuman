@@ -352,7 +352,8 @@ export async function sendHarnessResponse(result: string): Promise<void> {
  * The app normally uses `joinMeetViaBackendBot`, which routes through the
  * core Socket.IO bridge so backend bot events can be handled locally too.
  */
-export type MascotMeetPlatform = 'gmeet' | 'zoom' | 'teams' | 'webex';
+/** Alias of {@link MeetingPlatform} — kept for existing consumers. */
+export type MascotMeetPlatform = MeetingPlatform;
 
 export interface MascotJoinMeetingInput {
   platform: MascotMeetPlatform;

@@ -229,4 +229,62 @@ describe('UpcomingTable', () => {
       expect(askBtn).toHaveAttribute('aria-checked', 'true');
     });
   });
+
+  it('failed slow request does not clobber a newer successful change (optimistic race)', async () => {
+    // The first setEventPolicy call (ask→auto) is slow and will fail.
+    // The second call (auto→skip) is fast and succeeds.
+    // After the slow failure is finally rejected, the UI must remain on 'skip'
+    // — NOT revert back to 'ask'.
+    let rejectSlowCall!: (err: Error) => void;
+    const slowFailure = new Promise<void>((_, reject) => {
+      rejectSlowCall = reject;
+    });
+
+    setEventPolicyMock
+      .mockImplementationOnce(() => slowFailure)  // ask → auto: slow failure
+      .mockResolvedValueOnce(undefined);           // auto → skip: fast success
+
+    listMock.mockResolvedValueOnce([makeMeeting({ join_policy: 'ask' })]);
+    renderWithProviders(<UpcomingTable />);
+    await waitFor(() => expect(listMock).toHaveBeenCalled());
+
+    // First change: ask → auto (triggers slow in-flight RPC call)
+    const autoBtn = await screen.findByRole('radio', { name: /auto/i });
+    fireEvent.click(autoBtn);
+
+    // Second change while first is still in-flight: auto → skip (fast success)
+    const skipBtn = screen.getByRole('radio', { name: /skip/i });
+    fireEvent.click(skipBtn);
+
+    // Both RPCs were issued
+    await waitFor(() => expect(setEventPolicyMock).toHaveBeenCalledTimes(2));
+
+    // Skip should be the active policy now (second change settled)
+    expect(screen.getByRole('radio', { name: /skip/i })).toHaveAttribute('aria-checked', 'true');
+
+    // Now the slow first call rejects — with the bug this would revert to 'ask'
+    rejectSlowCall(new Error('network timeout'));
+
+    // After rejection settles, skip must STILL be active
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: /skip/i })).toHaveAttribute('aria-checked', 'true');
+    });
+    expect(screen.getByRole('radio', { name: /ask/i })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('relative time strings come from i18n (default en locale)', async () => {
+    // A meeting ~30 minutes and 30 seconds away → formatWhen should produce
+    // "in 30m" via the 'skills.meetingBots.relative.inMinutes' key.
+    // The extra 30 s gives headroom so minor test-execution timing drift
+    // doesn't push the floor() result down by one.
+    listMock.mockResolvedValueOnce([
+      makeMeeting({ start_time_ms: Date.now() + 30 * 60 * 1000 + 30 * 1000 }),
+    ]);
+    renderWithProviders(<UpcomingTable />);
+    // Match the en-locale pattern "in Xm" — proves the string came from i18n,
+    // not a hardcoded English fallback.
+    await waitFor(() =>
+      expect(screen.getByText(/^in \d+m$/)).toBeInTheDocument()
+    );
+  });
 });

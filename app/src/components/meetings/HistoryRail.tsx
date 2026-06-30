@@ -186,19 +186,31 @@ function extractMeetingCode(url: string): string {
   }
 }
 
-function formatRelativeTime(ms: number): string {
+/**
+ * Format a past timestamp as a compact relative label ("1h ago", "yesterday").
+ *
+ * All user-visible strings are routed through i18n. The caller must
+ * supply the `t` function from `useT()`.
+ */
+function formatRelativeTime(ms: number, t: (key: string) => string): string {
   if (!ms) return '—';
   const diff = Date.now() - ms;
-  if (diff < 0) return 'just now';
+  if (diff < 0) return t('skills.meetingBots.relative.now');
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return t('skills.meetingBots.relative.now');
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) {
+    return t('skills.meetingBots.relative.minutesAgo').replace('{count}', String(minutes));
+  }
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) {
+    return t('skills.meetingBots.relative.hoursAgo').replace('{count}', String(hours));
+  }
   const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  if (days < 7) return `${days}d ago`;
+  if (days === 1) return t('skills.meetingBots.relative.yesterday');
+  if (days < 7) {
+    return t('skills.meetingBots.relative.daysAgo').replace('{count}', String(days));
+  }
   try {
     return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   } catch {
@@ -277,7 +289,7 @@ export function HistoryRail({
                         )}
                         <span className="flex-1 truncate font-mono text-[11px]">{code}</span>
                         <span className="shrink-0 text-[10px] text-content-faint">
-                          {formatRelativeTime(call.started_at_ms)}
+                          {formatRelativeTime(call.started_at_ms, t)}
                         </span>
                       </div>
                       <div className="mt-0.5 pl-5 text-[10px] text-content-muted">

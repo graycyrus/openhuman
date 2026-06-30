@@ -118,6 +118,30 @@ describe('useUpcomingMeetings', () => {
     }
   });
 
+  it('background poll does not re-enter loading state once loaded', async () => {
+    vi.useFakeTimers();
+    try {
+      listMock.mockResolvedValue([MEETING]);
+
+      const { result, unmount } = renderHook(() => useUpcomingMeetings());
+
+      // Flush initial fetch — loading goes true then false.
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.meetings).toEqual([MEETING]);
+
+      // Advance 60 s to trigger the background poll.
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+
+      // Loading must NOT have flipped back to true — no skeleton flicker.
+      expect(result.current.loading).toBe(false);
+      expect(listMock).toHaveBeenCalledTimes(2);
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('clears the interval on unmount', async () => {
     vi.useFakeTimers();
     try {

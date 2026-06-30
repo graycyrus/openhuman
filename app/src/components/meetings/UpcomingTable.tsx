@@ -58,8 +58,14 @@ function tomorrowKey(): string {
 /**
  * Format a future time as a relative label ("in 5m", "in 2h") plus an
  * absolute time string (e.g. "14:30").
+ *
+ * All user-visible strings are routed through i18n. The caller must
+ * supply the `t` function from `useT()`.
  */
-function formatWhen(ms: number): { relative: string; absolute: string } {
+function formatWhen(
+  ms: number,
+  t: (key: string) => string
+): { relative: string; absolute: string } {
   const diffMs = ms - Date.now();
   const absolute = new Date(ms).toLocaleTimeString(undefined, {
     hour: '2-digit',
@@ -67,14 +73,20 @@ function formatWhen(ms: number): { relative: string; absolute: string } {
   });
 
   if (diffMs < 0) {
-    return { relative: 'now', absolute };
+    return { relative: t('skills.meetingBots.relative.now'), absolute };
   }
   const minutes = Math.floor(diffMs / 60_000);
   if (minutes < 60) {
-    return { relative: `in ${minutes}m`, absolute };
+    return {
+      relative: t('skills.meetingBots.relative.inMinutes').replace('{count}', String(minutes)),
+      absolute,
+    };
   }
   const hours = Math.floor(minutes / 60);
-  return { relative: `in ${hours}h`, absolute };
+  return {
+    relative: t('skills.meetingBots.relative.inHours').replace('{count}', String(hours)),
+    absolute,
+  };
 }
 
 function isImminent(startTimeMs: number): boolean {
@@ -152,7 +164,7 @@ function MeetingRow({
 }: MeetingRowProps) {
   const { t } = useT();
   const imminent = isImminent(meeting.start_time_ms);
-  const { relative, absolute } = formatWhen(meeting.start_time_ms);
+  const { relative, absolute } = formatWhen(meeting.start_time_ms, t);
 
   const platform = (meeting.platform ??
     (meeting.meet_url ? inferPlatformFromUrl(meeting.meet_url) ?? null : null)) as MeetingPlatform | null;
@@ -354,9 +366,11 @@ export function UpcomingTable({ lookaheadMinutes, limit }: UpcomingTableProps) {
     try {
       await setEventPolicy(id, v);
     } catch (err) {
-      // Revert on failure
+      // Revert on failure — but ONLY if the value still matches what THIS call
+      // optimistically set. A newer concurrent call may have already moved the
+      // value to something else; clobbering it would discard that change.
       log('[upcoming] set event policy failed, reverting: %s', err instanceof Error ? err.message : String(err));
-      setJoinPolicies(current => ({ ...current, [id]: prev }));
+      setJoinPolicies(curr => curr[id] === v ? { ...curr, [id]: prev } : curr);
     }
   };
 

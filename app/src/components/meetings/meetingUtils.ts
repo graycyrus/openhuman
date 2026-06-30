@@ -7,6 +7,7 @@
  */
 import type { ComposioConnection } from '../../lib/composio/types';
 import type { MeetingPlatform } from '../../services/meetCallService';
+import { composioLogoUrl } from '../composio/toolkitMeta';
 
 // ---------------------------------------------------------------------------
 // Platform registry
@@ -34,12 +35,12 @@ export function platformPrimaryToolkit(platform: MeetingPlatform): string {
 }
 
 /**
- * Composio logo CDN URL for a given toolkit slug (same source as
- * `composioLogoUrl` in `toolkitMeta.tsx` — kept local to avoid a cross-
- * component import).
+ * Composio logo CDN URL for a meeting platform.
+ * Delegates to the canonical {@link composioLogoUrl} from toolkitMeta.tsx
+ * so there is a single source of truth for the logo CDN path.
  */
 export function platformLogoUrl(platform: MeetingPlatform): string {
-  return `https://logos.composio.dev/api/${platformPrimaryToolkit(platform)}`;
+  return composioLogoUrl(platformPrimaryToolkit(platform));
 }
 
 /**
