@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import backendMeetReducer, {
   appendBackendMeetTranscriptDelta,
   resetBackendMeet,
+  selectBackendMeetLiveTranscript,
   setBackendMeetError,
   setBackendMeetHarness,
   setBackendMeetJoined,
@@ -185,6 +186,13 @@ describe('backendMeetSlice', () => {
       expect(state.liveTranscript[1]).toBeUndefined();
       const populated = state.liveTranscript.filter(Boolean);
       expect(populated).toHaveLength(2);
+    });
+
+    it('selector returns an empty array when the buffer is absent (legacy state)', () => {
+      // A store shaped before this slice field existed has no liveTranscript;
+      // the selector must not hand back undefined (would crash the panel).
+      const legacy = { backendMeet: { status: 'active' } } as never;
+      expect(selectBackendMeetLiveTranscript(legacy)).toEqual([]);
     });
 
     it('ignores a delta with a negative index', () => {

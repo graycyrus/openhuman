@@ -37,13 +37,15 @@ export interface LiveTranscriptPanelProps {
   partialIndex: number | null;
 }
 
-export function LiveTranscriptPanel({ turns, partialIndex }: LiveTranscriptPanelProps) {
+export function LiveTranscriptPanel({ turns = [], partialIndex }: LiveTranscriptPanelProps) {
   const { t } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // `turns` is keyed by the backend transcript index and can be sparse (skipped
   // `[System]` turns leave gaps), so render only the populated slots while
-  // keeping each turn's real index for the partial-line comparison.
+  // keeping each turn's real index for the partial-line comparison. Default to
+  // an empty array so a caller that hasn't seeded the live buffer (e.g. a store
+  // built before this slice field existed) renders the empty state, not a crash.
   const rows = turns
     .map((turn, index) => ({ turn, index }))
     .filter((row): row is { turn: BackendMeetTurn; index: number } => Boolean(row.turn));

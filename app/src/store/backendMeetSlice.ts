@@ -195,7 +195,7 @@ export const selectBackendMeetError = (state: { backendMeet: BackendMeetState })
   state.backendMeet.error;
 export const selectBackendMeetLiveTranscript = (state: {
   backendMeet: BackendMeetState;
-}): BackendMeetTurn[] => state.backendMeet.liveTranscript;
+}): BackendMeetTurn[] => state.backendMeet.liveTranscript ?? [];
 export const selectBackendMeetLivePartialIndex = (state: {
   backendMeet: BackendMeetState;
 }): number | null => state.backendMeet.livePartialIndex;
