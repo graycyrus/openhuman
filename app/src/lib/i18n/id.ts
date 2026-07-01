@@ -3,6 +3,10 @@ import type { TranslationMap } from './types';
 // Indonesian (Bahasa Indonesia) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Cross-host vault (#4278)
+  'crossHostVault.title': 'Vault berada di host core.',
+  'crossHostVault.message':
+    'Vault memori ini disimpan di host openhuman-core ({os}). Hanya dapat dibuka atau ditampilkan di mesin tersebut, bukan dari perangkat ini.',
   'conversations.backgroundTasks.title': 'Background tasks',
   'nav.feedback': 'Bagikan masukan',
   'feedback.board': 'Papan masukan',
@@ -1384,6 +1388,7 @@ const messages: TranslationMap = {
   'mcp.configAssistant.title': 'Asisten konfigurasi',
   'mcp.configAssistant.empty':
     'Tanyakan tentang konfigurasi, env vars yang diperlukan, atau langkah setup.',
+  'mcp.configAssistant.autoPromptCta': 'Dapatkan bantuan penyiapan langkah demi langkah',
   'mcp.configAssistant.suggestedValues': 'Nilai yang disarankan:',
   'mcp.configAssistant.valueHidden': '(nilai tersembunyi)',
   'mcp.configAssistant.applySuggested': 'Terapkan nilai yang disarankan',
@@ -1528,13 +1533,15 @@ const messages: TranslationMap = {
   'mcp.tab.filter.registry': 'Registri',
   'mcp.tab.column.name': 'Nama',
   'mcp.tab.column.description': 'Deskripsi',
-  'mcp.tab.column.source': 'Sumber',
+  'mcp.tab.column.type': 'Tipe',
   'mcp.tab.column.author': 'Penulis',
   'mcp.tab.column.action': 'Aksi',
-  'mcp.tab.source.official': 'Resmi',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': 'Terhosting',
-  'mcp.tab.transport.local': 'Lokal',
+  'mcp.tab.transport.local': 'Stdio',
+  'mcp.tab.transportFilter.label': 'Tipe',
+  'mcp.tab.transportFilter.aria': 'Filter server berdasarkan transport',
+  'mcp.tab.link.website': 'Situs web',
+  'mcp.tab.link.repo': 'Repositori',
   'mcp.tab.transport.hostedHint':
     'Berjalan di server jarak jauh — masuk atau token diatur saat memasang',
   'mcp.tab.transport.localHint': 'Berjalan di perangkat Anda — mungkin perlu token saat memasang',
@@ -1561,11 +1568,7 @@ const messages: TranslationMap = {
   'mcp.install.button': 'Penginstalan',
   'mcp.install.installing': 'Penginstalan...',
   'mcp.install.by': 'oleh',
-  'mcp.install.transportLocal': 'Berjalan secara lokal',
-  'mcp.install.transportRemote': 'Di-host di cloud',
   'mcp.install.useCount': '{count} instalasi',
-  'mcp.install.deployed': 'Diterapkan',
-  'mcp.install.requiresConfig': 'Memerlukan konfigurasi',
   'mcp.install.connections': 'Koneksi tersedia',
   'mcp.install.published': 'diterbitkan',
   'mcp.install.configureAndInstall': 'Konfigurasi & instal',
@@ -1625,6 +1628,12 @@ const messages: TranslationMap = {
   'mcp.connectAuth.oauthOrToken':
     'Sudah punya token akses? Tempelkan sebagai header Authorization di bawah ini saja.',
   'mcp.connectAuth.oauthTimeout': 'Waktu menunggu proses masuk lewat browser habis. Coba lagi.',
+  'mcp.connectAuth.authError.oauthRequired':
+    'Server ini menggunakan OAuth. Gunakan “Masuk dengan browser” — token yang ditempelkan tidak akan diterima.',
+  'mcp.connectAuth.authError.tokenRejected':
+    'Server menolak token ini. Pastikan token benar dan belum kedaluwarsa.',
+  'mcp.connectAuth.authError.credentialRequired':
+    'Server ini memerlukan autentikasi. Tambahkan token, atau masuk.',
   'onboarding.skipForNow': 'Lewati Sekarang',
   'onboarding.localAI.continueWithCloud': 'Lanjutkan dengan Cloud',
   'onboarding.localAI.useLocalAnyway':
@@ -2269,6 +2278,10 @@ const messages: TranslationMap = {
   'chat.attachment.remove': 'Hapus {name}',
   'chat.attachment.tooMany': 'Maksimal {max} gambar per pesan',
   'chat.attachment.tooManyFiles': 'Maksimal {max} file per pesan',
+  'chat.attachment.tooManyVideos': 'Maksimal {max} video per pesan',
+  'chat.attachment.videoNotSupported':
+    'Model ini tidak dapat membaca video. Anda dapat menggunakan tingkat Penalaran OpenHuman untuk melampirkan video Anda.',
+  'chat.attachment.dropToAttach': 'Lepaskan file untuk melampirkan',
   'chat.attachment.tooLarge': 'Gambar melebihi batas ukuran {max}',
   'chat.attachment.unsupportedType':
     'Jenis file tidak didukung. Gunakan gambar (PNG, JPEG, WebP, GIF, BMP) atau file PDF, TXT, atau Markdown.',
@@ -3148,6 +3161,8 @@ const messages: TranslationMap = {
   'composio.triggers.heading': 'Pemicu',
   'composio.triggers.listenFrom': 'Dengarkan event dari',
   'composio.triggers.loadError': 'Tidak bisa memuat trigger',
+  'composio.triggers.sessionExpired':
+    'Sesi OpenHuman Anda telah berakhir. Masuk lagi untuk memuat trigger.',
   'composio.triggers.needsConfiguration': 'Perlu konfigurasi',
   'composio.triggers.noneAvailable': 'Tidak ada trigger yang tersedia saat ini untuk',
   'conversations.taskKanban.moveLeft': 'Pindah ke kiri',
@@ -6047,6 +6062,8 @@ const messages: TranslationMap = {
     'Tidak ada penyedia ringkasan yang tersedia untuk Buat Pohon Ringkasan. Aktifkan AI lokal (Ollama), atau aktifkan ringkasan cloud di Pengaturan → AI → Memori.',
   'memory.health.remediation.empty_input_refused':
     'Item memori dilewati karena teksnya kosong. Tidak diperlukan tindakan — item baru tetap disematkan seperti biasa.',
+  'memory.health.remediation.storage_unavailable':
+    'OpenHuman tidak dapat menulis ke penyimpanan memorinya — disk atau kartu SD tampaknya rusak, penuh, atau hanya-baca. Periksa drive dan kosongkan ruang; pemrosesan memori akan dilanjutkan secara otomatis setelah penyimpanan dapat ditulisi kembali.',
   'memory.health.remediation.transient':
     'Kesalahan sementara mengganggu pemrosesan memori. Akan dicoba lagi secara otomatis.',
   'memory.health.remediation.unknown':

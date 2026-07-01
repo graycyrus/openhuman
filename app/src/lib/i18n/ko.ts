@@ -3,6 +3,10 @@ import type { TranslationMap } from './types';
 // Korean (한국어) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Cross-host vault (#4278)
+  'crossHostVault.title': '보관소가 코어 호스트에 있습니다.',
+  'crossHostVault.message':
+    '이 메모리 보관소는 openhuman-core 호스트({os})에 저장되어 있습니다. 해당 컴퓨터에서만 열거나 표시할 수 있으며 이 기기에서는 불가능합니다.',
   'conversations.backgroundTasks.title': 'Background tasks',
   'nav.feedback': '피드백 보내기',
   'feedback.board': '피드백 보드',
@@ -1370,6 +1374,7 @@ const messages: TranslationMap = {
   'mcp.catalog.loadMore': '추가 로드',
   'mcp.configAssistant.title': '구성 도우미',
   'mcp.configAssistant.empty': '구성, 필수 환경 변수 또는 설정 단계에 대해 문의하세요.',
+  'mcp.configAssistant.autoPromptCta': '단계별 설정 도움말 보기',
   'mcp.configAssistant.suggestedValues': '제안 값:',
   'mcp.configAssistant.valueHidden': '(값 숨김)',
   'mcp.configAssistant.applySuggested': '제안 값 적용',
@@ -1512,13 +1517,15 @@ const messages: TranslationMap = {
   'mcp.tab.filter.registry': '레지스트리',
   'mcp.tab.column.name': '이름',
   'mcp.tab.column.description': '설명',
-  'mcp.tab.column.source': '출처',
+  'mcp.tab.column.type': '유형',
   'mcp.tab.column.author': '작성자',
   'mcp.tab.column.action': '작업',
-  'mcp.tab.source.official': '공식',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': '호스팅됨',
-  'mcp.tab.transport.local': '로컬',
+  'mcp.tab.transport.local': 'Stdio',
+  'mcp.tab.transportFilter.label': '유형',
+  'mcp.tab.transportFilter.aria': '전송 방식으로 서버 필터링',
+  'mcp.tab.link.website': '웹사이트',
+  'mcp.tab.link.repo': '저장소',
   'mcp.tab.transport.hostedHint': '원격 서버에서 실행 — 설치 시 로그인 또는 토큰을 설정합니다',
   'mcp.tab.transport.localHint': '기기에서 실행 — 설치 시 토큰이 필요할 수 있습니다',
   'mcp.tab.officialBadge': '공식',
@@ -1544,11 +1551,7 @@ const messages: TranslationMap = {
   'mcp.install.button': '설치',
   'mcp.install.installing': '설치 중...',
   'mcp.install.by': '제작',
-  'mcp.install.transportLocal': '로컬 실행',
-  'mcp.install.transportRemote': '클라우드 호스팅',
   'mcp.install.useCount': '{count}회 설치',
-  'mcp.install.deployed': '배포됨',
-  'mcp.install.requiresConfig': '구성 필요',
   'mcp.install.connections': '사용 가능한 연결',
   'mcp.install.published': '게시됨',
   'mcp.install.configureAndInstall': '구성 및 설치',
@@ -1607,6 +1610,12 @@ const messages: TranslationMap = {
   'mcp.connectAuth.oauthOrToken':
     '이미 액세스 토큰이 있나요? 대신 아래에 Authorization 헤더로 붙여넣으세요.',
   'mcp.connectAuth.oauthTimeout': '브라우저 로그인 대기 시간이 초과되었습니다. 다시 시도하세요.',
+  'mcp.connectAuth.authError.oauthRequired':
+    '이 서버는 OAuth를 사용합니다. “브라우저로 로그인”을 사용하세요. 붙여넣은 토큰은 사용할 수 없습니다.',
+  'mcp.connectAuth.authError.tokenRejected':
+    '서버가 이 토큰을 거부했습니다. 토큰이 올바르고 만료되지 않았는지 확인하세요.',
+  'mcp.connectAuth.authError.credentialRequired':
+    '이 서버는 인증이 필요합니다. 토큰을 추가하거나 로그인하세요.',
   'onboarding.skipForNow': '지금 건너뛰기',
   'onboarding.localAI.continueWithCloud': '클라우드 계속하기',
   'onboarding.localAI.useLocalAnyway': '어쨌든 로컬 AI 사용(기기에 권장되지 않음)',
@@ -2242,6 +2251,10 @@ const messages: TranslationMap = {
   'chat.attachment.remove': '{name} 제거',
   'chat.attachment.tooMany': '메시지당 최대 {max}개 이미지',
   'chat.attachment.tooManyFiles': '메시지당 최대 {max}개 파일',
+  'chat.attachment.tooManyVideos': '메시지당 최대 {max}개 동영상',
+  'chat.attachment.videoNotSupported':
+    '이 모델은 동영상을 읽을 수 없습니다. 동영상을 첨부하려면 OpenHuman 추론 등급을 사용할 수 있습니다.',
+  'chat.attachment.dropToAttach': '파일을 놓아 첨부',
   'chat.attachment.tooLarge': '이미지가 {max} 크기 제한을 초과합니다',
   'chat.attachment.unsupportedType':
     '지원되지 않는 파일 형식입니다. 이미지(PNG, JPEG, WebP, GIF, BMP) 또는 PDF, TXT, Markdown 파일을 사용하세요.',
@@ -3112,6 +3125,8 @@ const messages: TranslationMap = {
   'composio.triggers.heading': '트리거',
   'composio.triggers.listenFrom': '다음에서 이벤트 수신:',
   'composio.triggers.loadError': '트리거를 불러올 수 없습니다',
+  'composio.triggers.sessionExpired':
+    'OpenHuman 세션이 만료되었습니다. 트리거를 불러오려면 다시 로그인하세요.',
   'composio.triggers.needsConfiguration': '구성이 필요합니다',
   'composio.triggers.noneAvailable': '현재 사용할 수 있는 트리거가 없습니다:',
   'conversations.taskKanban.moveLeft': '왼쪽으로 이동',
@@ -5968,6 +5983,8 @@ const messages: TranslationMap = {
     '요약 트리 만들기에 사용할 수 있는 요약 제공자가 없습니다. 로컬 AI(Ollama)를 활성화하거나, 설정 → AI → 메모리에서 클라우드 요약을 활성화하세요.',
   'memory.health.remediation.empty_input_refused':
     '텍스트가 비어 있어 메모리 항목이 건너뛰어졌습니다. 조치가 필요하지 않습니다 — 새 항목은 정상적으로 임베딩됩니다.',
+  'memory.health.remediation.storage_unavailable':
+    'OpenHuman이 메모리 저장소에 쓸 수 없습니다 — 디스크 또는 SD 카드가 손상되었거나 가득 찼거나 읽기 전용인 것 같습니다. 드라이브를 확인하고 공간을 확보하세요. 저장소에 다시 쓸 수 있게 되면 메모리 처리가 자동으로 재개됩니다.',
   'memory.health.remediation.transient':
     '일시적인 오류로 메모리 처리가 중단되었습니다. 자동으로 다시 시도됩니다.',
   'memory.health.remediation.unknown':

@@ -3,6 +3,10 @@ import type { TranslationMap } from './types';
 // Bengali (বাংলা) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Cross-host vault (#4278)
+  'crossHostVault.title': 'ভল্টটি কোর হোস্টে রয়েছে।',
+  'crossHostVault.message':
+    'এই মেমরি ভল্টটি openhuman-core হোস্টে ({os}) সংরক্ষিত আছে। এটি কেবল সেই মেশিনেই খোলা বা দেখানো যায়, এই ডিভাইস থেকে নয়।',
   'conversations.backgroundTasks.title': 'Background tasks',
   'nav.feedback': 'মতামত দিন',
   'feedback.board': 'মতামত বোর্ড',
@@ -1374,6 +1378,7 @@ const messages: TranslationMap = {
   'mcp.catalog.loadMore': 'আরও লোড করুন',
   'mcp.configAssistant.title': 'কনফিগারেশন সহকারী',
   'mcp.configAssistant.empty': 'কনফিগারেশন জানার জন্য, বিবিধ বৈশিষ্ট্য অথবা প্রস্তুতির প্রয়োজন।',
+  'mcp.configAssistant.autoPromptCta': 'ধাপে ধাপে সেটআপ সহায়তা নিন',
   'mcp.configAssistant.suggestedValues': 'প্রস্তাবিত মান:',
   'mcp.configAssistant.valueHidden': '(মান লুকানো)',
   'mcp.configAssistant.applySuggested': 'প্রস্তাবিত মান প্রয়োগ করুন',
@@ -1519,13 +1524,15 @@ const messages: TranslationMap = {
   'mcp.tab.filter.registry': 'রেজিস্ট্রি',
   'mcp.tab.column.name': 'নাম',
   'mcp.tab.column.description': 'বিবরণ',
-  'mcp.tab.column.source': 'উৎস',
+  'mcp.tab.column.type': 'ধরন',
   'mcp.tab.column.author': 'লেখক',
   'mcp.tab.column.action': 'ক্রিয়া',
-  'mcp.tab.source.official': 'অফিসিয়াল',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': 'হোস্টেড',
-  'mcp.tab.transport.local': 'লোকাল',
+  'mcp.tab.transport.local': 'Stdio',
+  'mcp.tab.transportFilter.label': 'ধরন',
+  'mcp.tab.transportFilter.aria': 'ট্রান্সপোর্ট অনুযায়ী সার্ভার ফিল্টার করুন',
+  'mcp.tab.link.website': 'ওয়েবসাইট',
+  'mcp.tab.link.repo': 'রিপোজিটরি',
   'mcp.tab.transport.hostedHint':
     'একটি দূরবর্তী সার্ভারে চলে — ইনস্টলের সময় সাইন-ইন বা টোকেন সেট করা হয়',
   'mcp.tab.transport.localHint': 'আপনার ডিভাইসে চলে — ইনস্টলের সময় টোকেন লাগতে পারে',
@@ -1552,11 +1559,7 @@ const messages: TranslationMap = {
   'mcp.install.button': 'ইনস্টল করুন',
   'mcp.install.installing': 'ইনস্টল করা হচ্ছে...',
   'mcp.install.by': 'দ্বারা',
-  'mcp.install.transportLocal': 'স্থানীয়ভাবে চলে',
-  'mcp.install.transportRemote': 'ক্লাউডে হোস্ট করা',
   'mcp.install.useCount': '{count} ইনস্টলেশন',
-  'mcp.install.deployed': 'স্থাপিত',
-  'mcp.install.requiresConfig': 'কনফিগারেশন প্রয়োজন',
   'mcp.install.connections': 'উপলব্ধ সংযোগ',
   'mcp.install.published': 'প্রকাশিত',
   'mcp.install.configureAndInstall': 'কনফিগার করুন ও ইনস্টল করুন',
@@ -1617,6 +1620,12 @@ const messages: TranslationMap = {
     'ইতিমধ্যে একটি অ্যাক্সেস টোকেন আছে? এর পরিবর্তে নিচে Authorization হেডার হিসেবে পেস্ট করুন।',
   'mcp.connectAuth.oauthTimeout':
     'ব্রাউজার সাইন-ইনের জন্য অপেক্ষার সময় শেষ হয়েছে। আবার চেষ্টা করুন।',
+  'mcp.connectAuth.authError.oauthRequired':
+    'এই সার্ভারটি OAuth ব্যবহার করে। “ব্রাউজার দিয়ে সাইন ইন করুন” ব্যবহার করুন — পেস্ট করা টোকেন গ্রহণ করা হবে না।',
+  'mcp.connectAuth.authError.tokenRejected':
+    'সার্ভার এই টোকেনটি প্রত্যাখ্যান করেছে। এটি সঠিক এবং এর মেয়াদ শেষ হয়নি তা যাচাই করুন।',
+  'mcp.connectAuth.authError.credentialRequired':
+    'এই সার্ভারের জন্য প্রমাণীকরণ প্রয়োজন। একটি টোকেন যোগ করুন, অথবা সাইন ইন করুন।',
   'onboarding.skipForNow': 'এখনই এড়িয়ে যান',
   'onboarding.localAI.continueWithCloud': 'ক্লাউডের সাথে চালিয়ে যান',
   'onboarding.localAI.useLocalAnyway':
@@ -2268,6 +2277,10 @@ const messages: TranslationMap = {
   'chat.attachment.remove': '{name} সরান',
   'chat.attachment.tooMany': 'প্রতি বার্তায় সর্বোচ্চ {max}টি ছবি',
   'chat.attachment.tooManyFiles': 'প্রতি বার্তায় সর্বোচ্চ {max}টি ফাইল',
+  'chat.attachment.tooManyVideos': 'প্রতি বার্তায় সর্বোচ্চ {max}টি ভিডিও',
+  'chat.attachment.videoNotSupported':
+    'এই মডেল ভিডিও পড়তে পারে না। আপনার ভিডিও সংযুক্ত করতে আপনি OpenHuman যুক্তি স্তর ব্যবহার করতে পারেন।',
+  'chat.attachment.dropToAttach': 'সংযুক্ত করতে ফাইল ছেড়ে দিন',
   'chat.attachment.tooLarge': 'ছবি {max} আকারের সীমা অতিক্রম করেছে',
   'chat.attachment.unsupportedType':
     'অসমর্থিত ফাইল প্রকার। একটি ছবি (PNG, JPEG, WebP, GIF, BMP) অথবা একটি PDF, TXT, বা Markdown ফাইল ব্যবহার করুন।',
@@ -3141,6 +3154,8 @@ const messages: TranslationMap = {
   'composio.triggers.heading': 'ট্রিগার',
   'composio.triggers.listenFrom': 'ইভেন্টের জন্য শুনুন',
   'composio.triggers.loadError': 'ট্রিগার লোড করা যায়নি',
+  'composio.triggers.sessionExpired':
+    'আপনার OpenHuman সেশনের মেয়াদ শেষ হয়েছে। ট্রিগার লোড করতে আবার সাইন ইন করুন।',
   'composio.triggers.needsConfiguration': 'কনফিগারেশন প্রয়োজন',
   'composio.triggers.noneAvailable': 'বর্তমানে কোনো ট্রিগার উপলব্ধ নেই',
   'conversations.taskKanban.moveLeft': 'বামে সরান',
@@ -6028,6 +6043,8 @@ const messages: TranslationMap = {
     'সারাংশ ট্রি তৈরির জন্য কোনও সারাংশ প্রদানকারী উপলব্ধ নেই। স্থানীয় AI (Ollama) সক্ষম করুন, অথবা সেটিংস → AI → মেমরিতে ক্লাউড সারাংশ সক্ষম করুন।',
   'memory.health.remediation.empty_input_refused':
     'একটি মেমরি আইটেম এড়িয়ে যাওয়া হয়েছে কারণ এর পাঠ্য খালি ছিল। কোনো পদক্ষেপের প্রয়োজন নেই — নতুন আইটেমগুলি স্বাভাবিকভাবে এমবেড করতে থাকে।',
+  'memory.health.remediation.storage_unavailable':
+    'OpenHuman তার মেমরি স্টোরেজে লিখতে পারছে না — ডিস্ক বা SD কার্ডটি ত্রুটিপূর্ণ, পূর্ণ বা শুধু-পঠনযোগ্য বলে মনে হচ্ছে। ড্রাইভটি পরীক্ষা করুন এবং কিছু জায়গা খালি করুন; স্টোরেজ আবার লেখার উপযোগী হলে মেমরি প্রক্রিয়াকরণ স্বয়ংক্রিয়ভাবে পুনরায় শুরু হবে।',
   'memory.health.remediation.transient':
     'একটি অস্থায়ী ত্রুটি মেমরি প্রক্রিয়াকরণে বাধা দিয়েছে। স্বয়ংক্রিয়ভাবে পুনরায় চেষ্টা করা হবে।',
   'memory.health.remediation.unknown':

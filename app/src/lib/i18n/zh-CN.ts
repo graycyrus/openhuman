@@ -3,6 +3,10 @@ import type { TranslationMap } from './types';
 // Simplified Chinese (简体中文) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Cross-host vault (#4278)
+  'crossHostVault.title': '记忆库位于核心主机上。',
+  'crossHostVault.message':
+    '此记忆库存储在 openhuman-core 主机（{os}）上。只能在该机器上打开或显示，无法从本设备访问。',
   'conversations.backgroundTasks.title': 'Background tasks',
   'nav.feedback': '分享反馈',
   'feedback.board': '反馈板',
@@ -1309,6 +1313,7 @@ const messages: TranslationMap = {
   'mcp.catalog.loadMore': '加载更多',
   'mcp.configAssistant.title': '配置助手',
   'mcp.configAssistant.empty': '询问配置、所需的环境变量或设置步骤。',
+  'mcp.configAssistant.autoPromptCta': '获取分步设置帮助',
   'mcp.configAssistant.suggestedValues': '建议值：',
   'mcp.configAssistant.valueHidden': '（隐藏值）',
   'mcp.configAssistant.applySuggested': '应用建议值',
@@ -1448,13 +1453,15 @@ const messages: TranslationMap = {
   'mcp.tab.filter.registry': '注册表',
   'mcp.tab.column.name': '名称',
   'mcp.tab.column.description': '描述',
-  'mcp.tab.column.source': '来源',
+  'mcp.tab.column.type': '类型',
   'mcp.tab.column.author': '作者',
   'mcp.tab.column.action': '操作',
-  'mcp.tab.source.official': '官方',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': '托管',
-  'mcp.tab.transport.local': '本地',
+  'mcp.tab.transport.local': 'Stdio',
+  'mcp.tab.transportFilter.label': '类型',
+  'mcp.tab.transportFilter.aria': '按传输方式筛选服务器',
+  'mcp.tab.link.website': '网站',
+  'mcp.tab.link.repo': '仓库',
   'mcp.tab.transport.hostedHint': '在远程服务器上运行 — 安装时设置登录或令牌',
   'mcp.tab.transport.localHint': '在您的设备上运行 — 安装时可能需要令牌',
   'mcp.tab.officialBadge': '官方',
@@ -1480,11 +1487,7 @@ const messages: TranslationMap = {
   'mcp.install.button': '安装',
   'mcp.install.installing': '正在安装...',
   'mcp.install.by': '作者',
-  'mcp.install.transportLocal': '本地运行',
-  'mcp.install.transportRemote': '云端托管',
   'mcp.install.useCount': '{count} 次安装',
-  'mcp.install.deployed': '已部署',
-  'mcp.install.requiresConfig': '需要配置',
   'mcp.install.connections': '可用连接',
   'mcp.install.published': '已发布',
   'mcp.install.configureAndInstall': '配置并安装',
@@ -1538,6 +1541,10 @@ const messages: TranslationMap = {
   'mcp.connectAuth.oauthWaiting': '正在等待登录…',
   'mcp.connectAuth.oauthOrToken': '已经有访问令牌？请改为在下方将其粘贴为 Authorization 请求头。',
   'mcp.connectAuth.oauthTimeout': '等待浏览器登录超时。请重试。',
+  'mcp.connectAuth.authError.oauthRequired':
+    '此服务器使用 OAuth。请使用“使用浏览器登录”——粘贴的令牌将不被接受。',
+  'mcp.connectAuth.authError.tokenRejected': '服务器拒绝了此令牌。请检查它是否正确且尚未过期。',
+  'mcp.connectAuth.authError.credentialRequired': '此服务器需要身份验证。请添加令牌或登录。',
   'onboarding.skipForNow': '暂时跳过',
   'onboarding.localAI.continueWithCloud': '继续使用云',
   'onboarding.localAI.useLocalAnyway': '无论如何使用本地人工智能（不推荐用于您的设备）',
@@ -2145,6 +2152,10 @@ const messages: TranslationMap = {
   'chat.attachment.remove': '移除 {name}',
   'chat.attachment.tooMany': '每条消息最多 {max} 张图片',
   'chat.attachment.tooManyFiles': '每条消息最多 {max} 个文件',
+  'chat.attachment.tooManyVideos': '每条消息最多 {max} 个视频',
+  'chat.attachment.videoNotSupported':
+    '此模型无法读取视频。您可以使用 OpenHuman 推理层级来附加视频。',
+  'chat.attachment.dropToAttach': '拖放文件以添加',
   'chat.attachment.tooLarge': '图片超过 {max} 大小限制',
   'chat.attachment.unsupportedType':
     '不支持的文件类型。请使用图片（PNG、JPEG、WebP、GIF、BMP）或 PDF、TXT、Markdown 文件。',
@@ -2986,6 +2997,7 @@ const messages: TranslationMap = {
   'composio.triggers.heading': '触发器',
   'composio.triggers.listenFrom': '监听来自以下的事件',
   'composio.triggers.loadError': '无法加载触发器',
+  'composio.triggers.sessionExpired': '你的 OpenHuman 会话已过期。请重新登录以加载触发器。',
   'composio.triggers.needsConfiguration': '需要配置',
   'composio.triggers.noneAvailable': '当前没有可用的触发器：',
   'conversations.taskKanban.moveLeft': '向左移动',
@@ -5722,6 +5734,8 @@ const messages: TranslationMap = {
     '没有可用于构建摘要树的摘要提供方。请启用本地 AI（Ollama），或在设置 → AI → 记忆中启用云端摘要。',
   'memory.health.remediation.empty_input_refused':
     '由于文本为空，一项记忆已被跳过。无需操作 — 新条目继续正常嵌入。',
+  'memory.health.remediation.storage_unavailable':
+    'OpenHuman 无法写入其记忆存储 — 磁盘或 SD 卡似乎已损坏、已满或为只读。请检查驱动器并释放空间；存储恢复可写后，记忆处理将自动继续。',
   'memory.health.remediation.transient': '临时错误中断了记忆处理。将自动重试。',
   'memory.health.remediation.unknown': '记忆处理遇到问题。请在设置 → AI 中检查配置。',
   // Chat — agent-generated artifacts (#2779)

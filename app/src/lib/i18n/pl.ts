@@ -3,6 +3,10 @@ import type { TranslationMap } from './types';
 // Polish (Polski) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Cross-host vault (#4278)
+  'crossHostVault.title': 'Skarbiec znajduje się na hoście rdzenia.',
+  'crossHostVault.message':
+    'Ten skarbiec pamięci jest przechowywany na hoście openhuman-core ({os}). Można go otworzyć lub pokazać tylko na tym komputerze, a nie z tego urządzenia.',
   'conversations.backgroundTasks.title': 'Background tasks',
   'nav.feedback': 'Podziel się opinią',
   'feedback.board': 'Tablica opinii',
@@ -1392,6 +1396,7 @@ const messages: TranslationMap = {
   'mcp.catalog.loadMore': 'Załaduj więcej',
   'mcp.configAssistant.title': 'Asystent konfiguracji',
   'mcp.configAssistant.empty': 'Zapytaj o konfigurację, wymagane zmienne lub kroki instalacji.',
+  'mcp.configAssistant.autoPromptCta': 'Uzyskaj pomoc w konfiguracji krok po kroku',
   'mcp.configAssistant.suggestedValues': 'Sugerowane wartości:',
   'mcp.configAssistant.valueHidden': '(wartość ukryta)',
   'mcp.configAssistant.applySuggested': 'Zastosuj sugerowane wartości',
@@ -1540,13 +1545,15 @@ const messages: TranslationMap = {
   'mcp.tab.filter.registry': 'Rejestr',
   'mcp.tab.column.name': 'Nazwa',
   'mcp.tab.column.description': 'Opis',
-  'mcp.tab.column.source': 'Źródło',
+  'mcp.tab.column.type': 'Typ',
   'mcp.tab.column.author': 'Autor',
   'mcp.tab.column.action': 'Akcja',
-  'mcp.tab.source.official': 'Oficjalny',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': 'Hostowany',
-  'mcp.tab.transport.local': 'Lokalny',
+  'mcp.tab.transport.local': 'Stdio',
+  'mcp.tab.transportFilter.label': 'Typ',
+  'mcp.tab.transportFilter.aria': 'Filtruj serwery według transportu',
+  'mcp.tab.link.website': 'Strona',
+  'mcp.tab.link.repo': 'Repozytorium',
   'mcp.tab.transport.hostedHint':
     'Działa na zdalnym serwerze — logowanie lub token jest konfigurowany przy instalacji',
   'mcp.tab.transport.localHint': 'Działa na Twoim urządzeniu — może wymagać tokena przy instalacji',
@@ -1573,11 +1580,7 @@ const messages: TranslationMap = {
   'mcp.install.button': 'Zainstaluj',
   'mcp.install.installing': 'Instalowanie...',
   'mcp.install.by': 'autor:',
-  'mcp.install.transportLocal': 'Uruchamiane lokalnie',
-  'mcp.install.transportRemote': 'Hostowane w chmurze',
   'mcp.install.useCount': '{count} instalacji',
-  'mcp.install.deployed': 'Wdrożone',
-  'mcp.install.requiresConfig': 'Wymaga konfiguracji',
   'mcp.install.connections': 'Dostępne połączenia',
   'mcp.install.published': 'opublikowane',
   'mcp.install.configureAndInstall': 'Skonfiguruj i zainstaluj',
@@ -1638,6 +1641,12 @@ const messages: TranslationMap = {
     'Masz już token dostępu? Wklej go zamiast tego poniżej jako nagłówek Authorization.',
   'mcp.connectAuth.oauthTimeout':
     'Upłynął limit czasu oczekiwania na logowanie w przeglądarce. Spróbuj ponownie.',
+  'mcp.connectAuth.authError.oauthRequired':
+    'Ten serwer używa OAuth. Użyj “Zaloguj się przez przeglądarkę” — wklejony token nie zostanie zaakceptowany.',
+  'mcp.connectAuth.authError.tokenRejected':
+    'Serwer odrzucił ten token. Sprawdź, czy jest poprawny i czy nie wygasł.',
+  'mcp.connectAuth.authError.credentialRequired':
+    'Ten serwer wymaga uwierzytelnienia. Dodaj token lub zaloguj się.',
   'onboarding.skipForNow': 'Pomiń na razie',
   'onboarding.localAI.continueWithCloud': 'Kontynuuj z chmurą',
   'onboarding.localAI.useLocalAnyway':
@@ -2288,6 +2297,10 @@ const messages: TranslationMap = {
   'chat.attachment.remove': 'Usuń {name}',
   'chat.attachment.tooMany': 'Maksymalnie {max} obrazów na wiadomość',
   'chat.attachment.tooManyFiles': 'Maksymalnie {max} plików na wiadomość',
+  'chat.attachment.tooManyVideos': 'Maksymalnie {max} filmów na wiadomość',
+  'chat.attachment.videoNotSupported':
+    'Ten model nie odczytuje filmów. Możesz użyć poziomu Rozumowanie OpenHuman, aby dołączyć film.',
+  'chat.attachment.dropToAttach': 'Upuść pliki, aby je dołączyć',
   'chat.attachment.tooLarge': 'Obraz przekracza limit rozmiaru {max}',
   'chat.attachment.unsupportedType':
     'Nieobsługiwany typ pliku. Użyj obrazu (PNG, JPEG, WebP, GIF, BMP) lub pliku PDF, TXT albo Markdown.',
@@ -3173,6 +3186,8 @@ const messages: TranslationMap = {
   'composio.triggers.heading': 'Wyzwalacze',
   'composio.triggers.listenFrom': 'Nasłuchuj zdarzeń z',
   'composio.triggers.loadError': 'Nie udało się wczytać wyzwalaczy',
+  'composio.triggers.sessionExpired':
+    'Twoja sesja OpenHuman wygasła. Zaloguj się ponownie, aby wczytać wyzwalacze.',
   'composio.triggers.needsConfiguration': 'Wymaga konfiguracji',
   'composio.triggers.noneAvailable': 'Brak dostępnych wyzwalaczy dla',
   'conversations.taskKanban.moveLeft': 'Przesuń w lewo',
@@ -6115,6 +6130,8 @@ const messages: TranslationMap = {
     'Brak dostępnego dostawcy podsumowań dla funkcji Twórz drzewa podsumowań. Włącz lokalną AI (Ollama) lub włącz podsumowywanie w chmurze w Ustawienia → AI → Pamięć.',
   'memory.health.remediation.empty_input_refused':
     'Pominięto element pamięci, ponieważ jego tekst był pusty. Żadne działanie nie jest wymagane — nowe elementy są nadal osadzane normalnie.',
+  'memory.health.remediation.storage_unavailable':
+    'OpenHuman nie może zapisywać w pamięci — dysk lub karta SD wydaje się uszkodzona, pełna lub tylko do odczytu. Sprawdź dysk i zwolnij miejsce; przetwarzanie pamięci wznowi się automatycznie, gdy zapis znów będzie możliwy.',
   'memory.health.remediation.transient':
     'Tymczasowy błąd przerwał przetwarzanie pamięci. Ponowna próba nastąpi automatycznie.',
   'memory.health.remediation.unknown':

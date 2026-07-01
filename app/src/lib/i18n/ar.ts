@@ -3,6 +3,10 @@ import type { TranslationMap } from './types';
 // Arabic (العربية) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Cross-host vault (#4278)
+  'crossHostVault.title': 'الخزنة موجودة على مضيف النواة.',
+  'crossHostVault.message':
+    'يتم تخزين خزنة الذاكرة هذه على مضيف openhuman-core ({os}). لا يمكن فتحها أو عرضها إلا على ذلك الجهاز، وليس من هذا الجهاز.',
   'conversations.backgroundTasks.title': 'Background tasks',
   'nav.feedback': 'شارك ملاحظاتك',
   'feedback.board': 'لوحة الملاحظات',
@@ -1352,6 +1356,7 @@ const messages: TranslationMap = {
   'mcp.catalog.loadMore': 'تحميل المزيد',
   'mcp.configAssistant.title': 'مساعد التكوين',
   'mcp.configAssistant.empty': 'اسأل عن التكوين أو متغيرات env المطلوبة أو خطوات الإعداد.',
+  'mcp.configAssistant.autoPromptCta': 'احصل على مساعدة الإعداد خطوة بخطوة',
   'mcp.configAssistant.suggestedValues': 'القيم المقترحة:',
   'mcp.configAssistant.valueHidden': '(القيمة مخفية)',
   'mcp.configAssistant.applySuggested': 'تطبيق القيم المقترحة',
@@ -1491,13 +1496,15 @@ const messages: TranslationMap = {
   'mcp.tab.filter.registry': 'السجل',
   'mcp.tab.column.name': 'الاسم',
   'mcp.tab.column.description': 'الوصف',
-  'mcp.tab.column.source': 'المصدر',
+  'mcp.tab.column.type': 'النوع',
   'mcp.tab.column.author': 'المؤلف',
   'mcp.tab.column.action': 'الإجراء',
-  'mcp.tab.source.official': 'رسمي',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': 'مستضاف',
-  'mcp.tab.transport.local': 'محلي',
+  'mcp.tab.transport.local': 'Stdio',
+  'mcp.tab.transportFilter.label': 'النوع',
+  'mcp.tab.transportFilter.aria': 'تصفية الخوادم حسب وسيلة النقل',
+  'mcp.tab.link.website': 'الموقع',
+  'mcp.tab.link.repo': 'المستودع',
   'mcp.tab.transport.hostedHint': 'يعمل على خادم بعيد — يُعدّ تسجيل الدخول أو الرمز عند التثبيت',
   'mcp.tab.transport.localHint': 'يعمل على جهازك — قد يحتاج إلى رمز عند التثبيت',
   'mcp.tab.officialBadge': 'رسمي',
@@ -1523,11 +1530,7 @@ const messages: TranslationMap = {
   'mcp.install.button': 'تثبيت',
   'mcp.install.installing': 'جارٍ التثبيت...',
   'mcp.install.by': 'بواسطة',
-  'mcp.install.transportLocal': 'يعمل محليًا',
-  'mcp.install.transportRemote': 'مستضاف سحابيًا',
   'mcp.install.useCount': 'عمليات تثبيت {count}',
-  'mcp.install.deployed': 'منشور',
-  'mcp.install.requiresConfig': 'يتطلب تكوينًا',
   'mcp.install.connections': 'الاتصالات المتاحة',
   'mcp.install.published': 'منشور',
   'mcp.install.configureAndInstall': 'تكوين وتثبيت',
@@ -1585,6 +1588,12 @@ const messages: TranslationMap = {
   'mcp.connectAuth.oauthOrToken':
     'هل لديك بالفعل رمز وصول؟ الصقه بدلاً من ذلك كرأس Authorization أدناه.',
   'mcp.connectAuth.oauthTimeout': 'انتهت مهلة انتظار تسجيل الدخول عبر المتصفح. حاول مرة أخرى.',
+  'mcp.connectAuth.authError.oauthRequired':
+    'يستخدم هذا الخادم OAuth. استخدم “تسجيل الدخول عبر المتصفح” — لن يتم قبول رمز مميز ملصوق.',
+  'mcp.connectAuth.authError.tokenRejected':
+    'رفض الخادم هذا الرمز المميز. تأكد من أنه صحيح وأن صلاحيته لم تنتهِ.',
+  'mcp.connectAuth.authError.credentialRequired':
+    'يتطلب هذا الخادم مصادقة. أضف رمزًا مميزًا أو سجّل الدخول.',
   'onboarding.skipForNow': 'التخطي الآن',
   'onboarding.localAI.continueWithCloud': 'متابعة مع السحابة',
   'onboarding.localAI.useLocalAnyway':
@@ -2216,6 +2225,10 @@ const messages: TranslationMap = {
   'chat.attachment.remove': 'إزالة {name}',
   'chat.attachment.tooMany': 'الحد الأقصى {max} صور لكل رسالة',
   'chat.attachment.tooManyFiles': 'الحد الأقصى {max} ملفات لكل رسالة',
+  'chat.attachment.tooManyVideos': 'الحد الأقصى {max} مقاطع فيديو لكل رسالة',
+  'chat.attachment.videoNotSupported':
+    'لا يمكن لهذا النموذج قراءة مقاطع الفيديو. يمكنك استخدام مستوى التفكير من OpenHuman لإرفاق الفيديو.',
+  'chat.attachment.dropToAttach': 'أفلت الملفات لإرفاقها',
   'chat.attachment.tooLarge': 'حجم الصورة يتجاوز الحد المسموح {max}',
   'chat.attachment.unsupportedType':
     'نوع ملف غير مدعوم. استخدم صورة (PNG أو JPEG أو WebP أو GIF أو BMP) أو ملف PDF أو TXT أو Markdown.',
@@ -3074,6 +3087,8 @@ const messages: TranslationMap = {
   'composio.triggers.heading': 'المشغّلات',
   'composio.triggers.listenFrom': 'الاستماع للأحداث من',
   'composio.triggers.loadError': 'تعذّر تحميل المشغّلات',
+  'composio.triggers.sessionExpired':
+    'انتهت صلاحية جلسة OpenHuman. سجّل الدخول مرة أخرى لتحميل المشغّلات.',
   'composio.triggers.needsConfiguration': 'يحتاج إلى إعداد',
   'composio.triggers.noneAvailable': 'لا توجد مشغّلات متاحة حاليًا لـ',
   'conversations.taskKanban.moveLeft': 'نقل لليسار',
@@ -5905,6 +5920,8 @@ const messages: TranslationMap = {
     'لا يتوفر مزوّد تلخيص لميزة إنشاء أشجار التلخيص. فعّل الذكاء الاصطناعي المحلي (Ollama)، أو فعّل تلخيص السحابة في الإعدادات → الذكاء الاصطناعي → الذاكرة.',
   'memory.health.remediation.empty_input_refused':
     'تم تخطي عنصر ذاكرة لأن نصه كان فارغًا. لا حاجة لأي إجراء — تستمر العناصر الجديدة في التضمين بشكل طبيعي.',
+  'memory.health.remediation.storage_unavailable':
+    'تعذّر على OpenHuman الكتابة إلى تخزين الذاكرة — يبدو أن القرص أو بطاقة SD معطوبة أو ممتلئة أو للقراءة فقط. تحقّق من محرك الأقراص وحرّر بعض المساحة؛ ستُستأنف معالجة الذاكرة تلقائيًا بمجرد أن يصبح التخزين قابلاً للكتابة مرة أخرى.',
   'memory.health.remediation.transient':
     'حدث خطأ مؤقت أدى إلى مقاطعة معالجة الذاكرة. ستتم إعادة المحاولة تلقائيًا.',
   'memory.health.remediation.unknown':

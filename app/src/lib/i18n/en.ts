@@ -1041,6 +1041,8 @@ const en: TranslationMap = {
     'No summarization provider is available for Build Summary Trees. Enable local AI (Ollama), or enable cloud summarization in Settings → AI → Memory.',
   'memory.health.remediation.empty_input_refused':
     'A memory item was skipped because its text was empty. No action needed — newer items continue to embed normally.',
+  'memory.health.remediation.storage_unavailable':
+    "OpenHuman can't write to its memory storage — the disk or SD card appears to be failing, full, or read-only. Check the drive and free up space; memory processing resumes automatically once storage is writable again.",
   'memory.health.remediation.transient':
     'A temporary error interrupted memory processing. It will retry automatically.',
   'memory.health.remediation.unknown':
@@ -1727,6 +1729,7 @@ const en: TranslationMap = {
   'mcp.catalog.loadMore': 'Load more',
   'mcp.configAssistant.title': 'Configuration assistant',
   'mcp.configAssistant.empty': 'Ask about configuration, required env vars, or setup steps.',
+  'mcp.configAssistant.autoPromptCta': 'Get step-by-step setup help',
   'mcp.configAssistant.suggestedValues': 'Suggested values:',
   'mcp.configAssistant.valueHidden': '(value hidden)',
   'mcp.configAssistant.applySuggested': 'Apply suggested values',
@@ -1870,16 +1873,18 @@ const en: TranslationMap = {
   'mcp.tab.filter.registry': 'Registry',
   'mcp.tab.column.name': 'Name',
   'mcp.tab.column.description': 'Description',
-  'mcp.tab.column.source': 'Source',
+  'mcp.tab.column.type': 'Type',
   'mcp.tab.column.author': 'Author',
   'mcp.tab.column.action': 'Action',
-  'mcp.tab.source.official': 'Official',
-  'mcp.tab.source.smithery': 'Smithery',
   'mcp.tab.transport.hosted': 'Hosted',
-  'mcp.tab.transport.local': 'Local',
+  'mcp.tab.transport.local': 'Stdio',
   'mcp.tab.transport.hostedHint':
     'Runs on a remote server — sign-in or token is set up when you install',
   'mcp.tab.transport.localHint': 'Runs on your device — may need a token when you install',
+  'mcp.tab.transportFilter.label': 'Type',
+  'mcp.tab.transportFilter.aria': 'Filter servers by transport',
+  'mcp.tab.link.website': 'Website',
+  'mcp.tab.link.repo': 'Repository',
   'mcp.tab.officialBadge': 'Official',
   'mcp.tab.officialHint': 'Official server from the vendor',
   'mcp.tab.badge.installed': 'Installed',
@@ -1903,11 +1908,7 @@ const en: TranslationMap = {
   'mcp.install.button': 'Install',
   'mcp.install.installing': 'Installing...',
   'mcp.install.by': 'by',
-  'mcp.install.transportLocal': 'Runs locally',
-  'mcp.install.transportRemote': 'Cloud hosted',
   'mcp.install.useCount': '{count} installs',
-  'mcp.install.deployed': 'Deployed',
-  'mcp.install.requiresConfig': 'Requires configuration',
   'mcp.install.connections': 'Available connections',
   'mcp.install.published': 'published',
   'mcp.install.configureAndInstall': 'Configure & install',
@@ -1961,6 +1962,12 @@ const en: TranslationMap = {
   'mcp.connectAuth.oauthOrToken':
     'Already have an access token? Paste it as an Authorization header below instead.',
   'mcp.connectAuth.oauthTimeout': 'Timed out waiting for browser sign-in. Try again.',
+  'mcp.connectAuth.authError.oauthRequired':
+    'This server uses OAuth. Use “Sign in with browser” — a pasted token will not be accepted.',
+  'mcp.connectAuth.authError.tokenRejected':
+    'The server rejected this token. Check that it is correct and has not expired.',
+  'mcp.connectAuth.authError.credentialRequired':
+    'This server requires authentication. Add a token, or sign in.',
   'mcp.detail.enable': 'Enable',
   'mcp.detail.disable': 'Disable',
   'mcp.status.disabled': 'Disabled',
@@ -2664,6 +2671,10 @@ const en: TranslationMap = {
   'chat.attachment.remove': 'Remove {name}',
   'chat.attachment.tooMany': 'Maximum {max} images per message',
   'chat.attachment.tooManyFiles': 'Maximum {max} files per message',
+  'chat.attachment.tooManyVideos': 'Maximum {max} videos per message',
+  'chat.attachment.videoNotSupported':
+    'This model can’t read videos. You can use the OpenHuman Reasoning tier to attach your video.',
+  'chat.attachment.dropToAttach': 'Drop files to attach',
   'chat.attachment.tooLarge': 'Image exceeds {max} size limit',
   'chat.attachment.unsupportedType':
     'Unsupported file type. Use an image (PNG, JPEG, WebP, GIF, BMP) or a PDF, TXT, or Markdown file.',
@@ -2891,6 +2902,11 @@ const en: TranslationMap = {
   'vaultHealth.timeHrAgo': '{n} hr ago',
   'vaultHealth.timeDayAgo': '{n} day ago',
   'vaultHealth.timeDaysAgo': '{n} days ago',
+
+  // Cross-host vault (#4278) — shared by VaultHealthChecklist + ObsidianVaultSection
+  'crossHostVault.title': 'Vault is on the core host.',
+  'crossHostVault.message':
+    'This memory vault is stored on the openhuman-core host ({os}). It can only be opened or revealed on that machine, not from this device.',
 
   // Memory data panel (storage explainer)
   'memoryData.howItWorks': 'How memory storage works',
@@ -3676,6 +3692,8 @@ const en: TranslationMap = {
   'composio.triggers.heading': 'Triggers',
   'composio.triggers.listenFrom': 'Listen for events from',
   'composio.triggers.loadError': "Couldn't load triggers",
+  'composio.triggers.sessionExpired':
+    'Your OpenHuman session expired. Sign in again to load triggers.',
   'composio.triggers.needsConfiguration': 'Needs configuration',
   'composio.triggers.noneAvailable': 'No triggers are currently available for',
   'conversations.taskKanban.moveLeft': 'Move left',
