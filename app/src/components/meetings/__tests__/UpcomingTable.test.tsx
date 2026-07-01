@@ -205,6 +205,10 @@ describe('UpcomingTable', () => {
     const joinBtn = await screen.findByRole('button', { name: /^join$/i });
     fireEvent.click(joinBtn);
     await waitFor(() => expect(joinMock).toHaveBeenCalledOnce());
+    // handleJoin disables the row via `joiningId` until its `finally` runs;
+    // wait for the button to re-enable before the second click so it isn't
+    // swallowed by the disabled state (timing-dependent otherwise).
+    await waitFor(() => expect((joinBtn as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(joinBtn);
     await waitFor(() => expect(joinMock).toHaveBeenCalledTimes(2));
 
