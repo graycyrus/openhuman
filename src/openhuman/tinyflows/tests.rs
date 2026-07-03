@@ -71,7 +71,7 @@ fn build_capabilities_constructs_every_slot_without_panicking() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     // Purely a construction smoke test — no capability is invoked here.
-    let _caps = build_capabilities(config);
+    let _caps = build_capabilities(config, "test:build");
 }
 
 // ── HTTP adapter ─────────────────────────────────────────────────────────
@@ -162,7 +162,7 @@ async fn flow_state_store_round_trips_and_is_namespace_scoped() {
 async fn engine_run_drives_trigger_to_http_request_through_the_real_seam() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let caps = build_capabilities(config);
+    let caps = build_capabilities(config, "test:smoke");
 
     // A deterministically-blocked loopback URL with `on_error: continue` so
     // the run completes even though the (real, SSRF-guarded) HTTP adapter

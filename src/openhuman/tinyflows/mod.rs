@@ -23,7 +23,14 @@ use crate::openhuman::security::SecurityPolicy;
 /// Builds the [`tinyflows::caps::Capabilities`] bundle for one run, wiring
 /// each of the five host-injected traits to a real OpenHuman adapter (see
 /// [`caps`] for each adapter's contract).
-pub fn build_capabilities(config: Arc<Config>) -> tinyflows::caps::Capabilities {
+///
+/// `state_namespace` scopes the [`caps::FlowStateStore`] KV so two saved flows
+/// that use the same state key never read or overwrite each other — callers
+/// pass a per-flow namespace (e.g. `"flow:<id>"`).
+pub fn build_capabilities(
+    config: Arc<Config>,
+    state_namespace: impl Into<String>,
+) -> tinyflows::caps::Capabilities {
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
@@ -47,7 +54,7 @@ pub fn build_capabilities(config: Arc<Config>) -> tinyflows::caps::Capabilities 
         }),
         state: Arc::new(caps::FlowStateStore {
             config,
-            namespace: "default".to_string(),
+            namespace: state_namespace.into(),
         }),
     }
 }

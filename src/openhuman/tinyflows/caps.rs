@@ -265,11 +265,15 @@ impl CodeRunner for OpenHumanCode {
             false,
         );
 
-        let work_dir = self
-            .config
-            .action_dir
-            .join(".flows_code")
-            .join(uuid::Uuid::new_v4().to_string());
+        // Work dir lives under `action_dir` (the sandbox workspace root). We keep
+        // its path *relative* to `action_dir` so the run command works on every
+        // backend: for Local, `execute_in_sandbox`'s `working_dir` is the host
+        // cwd; for Docker, `action_dir` is bind-mounted at `/workspace` with
+        // `-w /workspace`. Host-absolute paths would not exist inside the
+        // container, so we pass `action_dir` as the working dir and reference the
+        // script/input by their `action_dir`-relative paths.
+        let rel_dir = std::path::Path::new(".flows_code").join(uuid::Uuid::new_v4().to_string());
+        let work_dir = self.config.action_dir.join(&rel_dir);
         tokio::fs::create_dir_all(&work_dir)
             .await
             .map_err(|e| EngineError::Capability(format!("failed to create code work dir: {e}")))?;
@@ -290,11 +294,14 @@ impl CodeRunner for OpenHumanCode {
             .await
             .map_err(|e| EngineError::Capability(format!("failed to write code input: {e}")))?;
 
+        // Backend-agnostic, `action_dir`-relative command paths (see above).
+        let rel_script = rel_dir.join(script_name);
+        let rel_input = rel_dir.join("input.json");
         let command = format!(
             "{} {} {}",
             shell_quote(interpreter),
-            shell_quote(&script_path.to_string_lossy()),
-            shell_quote(&input_path.to_string_lossy()),
+            shell_quote(&rel_script.to_string_lossy()),
+            shell_quote(&rel_input.to_string_lossy()),
         );
 
         let mut extra_env = std::collections::HashMap::new();
@@ -312,7 +319,7 @@ impl CodeRunner for OpenHumanCode {
         let result = execute_in_sandbox(
             &policy,
             &command,
-            &work_dir,
+            &self.config.action_dir,
             extra_env,
             std::time::Duration::from_secs(CODE_RUN_TIMEOUT_SECS),
         )

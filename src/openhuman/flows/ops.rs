@@ -129,7 +129,9 @@ pub async fn flows_run(
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
 
     let config_arc = Arc::new(config.clone());
-    let caps = crate::openhuman::tinyflows::build_capabilities(config_arc);
+    // Scope the state store per-flow so two flows never collide on a state key.
+    let caps =
+        crate::openhuman::tinyflows::build_capabilities(config_arc, format!("flow:{flow_id}"));
     let checkpointer =
         crate::openhuman::tinyflows::open_flow_checkpointer(config).map_err(|e| e.to_string())?;
     let thread_id = format!("flow:{flow_id}:{}", uuid::Uuid::new_v4());
@@ -141,10 +143,32 @@ pub async fn flows_run(
         "[flows] flows_run: starting checkpointed run"
     );
 
-    let outcome =
-        tinyflows::engine::run_with_checkpointer(&compiled, input, &caps, checkpointer, &thread_id)
-            .await
-            .map_err(|e| e.to_string())?;
+    let outcome = match tinyflows::engine::run_with_checkpointer(
+        &compiled,
+        input,
+        &caps,
+        checkpointer,
+        &thread_id,
+    )
+    .await
+    {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            // Record the failed attempt so `last_run_at`/`last_status` reflect
+            // reality (a stop-policy engine/capability failure), rather than
+            // leaving the prior success/pending state on the flow.
+            if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
+                tracing::warn!(
+                    target: "flows",
+                    flow_id = %flow_id,
+                    error = %rec_err,
+                    "[flows] flows_run: failed to record failed run"
+                );
+            }
+            tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: run failed");
+            return Err(e.to_string());
+        }
+    };
 
     let status = if outcome.pending_approvals.is_empty() {
         "completed"
