@@ -4309,6 +4309,7 @@ const en: TranslationMap = {
     'Saved workflows will show up here once you create one from the canvas.',
   'flows.page.loading': 'Loading workflows…',
   'flows.page.loadError': 'Could not load workflows. Please try again.',
+  'flows.page.newWorkflow': 'New workflow',
   'flows.list.lastRun': 'Last run',
   'flows.list.neverRun': 'Never run',
   'flows.list.justNow': 'Just now',
@@ -4322,6 +4323,11 @@ const en: TranslationMap = {
   'flows.list.enabled': 'Enabled',
   'flows.list.paused': 'Paused',
   'flows.list.runStarted': 'Workflow started',
+  'flows.runs.title': 'Runs for {name}',
+  'flows.runs.titleFallback': 'Workflow runs',
+  'flows.runs.loading': 'Loading runs…',
+  'flows.runs.loadError': 'Could not load runs',
+  'flows.runs.empty': 'No runs yet',
 
   'oauth.button.connecting': 'Connecting...',
   'oauth.button.loopbackTimeout':

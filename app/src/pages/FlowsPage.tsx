@@ -3,17 +3,20 @@
  *
  * The discoverable hub for the `flows::` domain: lists every saved
  * `Flow` (name, enabled toggle, last-run status, Run button). This is NOT the
- * canvas (B5b ships flow authoring/editing) and NOT the chat agent-proposal
- * surface (B4) — just the top-level `/flows` list, reached via the
- * "Workflows" nav tab (see `config/navConfig.ts`).
+ * canvas (B5b ships flow authoring/editing) — until it lands, "New workflow"
+ * (header + empty-state) bridges to the B4 agent-proposal flow in Chat
+ * instead, since that's the only way to author a flow today.
  */
 import createDebug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import EmptyStateCard from '../components/EmptyStateCard';
 import FlowListRow, { type FlowListRowBusy } from '../components/flows/FlowListRow';
+import FlowRunsDrawer from '../components/flows/FlowRunsDrawer';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
+import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { useT } from '../lib/i18n/I18nContext';
 import { type Flow, listFlows, runFlow, setFlowEnabled } from '../services/api/flowsApi';
@@ -30,11 +33,16 @@ function errorMessage(err: unknown): string {
 
 export default function FlowsPage() {
   const { t } = useT();
+  const navigate = useNavigate();
   const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<BusyKey | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  // Flow whose run history is open in `FlowRunsDrawer` (B3b's run inspector
+  // then stacks on top of that when a specific run is picked). `null` keeps
+  // the drawer unmounted.
+  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);
@@ -116,11 +124,47 @@ export default function FlowsPage() {
     return null;
   };
 
+  const handleViewRuns = useCallback((flow: Flow) => {
+    log('view runs: id=%s', flow.id);
+    setSelectedFlowId(flow.id);
+  }, []);
+
+  const selectedFlow = flows.find(f => f.id === selectedFlowId) ?? null;
+
+  /**
+   * "New workflow" (there's no canvas builder yet — B5b) bridges to Chat so
+   * the user can kick off B4's agent-proposal flow instead. There's no
+   * existing mechanism to prefill or auto-send an initial composer message
+   * from outside the Chat page — `Conversations.tsx` only reads
+   * `location.state.openThreadId` (to reopen a thread), and the composer's
+   * text is local `useState` with no Redux draft slice. This is the same gap
+   * `ActionItemChecklist.tsx`'s "Run with OpenHuman" button already hit, so
+   * we follow its precedent: navigate to `/chat` with no prefill rather than
+   * build new prefill plumbing from scratch.
+   */
+  const handleNewWorkflow = useCallback(() => {
+    log('new workflow: navigating to chat');
+    // TODO: prefill the chat composer with a workflow-building prompt once a
+    // draft/initial-message API exists (see ActionItemChecklist.tsx's
+    // identical TODO for the same gap).
+    navigate('/chat');
+  }, [navigate]);
+
   return (
     <PanelPage
       testId="flows-page"
       title={t('flows.page.title')}
-      description={t('flows.page.description')}>
+      description={t('flows.page.description')}
+      action={
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          data-testid="flows-new-workflow"
+          onClick={handleNewWorkflow}>
+          {t('flows.page.newWorkflow')}
+        </Button>
+      }>
       <div className="mx-auto w-full max-w-3xl space-y-4">
         {error && (
           <div data-testid="flows-error">
@@ -147,6 +191,9 @@ export default function FlowsPage() {
             }
             title={t('flows.page.emptyTitle')}
             description={t('flows.page.emptyDescription')}
+            actionLabel={t('flows.page.newWorkflow')}
+            actionTestId="flows-empty-new-workflow"
+            onAction={handleNewWorkflow}
           />
         )}
 
@@ -161,26 +208,18 @@ export default function FlowsPage() {
                 busy={busyFor(flow)}
                 onToggle={f => void handleToggle(f)}
                 onRun={f => void handleRun(f)}
+                onViewRuns={handleViewRuns}
               />
             ))}
           </div>
         )}
-
-        {/* === B3b integration (wire after PR #4450 merges) ===
-            "View runs" was pulled from `FlowListRow` for now — it would only
-            store a `selectedFlowId` with nothing to show for it until the run
-            inspector lands, which reads as a dead button. Once #4450 merges,
-            re-add here as: track `selectedFlowId` state, list the flow's runs
-            via listFlowRuns(flowId), and open the inspector
-            (FlowRunInspectorDrawer, keyed by RUN id / thread_id, NOT flowId)
-            for a chosen run:
-        {selectedFlowId && (
-          <FlowRunInspectorRunsForFlow
-            flowId={selectedFlowId}
-            onClose={() => setSelectedFlowId(null)}
-          />
-        )} */}
       </div>
+
+      <FlowRunsDrawer
+        flowId={selectedFlowId}
+        flowName={selectedFlow?.name}
+        onClose={() => setSelectedFlowId(null)}
+      />
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />
     </PanelPage>

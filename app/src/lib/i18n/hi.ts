@@ -3665,6 +3665,7 @@ const messages: TranslationMap = {
   'flows.page.emptyDescription': 'कैनवास से एक बनाने के बाद सहेजे गए वर्कफ़्लो यहां दिखाई देंगे।',
   'flows.page.loading': 'वर्कफ़्लो लोड हो रहे हैं…',
   'flows.page.loadError': 'वर्कफ़्लो लोड नहीं हो सके। कृपया फिर से प्रयास करें।',
+  'flows.page.newWorkflow': 'नया वर्कफ़्लो',
   'flows.list.lastRun': 'अंतिम रन',
   'flows.list.neverRun': 'कभी नहीं चला',
   'flows.list.justNow': 'अभी अभी',
@@ -3678,6 +3679,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'सक्षम',
   'flows.list.paused': 'रोका गया',
   'flows.list.runStarted': 'वर्कफ़्लो शुरू हुआ',
+  'flows.runs.title': '{name} के लिए रन',
+  'flows.runs.titleFallback': 'वर्कफ़्लो रन',
+  'flows.runs.loading': 'रन लोड हो रहे हैं…',
+  'flows.runs.loadError': 'रन लोड नहीं हो सके',
+  'flows.runs.empty': 'अभी तक कोई रन नहीं',
 
   'oauth.button.connecting': 'कनेक्ट हो रहा है...',
   'oauth.button.loopbackTimeout':

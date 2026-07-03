@@ -3710,6 +3710,7 @@ const messages: TranslationMap = {
     'Zapisane przepływy pracy pojawią się tutaj, gdy utworzysz jeden na płótnie.',
   'flows.page.loading': 'Ładowanie przepływów pracy…',
   'flows.page.loadError': 'Nie udało się załadować przepływów pracy. Spróbuj ponownie.',
+  'flows.page.newWorkflow': 'Nowy przepływ pracy',
   'flows.list.lastRun': 'Ostatnie uruchomienie',
   'flows.list.neverRun': 'Nigdy nie uruchomiono',
   'flows.list.justNow': 'Przed chwilą',
@@ -3723,6 +3724,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'Włączony',
   'flows.list.paused': 'Wstrzymany',
   'flows.list.runStarted': 'Przepływ pracy uruchomiony',
+  'flows.runs.title': 'Przebiegi dla {name}',
+  'flows.runs.titleFallback': 'Przebiegi przepływu pracy',
+  'flows.runs.loading': 'Ładowanie przebiegów…',
+  'flows.runs.loadError': 'Nie udało się załadować przebiegów',
+  'flows.runs.empty': 'Brak przebiegów',
 
   'oauth.button.connecting': 'Łączenie...',
   'oauth.button.loopbackTimeout':

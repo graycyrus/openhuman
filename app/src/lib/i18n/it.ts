@@ -3723,6 +3723,7 @@ const messages: TranslationMap = {
     'I flussi di lavoro salvati appariranno qui non appena ne crei uno dalla lavagna.',
   'flows.page.loading': 'Caricamento dei flussi di lavoro…',
   'flows.page.loadError': 'Impossibile caricare i flussi di lavoro. Riprova.',
+  'flows.page.newWorkflow': 'Nuovo flusso di lavoro',
   'flows.list.lastRun': 'Ultima esecuzione',
   'flows.list.neverRun': 'Mai eseguito',
   'flows.list.justNow': 'Proprio ora',
@@ -3736,6 +3737,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'Abilitato',
   'flows.list.paused': 'In pausa',
   'flows.list.runStarted': 'Flusso di lavoro avviato',
+  'flows.runs.title': 'Esecuzioni di {name}',
+  'flows.runs.titleFallback': 'Esecuzioni del flusso di lavoro',
+  'flows.runs.loading': 'Caricamento esecuzioni…',
+  'flows.runs.loadError': 'Impossibile caricare le esecuzioni',
+  'flows.runs.empty': 'Ancora nessuna esecuzione',
 
   'oauth.button.connecting': 'Connessione...',
   'oauth.button.loopbackTimeout':

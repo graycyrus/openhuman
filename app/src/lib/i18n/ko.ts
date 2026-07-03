@@ -3628,6 +3628,7 @@ const messages: TranslationMap = {
   'flows.page.emptyDescription': '캔버스에서 워크플로를 만들면 여기에 표시됩니다.',
   'flows.page.loading': '워크플로 로드 중…',
   'flows.page.loadError': '워크플로를 불러올 수 없습니다. 다시 시도해 주세요.',
+  'flows.page.newWorkflow': '새 워크플로',
   'flows.list.lastRun': '마지막 실행',
   'flows.list.neverRun': '실행된 적 없음',
   'flows.list.justNow': '방금',
@@ -3641,6 +3642,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': '활성화됨',
   'flows.list.paused': '일시 중지됨',
   'flows.list.runStarted': '워크플로가 시작되었습니다',
+  'flows.runs.title': '{name}의 실행 기록',
+  'flows.runs.titleFallback': '워크플로 실행 기록',
+  'flows.runs.loading': '실행 기록을 불러오는 중…',
+  'flows.runs.loadError': '실행 기록을 불러올 수 없습니다',
+  'flows.runs.empty': '아직 실행 기록이 없습니다',
 
   'oauth.button.connecting': '연결 중...',
   'oauth.button.loopbackTimeout':

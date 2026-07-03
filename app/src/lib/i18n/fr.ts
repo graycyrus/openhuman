@@ -3744,6 +3744,7 @@ const messages: TranslationMap = {
     'Les workflows enregistrés apparaîtront ici dès que vous en créerez un depuis le canevas.',
   'flows.page.loading': 'Chargement des workflows…',
   'flows.page.loadError': 'Impossible de charger les workflows. Veuillez réessayer.',
+  'flows.page.newWorkflow': 'Nouveau workflow',
   'flows.list.lastRun': 'Dernière exécution',
   'flows.list.neverRun': 'Jamais exécuté',
   'flows.list.justNow': "À l'instant",
@@ -3757,6 +3758,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'Activé',
   'flows.list.paused': 'En pause',
   'flows.list.runStarted': 'Workflow démarré',
+  'flows.runs.title': 'Exécutions de {name}',
+  'flows.runs.titleFallback': 'Exécutions du workflow',
+  'flows.runs.loading': 'Chargement des exécutions…',
+  'flows.runs.loadError': 'Impossible de charger les exécutions',
+  'flows.runs.empty': 'Aucune exécution pour le moment',
 
   'oauth.button.connecting': 'Connexion en cours…',
   'oauth.button.loopbackTimeout':

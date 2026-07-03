@@ -3666,6 +3666,7 @@ const messages: TranslationMap = {
     'ক্যানভাস থেকে একটি তৈরি করলে সংরক্ষিত ওয়ার্কফ্লোগুলো এখানে দেখা যাবে।',
   'flows.page.loading': 'ওয়ার্কফ্লো লোড হচ্ছে…',
   'flows.page.loadError': 'ওয়ার্কফ্লো লোড করা যায়নি। আবার চেষ্টা করুন।',
+  'flows.page.newWorkflow': 'নতুন ওয়ার্কফ্লো',
   'flows.list.lastRun': 'সর্বশেষ চালানো',
   'flows.list.neverRun': 'কখনো চালানো হয়নি',
   'flows.list.justNow': 'এইমাত্র',
@@ -3679,6 +3680,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'সক্ষম',
   'flows.list.paused': 'বিরতি দেওয়া',
   'flows.list.runStarted': 'ওয়ার্কফ্লো শুরু হয়েছে',
+  'flows.runs.title': '{name}-এর জন্য রান',
+  'flows.runs.titleFallback': 'ওয়ার্কফ্লো রান',
+  'flows.runs.loading': 'রান লোড হচ্ছে…',
+  'flows.runs.loadError': 'রান লোড করা যায়নি',
+  'flows.runs.empty': 'এখনো কোনো রান নেই',
 
   'oauth.button.connecting': 'সংযোগ হচ্ছে...',
   'oauth.button.loopbackTimeout':

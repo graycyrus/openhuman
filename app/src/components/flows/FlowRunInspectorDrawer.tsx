@@ -30,8 +30,13 @@ import type { FlowRunStatus, FlowRunStep } from '../../services/api/flowsApi';
 
 const log = debug('flows:run-inspector-drawer');
 
-/** Accent classes per run status (semantic palette from tailwind.config.js). */
-const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatus, string> = {
+/**
+ * Accent classes per run status (semantic palette from tailwind.config.js).
+ * Exported so {@link FlowRunsDrawer} (issue B5a.1) can reuse the same
+ * status-pill visual language for its run-history rows instead of
+ * duplicating the mapping.
+ */
+export const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatus, string> = {
   running:
     'border-ocean-200 bg-ocean-50 text-ocean-700 dark:border-ocean-500/30 dark:bg-ocean-500/10 dark:text-ocean-300',
   completed:
@@ -42,15 +47,16 @@ const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatus, string> = {
     'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
 };
 
-/** Header status dot per run status — mirrors `PHASE_STATUS_DOT`. */
-const FLOW_RUN_STATUS_DOT: Record<FlowRunStatus, string> = {
+/** Header status dot per run status — mirrors `PHASE_STATUS_DOT`. Exported, see above. */
+export const FLOW_RUN_STATUS_DOT: Record<FlowRunStatus, string> = {
   running: 'bg-ocean-500 animate-pulse',
   completed: 'bg-sage-500',
   pending_approval: 'bg-amber-500 animate-pulse',
   failed: 'bg-coral-500',
 };
 
-const FLOW_RUN_STATUS_KEY: Record<FlowRunStatus, string> = {
+/** i18n key per run status. Exported, see above. */
+export const FLOW_RUN_STATUS_KEY: Record<FlowRunStatus, string> = {
   running: 'flowRuns.status.running',
   completed: 'flowRuns.status.completed',
   pending_approval: 'flowRuns.status.pending_approval',

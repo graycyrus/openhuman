@@ -3674,6 +3674,7 @@ const messages: TranslationMap = {
     'Alur kerja tersimpan akan muncul di sini setelah Anda membuat satu dari kanvas.',
   'flows.page.loading': 'Memuat alur kerja…',
   'flows.page.loadError': 'Alur kerja gagal dimuat. Silakan coba lagi.',
+  'flows.page.newWorkflow': 'Alur Kerja Baru',
   'flows.list.lastRun': 'Terakhir dijalankan',
   'flows.list.neverRun': 'Belum pernah dijalankan',
   'flows.list.justNow': 'Baru saja',
@@ -3687,6 +3688,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'Aktif',
   'flows.list.paused': 'Dijeda',
   'flows.list.runStarted': 'Alur kerja dimulai',
+  'flows.runs.title': 'Proses untuk {name}',
+  'flows.runs.titleFallback': 'Proses alur kerja',
+  'flows.runs.loading': 'Memuat proses…',
+  'flows.runs.loadError': 'Tidak dapat memuat proses',
+  'flows.runs.empty': 'Belum ada proses',
 
   'oauth.button.connecting': 'Menghubungkan...',
   'oauth.button.loopbackTimeout':

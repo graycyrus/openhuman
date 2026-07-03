@@ -3584,6 +3584,7 @@ const messages: TranslationMap = {
     'ستظهر عمليات سير العمل المحفوظة هنا بمجرد إنشاء واحدة من لوحة الرسم.',
   'flows.page.loading': 'جارٍ تحميل عمليات سير العمل…',
   'flows.page.loadError': 'تعذر تحميل عمليات سير العمل. يرجى المحاولة مرة أخرى.',
+  'flows.page.newWorkflow': 'سير عمل جديد',
   'flows.list.lastRun': 'آخر تشغيل',
   'flows.list.neverRun': 'لم يتم التشغيل بعد',
   'flows.list.justNow': 'الآن',
@@ -3597,6 +3598,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'مفعّل',
   'flows.list.paused': 'متوقف مؤقتًا',
   'flows.list.runStarted': 'بدأ تشغيل سير العمل',
+  'flows.runs.title': 'عمليات التشغيل لـ {name}',
+  'flows.runs.titleFallback': 'عمليات تشغيل سير العمل',
+  'flows.runs.loading': 'جارٍ تحميل عمليات التشغيل…',
+  'flows.runs.loadError': 'تعذّر تحميل عمليات التشغيل',
+  'flows.runs.empty': 'لا توجد عمليات تشغيل بعد',
 
   'oauth.button.connecting': 'جارٍ الاتصال...',
   'oauth.button.loopbackTimeout':

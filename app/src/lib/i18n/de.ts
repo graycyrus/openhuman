@@ -3756,6 +3756,7 @@ const messages: TranslationMap = {
     'Gespeicherte Workflows erscheinen hier, sobald du einen im Canvas erstellst.',
   'flows.page.loading': 'Workflows werden geladen…',
   'flows.page.loadError': 'Workflows konnten nicht geladen werden. Bitte versuche es erneut.',
+  'flows.page.newWorkflow': 'Neuer Workflow',
   'flows.list.lastRun': 'Letzter Lauf',
   'flows.list.neverRun': 'Noch nie ausgeführt',
   'flows.list.justNow': 'Gerade eben',
@@ -3769,6 +3770,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'Aktiviert',
   'flows.list.paused': 'Pausiert',
   'flows.list.runStarted': 'Workflow gestartet',
+  'flows.runs.title': 'Ausführungen für {name}',
+  'flows.runs.titleFallback': 'Workflow-Ausführungen',
+  'flows.runs.loading': 'Ausführungen werden geladen…',
+  'flows.runs.loadError': 'Ausführungen konnten nicht geladen werden',
+  'flows.runs.empty': 'Noch keine Ausführungen',
 
   'oauth.button.connecting': 'Verbinden...',
   'oauth.button.loopbackTimeout':

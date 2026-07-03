@@ -3699,6 +3699,7 @@ const messages: TranslationMap = {
     'Сохранённые рабочие процессы появятся здесь, как только вы создадите один на холсте.',
   'flows.page.loading': 'Загрузка рабочих процессов…',
   'flows.page.loadError': 'Не удалось загрузить рабочие процессы. Попробуйте снова.',
+  'flows.page.newWorkflow': 'Новый рабочий процесс',
   'flows.list.lastRun': 'Последний запуск',
   'flows.list.neverRun': 'Ещё не запускался',
   'flows.list.justNow': 'Только что',
@@ -3712,6 +3713,11 @@ const messages: TranslationMap = {
   'flows.list.enabled': 'Включён',
   'flows.list.paused': 'Приостановлен',
   'flows.list.runStarted': 'Рабочий процесс запущен',
+  'flows.runs.title': 'Запуски для {name}',
+  'flows.runs.titleFallback': 'Запуски рабочего процесса',
+  'flows.runs.loading': 'Загрузка запусков…',
+  'flows.runs.loadError': 'Не удалось загрузить запуски',
+  'flows.runs.empty': 'Пока нет запусков',
 
   'oauth.button.connecting': 'Подключение...',
   'oauth.button.loopbackTimeout':

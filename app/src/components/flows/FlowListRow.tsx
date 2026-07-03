@@ -8,10 +8,9 @@
  * canonical boolean control — see `components/settings/controls`) since
  * enable/disable here is a persistent setting, not a one-off action.
  *
- * No "View runs" action yet: it would only stub-log a `selectedFlowId` with
- * nothing to show for it until B3b's run inspector lands (tracked as a
- * commented-out integration point in `FlowsPage.tsx`), so it's a dead button
- * until then and was pulled rather than shipped as a no-op.
+ * "View runs" (issue B5a.1) opens `FlowRunsDrawer` (mounted by `FlowsPage`)
+ * for this flow's run history — re-added now that B3b's run inspector has
+ * landed and the drawer has somewhere to send the user.
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { Flow } from '../../services/api/flowsApi';
@@ -28,6 +27,7 @@ export interface FlowListRowProps {
   flow: Flow;
   onToggle: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
+  onViewRuns: (flow: Flow) => void;
   busy?: FlowListRowBusy;
 }
 
@@ -56,7 +56,7 @@ function capitalize(value: string): string {
   return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
-const FlowListRow = ({ flow, onToggle, onRun, busy = null }: FlowListRowProps) => {
+const FlowListRow = ({ flow, onToggle, onRun, onViewRuns, busy = null }: FlowListRowProps) => {
   const { t } = useT();
   const toggleBusy = busy === 'toggle';
   const runBusy = busy === 'run';
@@ -95,6 +95,14 @@ const FlowListRow = ({ flow, onToggle, onRun, busy = null }: FlowListRowProps) =
           aria-label={t('flows.list.toggleEnabled')}
           onCheckedChange={() => onToggle(flow)}
         />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          data-testid={`flow-view-runs-${flow.id}`}
+          onClick={() => onViewRuns(flow)}>
+          {t('flows.list.viewRuns')}
+        </Button>
         <Button
           type="button"
           variant="secondary"
