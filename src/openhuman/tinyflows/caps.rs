@@ -232,13 +232,15 @@ async fn is_curated_flow_tool(slug: &str) -> bool {
 ///   [`is_curated_flow_tool`]'s doc for why the two differ). A non-curated /
 ///   unrecognized / out-of-scope slug is rejected with
 ///   `EngineError::Capability("tool not permitted: <slug>")` before any
-///   Composio call. This is defense in depth today: `slug` is a static,
-///   author-declared graph field in tinyflows 0.2 (never `=`-expression
-///   evaluated — see the node catalog), so a trigger payload cannot *choose*
-///   it; the check matters once a future data-binding release lets `slug`
-///   (or the tool the flow author picked) be influenced by upstream data —
-///   and it already closes the gap where an author could hand-type an
-///   arbitrary/typo'd slug that would otherwise reach Composio.
+///   Composio call. **As of tinyflows 0.3 this is load-bearing, not merely
+///   defense-in-depth**: integration-node config (including `slug`) is now
+///   `=`-expression evaluated against upstream/trigger data before `invoke`,
+///   so a trigger payload *can* influence which tool a `=`-derived slug
+///   resolves to. The curation gate runs on the **resolved** slug (verified:
+///   a `=item.tool`-derived unknown slug is rejected here before Composio),
+///   constraining any data-derived tool to the user's curated, in-scope,
+///   connected set — and it still closes the case where an author hand-types
+///   an arbitrary/typo'd slug.
 /// - **connection_ref**: `conn` (`"composio:<toolkit>:<connection_id>"`) is
 ///   now parsed and forwarded to `direct_execute` (Composio Direct mode).
 ///   Backend mode's `execute_tool` still has no per-call account-scoping
@@ -256,10 +258,13 @@ async fn is_curated_flow_tool(slug: &str) -> bool {
 ///   decision. No gate installed (unit tests, some hosts) means no gating,
 ///   same as the existing agent tool-loop middleware.
 ///
-/// // TODO(0.3): once tinyflows adds `=`-expression data-binding for
-/// // integration-node fields, curation here becomes load-bearing rather
-/// // than defense-in-depth — a flow author could otherwise bind `slug` (or
-/// // `args`) to upstream data.
+/// // SECURITY NOTE (tinyflows 0.3, now the pinned version): integration nodes
+/// // `=`-resolve config from upstream/trigger data, so a trigger-driven flow
+/// // whose `slug`/`url` is `=`-derived lets untrusted trigger data pick *which*
+/// // curated + in-scope + connected tool/endpoint runs (blast radius bounded by
+/// // the curation + scope + connection checks above and the approval gate).
+/// // For such flows authors should set `require_approval`. FOLLOW-UP: auto-force
+/// // approval when a trigger-driven run's tool/http config contains `=`-exprs.
 pub struct OpenHumanTools {
     pub config: Arc<Config>,
 }
