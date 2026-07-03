@@ -3660,6 +3660,15 @@ const messages: TranslationMap = {
   'notifications.meeting.alwaysJoin': 'Immer beitreten',
   'notifications.meeting.actionError':
     'Diese Aktion konnte nicht abgeschlossen werden. Bitte versuche es erneut.',
+  'notifications.flow.approveTitle': 'Workflow benötigt Genehmigung',
+  'notifications.flow.approve': 'Genehmigen',
+  'notifications.flow.approving': 'Wird genehmigt…',
+  'notifications.flow.dismiss': 'Verwerfen',
+  'notifications.flow.error':
+    'Der Workflow konnte nicht fortgesetzt werden. Bitte versuche es erneut.',
+  'notifications.flow.gateCount': 'Wartet auf {count} Genehmigungsschritt(e)',
+  'notifications.flow.approveHint': 'Workflow nach diesem Kontrollpunkt fortsetzen',
+  'notifications.flow.dismissHint': 'Diesen Hinweis ausblenden, ohne den Workflow fortzusetzen',
   'oauth.button.connecting': 'Verbinden...',
   'oauth.button.loopbackTimeout':
     'Anmeldung abgelaufen — der Browser hat die OAuth-Weiterleitung nicht abgeschlossen. Bitte versuche es erneut.',

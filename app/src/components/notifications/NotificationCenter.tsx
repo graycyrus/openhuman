@@ -20,11 +20,22 @@ import {
 } from '../../store/notificationSlice';
 import Button from '../ui/Button';
 import CoreNotificationCard from './CoreNotificationCard';
+import FlowApprovalCard from './FlowApprovalCard';
 import NotificationCard from './NotificationCard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A paused `tinyflows` run's approval prompt (issue B3a) — id set by
+ * `notify_pending_approval` in `src/openhuman/flows/ops.rs`. Routed to
+ * `FlowApprovalCard` instead of the generic `CoreNotificationCard`, which is
+ * hardcoded to the meeting auto-join RPC.
+ */
+function isFlowApproval(item: { id: string }): boolean {
+  return item.id.startsWith('flow-pending-approval:');
+}
 
 const NotificationCenter = () => {
   const { t } = useT();
@@ -185,9 +196,13 @@ const NotificationCenter = () => {
             always shown first, independent of integration load state. */}
         {coreActionItems.length > 0 && (
           <div className="divide-y-0">
-            {coreActionItems.map(item => (
-              <CoreNotificationCard key={item.id} notification={item} />
-            ))}
+            {coreActionItems.map(item =>
+              isFlowApproval(item) ? (
+                <FlowApprovalCard key={item.id} notification={item} />
+              ) : (
+                <CoreNotificationCard key={item.id} notification={item} />
+              )
+            )}
           </div>
         )}
 

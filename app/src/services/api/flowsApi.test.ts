@@ -1,0 +1,141 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { getFlowRun, listFlowRuns, resumeFlow } from './flowsApi';
+
+const mockCallCoreRpc = vi.fn();
+vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
+
+/** Every `flows_*` handler wraps its payload via `RpcOutcome::single_log`. */
+function cliEnvelope<T>(result: T, logs: string[] = ['did something']): { result: T; logs: string[] } {
+  return { result, logs };
+}
+
+describe('flowsApi', () => {
+  beforeEach(() => {
+    mockCallCoreRpc.mockReset();
+  });
+
+  describe('resumeFlow', () => {
+    it('calls openhuman.flows_resume with id, thread_id, approvals', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' })
+      );
+
+      const result = await resumeFlow('flow-1', 't1', ['node-a']);
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_resume',
+        params: { id: 'flow-1', thread_id: 't1', approvals: ['node-a'] },
+      });
+      expect(result).toEqual({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' });
+    });
+
+    it('unwraps the { result, logs } envelope', async () => {
+      const payload = { output: null, pending_approvals: ['node-b'], thread_id: 't2' };
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(payload));
+
+      const result = await resumeFlow('flow-1', 't2', ['node-b']);
+
+      expect(result).toEqual(payload);
+    });
+
+    it('passes through a bare (unwrapped) payload unchanged', async () => {
+      const payload = { output: null, pending_approvals: [], thread_id: 't3' };
+      mockCallCoreRpc.mockResolvedValue(payload);
+
+      const result = await resumeFlow('flow-1', 't3', []);
+
+      expect(result).toEqual(payload);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('no pending approval matches'));
+
+      await expect(resumeFlow('flow-1', 't1', ['wrong-node'])).rejects.toThrow(
+        'no pending approval matches'
+      );
+    });
+  });
+
+  describe('listFlowRuns', () => {
+    it('calls openhuman.flows_list_runs with id', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope([]));
+
+      await listFlowRuns('flow-1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_list_runs',
+        params: { id: 'flow-1' },
+      });
+    });
+
+    it('passes limit when provided', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope([]));
+
+      await listFlowRuns('flow-1', 5);
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_list_runs',
+        params: { id: 'flow-1', limit: 5 },
+      });
+    });
+
+    it('unwraps the { result, logs } envelope into the run array', async () => {
+      const runs = [
+        {
+          id: 't1',
+          flow_id: 'flow-1',
+          thread_id: 't1',
+          status: 'completed' as const,
+          started_at: '2026-01-01T00:00:00Z',
+          finished_at: '2026-01-01T00:01:00Z',
+          steps: [],
+          pending_approvals: [],
+          error: null,
+        },
+      ];
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(runs));
+
+      const result = await listFlowRuns('flow-1');
+
+      expect(result).toEqual(runs);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('boom'));
+
+      await expect(listFlowRuns('flow-1')).rejects.toThrow('boom');
+    });
+  });
+
+  describe('getFlowRun', () => {
+    it('calls openhuman.flows_get_run with run_id', async () => {
+      const run = {
+        id: 't1',
+        flow_id: 'flow-1',
+        thread_id: 't1',
+        status: 'pending_approval' as const,
+        started_at: '2026-01-01T00:00:00Z',
+        finished_at: null,
+        steps: [{ node_id: 'n1', output: { ok: true } }],
+        pending_approvals: ['n2'],
+        error: null,
+      };
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(run));
+
+      const result = await getFlowRun('t1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_get_run',
+        params: { run_id: 't1' },
+      });
+      expect(result).toEqual(run);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('flow run not found'));
+
+      await expect(getFlowRun('missing')).rejects.toThrow('flow run not found');
+    });
+  });
+});

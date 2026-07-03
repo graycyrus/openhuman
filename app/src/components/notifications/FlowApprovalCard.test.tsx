@@ -1,0 +1,150 @@
+/**
+ * Approve/Dismiss contract for the flow-pending-approval notification card
+ * (issue B3a). Asserts that Approve reads `{ flow_id, thread_id, node_ids }`
+ * from the notification's action payload, calls `flowsApi.resumeFlow` with
+ * those args, clears the notification on success, surfaces a localized error
+ * on failure, and that Dismiss clears the notification WITHOUT calling any RPC
+ * (there is no `flows_deny` endpoint yet).
+ */
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { store } from '../../store';
+import { type NotificationItem } from '../../store/notificationSlice';
+import FlowApprovalCard from './FlowApprovalCard';
+
+const resumeFlow = vi.hoisted(() => vi.fn());
+vi.mock('../../services/api/flowsApi', () => ({ resumeFlow }));
+
+function makeItem(overrides: Partial<NotificationItem> = {}): NotificationItem {
+  return {
+    id: 'flow-pending-approval:flow-1:thread-1',
+    category: 'agents',
+    title: 'Workflow needs approval',
+    body: '"Deploy pipeline" is waiting on 2 approvals before it can continue.',
+    timestamp: Date.now(),
+    read: false,
+    actions: [
+      {
+        actionId: 'approve',
+        label: 'Review',
+        payload: { flow_id: 'flow-1', thread_id: 'thread-1', node_ids: ['node-a', 'node-b'] },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function renderCard(item: NotificationItem) {
+  return render(
+    <Provider store={store}>
+      <FlowApprovalCard notification={item} />
+    </Provider>
+  );
+}
+
+describe('FlowApprovalCard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    store.dispatch({ type: 'notifications/clearAll' });
+  });
+
+  it('renders both Approve and Dismiss buttons', () => {
+    renderCard(makeItem());
+    expect(screen.getByTestId('flow-approval-approve')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-approval-dismiss')).toBeInTheDocument();
+  });
+
+  it('renders as an alertdialog with the notification body', () => {
+    renderCard(makeItem());
+    const card = screen.getByTestId('flow-approval-card');
+    expect(card).toHaveAttribute('role', 'alertdialog');
+    expect(screen.getByText(makeItem().body)).toBeInTheDocument();
+  });
+
+  it('calls resumeFlow with flow_id/thread_id/node_ids extracted from the action payload', async () => {
+    resumeFlow.mockResolvedValue({ output: null, pending_approvals: [], thread_id: 'thread-1' });
+    renderCard(makeItem());
+
+    fireEvent.click(screen.getByTestId('flow-approval-approve'));
+
+    await waitFor(() => expect(resumeFlow).toHaveBeenCalledTimes(1));
+    expect(resumeFlow).toHaveBeenCalledWith('flow-1', 'thread-1', ['node-a', 'node-b']);
+  });
+
+  it('marks the notification read and clears its actions on a successful approve', async () => {
+    resumeFlow.mockResolvedValue({ output: null, pending_approvals: [], thread_id: 'thread-1' });
+    store.dispatch({ type: 'notifications/notificationReceived', payload: makeItem() });
+    renderCard(makeItem());
+
+    fireEvent.click(screen.getByTestId('flow-approval-approve'));
+
+    await waitFor(() => {
+      const item = store
+        .getState()
+        .notifications.items.find(i => i.id === 'flow-pending-approval:flow-1:thread-1');
+      expect(item?.read).toBe(true);
+      expect(item?.actions ?? []).toHaveLength(0);
+    });
+  });
+
+  it('shows a localized error and re-enables the buttons when resumeFlow rejects', async () => {
+    resumeFlow.mockRejectedValue(new Error('no pending approval matches'));
+    store.dispatch({ type: 'notifications/notificationReceived', payload: makeItem() });
+    renderCard(makeItem());
+
+    fireEvent.click(screen.getByTestId('flow-approval-approve'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('flow-approval-approve')).not.toBeDisabled();
+    });
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName.toLowerCase() === 'p' &&
+          (element?.textContent ?? '').includes('Could not resume the workflow. Please try again.')
+      )
+    ).toBeInTheDocument();
+    // The notification must NOT have been cleared on failure.
+    const item = store
+      .getState()
+      .notifications.items.find(i => i.id === 'flow-pending-approval:flow-1:thread-1');
+    expect(item?.actions).toHaveLength(1);
+  });
+
+  it('disables both buttons while the approve RPC is in flight', async () => {
+    let resolve!: (v: unknown) => void;
+    resumeFlow.mockImplementation(
+      () =>
+        new Promise(r => {
+          resolve = r;
+        })
+    );
+    renderCard(makeItem());
+
+    fireEvent.click(screen.getByTestId('flow-approval-approve'));
+
+    expect(screen.getByTestId('flow-approval-approve')).toBeDisabled();
+    expect(screen.getByTestId('flow-approval-dismiss')).toBeDisabled();
+
+    resolve({ output: null, pending_approvals: [], thread_id: 'thread-1' });
+    await waitFor(() => expect(screen.getByTestId('flow-approval-approve')).not.toBeDisabled());
+  });
+
+  it('dismiss clears the notification without calling resumeFlow', async () => {
+    store.dispatch({ type: 'notifications/notificationReceived', payload: makeItem() });
+    renderCard(makeItem());
+
+    fireEvent.click(screen.getByTestId('flow-approval-dismiss'));
+
+    await waitFor(() => {
+      const item = store
+        .getState()
+        .notifications.items.find(i => i.id === 'flow-pending-approval:flow-1:thread-1');
+      expect(item?.read).toBe(true);
+      expect(item?.actions ?? []).toHaveLength(0);
+    });
+    expect(resumeFlow).not.toHaveBeenCalled();
+  });
+});

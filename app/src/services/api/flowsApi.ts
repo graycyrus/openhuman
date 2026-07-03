@@ -1,0 +1,166 @@
+/**
+ * Frontend client for the durable `openhuman.flows_*` run surface (issue B2 /
+ * B3). Wraps the subset of controllers the B3a approval card and the B3b run
+ * inspector need:
+ *   - `flows_resume`    — resume a `pending_approval` run past its checkpoint
+ *   - `flows_list_runs` — recent runs for a flow, newest first (B3b)
+ *   - `flows_get_run`   — a single run record by id (B3b)
+ *
+ * Wire shape note: every `src/openhuman/flows/ops.rs` handler returns its
+ * value via `RpcOutcome::single_log(value, "...")`, which
+ * `into_cli_compatible_json` ALWAYS wraps as `{ result: value, logs: [...] }`
+ * (see `src/rpc/mod.rs`) because a log message is always attached. `callCoreRpc`
+ * already unwraps the outer JSON-RPC envelope, so the value this client
+ * receives is that `{ result, logs }` object — {@link unwrapCliEnvelope} peels
+ * it back to the actual payload. This mirrors the private helper of the same
+ * name in `channelConnectionsApi.ts`.
+ *
+ * `flows_resume`'s payload is NOT a `FlowRun` row — it's the raw tinyflows
+ * resume outcome (`{ output, pending_approvals, thread_id }`). The persisted
+ * `FlowRun` record (with `status`/`steps`/etc.) only comes back from
+ * `flows_list_runs` / `flows_get_run`. The approval card only needs to know
+ * the resume call succeeded, so it doesn't need the full row.
+ */
+import debug from 'debug';
+
+import { callCoreRpc } from '../coreRpcClient';
+
+const log = debug('flowsApi');
+
+// ---------------------------------------------------------------------------
+// Wire types — mirror `src/openhuman/flows/types.rs`. No rename_all attribute
+// on the Rust structs, so field names are snake_case on the wire as-is.
+// ---------------------------------------------------------------------------
+
+/** Lifecycle status of a durable flow run. */
+export type FlowRunStatus = 'running' | 'completed' | 'pending_approval' | 'failed';
+
+/** One reconstructed step of a persisted `FlowRun` (`src/openhuman/flows/types.rs::FlowRunStep`). */
+export interface FlowRunStep {
+  node_id: string;
+  output: unknown;
+  /** Output port the node routed on, if any (branching/switch nodes). Omitted when absent. */
+  port?: string;
+}
+
+/** A persisted flow run record (`src/openhuman/flows/types.rs::FlowRun`). */
+export interface FlowRun {
+  /** Same value as `thread_id` (the tinyflows checkpointer key). */
+  id: string;
+  flow_id: string;
+  thread_id: string;
+  status: FlowRunStatus;
+  started_at: string;
+  finished_at?: string | null;
+  steps: FlowRunStep[];
+  /** Node ids paused awaiting approval when `status === 'pending_approval'`. */
+  pending_approvals: string[];
+  error?: string | null;
+}
+
+/**
+ * Raw resume outcome returned by `openhuman.flows_resume` — the immediate
+ * tinyflows engine result, not the persisted `FlowRun` row. Call
+ * {@link getFlowRun} afterwards (thread_id === run id) if the caller needs the
+ * up-to-date persisted status.
+ */
+export interface FlowResumeResult {
+  output: unknown;
+  pending_approvals: string[];
+  thread_id: string;
+}
+
+// ---------------------------------------------------------------------------
+// CLI-compatible envelope unwrapping.
+// ---------------------------------------------------------------------------
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+/**
+ * Every `flows_*` handler goes through `RpcOutcome::single_log`, so the value
+ * `callCoreRpc` resolves is always `{ result: <payload>, logs: string[] }`.
+ * Peel that back to `<payload>`. Falls through unchanged if the shape doesn't
+ * match (defensive — keeps this client working if a future handler switches
+ * to a log-less `RpcOutcome::new` and stops wrapping).
+ */
+function unwrapCliEnvelope<T>(payload: unknown): T {
+  const record = asRecord(payload);
+  if (record && 'result' in record && 'logs' in record && Array.isArray(record.logs)) {
+    return record.result as T;
+  }
+  return payload as T;
+}
+
+// ---------------------------------------------------------------------------
+// RPC client.
+// ---------------------------------------------------------------------------
+
+/**
+ * Resume a `pending_approval` flow run past its checkpoint via
+ * `openhuman.flows_resume`. `approvals` should name the node ids from the
+ * triggering notification's `node_ids` payload — the Rust side rejects the
+ * call outright unless at least one named id matches a currently-pending gate.
+ */
+export async function resumeFlow(
+  id: string,
+  threadId: string,
+  approvals: string[]
+): Promise<FlowResumeResult> {
+  log('resumeFlow: request id=%s threadId=%s approvals=%o', id, threadId, approvals);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_resume',
+    params: { id, thread_id: threadId, approvals },
+  });
+  const result = unwrapCliEnvelope<FlowResumeResult>(response);
+  log(
+    'resumeFlow: response threadId=%s pendingApprovals=%d',
+    result.thread_id,
+    result.pending_approvals?.length ?? 0
+  );
+  return result;
+}
+
+/**
+ * List recent runs for a flow, newest first, via `openhuman.flows_list_runs`.
+ * `limit` defaults to 20 server-side. Not used by the B3a approval card —
+ * exported now for the B3b run-history inspector.
+ */
+export async function listFlowRuns(flowId: string, limit?: number): Promise<FlowRun[]> {
+  log('listFlowRuns: request flowId=%s limit=%s', flowId, limit ?? 'default');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_list_runs',
+    params: limit === undefined ? { id: flowId } : { id: flowId, limit },
+  });
+  const runs = unwrapCliEnvelope<FlowRun[]>(response);
+  log('listFlowRuns: response count=%d', runs.length);
+  return runs;
+}
+
+/**
+ * Load a single flow run record by id (== thread_id) via
+ * `openhuman.flows_get_run`. Not used by the B3a approval card — exported now
+ * for the B3b run-history inspector.
+ */
+export async function getFlowRun(runId: string): Promise<FlowRun> {
+  log('getFlowRun: request runId=%s', runId);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_get_run',
+    params: { run_id: runId },
+  });
+  const run = unwrapCliEnvelope<FlowRun>(response);
+  log('getFlowRun: response id=%s status=%s', run.id, run.status);
+  return run;
+}
+
+export const flowsApi = {
+  resumeFlow,
+  listFlowRuns,
+  getFlowRun,
+};
+
+export default flowsApi;
