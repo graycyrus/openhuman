@@ -157,10 +157,6 @@ export async function getFlowRun(runId: string): Promise<FlowRun> {
   return run;
 }
 
-export const flowsApi = {
-  resumeFlow,
-  listFlowRuns,
-  getFlowRun,
-};
+export const flowsApi = { resumeFlow, listFlowRuns, getFlowRun };
 
 export default flowsApi;

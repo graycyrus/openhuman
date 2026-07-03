@@ -6,7 +6,10 @@ const mockCallCoreRpc = vi.fn();
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
 
 /** Every `flows_*` handler wraps its payload via `RpcOutcome::single_log`. */
-function cliEnvelope<T>(result: T, logs: string[] = ['did something']): { result: T; logs: string[] } {
+function cliEnvelope<T>(
+  result: T,
+  logs: string[] = ['did something']
+): { result: T; logs: string[] } {
   return { result, logs };
 }
 
