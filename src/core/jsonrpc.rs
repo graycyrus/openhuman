@@ -2115,6 +2115,17 @@ async fn run_server_inner(
                 {
                     log::warn!("[cron] boot seed of proactive agent jobs failed: {e}");
                 }
+                // Re-register the cron job for every enabled, schedule-trigger
+                // flow (issue B2) — idempotent, so a flow whose binding
+                // predates this feature (or was otherwise lost) gets its
+                // schedule re-registered without the user re-toggling it.
+                if let Err(e) =
+                    crate::openhuman::flows::ops::reconcile_schedule_triggers_on_boot(&config).await
+                {
+                    log::warn!(
+                        "[flows] boot reconciliation of schedule-trigger cron jobs failed: {e}"
+                    );
+                }
                 if let Err(e) = crate::openhuman::cron::scheduler::run(config).await {
                     log::error!("[cron] scheduler loop ended with error: {e}");
                 }

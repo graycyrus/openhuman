@@ -139,6 +139,69 @@ pub fn add_agent_job_with_definition(
     get_job(config, &id)
 }
 
+/// Registers the cron job that fires a `flows::Flow`'s `schedule` trigger
+/// (issue B2). The flow's id is stored in `command` — a flow-schedule job has
+/// no shell command / agent prompt of its own, it only needs to name which
+/// flow to tick (see `JobType::Flow`'s doc). On fire the scheduler publishes
+/// `DomainEvent::FlowScheduleTick { flow_id: command }` instead of running
+/// anything; `flows::bus::FlowTriggerSubscriber` does the actual dispatch.
+pub fn add_flow_schedule_job(
+    config: &Config,
+    flow_id: &str,
+    schedule: Schedule,
+) -> Result<CronJob> {
+    let now = Utc::now();
+    validate_schedule(&schedule, now)?;
+    let next_run = next_run_for_schedule(&schedule, now)?;
+    let id = Uuid::new_v4().to_string();
+    let expression = schedule_cron_expression(&schedule).unwrap_or_default();
+    let schedule_json = serde_json::to_string(&schedule)?;
+    let name = format!("flow:{flow_id}");
+
+    with_connection(config, |conn| {
+        conn.execute(
+            "INSERT INTO cron_jobs (
+                id, expression, command, schedule, job_type, prompt, name, session_target, model,
+                enabled, delivery, delete_after_run, created_at, next_run
+             ) VALUES (?1, ?2, ?3, ?4, 'flow', NULL, ?5, 'isolated', NULL, 1, ?6, 0, ?7, ?8)",
+            params![
+                id,
+                expression,
+                flow_id,
+                schedule_json,
+                name,
+                serde_json::to_string(&DeliveryConfig::default())?,
+                now.to_rfc3339(),
+                next_run.to_rfc3339(),
+            ],
+        )
+        .context("Failed to insert cron flow-schedule job")?;
+        Ok(())
+    })?;
+
+    get_job(config, &id)
+}
+
+/// Finds the cron job (if any) registered for a flow's `schedule` trigger —
+/// used by `flows::ops::flows_set_enabled` to make enable/disable idempotent
+/// (re-use the existing binding rather than creating a duplicate) and to tear
+/// it down on disable.
+pub fn find_flow_schedule_job(config: &Config, flow_id: &str) -> Result<Option<CronJob>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
+                    enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
+                    agent_id
+             FROM cron_jobs WHERE job_type = 'flow' AND command = ?1 LIMIT 1",
+        )?;
+        let mut rows = stmt.query(params![flow_id])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(map_cron_job_row(row)?)),
+            None => Ok(None),
+        }
+    })
+}
+
 pub fn list_jobs(config: &Config) -> Result<Vec<CronJob>> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
