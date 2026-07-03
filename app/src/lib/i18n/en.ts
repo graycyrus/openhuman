@@ -3544,6 +3544,16 @@ const en: TranslationMap = {
   'chat.approval.fallback': 'The agent wants to run an action that needs your approval.',
   'chat.approval.title': 'Approval needed',
   'chat.approval.tool': 'Tool:',
+  'chat.flowProposal.title': 'Workflow proposal',
+  'chat.flowProposal.subtitle': 'Review this automation before saving it.',
+  'chat.flowProposal.triggerLabel': 'Trigger',
+  'chat.flowProposal.stepsLabel': 'Steps',
+  'chat.flowProposal.noSteps': 'No additional steps.',
+  'chat.flowProposal.requireApprovalHint': 'Every outbound action will need your approval.',
+  'chat.flowProposal.save': 'Save & enable',
+  'chat.flowProposal.saving': 'Saving…',
+  'chat.flowProposal.dismiss': 'Dismiss',
+  'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
 
   // Auth mode labels
   'channels.authMode.managed_dm': 'Login with OpenHuman',

@@ -1,7 +1,10 @@
 /**
  * Frontend client for the durable `openhuman.flows_*` run surface (issue B2 /
- * B3). Wraps the subset of controllers the B3a approval card and the B3b run
- * inspector need:
+ * B3 / B4). Wraps the subset of controllers the B3a approval card, the B3b
+ * run inspector, and the B4 agent-proposal card need:
+ *   - `flows_create`    — persist a new flow (B4 — only ever called from the
+ *     user's own "Save & enable" click on `WorkflowProposalCard`; the agent's
+ *     `propose_workflow` tool only validates and never reaches this RPC)
  *   - `flows_resume`    — resume a `pending_approval` run past its checkpoint
  *   - `flows_list_runs` — recent runs for a flow, newest first (B3b)
  *   - `flows_get_run`   — a single run record by id (B3b)
@@ -137,6 +140,35 @@ function unwrapCliEnvelope<T>(payload: unknown): T {
 // ---------------------------------------------------------------------------
 
 /**
+ * Create (and, by default, enable) a new saved flow via `openhuman.flows_create`
+ * (issue B4). This is the ONLY path that persists a flow — the agent's
+ * `propose_workflow` tool (`src/openhuman/flows/tools.rs`) only validates a
+ * candidate graph and returns a summary; `WorkflowProposalCard`'s "Save &
+ * enable" button is what calls this function, directly from the client, on
+ * the user's explicit action. `requireApproval` defaults server-side to
+ * `false` when omitted, but the B4 proposal flow always passes it explicitly
+ * (defaulting to `true` on the Rust tool side) so a saved agent-proposed flow
+ * starts with its outbound-action approval gate on.
+ */
+export async function createFlow(
+  name: string,
+  graph: unknown,
+  requireApproval?: boolean
+): Promise<Flow> {
+  log('createFlow: request name=%s requireApproval=%s', name, requireApproval ?? 'default');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_create',
+    params:
+      requireApproval === undefined
+        ? { name, graph }
+        : { name, graph, require_approval: requireApproval },
+  });
+  const flow = unwrapCliEnvelope<Flow>(response);
+  log('createFlow: response id=%s name=%s enabled=%s', flow.id, flow.name, flow.enabled);
+  return flow;
+}
+
+/**
  * Resume a `pending_approval` flow run past its checkpoint via
  * `openhuman.flows_resume`. `approvals` should name the node ids from the
  * triggering notification's `node_ids` payload — the Rust side rejects the
@@ -251,6 +283,7 @@ export async function runFlow(id: string, input?: unknown): Promise<FlowResumeRe
 }
 
 export const flowsApi = {
+  createFlow,
   resumeFlow,
   listFlowRuns,
   getFlowRun,
