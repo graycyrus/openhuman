@@ -36,12 +36,6 @@ export default function FlowsPage() {
   const [busyKey, setBusyKey] = useState<BusyKey | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
-  // === B3b integration (wire after PR #4450 merges) ===
-  // The run inspector (FlowRunInspectorDrawer) is keyed by RUN id
-  // (runId === thread_id), NOT flowId — so this wires as: list the flow's
-  // runs via listFlowRuns(flowId) → open the inspector for a chosen run.
-  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
-
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);
   }, []);
@@ -116,21 +110,6 @@ export default function FlowsPage() {
     [busyKey, addToast, loadFlows, t]
   );
 
-  const handleViewRuns = useCallback((flow: Flow) => {
-    log('view runs: id=%s', flow.id);
-    setSelectedFlowId(flow.id);
-  }, []);
-
-  // `selectedFlowId` has no UI consumer yet — the B3b inspector wiring below
-  // is intentionally left commented out until PR #4450 merges. Log it in the
-  // meantime so "View runs" is observably doing *something* and the state
-  // isn't flagged as dead by `noUnusedLocals`.
-  useEffect(() => {
-    if (selectedFlowId) {
-      log('selected flow pending B3b run-inspector wiring: id=%s', selectedFlowId);
-    }
-  }, [selectedFlowId]);
-
   const busyFor = (flow: Flow): FlowListRowBusy => {
     if (busyKey === `toggle:${flow.id}`) return 'toggle';
     if (busyKey === `run:${flow.id}`) return 'run';
@@ -182,17 +161,19 @@ export default function FlowsPage() {
                 busy={busyFor(flow)}
                 onToggle={f => void handleToggle(f)}
                 onRun={f => void handleRun(f)}
-                onViewRuns={handleViewRuns}
               />
             ))}
           </div>
         )}
 
         {/* === B3b integration (wire after PR #4450 merges) ===
-            The run inspector (FlowRunInspectorDrawer) is keyed by RUN id
-            (runId === thread_id), NOT flowId — so this wires as: list the
-            flow's runs via listFlowRuns(flowId) → open the inspector for a
-            chosen run.
+            "View runs" was pulled from `FlowListRow` for now — it would only
+            store a `selectedFlowId` with nothing to show for it until the run
+            inspector lands, which reads as a dead button. Once #4450 merges,
+            re-add here as: track `selectedFlowId` state, list the flow's runs
+            via listFlowRuns(flowId), and open the inspector
+            (FlowRunInspectorDrawer, keyed by RUN id / thread_id, NOT flowId)
+            for a chosen run:
         {selectedFlowId && (
           <FlowRunInspectorRunsForFlow
             flowId={selectedFlowId}

@@ -7,6 +7,11 @@
  * the cron "pause/resume" text button for a `SettingsSwitch` toggle (the
  * canonical boolean control — see `components/settings/controls`) since
  * enable/disable here is a persistent setting, not a one-off action.
+ *
+ * No "View runs" action yet: it would only stub-log a `selectedFlowId` with
+ * nothing to show for it until B3b's run inspector lands (tracked as a
+ * commented-out integration point in `FlowsPage.tsx`), so it's a dead button
+ * until then and was pulled rather than shipped as a no-op.
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { Flow } from '../../services/api/flowsApi';
@@ -16,44 +21,49 @@ import Button from '../ui/Button';
 /** Which of this row's actions currently has a request in flight, if any. */
 export type FlowListRowBusy = 'toggle' | 'run' | null;
 
+/** Matches `useT()`'s `t` signature (`I18nContextValue['t']` isn't exported). */
+type TFn = (key: string, fallback?: string) => string;
+
 export interface FlowListRowProps {
   flow: Flow;
   onToggle: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
-  onViewRuns: (flow: Flow) => void;
   busy?: FlowListRowBusy;
 }
 
 /**
- * Formats the "last run" line. `t()` doesn't interpolate, so the relative
- * time is computed here rather than templated through an i18n key (per the
- * B5a spec). `last_status` is rendered as-is (capitalized) rather than mapped
- * through i18n — the same precedent `CoreJobList` follows for
- * `job.last_status` — since it's a raw engine-status word, not prose.
+ * Formats the "last run" line. `t()` doesn't interpolate, so counts are
+ * spliced into the translated template in code (`{count}` placeholder) rather
+ * than templated through raw string concatenation.
  */
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: TFn): string {
   const ms = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(ms / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('flows.list.justNow');
+  if (mins < 60) return t('flows.list.minutesAgo').replace('{count}', String(mins));
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t('flows.list.hoursAgo').replace('{count}', String(hrs));
   const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+  return t('flows.list.daysAgo').replace('{count}', String(days));
 }
 
+/**
+ * `last_status` is rendered as-is (capitalized) rather than mapped through
+ * i18n — the same precedent `CoreJobList` follows for `job.last_status` —
+ * since it's a raw engine-status word, not prose.
+ */
 function capitalize(value: string): string {
   return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
-const FlowListRow = ({ flow, onToggle, onRun, onViewRuns, busy = null }: FlowListRowProps) => {
+const FlowListRow = ({ flow, onToggle, onRun, busy = null }: FlowListRowProps) => {
   const { t } = useT();
   const toggleBusy = busy === 'toggle';
   const runBusy = busy === 'run';
 
   const lastRunLabel =
     flow.last_run_at && flow.last_status
-      ? `${capitalize(flow.last_status)} · ${relativeTime(flow.last_run_at)}`
+      ? `${capitalize(flow.last_status)} · ${relativeTime(flow.last_run_at, t)}`
       : t('flows.list.neverRun');
 
   return (
@@ -93,14 +103,6 @@ const FlowListRow = ({ flow, onToggle, onRun, onViewRuns, busy = null }: FlowLis
           disabled={runBusy}
           onClick={() => onRun(flow)}>
           {runBusy ? t('flows.list.running') : t('flows.list.runNow')}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          data-testid={`flow-view-runs-${flow.id}`}
-          onClick={() => onViewRuns(flow)}>
-          {t('flows.list.viewRuns')}
         </Button>
       </div>
     </div>
