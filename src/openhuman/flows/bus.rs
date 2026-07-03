@@ -189,9 +189,11 @@ struct InFlightGuard {
 
 impl Drop for InFlightGuard {
     fn drop(&mut self) {
-        if let Ok(mut set) = self.set.lock() {
-            set.remove(&self.flow_id);
-        }
+        // Recover from a poisoned lock (mirrors `try_acquire_dispatch`) so the
+        // flow_id is always removed — otherwise a poison would wedge this flow
+        // out of every future trigger dispatch, defeating the guard's purpose.
+        let mut set = self.set.lock().unwrap_or_else(|e| e.into_inner());
+        set.remove(&self.flow_id);
     }
 }
 
