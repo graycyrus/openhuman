@@ -16,7 +16,8 @@ use crate::openhuman::flows::store;
 use crate::openhuman::flows::Flow;
 use async_trait::async_trait;
 use serde_json::Value;
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use tinyflows::model::TriggerKind;
 
 /// Reads `trigger_kind` from a flow's trigger node config, deserializing into
@@ -59,11 +60,40 @@ fn matches_app_event(flow: &Flow, toolkit: &str, trigger_slug: &str) -> bool {
 /// enabled flows. See the module doc for the full contract.
 pub struct FlowTriggerSubscriber {
     config: Arc<Config>,
+    /// Process-local dedupe of trigger-driven dispatch, keyed by `flow_id`
+    /// (CodeRabbit finding B — overlapping runs for the same flow). A fast
+    /// cadence or trigger burst can otherwise fire `spawn_run` for the same
+    /// flow multiple times before the first run finishes, racing
+    /// `last_run_at`/`last_status` and doing duplicate work. This is
+    /// intentionally scoped to trigger-driven dispatch (this subscriber) —
+    /// the interactive `flows_run` RPC is NOT deduped, since a user
+    /// explicitly asking to run a flow again (e.g. while a scheduled run is
+    /// still in flight) is fine.
+    in_flight: Arc<Mutex<HashSet<String>>>,
 }
 
 impl FlowTriggerSubscriber {
     pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
+        Self {
+            config,
+            in_flight: Arc::new(Mutex::new(HashSet::new())),
+        }
+    }
+
+    /// Attempts to claim `flow_id` for a trigger-driven dispatch. Returns
+    /// `None` when a dispatch for the same flow is already in flight — the
+    /// caller should skip this tick. Returns `Some(guard)` on success; the
+    /// guard releases the claim on `Drop` (including on panic/early return),
+    /// so a run can never permanently wedge the flow out of future ticks.
+    fn try_acquire_dispatch(&self, flow_id: &str) -> Option<InFlightGuard> {
+        let mut in_flight = self.in_flight.lock().unwrap_or_else(|e| e.into_inner());
+        if !in_flight.insert(flow_id.to_string()) {
+            return None;
+        }
+        Some(InFlightGuard {
+            set: self.in_flight.clone(),
+            flow_id: flow_id.to_string(),
+        })
     }
 
     /// `DomainEvent::FlowScheduleTick` — a `flow`-type cron job fired. Loads
@@ -120,9 +150,21 @@ impl FlowTriggerSubscriber {
     /// forget from the bus's perspective — `flows_run` itself records the
     /// outcome onto the flow's summary fields and a `flow_runs` history row,
     /// and surfaces a `CoreNotification` when the run pauses for approval.
+    ///
+    /// Skips the dispatch (see [`try_acquire_dispatch`]) if a trigger-driven
+    /// run for this `flow_id` is already in flight, so a fast schedule or a
+    /// burst of matching `app_event`s cannot run the same flow concurrently.
     fn spawn_run(&self, flow_id: String, input: Value) {
+        let Some(guard) = self.try_acquire_dispatch(&flow_id) else {
+            tracing::debug!(target: "flows", %flow_id, "[flows] trigger: flow already running — skipping this tick");
+            return;
+        };
+
         let config = self.config.clone();
         tokio::spawn(async move {
+            // Held for the lifetime of the run; released on drop (including
+            // on panic) by `InFlightGuard`.
+            let _guard = guard;
             tracing::info!(target: "flows", %flow_id, "[flows] trigger fired — starting run");
             match crate::openhuman::flows::ops::flows_run(&config, &flow_id, input).await {
                 Ok(_) => {
@@ -133,6 +175,23 @@ impl FlowTriggerSubscriber {
                 }
             }
         });
+    }
+}
+
+/// Drop guard releasing a [`FlowTriggerSubscriber::try_acquire_dispatch`]
+/// claim. Removing the `flow_id` on `Drop` (rather than only on the happy
+/// path) means a panicking or erroring `flows_run` still frees the flow up
+/// for its next trigger tick.
+struct InFlightGuard {
+    set: Arc<Mutex<HashSet<String>>>,
+    flow_id: String,
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        if let Ok(mut set) = self.set.lock() {
+            set.remove(&self.flow_id);
+        }
     }
 }
 
@@ -352,6 +411,31 @@ mod tests {
             flow_id: "sched-flow".into(),
         })
         .await;
+    }
+
+    // ── in-flight dedupe (CodeRabbit finding B) ─────────────────────
+
+    #[test]
+    fn try_acquire_dispatch_skips_a_flow_already_in_flight() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = FlowTriggerSubscriber::new(test_config(&tmp));
+
+        let guard = sub
+            .try_acquire_dispatch("f1")
+            .expect("first claim for f1 should succeed");
+        assert!(
+            sub.try_acquire_dispatch("f1").is_none(),
+            "a second claim for the same flow while the first is held must be skipped"
+        );
+
+        // A different flow is unaffected.
+        assert!(sub.try_acquire_dispatch("f2").is_some());
+
+        drop(guard);
+        assert!(
+            sub.try_acquire_dispatch("f1").is_some(),
+            "dropping the guard must release the claim so f1 can run again"
+        );
     }
 
     #[test]
