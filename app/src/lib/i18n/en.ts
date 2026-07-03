@@ -4323,11 +4323,33 @@ const en: TranslationMap = {
   'flows.list.enabled': 'Enabled',
   'flows.list.paused': 'Paused',
   'flows.list.runStarted': 'Workflow started',
+  'flows.list.view': 'View workflow',
   'flows.runs.title': 'Runs for {name}',
   'flows.runs.titleFallback': 'Workflow runs',
   'flows.runs.loading': 'Loading runs…',
   'flows.runs.loadError': 'Could not load runs',
   'flows.runs.empty': 'No runs yet',
+
+  // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved
+  // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node
+  // kinds (`tinyflows::model::NodeKind`) shown in each canvas node card.
+  'flows.canvas.title': 'Workflow',
+  'flows.canvas.loading': 'Loading workflow…',
+  'flows.canvas.loadError': 'Could not load this workflow. Please try again.',
+  'flows.canvas.notFound': 'This workflow could not be found.',
+  'flows.canvas.backToList': 'Back to workflows',
+  'flows.nodeKind.trigger': 'Trigger',
+  'flows.nodeKind.agent': 'Agent',
+  'flows.nodeKind.tool_call': 'Tool call',
+  'flows.nodeKind.http_request': 'HTTP request',
+  'flows.nodeKind.code': 'Code',
+  'flows.nodeKind.condition': 'Condition',
+  'flows.nodeKind.switch': 'Switch',
+  'flows.nodeKind.merge': 'Merge',
+  'flows.nodeKind.split_out': 'Split out',
+  'flows.nodeKind.transform': 'Transform',
+  'flows.nodeKind.output_parser': 'Output parser',
+  'flows.nodeKind.sub_workflow': 'Sub-workflow',
 
   'oauth.button.connecting': 'Connecting...',
   'oauth.button.loopbackTimeout':
