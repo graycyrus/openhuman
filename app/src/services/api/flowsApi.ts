@@ -27,6 +27,14 @@ import { callCoreRpc } from '../coreRpcClient';
 
 const log = debug('flowsApi');
 
+/**
+ * `openhuman.flows_resume` drives the engine and can run up to ~600s server-side
+ * (`FLOW_RUN_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`). Give the client a
+ * slightly larger budget than the default 30s so a slow resume doesn't fail
+ * client-side while the engine is still running.
+ */
+const FLOW_RESUME_TIMEOUT_MS = 610_000;
+
 // ---------------------------------------------------------------------------
 // Wire types — mirror `src/openhuman/flows/types.rs`. No rename_all attribute
 // on the Rust structs, so field names are snake_case on the wire as-is.
@@ -115,6 +123,7 @@ export async function resumeFlow(
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_resume',
     params: { id, thread_id: threadId, approvals },
+    timeoutMs: FLOW_RESUME_TIMEOUT_MS,
   });
   const result = unwrapCliEnvelope<FlowResumeResult>(response);
   log(

@@ -89,6 +89,27 @@ describe('FlowApprovalCard', () => {
     });
   });
 
+  it('does NOT clear the notification when the run parks again on the next gate', async () => {
+    // Sequential gates: resume returns with pending_approvals still non-empty and
+    // the core re-publishes the same-id prompt — the card must not wipe it.
+    resumeFlow.mockResolvedValue({ output: null, pending_approvals: ['node-c'], thread_id: 'thread-1' });
+    store.dispatch({ type: 'notifications/notificationReceived', payload: makeItem() });
+    renderCard(makeItem());
+
+    fireEvent.click(screen.getByTestId('flow-approval-approve'));
+
+    await waitFor(() => expect(resumeFlow).toHaveBeenCalledTimes(1));
+    const item = store
+      .getState()
+      .notifications.items.find(i => i.id === 'flow-pending-approval:flow-1:thread-1');
+    expect(item?.actions).toHaveLength(1);
+    expect(item?.read).toBe(false);
+    // Approve re-enabled so the user can act on the next gate.
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-approval-approve')).not.toBeDisabled()
+    );
+  });
+
   it('shows a localized error and re-enables the buttons when resumeFlow rejects', async () => {
     resumeFlow.mockRejectedValue(new Error('no pending approval matches'));
     store.dispatch({ type: 'notifications/notificationReceived', payload: makeItem() });

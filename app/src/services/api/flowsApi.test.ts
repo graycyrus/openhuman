@@ -29,6 +29,8 @@ describe('flowsApi', () => {
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_resume',
         params: { id: 'flow-1', thread_id: 't1', approvals: ['node-a'] },
+        // flows_resume can run ~600s server-side, so the client budget is raised.
+        timeoutMs: 610_000,
       });
       expect(result).toEqual({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' });
     });

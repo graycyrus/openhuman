@@ -94,9 +94,18 @@ const FlowApprovalCard = ({ notification: n }: Props) => {
       parsed.node_ids
     );
     try {
-      await resumeFlow(parsed.flow_id, parsed.thread_id, parsed.node_ids);
-      log('approve: ok notification=%s', n.id);
-      clearNotification();
+      const result = await resumeFlow(parsed.flow_id, parsed.thread_id, parsed.node_ids);
+      if (result.pending_approvals && result.pending_approvals.length > 0) {
+        // Sequential gates: the run parked again on the next approval. The core
+        // re-publishes a fresh notification under the SAME `flow-pending-approval:`
+        // id with the new pending node ids, so clearing here would wipe that next
+        // prompt. Leave it — the store already holds the updated notification, and
+        // resetting `pending` (below) re-enables Approve for the next gate.
+        log('approve: parked again pending=%o notification=%s', result.pending_approvals, n.id);
+      } else {
+        log('approve: ok notification=%s', n.id);
+        clearNotification();
+      }
     } catch (err) {
       log('approve: failed notification=%s err=%o', n.id, err);
       setError(t('notifications.flow.error'));
