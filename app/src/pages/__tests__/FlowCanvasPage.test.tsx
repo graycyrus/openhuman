@@ -5,7 +5,7 @@
  * state for any other failure.
  */
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Flow } from '../../services/api/flowsApi';
@@ -88,5 +88,36 @@ describe('FlowCanvasPage', () => {
 
     await waitFor(() => expect(screen.getByTestId('flow-canvas-error')).toBeInTheDocument());
     expect(screen.getByText('core unreachable')).toBeInTheDocument();
+  });
+
+  it('ignores a stale response for a superseded id after navigating to a new one', async () => {
+    // Deferred promises so the test controls resolution order precisely: the
+    // first (old-id) fetch resolves AFTER the second (new-id) one, mimicking
+    // a slow response for a page the user has since navigated away from.
+    let resolveFirst!: (flow: Flow) => void;
+    const firstFetch = new Promise<Flow>(resolve => {
+      resolveFirst = resolve;
+    });
+    getFlow.mockImplementation((id: string) =>
+      id === 'old-id' ? firstFetch : Promise.resolve(makeFlow({ id: 'new-id', name: 'New flow' }))
+    );
+
+    const router = createMemoryRouter([{ path: '/flows/:id', element: <FlowCanvasPage /> }], {
+      initialEntries: ['/flows/old-id'],
+    });
+    render(<RouterProvider router={router} />);
+
+    // Navigate away before the old id's fetch resolves.
+    router.navigate('/flows/new-id');
+    await waitFor(() => expect(screen.getByText('New flow')).toBeInTheDocument());
+
+    // Now let the stale old-id fetch resolve — it must not clobber the
+    // already-rendered new-id state.
+    resolveFirst(makeFlow({ id: 'old-id', name: 'Old flow (stale)' }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(screen.getByText('New flow')).toBeInTheDocument();
+    expect(screen.queryByText('Old flow (stale)')).not.toBeInTheDocument();
   });
 });

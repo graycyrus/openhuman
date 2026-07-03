@@ -35,6 +35,9 @@ export const FLOW_NODE_TYPE = 'flowNode';
  */
 export interface FlowNodeData extends Record<string, unknown> {
   kind: NodeKind;
+  /** `Node.type_version` — carried through so `xyflowToWorkflowGraph` doesn't
+   * silently downgrade a node saved with a non-default config version. */
+  type_version?: number;
   name: string;
   config: Record<string, unknown>;
   ports: Port[];
@@ -56,9 +59,18 @@ const DEFAULT_PORT = 'main';
 const LAYOUT_COLUMN_WIDTH = 280;
 const LAYOUT_ROW_HEIGHT = 160;
 
-/** Stable, collision-free xyflow edge id for one `WorkflowEdge`. */
+/**
+ * Stable, collision-free xyflow edge id for one `WorkflowEdge`. Node ids and
+ * port names are free-form strings that may themselves contain `-`, so a
+ * plain `${a}-${b}-${c}-${d}` join can collide (e.g. node `"a-b"`/port `"c"`
+ * targeting node `"d"`/port `"e"` produces the same joined string as node
+ * `"a"`/port `"b-c"` targeting the same target) — and React Flow requires
+ * every edge id to be unique. `JSON.stringify` on the 4-tuple escapes any
+ * embedded delimiter-like characters and round-trips distinct tuples to
+ * distinct strings.
+ */
 export function edgeId(edge: WorkflowEdge): string {
-  return `${edge.from_node}-${edge.from_port}-${edge.to_node}-${edge.to_port}`;
+  return JSON.stringify([edge.from_node, edge.from_port, edge.to_node, edge.to_port]);
 }
 
 /** Unique, order-preserving string list. */
@@ -113,6 +125,7 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
       position,
       data: {
         kind: node.kind,
+        type_version: node.type_version,
         name: node.name,
         config: node.config ?? {},
         ports: node.ports,
@@ -153,12 +166,13 @@ export interface WorkflowGraphMeta {
  * of B5b.4's save path, and so its round-trip behavior is locked in by tests
  * from day one.
  *
- * Note this is lossy relative to a hand-authored graph only in one way: it
- * always re-derives `node.position` from the live xyflow node (never
- * `undefined`), since by the time a node exists on an editable canvas it has
- * a concrete position. `ports` round-trips as stored on `data.ports` (the
- * *declared* output ports) — `inputPorts`/`outputPorts` are canvas-only
- * derived fields and are intentionally not written back.
+ * Every field `workflowGraphToXyflow` carries over from the source
+ * `WorkflowNode` — including `type_version` — round-trips back out here;
+ * `node.position` always comes out concrete (never `undefined`) since by the
+ * time a node exists on an editable canvas it has a real position, which
+ * matches a freshly-authored node too. `inputPorts`/`outputPorts` are
+ * canvas-only derived fields (see `FlowNodeData`'s doc comment) and are
+ * intentionally not written back — only the *declared* `ports` round-trip.
  */
 export function xyflowToWorkflowGraph(
   nodes: FlowNode[],
@@ -168,6 +182,7 @@ export function xyflowToWorkflowGraph(
   const workflowNodes: WorkflowNode[] = nodes.map(node => ({
     id: node.id,
     kind: node.data.kind,
+    type_version: node.data.type_version,
     name: node.data.name,
     config: node.data.config,
     ports: node.data.ports,

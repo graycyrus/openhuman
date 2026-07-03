@@ -8,7 +8,7 @@
  * dragging nodes / drawing edges lands in B5b.2+.
  */
 import createDebug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
@@ -51,32 +51,49 @@ export default function FlowCanvasPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    // Guards a stale response from clobbering newer state: this effect
+    // re-runs on every `:id` change without the component remounting (same
+    // route, different param), and on unmount, so a slow fetch for a
+    // previous id (or one that resolves after the component is gone) must
+    // not call `setState` once superseded. Same pattern as
+    // `useFlowRunPoller.ts`'s `cancelled`/`mountedRef` guard.
+    let cancelled = false;
+
     if (!id) {
       log('load: no id in route params');
       setState({ status: 'notFound' });
       return;
     }
+
     log('load: fetching flow id=%s', id);
     setState({ status: 'loading' });
-    try {
-      const flow = await getFlow(id);
-      log('load: fetched flow id=%s name=%s', flow.id, flow.name);
-      setState({ status: 'ready', flow });
-    } catch (err) {
-      const message = errorMessage(err);
-      log('load: failed id=%s err=%o', id, err);
-      if (message.toLowerCase().includes('not found')) {
-        setState({ status: 'notFound' });
-      } else {
-        setState({ status: 'error', message });
-      }
-    }
-  }, [id]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+    void (async () => {
+      try {
+        const flow = await getFlow(id);
+        if (cancelled) {
+          log('load: fetched flow id=%s but superseded/unmounted, dropping', id);
+          return;
+        }
+        log('load: fetched flow id=%s name=%s', flow.id, flow.name);
+        setState({ status: 'ready', flow });
+      } catch (err) {
+        if (cancelled) return;
+        const message = errorMessage(err);
+        log('load: failed id=%s err=%o', id, err);
+        if (message.toLowerCase().includes('not found')) {
+          setState({ status: 'notFound' });
+        } else {
+          setState({ status: 'error', message });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const backButton = (
     <Button

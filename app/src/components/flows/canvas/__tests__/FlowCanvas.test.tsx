@@ -10,7 +10,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { FlowEdge, FlowNode } from '../../../../lib/flows/graphAdapter';
+import type { FlowEdge, FlowNode, FlowNodeData } from '../../../../lib/flows/graphAdapter';
+import type { NodeKind } from '../../../../lib/flows/types';
 import FlowCanvas from '../FlowCanvas';
 
 function sampleNodes(): FlowNode[] {
@@ -72,5 +73,30 @@ describe('FlowCanvas', () => {
   it('renders an empty canvas with no nodes/edges', () => {
     render(<FlowCanvas nodes={[]} edges={[]} />);
     expect(screen.getByTestId('flow-canvas')).toBeInTheDocument();
+  });
+
+  it('renders a node with an unrecognized kind as a plain node instead of crashing', () => {
+    // `Flow.graph` is `unknown` on the wire — a future 13th tinyflows kind (or
+    // any unexpected value) must not crash the whole canvas (no error
+    // boundary wraps `<ReactFlow>`). Cast past the `NodeKind` union the same
+    // way a real cast-from-`unknown` graph would.
+    const unknownKindNode: FlowNode = {
+      id: 'mystery',
+      type: 'flowNode',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'time_travel' as unknown as NodeKind,
+        name: 'Mystery node',
+        config: {},
+        ports: [],
+        inputPorts: ['main'],
+        outputPorts: ['main'],
+      } satisfies FlowNodeData,
+    };
+
+    render(<FlowCanvas nodes={[unknownKindNode]} edges={[]} />);
+
+    expect(screen.getByTestId('flow-canvas')).toBeInTheDocument();
+    expect(screen.getByText('Mystery node')).toBeInTheDocument();
   });
 });

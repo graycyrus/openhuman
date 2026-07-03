@@ -62,7 +62,13 @@ describe('graphAdapter', () => {
       });
       const { edges } = workflowGraphToXyflow(g);
       expect(edges).toEqual([
-        { id: 'a-true-b-in', source: 'a', target: 'b', sourceHandle: 'true', targetHandle: 'in' },
+        {
+          id: edgeId({ from_node: 'a', from_port: 'true', to_node: 'b', to_port: 'in' }),
+          source: 'a',
+          target: 'b',
+          sourceHandle: 'true',
+          targetHandle: 'in',
+        },
       ]);
     });
 
@@ -142,6 +148,52 @@ describe('graphAdapter', () => {
         name: original.name,
       });
 
+      expect(roundTripped).toEqual(original);
+    });
+
+    it('round-trips node ids and port names containing "-" without edge id collisions', () => {
+      // Node "a-b"/port "c" -> node "d"/port "e" and node "a"/port "b-c" -> the
+      // same target/port would produce the same joined string under a naive
+      // `${a}-${b}-${c}-${d}` id scheme; both must still round-trip correctly.
+      const original = graph({
+        nodes: [
+          node({ id: 'a-b', name: 'First', ports: [{ name: 'c' }], position: { x: 0, y: 0 } }),
+          node({ id: 'a', name: 'Second', ports: [{ name: 'b-c' }], position: { x: 0, y: 160 } }),
+          node({ id: 'd', name: 'Target', position: { x: 280, y: 0 } }),
+        ],
+        edges: [
+          edge({ from_node: 'a-b', from_port: 'c', to_node: 'd', to_port: 'e' }),
+          edge({ from_node: 'a', from_port: 'b-c', to_node: 'd', to_port: 'e' }),
+        ],
+      });
+
+      const { nodes, edges } = workflowGraphToXyflow(original);
+      // The two edges must not collide on id despite the ambiguous join.
+      expect(edges[0].id).not.toBe(edges[1].id);
+      expect(new Set(edges.map(e => e.id)).size).toBe(2);
+
+      const roundTripped = xyflowToWorkflowGraph(nodes, edges, {
+        schema_version: original.schema_version,
+        id: original.id,
+        name: original.name,
+      });
+      expect(roundTripped).toEqual(original);
+    });
+
+    it('round-trips a non-default type_version', () => {
+      const original = graph({
+        nodes: [node({ id: 't', kind: 'trigger', type_version: 3, position: { x: 0, y: 0 } })],
+      });
+
+      const { nodes, edges } = workflowGraphToXyflow(original);
+      expect(nodes[0].data.type_version).toBe(3);
+
+      const roundTripped = xyflowToWorkflowGraph(nodes, edges, {
+        schema_version: original.schema_version,
+        id: original.id,
+        name: original.name,
+      });
+      expect(roundTripped.nodes[0].type_version).toBe(3);
       expect(roundTripped).toEqual(original);
     });
 
@@ -253,10 +305,30 @@ describe('graphAdapter', () => {
   });
 
   describe('edgeId', () => {
-    it('composes from_node-from_port-to_node-to_port', () => {
-      expect(edgeId(edge({ from_node: 'x', from_port: 'p1', to_node: 'y', to_port: 'p2' }))).toBe(
-        'x-p1-y-p2'
-      );
+    it('is deterministic for the same edge', () => {
+      const e = edge({ from_node: 'x', from_port: 'p1', to_node: 'y', to_port: 'p2' });
+      expect(edgeId(e)).toBe(edgeId({ ...e }));
+    });
+
+    it('does not collide when a "-" in a node id/port name could ambiguously shift the boundary', () => {
+      // Node "a-b"/port "c" -> node "d"/port "e" vs. node "a"/port "b-c" ->
+      // node "d"/port "e": a naive `${a}-${b}-${c}-${d}` join produces
+      // "a-b-c-d-e" for both. `edgeId` must tell them apart.
+      const first = edgeId({ from_node: 'a-b', from_port: 'c', to_node: 'd', to_port: 'e' });
+      const second = edgeId({ from_node: 'a', from_port: 'b-c', to_node: 'd', to_port: 'e' });
+      expect(first).not.toBe(second);
+    });
+
+    it('produces distinct ids for otherwise-identical edges differing only in one field', () => {
+      const base = { from_node: 'a', from_port: 'main', to_node: 'b', to_port: 'main' };
+      const ids = new Set([
+        edgeId(base),
+        edgeId({ ...base, from_node: 'a2' }),
+        edgeId({ ...base, from_port: 'other' }),
+        edgeId({ ...base, to_node: 'b2' }),
+        edgeId({ ...base, to_port: 'other' }),
+      ]);
+      expect(ids.size).toBe(5);
     });
   });
 });

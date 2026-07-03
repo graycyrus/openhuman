@@ -11,6 +11,12 @@
  * (icons are hand-rolled inline SVG, see `components/ui/icons.tsx`), and
  * adding one is out of scope for this slice's single approved dependency
  * (`@xyflow/react`).
+ *
+ * An unrecognized `kind` (not one of the 12 `NodeKind` values — e.g. a future
+ * tinyflows addition, since `Flow.graph` is `unknown` on the wire) renders as
+ * a plain neutral node rather than throwing, since a thrown render error here
+ * has no error boundary around `<ReactFlow>` and would take down the whole
+ * canvas.
  */
 import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { memo } from 'react';
@@ -19,16 +25,23 @@ import type { FlowNode } from '../../../lib/flows/graphAdapter';
 import type { NodeKind } from '../../../lib/flows/types';
 import { useT } from '../../../lib/i18n/I18nContext';
 
+type NodeColor = 'sage' | 'primary' | 'amber' | 'coral' | 'neutral';
+
 /** Per-kind emoji + border/chip color. Colors cycle through the four
  * CSS-variable-backed semantic ramps (primary/sage/amber/coral) that support
  * Tailwind's `/opacity` modifiers in this codebase (see `tailwind.config.js`)
  * so light/dark theming comes for free; with 12 kinds and 4 ramps some kinds
  * share a color family; the emoji + name remain the primary distinguishers.
+ *
+ * `data.kind` is typed as the 12-entry `NodeKind` union, but a saved graph is
+ * `unknown` on the wire (cast in `FlowCanvasPage.tsx`) — a future 13th
+ * tinyflows kind, or any other value the backend ever emits, can reach this
+ * map at runtime even though TypeScript can't see it. Index lookups below
+ * fall back to {@link DEFAULT_NODE_META} rather than assuming a hit, so an
+ * unrecognized kind renders as a plain neutral node instead of crashing the
+ * whole canvas (there's no error boundary around `<ReactFlow>`).
  */
-const NODE_KIND_META: Record<
-  NodeKind,
-  { emoji: string; color: 'sage' | 'primary' | 'amber' | 'coral' }
-> = {
+const NODE_KIND_META: Record<NodeKind, { emoji: string; color: NodeColor }> = {
   trigger: { emoji: '⚡', color: 'sage' },
   agent: { emoji: '🤖', color: 'primary' },
   tool_call: { emoji: '🔧', color: 'amber' },
@@ -43,10 +56,10 @@ const NODE_KIND_META: Record<
   sub_workflow: { emoji: '🧩', color: 'coral' },
 };
 
-const COLOR_CLASSES: Record<
-  'sage' | 'primary' | 'amber' | 'coral',
-  { border: string; chip: string }
-> = {
+/** Fallback for any `kind` outside the map above — see the doc comment on `NODE_KIND_META`. */
+const DEFAULT_NODE_META: { emoji: string; color: NodeColor } = { emoji: '❔', color: 'neutral' };
+
+const COLOR_CLASSES: Record<NodeColor, { border: string; chip: string }> = {
   sage: {
     border: 'border-sage-400 dark:border-sage-500/60',
     chip: 'bg-sage-100 dark:bg-sage-500/20',
@@ -63,6 +76,7 @@ const COLOR_CLASSES: Record<
     border: 'border-coral-400 dark:border-coral-500/60',
     chip: 'bg-coral-100 dark:bg-coral-500/20',
   },
+  neutral: { border: 'border-line-strong', chip: 'bg-surface-subtle' },
 };
 
 /** Even vertical offsets (in %) for `count` handles along one side of the card. */
@@ -73,7 +87,7 @@ function handleOffsets(count: number): number[] {
 
 function FlowNodeComponent({ data, selected }: NodeProps<FlowNode>) {
   const { t } = useT();
-  const meta = NODE_KIND_META[data.kind];
+  const meta = NODE_KIND_META[data.kind] ?? DEFAULT_NODE_META;
   const colors = COLOR_CLASSES[meta.color];
   const inputOffsets = handleOffsets(data.inputPorts.length);
   const outputOffsets = handleOffsets(data.outputPorts.length);
