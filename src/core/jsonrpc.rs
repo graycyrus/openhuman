@@ -2233,6 +2233,20 @@ fn register_domain_subscribers(
             log::warn!("[event_bus] failed to register channel subscriber — bus not initialized");
         }
 
+        // Flows trigger dispatch (issue B2): maps FlowScheduleTick /
+        // ComposioTriggerReceived / WebhookIncomingRequest onto enabled flows and
+        // runs `flows::ops::flows_run`. Registered here (unconditional core boot,
+        // Once-guarded) rather than under channel startup, so schedule/app-event
+        // workflows still dispatch when no realtime channel is configured or
+        // `OPENHUMAN_DISABLE_CHANNEL_LISTENERS` short-circuits `start_channels`.
+        if let Some(handle) = crate::core::event_bus::subscribe_global(Arc::new(
+            crate::openhuman::flows::bus::FlowTriggerSubscriber::new(Arc::new(config.clone())),
+        )) {
+            std::mem::forget(handle);
+        } else {
+            log::warn!("[event_bus] failed to register flows trigger subscriber — bus not initialized");
+        }
+
         crate::openhuman::health::bus::register_health_subscriber();
         crate::openhuman::notifications::register_notification_bridge_subscriber(config.clone());
         crate::openhuman::memory_conversations::register_conversation_persistence_subscriber(

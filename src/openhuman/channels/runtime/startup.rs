@@ -702,12 +702,11 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let _cron_delivery_handle = bus.subscribe(Arc::new(
         crate::openhuman::cron::bus::CronDeliverySubscriber::new(Arc::clone(&channels_by_name)),
     ));
-    // Register the flows trigger subscriber (issue B2): maps
-    // FlowScheduleTick / ComposioTriggerReceived / WebhookIncomingRequest
-    // events onto enabled flows and dispatches `flows::ops::flows_run`.
-    let _flows_trigger_handle = bus.subscribe(Arc::new(
-        crate::openhuman::flows::bus::FlowTriggerSubscriber::new(Arc::new(config.clone())),
-    ));
+    // NOTE: the flows `FlowTriggerSubscriber` is registered in
+    // `jsonrpc.rs::register_domain_subscribers` (unconditional core boot), NOT
+    // here — `start_channels` is skipped when no channel is configured or
+    // `OPENHUMAN_DISABLE_CHANNEL_LISTENERS` is set, which would otherwise leave
+    // schedule/app-event workflows undispatched (issue B2 review).
     // Register the proactive message subscriber so morning briefings,
     // welcome messages, and other proactive agent output gets routed to
     // the user's active channel (+ always to web).
