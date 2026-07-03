@@ -12,6 +12,11 @@ use crate::openhuman::flows::store;
 use crate::openhuman::flows::Flow;
 use crate::rpc::RpcOutcome;
 
+/// Overall safety bound on a single `flows_run`. Individual capabilities have
+/// their own timeouts (HTTP, sandbox), but a hung LLM/tool call must never let
+/// the RPC block indefinitely — this caps the whole run.
+const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
+
 /// Runs a raw graph JSON value through `tinyflows::migrate::migrate` (upgrade
 /// an older-schema definition to current), deserializes it, and rejects a
 /// structurally invalid graph via `tinyflows::validate::validate` — so a bad
@@ -143,30 +148,38 @@ pub async fn flows_run(
         "[flows] flows_run: starting checkpointed run"
     );
 
-    let outcome = match tinyflows::engine::run_with_checkpointer(
-        &compiled,
-        input,
-        &caps,
-        checkpointer,
-        &thread_id,
+    // Record a failed attempt so `last_run_at`/`last_status` reflect reality
+    // (a stop-policy engine/capability failure or a timeout) rather than
+    // leaving the prior success/pending state on the flow.
+    let record_failed = || {
+        if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %flow_id,
+                error = %rec_err,
+                "[flows] flows_run: failed to record failed run"
+            );
+        }
+    };
+
+    let run =
+        tinyflows::engine::run_with_checkpointer(&compiled, input, &caps, checkpointer, &thread_id);
+    let outcome = match tokio::time::timeout(
+        std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS),
+        run,
     )
     .await
     {
-        Ok(outcome) => outcome,
-        Err(e) => {
-            // Record the failed attempt so `last_run_at`/`last_status` reflect
-            // reality (a stop-policy engine/capability failure), rather than
-            // leaving the prior success/pending state on the flow.
-            if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
-                tracing::warn!(
-                    target: "flows",
-                    flow_id = %flow_id,
-                    error = %rec_err,
-                    "[flows] flows_run: failed to record failed run"
-                );
-            }
+        Ok(Ok(outcome)) => outcome,
+        Ok(Err(e)) => {
+            record_failed();
             tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: run failed");
             return Err(e.to_string());
+        }
+        Err(_elapsed) => {
+            record_failed();
+            tracing::warn!(target: "flows", flow_id = %flow_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_run: run timed out");
+            return Err(format!("flow run timed out after {FLOW_RUN_TIMEOUT_SECS}s"));
         }
     };
 

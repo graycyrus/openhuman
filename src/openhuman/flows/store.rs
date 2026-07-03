@@ -34,7 +34,14 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
         .with_context(|| format!("Failed to open flows DB: {}", db_path.display()))?;
 
     conn.execute_batch(
-        "PRAGMA foreign_keys = ON;
+        // `busy_timeout` retries (rather than immediately erroring
+        // `SQLITE_BUSY`) when a concurrent run/state write holds the lock; WAL
+        // lets readers and a writer proceed together. Both are safe to re-issue
+        // on every open (WAL is a persistent db-file setting; busy_timeout is
+        // per-connection).
+        "PRAGMA busy_timeout = 5000;
+         PRAGMA journal_mode = WAL;
+         PRAGMA foreign_keys = ON;
          CREATE TABLE IF NOT EXISTS flow_definitions (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
@@ -186,19 +193,22 @@ pub fn update_flow_graph(
     name: String,
     graph: tinyflows::model::WorkflowGraph,
 ) -> Result<Flow> {
-    let existing = get_flow(config, id)?.ok_or_else(|| anyhow::anyhow!("flow '{id}' not found"))?;
-    let updated = Flow {
-        id: existing.id,
-        name,
-        enabled: existing.enabled,
-        graph,
-        created_at: existing.created_at,
-        updated_at: Utc::now().to_rfc3339(),
-        last_run_at: existing.last_run_at,
-        last_status: existing.last_status,
-    };
-    upsert_flow(config, &updated)?;
-    Ok(updated)
+    let graph_json = serde_json::to_string(&graph).context("Failed to serialize graph")?;
+    let now = Utc::now().to_rfc3339();
+    // Targeted UPDATE of only the editable columns, so a concurrent
+    // `set_enabled` / `record_run` isn't clobbered by writing back a stale
+    // `enabled` / `last_run_at` / `last_status` from a read-modify-write.
+    let changed = with_connection(config, |conn| {
+        conn.execute(
+            "UPDATE flow_definitions SET name = ?1, graph_json = ?2, updated_at = ?3 WHERE id = ?4",
+            params![name, graph_json, now, id],
+        )
+        .context("Failed to update flow")
+    })?;
+    if changed == 0 {
+        anyhow::bail!("flow '{id}' not found");
+    }
+    get_flow(config, id)?.ok_or_else(|| anyhow::anyhow!("flow '{id}' not found"))
 }
 
 /// Records the outcome of a `flows_run` invocation onto the flow's summary

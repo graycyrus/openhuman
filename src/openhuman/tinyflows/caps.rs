@@ -12,9 +12,13 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tinyflows::caps::{CodeLanguage, CodeRunner, HttpClient, LlmProvider, StateStore, ToolInvoker};
+use tinyagents::graph::SqliteCheckpointer;
+use tinyflows::caps::{
+    Capabilities, CodeLanguage, CodeRunner, HttpClient, LlmProvider, StateStore, ToolInvoker,
+};
 use tinyflows::error::{EngineError, Result};
 
 use crate::openhuman::agent::harness::definition::SandboxMode;
@@ -316,20 +320,23 @@ impl CodeRunner for OpenHumanCode {
             "[flows] code: running sandboxed script"
         );
 
-        let result = execute_in_sandbox(
+        let exec_result = execute_in_sandbox(
             &policy,
             &command,
             &self.config.action_dir,
             extra_env,
             std::time::Duration::from_secs(CODE_RUN_TIMEOUT_SECS),
         )
-        .await
-        .map_err(|e| EngineError::Capability(format!("sandbox execution failed: {e}")))?;
+        .await;
 
-        let cleanup = tokio::fs::remove_dir_all(&work_dir).await;
-        if let Err(e) = cleanup {
+        // Always clean up the work dir — even when `execute_in_sandbox` itself
+        // errors (e.g. a spawn failure) — so temp scripts never leak.
+        if let Err(e) = tokio::fs::remove_dir_all(&work_dir).await {
             tracing::debug!(target: "flows", error = %e, "[flows] code: failed to clean up work dir (non-fatal)");
         }
+
+        let result = exec_result
+            .map_err(|e| EngineError::Capability(format!("sandbox execution failed: {e}")))?;
 
         if !result.success() {
             return Err(EngineError::Capability(format!(
@@ -399,4 +406,64 @@ impl StateStore for FlowStateStore {
         flows::kv_set(&self.config, &self.namespace, key, &value)
             .map_err(|e| EngineError::Capability(e.to_string()))
     }
+}
+
+/// Builds the [`Capabilities`] bundle for one run, wiring each of the five
+/// host-injected traits to a real OpenHuman adapter (see each adapter above for
+/// its contract).
+///
+/// `state_namespace` scopes the [`FlowStateStore`] KV so two saved flows that
+/// use the same state key never read or overwrite each other — callers pass a
+/// per-flow namespace (e.g. `"flow:<id>"`).
+pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String>) -> Capabilities {
+    let security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    ));
+    let http_config = config.http_request.clone();
+
+    Capabilities {
+        llm: Arc::new(OpenHumanLlm {
+            config: config.clone(),
+        }),
+        tools: Arc::new(OpenHumanTools {
+            config: config.clone(),
+        }),
+        http: Arc::new(OpenHumanHttp {
+            security,
+            http_config,
+        }),
+        code: Arc::new(OpenHumanCode {
+            config: config.clone(),
+        }),
+        state: Arc::new(FlowStateStore {
+            config,
+            namespace: state_namespace.into(),
+        }),
+    }
+}
+
+/// Opens the durable, cross-process checkpointer a `flows_run` uses via
+/// `tinyflows::engine::run_with_checkpointer` — the crate's own
+/// `tinyagents::graph::SqliteCheckpointer`, stored under
+/// `<workspace_dir>/flows/checkpoints.db`.
+///
+/// Deliberately **not** a bespoke checkpointer: the crate ships its own
+/// SQLite-backed `Checkpointer<State>` impl (feature `sqlite`, already enabled
+/// on the `tinyagents` dependency), so the seam just opens it — mirrors the
+/// construction in `src/openhuman/agent_orchestration/delegation.rs`.
+pub fn open_flow_checkpointer(
+    config: &Config,
+) -> anyhow::Result<Arc<dyn tinyflows::engine::Checkpointer<serde_json::Value>>> {
+    let db_path = config.workspace_dir.join("flows").join("checkpoints.db");
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create flows directory: {}", parent.display()))?;
+    }
+    tracing::debug!(target: "flows", db = %db_path.display(), "[flows] opening checkpointer");
+    Ok(Arc::new(
+        SqliteCheckpointer::<serde_json::Value>::open(&db_path)
+            .with_context(|| format!("Failed to open flows checkpointer: {}", db_path.display()))?,
+    ))
 }
