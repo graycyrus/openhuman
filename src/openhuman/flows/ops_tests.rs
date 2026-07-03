@@ -269,6 +269,164 @@ async fn flows_run_records_failed_status_when_a_node_errors() {
     );
 }
 
+// ── automatic-dispatch binding (issue B2 finding #1) ─────────────────────
+//
+// Live testing found that `flows_create` persisted a freshly-created,
+// `enabled = true` schedule flow WITHOUT registering its cron job — only
+// `flows_set_enabled` bound it. So a brand-new enabled schedule flow would
+// silently never fire until an app restart (boot reconcile) or a manual
+// disable→enable toggle. These tests exercise the fix directly against the
+// real `cron` store (not a mock), the same way `bind_schedule_trigger`
+// itself does.
+
+fn schedule_trigger_graph(cron_expr: &str) -> Value {
+    json!({
+        "name": "scheduled",
+        "nodes": [
+            {
+                "id": "t",
+                "kind": "trigger",
+                "name": "Trigger",
+                "config": { "trigger_kind": "schedule", "schedule": cron_expr }
+            }
+        ],
+        "edges": []
+    })
+}
+
+#[tokio::test]
+async fn flows_create_binds_schedule_cron_job_for_an_enabled_flow() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(created.value.enabled, "flows_create defaults to enabled");
+
+    let job = crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id).unwrap();
+    assert!(
+        job.is_some(),
+        "an enabled schedule flow must have its cron job bound immediately on create, not only \
+         after a set_enabled toggle"
+    );
+    assert_eq!(job.unwrap().expression, "0 9 * * *");
+}
+
+#[tokio::test]
+async fn flows_delete_unbinds_schedule_cron_job() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(
+        crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+            .unwrap()
+            .is_some(),
+        "precondition: cron job bound on create"
+    );
+
+    flows_delete(&config, &created.value.id).await.unwrap();
+
+    assert!(
+        crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+            .unwrap()
+            .is_none(),
+        "deleting a flow must remove its schedule-trigger cron job — it lives in a separate \
+         cron.db that flow_definitions' ON DELETE CASCADE cannot reach"
+    );
+}
+
+#[tokio::test]
+async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    let old_job = crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+        .unwrap()
+        .expect("cron job bound on create");
+    assert_eq!(old_job.expression, "0 9 * * *");
+
+    flows_update(
+        &config,
+        &created.value.id,
+        None,
+        Some(schedule_trigger_graph("30 8 * * *")),
+        None,
+    )
+    .await
+    .unwrap();
+
+    let new_job = crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+        .unwrap()
+        .expect("cron job still bound after trigger schedule change");
+    assert_eq!(
+        new_job.expression, "30 8 * * *",
+        "the bound cron job's schedule must reflect the new trigger config"
+    );
+
+    // No duplicate/orphaned job left behind for this flow.
+    let flow_jobs: Vec<_> = crate::openhuman::cron::list_jobs(&config)
+        .unwrap()
+        .into_iter()
+        .filter(|j| j.command == created.value.id)
+        .collect();
+    assert_eq!(flow_jobs.len(), 1);
+}
+
+#[tokio::test]
+async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    let old_job = crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+        .unwrap()
+        .expect("cron job bound on create");
+
+    // Name-only update: no graph_json supplied, so the trigger cannot have
+    // changed — the existing binding must be left untouched.
+    flows_update(
+        &config,
+        &created.value.id,
+        Some("renamed".to_string()),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let job = crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+        .unwrap()
+        .expect("cron job still bound");
+    assert_eq!(job.id, old_job.id);
+    assert_eq!(job.expression, old_job.expression);
+}
+
 // ── flows_resume (issue B2) ───────────────────────────────────────────────
 
 fn approval_gated_graph() -> Value {
@@ -337,6 +495,150 @@ async fn flows_resume_missing_flow_errors() {
         .await
         .expect_err("must error");
     assert!(err.contains("not found"));
+}
+
+// ── flows_resume host-side approval guard (issue B2 finding #3) ──────────
+//
+// tinyflows 0.2's `resume_with_checkpointer` treats the resume call itself
+// as approval of whatever gate paused the run — its `approvals` argument is
+// advisory, not enforced by the crate. Live testing confirmed
+// `flows_resume(..., approvals: [])` on a paused run still completed it.
+// These tests exercise the host-side guard added in `flows::ops::flows_resume`
+// that requires `approvals` to actually name a currently-pending gate,
+// straight from the persisted `flow_runs` row, before ever calling into the
+// engine.
+
+#[tokio::test]
+async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the_run() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let err = flows_resume(&config, &created.value.id, &thread_id, vec![])
+        .await
+        .expect_err("an empty approvals list must not silently approve the pending gate");
+    assert!(
+        err.contains("no pending approval matches"),
+        "expected a clear approval-mismatch error, got: {err}"
+    );
+
+    // The run must still be sitting at pending_approval, not completed.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "pending_approval");
+    assert_eq!(run_row.value.pending_approvals, vec!["gate".to_string()]);
+
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(
+        reloaded.value.last_status.as_deref(),
+        Some("pending_approval"),
+        "a rejected resume attempt must not overwrite the flow's last_status as completed"
+    );
+}
+
+#[tokio::test]
+async fn flows_resume_with_mismatched_approvals_is_rejected() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // Names a node id that is not actually pending for this run.
+    let err = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        vec!["not-a-real-gate".to_string()],
+    )
+    .await
+    .expect_err("approvals naming no actually-pending gate must be rejected");
+    assert!(err.contains("no pending approval matches"));
+}
+
+#[tokio::test]
+async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let resumed = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        vec!["gate".to_string()],
+    )
+    .await
+    .unwrap();
+    assert_eq!(resumed.value["pending_approvals"], json!([]));
+    assert!(
+        !resumed.value["output"]["nodes"]["downstream"]["items"].is_null(),
+        "downstream should run once the correct gate is named in approvals"
+    );
+
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status.as_deref(), Some("completed"));
+}
+
+#[tokio::test]
+async fn flows_resume_of_a_non_paused_run_errors_clearly() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    // This run completes outright (no approval gate) — its recorded status
+    // is "completed", not "pending_approval".
+    let run = flows_run(&config, &created.value.id, json!({}))
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let err = flows_resume(&config, &created.value.id, &thread_id, vec![])
+        .await
+        .expect_err("resuming an already-completed run must be a clear error, not a silent no-op");
+    assert!(
+        err.contains("not pending approval") || err.contains("no paused run"),
+        "expected a clear non-paused-run error, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn flows_resume_with_no_recorded_run_for_thread_id_errors_clearly() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let err = flows_resume(
+        &config,
+        &created.value.id,
+        "thread-that-was-never-started",
+        vec![],
+    )
+    .await
+    .expect_err("must error when no run is recorded for this thread_id");
+    assert!(err.contains("no paused run to resume"));
 }
 
 // ── run history (flows_list_runs / flows_get_run) ────────────────────────

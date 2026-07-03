@@ -34,6 +34,14 @@ fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String
 }
 
 /// Creates a new flow from a name and a raw graph JSON value.
+///
+/// `store::create_flow` defaults new flows to `enabled = true` — this binds
+/// the flow's automatic-dispatch side effect (e.g. registers the
+/// schedule-trigger cron job) immediately, reusing the same [`bind_trigger`]
+/// helper `flows_set_enabled` uses. Without this, a freshly-created enabled
+/// schedule flow would silently never fire until an app restart (boot
+/// reconcile) or a manual disable→enable toggle. Best-effort, same as
+/// `flows_set_enabled`: a binding failure is logged, not fatal to create.
 pub async fn flows_create(
     config: &Config,
     name: String,
@@ -44,6 +52,12 @@ pub async fn flows_create(
     tracing::debug!(target: "flows", %name, node_count = graph.nodes.len(), require_approval, "[flows] flows_create: persisting new flow");
     let flow =
         store::create_flow(config, name, graph, require_approval).map_err(|e| e.to_string())?;
+
+    if flow.enabled {
+        tracing::debug!(target: "flows", flow_id = %flow.id, "[flows] flows_create: flow is enabled — binding automatic-dispatch trigger");
+        bind_trigger(config, &flow);
+    }
+
     Ok(RpcOutcome::single_log(flow, "flow created"))
 }
 
@@ -64,6 +78,14 @@ pub async fn flows_list(config: &Config) -> Result<RpcOutcome<Vec<Flow>>, String
 /// Updates a flow's name, graph, and/or `require_approval` toggle.
 /// Re-validates the graph (whether newly supplied or the existing one)
 /// before persisting, same as `flows_create`.
+///
+/// When the caller supplies a new `graph_json` and the flow is (still)
+/// enabled, re-binds the automatic-dispatch trigger if the trigger
+/// kind/config actually changed (e.g. a new schedule cron expression) —
+/// otherwise the stale binding from the old graph would keep firing on the
+/// old cadence, or a newly-added schedule would never get bound at all.
+/// Skipped entirely for a name/`require_approval`-only update (no
+/// `graph_json` supplied), since the trigger definitely didn't change.
 pub async fn flows_update(
     config: &Config,
     id: &str,
@@ -75,19 +97,32 @@ pub async fn flows_update(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow '{id}' not found"))?;
 
-    let new_name = name.unwrap_or(existing.name);
+    let new_name = name.unwrap_or_else(|| existing.name.clone());
     let new_require_approval = require_approval.unwrap_or(existing.require_approval);
+    let graph_changed = graph_json.is_some();
     let graph = match graph_json {
         Some(raw) => validate_and_migrate_graph(raw)?,
         None => {
             tinyflows::validate::validate(&existing.graph).map_err(|e| e.to_string())?;
-            existing.graph
+            existing.graph.clone()
         }
     };
 
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_update: persisting changes");
     let updated = store::update_flow_graph(config, id, new_name, graph, new_require_approval)
         .map_err(|e| e.to_string())?;
+
+    if graph_changed && updated.enabled {
+        let trigger_unchanged = bus::extract_trigger_kind(&existing)
+            == bus::extract_trigger_kind(&updated)
+            && bus::extract_trigger_config(&existing) == bus::extract_trigger_config(&updated);
+        if !trigger_unchanged {
+            tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_update: trigger changed on an enabled flow — rebinding automatic-dispatch trigger");
+            unbind_trigger(config, &existing);
+            bind_trigger(config, &updated);
+        }
+    }
+
     Ok(RpcOutcome::single_log(
         updated,
         format!("flow updated: {id}"),
@@ -95,7 +130,25 @@ pub async fn flows_update(
 }
 
 /// Deletes a flow by id.
+///
+/// Unbinds the flow's automatic-dispatch trigger (e.g. the schedule-trigger
+/// cron job) *before* removing the flow definition. `flow_runs` cascades on
+/// delete via a same-database `FOREIGN KEY ... ON DELETE CASCADE`, but a
+/// bound cron job lives in the entirely separate `cron.db` — it does NOT
+/// cascade — so skipping this would orphan the cron job, leaving it pointing
+/// at a now-nonexistent `flow_id` forever. Best-effort: a lookup failure
+/// (flow already gone, store error) is logged and does not block the delete
+/// itself — `store::remove_flow` below still errors clearly if `id` doesn't
+/// exist.
 pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>, String> {
+    match store::get_flow(config, id) {
+        Ok(Some(flow)) => unbind_trigger(config, &flow),
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(target: "flows", flow_id = %id, error = %e, "[flows] flows_delete: failed to load flow before unbind — proceeding with delete anyway");
+        }
+    }
+
     store::remove_flow(config, id).map_err(|e| e.to_string())?;
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_delete: removed");
     Ok(RpcOutcome::new(
@@ -402,10 +455,19 @@ pub async fn flows_run(
 /// continuing it from the durable checkpoint (`thread_id`) with
 /// `approvals` newly granted. The UI approval card (B3) calls this once the
 /// user decides. See `tinyflows::engine::resume_with_checkpointer`'s doc for
-/// the resume mechanics and
-/// `my_docs/ohxtf/b1-engine-seam-domain/05-checkpointer-and-state.md` for the
-/// idempotency caveat (resuming an already-completed thread_id is a no-op
-/// from tinyagents' perspective, not an error).
+/// the resume mechanics.
+///
+/// **Host-side approval guard (issue B2 finding #3):** tinyflows 0.2's
+/// `resume_with_checkpointer` treats the resume call itself as approval of
+/// whatever gate paused the run — its `approvals` argument is advisory only,
+/// not enforced inside the crate (`flows_resume(..., approvals: [])` on a
+/// paused run would otherwise still complete it). So before ever calling
+/// into the engine, this loads the persisted `flow_runs` row for
+/// `thread_id` (`flow_runs.id == thread_id`) and requires that `approvals`
+/// names at least one of that row's *actually* pending node ids. A run
+/// that isn't currently `pending_approval` (already completed, failed, or
+/// unknown) is rejected outright — resuming an already-settled thread_id is
+/// no longer treated as a harmless no-op, it's a clear error.
 pub async fn flows_resume(
     config: &Config,
     flow_id: &str,
@@ -415,6 +477,42 @@ pub async fn flows_resume(
     let flow = store::get_flow(config, flow_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow '{flow_id}' not found"))?;
+
+    let run_record = store::get_flow_run(config, thread_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            format!("no paused run to resume: no run recorded for thread '{thread_id}'")
+        })?;
+    if run_record.flow_id != flow_id {
+        return Err(format!(
+            "no paused run to resume: run '{thread_id}' belongs to flow '{}', not '{flow_id}'",
+            run_record.flow_id
+        ));
+    }
+    if run_record.status != "pending_approval" {
+        return Err(format!(
+            "no paused run to resume: run '{thread_id}' is not pending approval (status: {})",
+            run_record.status
+        ));
+    }
+    let matches_pending = approvals
+        .iter()
+        .any(|a| run_record.pending_approvals.contains(a));
+    if !matches_pending {
+        tracing::warn!(
+            target: "flows",
+            flow_id = %flow_id,
+            %thread_id,
+            ?approvals,
+            pending = ?run_record.pending_approvals,
+            "[flows] flows_resume: rejected — caller approvals name none of the pending gates"
+        );
+        return Err(format!(
+            "no pending approval matches: approvals {approvals:?} do not name any of the \
+             currently pending gates {:?} for run '{thread_id}'",
+            run_record.pending_approvals
+        ));
+    }
 
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
     let config_arc = Arc::new(config.clone());
@@ -430,13 +528,6 @@ pub async fn flows_resume(
         approval_count = approvals.len(),
         "[flows] flows_resume: resuming checkpointed run"
     );
-
-    // Ensure a `flow_runs` row exists for this thread even if this is the
-    // first B2 build to see it (e.g. a run started before this feature
-    // shipped) — best-effort, never blocks the resume itself.
-    if matches!(store::get_flow_run(config, thread_id), Ok(None)) {
-        start_flow_run_row(config, thread_id, flow_id);
-    }
 
     let origin = workflow_origin(flow_id, flow.require_approval);
     let run = with_origin(

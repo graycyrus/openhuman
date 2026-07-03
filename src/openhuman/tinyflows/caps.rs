@@ -163,21 +163,82 @@ pub(crate) fn http_cred_name(conn: &str) -> Option<&str> {
     (!name.is_empty()).then_some(name)
 }
 
+/// Strict, deny-by-default curation check for flow `tool_call` nodes (issue
+/// B2 finding #2).
+///
+/// This is intentionally **stricter** than
+/// `memory_sync::composio::providers::is_action_visible_with_pref` — the
+/// helper the normal agent tool-call loop uses. That helper is permissive by
+/// design for a toolkit it doesn't recognize: it falls back to the
+/// `classify_unknown` heuristic and lets the slug through (scope-gated), and
+/// treats a prefix-less slug as unconditionally visible. That's safe in the
+/// agent loop because the model only ever sees slugs the *backend itself*
+/// returned from live tool discovery (`composio_list_tools`) — there is no
+/// path for the model to invent a slug that reaches this check. A flow's
+/// `tool_call.slug`, by contrast, is a free-form string the flow *author*
+/// typed when building the graph; it never round-trips through Composio
+/// discovery before `invoke` is called. So here a slug is allowed **only**
+/// if it resolves to a real, known toolkit AND is present in that toolkit's
+/// curated catalog:
+/// - `toolkit_from_slug` fails to extract anything (empty/blank slug) → reject.
+/// - the extracted toolkit has no registered provider curated list AND no
+///   static `catalog_for_toolkit` entry (i.e. it isn't one of OpenHuman's
+///   known/curated toolkits at all — including a made-up prefix like
+///   `madeupkit`, or a prefix-less slug like `noop` which `toolkit_from_slug`
+///   degrades to treating as its own single-segment "toolkit") → reject.
+/// - the toolkit has a catalog but `slug` isn't one of its entries → reject.
+/// - otherwise, apply the same per-user read/write/admin scope preference
+///   the agent loop uses (`UserScopePref::allows`).
+///
+/// // TODO(0.3): this hard-rejects any *real* Composio toolkit that simply
+/// // isn't in the static `catalog_for_toolkit` map yet (there is no
+/// // host-side, offline way to ask "is this actually a valid Composio
+/// // toolkit/action" beyond the curated catalogs OpenHuman ships). That's
+/// // an accepted trade-off for a genuine allowlist rather than a residual
+/// // gap to silently work around — extending `catalog_for_toolkit` (or, if
+/// // a live catalog lookup becomes available, consulting it here) is how a
+/// // newly-supported toolkit gets flow tool-call support.
+async fn is_curated_flow_tool(slug: &str) -> bool {
+    use crate::openhuman::memory_sync::composio::providers::{
+        catalog_for_toolkit, find_curated, get_provider, load_user_scope_or_default,
+        toolkit_from_slug,
+    };
+
+    let Some(toolkit) = toolkit_from_slug(slug) else {
+        return false;
+    };
+    let catalog = get_provider(&toolkit)
+        .and_then(|p| p.curated_tools())
+        .or_else(|| catalog_for_toolkit(&toolkit));
+    let Some(catalog) = catalog else {
+        return false;
+    };
+    let Some(curated) = find_curated(catalog, slug) else {
+        return false;
+    };
+    let pref = load_user_scope_or_default(&toolkit).await;
+    pref.allows(curated.scope)
+}
+
 /// [`ToolInvoker`] adapter over Composio (`src/openhuman/composio/client.rs`).
 ///
 /// **B2 (closes two B1 deviations, see
 /// `my_docs/ohxtf/b2-triggers-trust/01-triggers-and-trust.md` §4-5):**
-/// - **Curation + scope**: every call is checked against
-///   `memory_sync::composio::providers::is_action_visible_with_pref` (the
-///   same curated-tool-set + per-user read/write/admin scope the normal
-///   agent tool-call path enforces) before it ever reaches Composio. A
-///   non-curated / out-of-scope slug is rejected with
-///   `EngineError::Capability("tool not permitted: <slug>")`. This is
-///   defense in depth: `slug` is a static, author-declared graph field in
-///   tinyflows 0.2 (never `=`-expression evaluated — see the node catalog),
-///   so a trigger payload cannot *choose* it today; the check matters once a
-///   future data-binding release lets `slug` (or the tool the flow author
-///   picked) be influenced by upstream data.
+/// - **Curation + scope (hard allowlist)**: every call is checked against
+///   [`is_curated_flow_tool`] — a deny-by-default gate that only allows a
+///   slug resolving to a *known, curated* toolkit action, unlike the general
+///   agent tool-call path's more permissive
+///   `memory_sync::composio::providers::is_action_visible_with_pref` (see
+///   [`is_curated_flow_tool`]'s doc for why the two differ). A non-curated /
+///   unrecognized / out-of-scope slug is rejected with
+///   `EngineError::Capability("tool not permitted: <slug>")` before any
+///   Composio call. This is defense in depth today: `slug` is a static,
+///   author-declared graph field in tinyflows 0.2 (never `=`-expression
+///   evaluated — see the node catalog), so a trigger payload cannot *choose*
+///   it; the check matters once a future data-binding release lets `slug`
+///   (or the tool the flow author picked) be influenced by upstream data —
+///   and it already closes the gap where an author could hand-type an
+///   arbitrary/typo'd slug that would otherwise reach Composio.
 /// - **connection_ref**: `conn` (`"composio:<toolkit>:<connection_id>"`) is
 ///   now parsed and forwarded to `direct_execute` (Composio Direct mode).
 ///   Backend mode's `execute_tool` still has no per-call account-scoping
@@ -206,24 +267,16 @@ pub struct OpenHumanTools {
 #[async_trait]
 impl ToolInvoker for OpenHumanTools {
     async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
-        use crate::openhuman::memory_sync::composio::providers::{
-            is_action_visible_with_pref, load_user_scope_or_default, toolkit_from_slug,
-            UserScopePref,
-        };
-
-        // Curation + scope gate (see the struct doc). Runs before anything
-        // else — a rejected slug never reaches the composio client at all.
-        let toolkit = toolkit_from_slug(slug);
-        let pref = match &toolkit {
-            Some(t) => load_user_scope_or_default(t).await,
-            None => UserScopePref::default(),
-        };
-        if !is_action_visible_with_pref(slug, &pref) {
+        // Curation + scope gate — hard allowlist (see [`is_curated_flow_tool`]'s
+        // doc for why this differs from the general agent tool-call path).
+        // Runs before anything else — a rejected slug never reaches the
+        // composio client at all.
+        if !is_curated_flow_tool(slug).await {
             tracing::warn!(
                 target: "flows",
                 %slug,
-                toolkit = toolkit.as_deref().unwrap_or("<unrecognized>"),
-                "[flows] tool_call: rejected — not curated or out of the user's configured scope"
+                "[flows] tool_call: rejected — not a recognized curated toolkit action, or out \
+                 of the user's configured scope"
             );
             return Err(EngineError::Capability(format!(
                 "tool not permitted: {slug}"
