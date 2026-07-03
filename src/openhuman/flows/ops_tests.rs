@@ -207,3 +207,42 @@ async fn flows_run_missing_flow_errors() {
         .expect_err("must error");
     assert!(err.contains("not found"));
 }
+
+#[tokio::test]
+async fn flows_run_records_failed_status_when_a_node_errors() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // A `tool_call` with no `slug` errors in the node executor before reaching
+    // any external service; with the default `on_error: stop` the whole run
+    // fails deterministically — no network/credentials needed.
+    let graph = json!({
+        "name": "boom",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "x", "kind": "tool_call", "name": "X" }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "x" } ]
+    });
+
+    let created = flows_create(&config, "boom".to_string(), graph)
+        .await
+        .unwrap();
+
+    let err = flows_run(&config, &created.value.id, json!({}))
+        .await
+        .expect_err("a run whose node errors under on_error:stop must fail");
+    assert!(!err.is_empty());
+
+    // The failed attempt must be recorded, not left on the prior state.
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(
+        reloaded.value.last_status.as_deref(),
+        Some("failed"),
+        "a failed run must record last_status=failed"
+    );
+    assert!(
+        reloaded.value.last_run_at.is_some(),
+        "a failed run must stamp last_run_at"
+    );
+}
