@@ -3704,6 +3704,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': 'Item masukan sumber',
   'flowRuns.status.running': 'Berjalan',
   'flowRuns.status.completed': 'Selesai',
+  'flowRuns.status.completed_with_warnings': 'Selesai dengan peringatan',
   'flowRuns.status.pending_approval': 'Menunggu persetujuan',
   'flowRuns.status.failed': 'Gagal',
   'flowRuns.status.cancelled': 'Dibatalkan',

@@ -1067,17 +1067,18 @@ pub async fn flows_run(
     };
     let outcome = journaled.outcome;
 
-    let status = if outcome.pending_approvals.is_empty() {
-        "completed"
-    } else {
+    let settled = settle_steps(config, &thread_id, &outcome.output);
+    let status = if !outcome.pending_approvals.is_empty() {
         "pending_approval"
+    } else {
+        degrade_completed_status(&settled)
     };
     store::record_run(config, flow_id, status).map_err(|e| e.to_string())?;
     finish_flow_run_row(
         config,
         &thread_id,
         status,
-        &settle_steps(config, &thread_id, &outcome.output),
+        &settled,
         &outcome.pending_approvals,
         None,
     );
@@ -1269,17 +1270,18 @@ pub async fn flows_resume(
     };
     let outcome = journaled.outcome;
 
-    let status = if outcome.pending_approvals.is_empty() {
-        "completed"
-    } else {
+    let settled = settle_steps(config, thread_id, &outcome.output);
+    let status = if !outcome.pending_approvals.is_empty() {
         "pending_approval"
+    } else {
+        degrade_completed_status(&settled)
     };
     store::record_run(config, flow_id, status).map_err(|e| e.to_string())?;
     finish_flow_run_row(
         config,
         thread_id,
         status,
-        &settle_steps(config, thread_id, &outcome.output),
+        &settled,
         &outcome.pending_approvals,
         None,
     );
@@ -1610,6 +1612,24 @@ fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec<FlowRunSte
         "[flows] settle_steps: merged live-observed steps with post-hoc reconstruction"
     );
     merged
+}
+
+/// Degrades a would-be `"completed"` status: `"failed"` if any settled step
+/// errored, `"completed_with_warnings"` if any carries null-resolution
+/// diagnostics, else `"completed"`.
+///
+/// Called only once the run has no `pending_approvals` left — precedence
+/// against that case is handled by the caller (`pending_approval` always
+/// wins over any of these).
+fn degrade_completed_status(steps: &[FlowRunStep]) -> &'static str {
+    if steps.iter().any(|s| s.status.as_deref() == Some("error")) {
+        return "failed";
+    }
+    if steps.iter().any(|s| !s.diagnostics.is_empty()) {
+        "completed_with_warnings"
+    } else {
+        "completed"
+    }
 }
 
 /// Milliseconds since the Unix epoch, for `CoreNotificationEvent::timestamp_ms`.

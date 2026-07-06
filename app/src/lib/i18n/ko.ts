@@ -3659,6 +3659,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': '소스 입력 항목',
   'flowRuns.status.running': '실행 중',
   'flowRuns.status.completed': '완료됨',
+  'flowRuns.status.completed_with_warnings': '경고와 함께 완료됨',
   'flowRuns.status.pending_approval': '승인 대기 중',
   'flowRuns.status.failed': '실패',
   'flowRuns.status.cancelled': '취소됨',

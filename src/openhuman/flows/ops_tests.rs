@@ -1654,3 +1654,52 @@ fn flow_stream_target_generates_request_id_when_absent_or_blank() {
     // Two mints are distinct uuids.
     assert_ne!(a.request_id, b.request_id);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// degrade_completed_status (PR2 — run honesty)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn clean_step(node_id: &str) -> FlowRunStep {
+    FlowRunStep {
+        node_id: node_id.to_string(),
+        output: Value::Null,
+        port: None,
+        status: Some("success".to_string()),
+        duration_ms: Some(1),
+        diagnostics: Vec::new(),
+    }
+}
+
+#[test]
+fn degrade_completed_status_all_clean_stays_completed() {
+    let steps = vec![clean_step("a"), clean_step("b")];
+    assert_eq!(degrade_completed_status(&steps), "completed");
+}
+
+#[test]
+fn degrade_completed_status_null_binding_becomes_warnings() {
+    let mut warned = clean_step("a");
+    warned.diagnostics = vec![json!({ "location": "args.to", "expression": "=item.to" })];
+    let steps = vec![clean_step("trigger"), warned];
+    assert_eq!(degrade_completed_status(&steps), "completed_with_warnings");
+}
+
+#[test]
+fn degrade_completed_status_errored_step_becomes_failed() {
+    let mut errored = clean_step("a");
+    errored.status = Some("error".to_string());
+    let steps = vec![clean_step("trigger"), errored];
+    assert_eq!(degrade_completed_status(&steps), "failed");
+}
+
+#[test]
+fn degrade_completed_status_error_outranks_diagnostics() {
+    // A step can carry both an error status and null-resolution diagnostics
+    // (e.g. it errored trying to use the unresolved value) — failed wins.
+    let mut errored_with_diagnostics = clean_step("a");
+    errored_with_diagnostics.status = Some("error".to_string());
+    errored_with_diagnostics.diagnostics =
+        vec![json!({ "location": "args.to", "expression": "=item.to" })];
+    let steps = vec![errored_with_diagnostics];
+    assert_eq!(degrade_completed_status(&steps), "failed");
+}

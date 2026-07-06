@@ -3612,6 +3612,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': 'عنصر الإدخال المصدر',
   'flowRuns.status.running': 'قيد التشغيل',
   'flowRuns.status.completed': 'مكتمل',
+  'flowRuns.status.completed_with_warnings': 'مكتمل مع تحذيرات',
   'flowRuns.status.pending_approval': 'بانتظار الموافقة',
   'flowRuns.status.failed': 'فشل',
   'flowRuns.status.cancelled': 'ملغى',

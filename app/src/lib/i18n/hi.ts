@@ -3696,6 +3696,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': 'स्रोत इनपुट आइटम',
   'flowRuns.status.running': 'चल रहा है',
   'flowRuns.status.completed': 'पूर्ण',
+  'flowRuns.status.completed_with_warnings': 'चेतावनियों के साथ पूर्ण',
   'flowRuns.status.pending_approval': 'अनुमोदन की प्रतीक्षा में',
   'flowRuns.status.failed': 'विफल',
   'flowRuns.status.cancelled': 'रद्द किया गया',
