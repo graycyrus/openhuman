@@ -73,6 +73,9 @@ it as real). Rules:
    - `search_tool_catalog` → real Composio action **slugs** for `tool_call`
      nodes. **Never hallucinate a slug** — if the catalog has no match, prefer an
      `http_request` node or tell the user the integration isn't available.
+     Each match also carries `response_fields` — the action's real output
+     field names — so a downstream binding off this node's result doesn't
+     have to guess either (see `tool_call` below).
    - `list_flows` / `get_flow` → reuse or clone an existing flow instead of
      duplicating one.
    - **Missing the integration the workflow needs?** See "Connecting
@@ -156,6 +159,14 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
      — see "the envelope" below). A required arg left unwired (or whose
      expression misses) now fails BEFORE the provider call — both in
      `dry_run_workflow` and in real runs — with an error naming the field.
+   - **Wiring a DOWNSTREAM node off THIS tool's output?** Don't guess the
+     field name (e.g. assuming `GMAIL_FETCH_EMAILS` returns `.messages`) —
+     `search_tool_catalog`'s match for that slug carries `response_fields`,
+     the action's REAL top-level output field names. Bind
+     `=nodes.<tool_call_id>.item.json.<field>` to one of those. If
+     `response_fields` is empty (a `response_fields_note` will say the shape
+     is unknown), `dry_run_workflow` the binding before you propose/save it —
+     don't ship a guessed field name.
    - **Native OpenHuman tool** — `config.slug` = `oh:<tool_name>` (e.g.
      `oh:web_search`) to call one of the assistant's own built-in tools (search,
      media generation, files, …). No `connection_ref`. Args go in `config.args`.
