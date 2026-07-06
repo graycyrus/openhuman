@@ -48,10 +48,8 @@ impl Tool for ProposeWorkflowTool {
     }
 
     fn description(&self) -> &str {
-        "Propose a candidate automation workflow for the user to review and save. This tool \
-         ONLY VALIDATES the graph and returns a summary — it NEVER creates or enables the flow; \
-         the user must click \"Save & enable\" in the UI before anything is persisted or can \
-         run. Build a tinyflows WorkflowGraph: nodes[] ({id, kind, name, config}) + edges[] \
+        "Validates a candidate graph and applies it to the user's canvas draft. Never persists \
+         or enables anything. Build a tinyflows WorkflowGraph: nodes[] ({id, kind, name, config}) + edges[] \
          ({from_node, to_node, from_port?, to_port?}; ports default \"main\"). Exactly ONE \
          trigger node is required. The 12 node kinds: trigger (config.trigger_kind: manual | \
          schedule | webhook | app_event | form | chat_message | evaluation | system | \

@@ -3846,7 +3846,7 @@ const messages: TranslationMap = {
   'flows.copilot.open': 'Assistent',
   'flows.copilot.title': 'Workflow-Assistent',
   'flows.copilot.subtitle':
-    'Bitte um Änderungen und prüfe jeden Vorschlag, bevor du ihn übernimmst.',
+    'Bitte um Änderungen — sie werden sofort auf deine Leinwand angewendet.',
   'flows.copilot.close': 'Assistent schließen',
   'flows.copilot.placeholder': 'Bitte um eine Änderung…',
   'flows.copilot.send': 'Senden',
@@ -3865,6 +3865,8 @@ const messages: TranslationMap = {
     'Ein vorgeschlagener Entwurf wird geprüft — es wurde noch nichts gespeichert.',
   'flows.copilot.repairDisplay':
     'Eine Ausführung ist fehlgeschlagen; sieh sie dir an und schlage eine Lösung vor.',
+  'flows.copilot.appliedTitle': 'Angewendet — rückgängig machen?',
+  'flows.copilot.undo': 'Rückgängig',
   'flows.list.view': 'Workflow anzeigen',
   'flows.list.export': 'Exportieren',
   'flows.list.exported': 'Workflow exportiert',

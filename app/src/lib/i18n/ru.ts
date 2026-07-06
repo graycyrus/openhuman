@@ -3787,8 +3787,7 @@ const messages: TranslationMap = {
   'flows.suggest.trigger.manual': 'По запросу',
   'flows.copilot.open': 'Второй пилот',
   'flows.copilot.title': 'Второй пилот процессов',
-  'flows.copilot.subtitle':
-    'Запрашивайте изменения и проверяйте каждое предложение перед применением.',
+  'flows.copilot.subtitle': 'Запросите изменения — они применяются к вашему холсту сразу же.',
   'flows.copilot.close': 'Закрыть второго пилота',
   'flows.copilot.placeholder': 'Запросите изменение…',
   'flows.copilot.send': 'Отправить',
@@ -3805,6 +3804,8 @@ const messages: TranslationMap = {
   'flows.copilot.reject': 'Отклонить',
   'flows.copilot.previewHint': 'Просмотр предложенного черновика — пока ничего не сохранено.',
   'flows.copilot.repairDisplay': 'Запуск завершился ошибкой; изучите его и предложите исправление.',
+  'flows.copilot.appliedTitle': 'Применено — отменить?',
+  'flows.copilot.undo': 'Отменить',
   'flows.list.view': 'Просмотреть рабочий процесс',
   'flows.list.export': 'Экспорт',
   'flows.list.exported': 'Рабочий процесс экспортирован',

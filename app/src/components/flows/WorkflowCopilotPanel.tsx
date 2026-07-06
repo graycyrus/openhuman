@@ -1,25 +1,26 @@
 /**
- * WorkflowCopilotPanel (Phase 5c) — a side-panel chat bound to the
- * `workflow_builder` specialist, docked on the editable canvas. The user asks
- * for changes ("add a Slack notification on failure", "make the schedule
- * weekdays only"); each turn injects the CURRENT draft graph as context and the
- * agent returns a `revise_workflow` proposal (and can now discover + connect the
- * Composio apps a step needs). The panel renders the full conversation
- * transcript, surfaces each proposal's node-level diff, and hands Accept/Reject
- * up to the host, which applies it to the local draft overlay.
+ * WorkflowCopilotPanel (Phase 6 redesign — direct-apply) — a side-panel chat
+ * bound to the `workflow_builder` specialist, docked on the editable canvas.
+ * The user asks for changes ("add a Slack notification on failure", "make the
+ * schedule weekdays only"); each turn injects the CURRENT draft graph as
+ * context and the agent returns a `revise_workflow` proposal (and can now
+ * discover + connect the Composio apps a step needs). The panel renders the
+ * full conversation transcript and hands each proposal straight up to the host
+ * via `onProposal` — there is no Accept/Reject card here; the host applies the
+ * proposal directly to the canvas and offers an Undo toast instead.
  *
  * Chat UI parity: the composer is the same {@link ChatComposer} the main chat
  * windows use (mic/attachments off here), and turns render as bubbles via the
  * shared {@link BubbleMarkdown}, so the copilot reads like a real chat rather
  * than a one-shot form.
  *
- * Invariant: the copilot only PROPOSES. Accept applies to the UNSAVED local
- * draft (no `flows_update`); persistence stays behind the canvas's own Save.
+ * Invariant: the copilot only PROPOSES/revises the UNSAVED local draft (no
+ * `flows_update`/`flows_create`); persistence stays behind the canvas's own
+ * Save, which this panel never touches.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
-import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import {
   buildRepairPrompt,
@@ -30,7 +31,6 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
-import Button from '../ui/Button';
 
 interface Props {
   /** The current draft graph, injected as context for each revise turn. */
@@ -41,15 +41,10 @@ interface Props {
    */
   flowId?: string | null;
   /**
-   * Fires when the agent returns a fresh proposal, so the host can enter its
-   * diff-preview overlay. The host computes/holds the preview; this panel only
-   * reflects it.
+   * Fires when the agent returns a fresh proposal. The host applies it
+   * directly to the live canvas draft (no preview/approval step here).
    */
   onProposal: (proposal: WorkflowProposal) => void;
-  /** Accept the pending proposal into the local draft (host commits it). */
-  onAccept: (proposal: WorkflowProposal) => void;
-  /** Reject the pending proposal (host reverts the overlay). */
-  onReject: () => void;
   /** Close the panel. */
   onClose: () => void;
   /**
@@ -70,8 +65,6 @@ export default function WorkflowCopilotPanel({
   graph,
   flowId = null,
   onProposal,
-  onAccept,
-  onReject,
   onClose,
   repairSeed = null,
   seedThreadId = null,
@@ -94,14 +87,19 @@ export default function WorkflowCopilotPanel({
   const isComposingTextRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Surface each NEW proposal to the host exactly once (enter preview overlay).
+  // Surface each NEW proposal to the host exactly once, then immediately clear
+  // it from the thread's pending-proposal state (Phase 6: direct-apply — the
+  // host applies it straight to the canvas, there's no Accept/Reject to clear
+  // it later). Without this, closing and reopening the panel would re-fire
+  // the same stale proposal (redux still holds it until the NEXT send).
   const lastSurfacedRef = useRef<WorkflowProposal | null>(null);
   useEffect(() => {
     if (proposal && proposal !== lastSurfacedRef.current) {
       lastSurfacedRef.current = proposal;
       onProposal(proposal);
+      clearProposal();
     }
-  }, [proposal, onProposal]);
+  }, [proposal, onProposal, clearProposal]);
 
   // Auto-send the repair turn once when opened from a failed run.
   const repairSentRef = useRef(false);
@@ -143,21 +141,7 @@ export default function WorkflowCopilotPanel({
   const noopAttach = useCallback(async () => {}, []);
   const noop = useCallback(() => {}, []);
 
-  const accept = useCallback(() => {
-    if (!proposal) return;
-    onAccept(proposal);
-    clearProposal();
-    lastSurfacedRef.current = null;
-  }, [proposal, onAccept, clearProposal]);
-
-  const reject = useCallback(() => {
-    onReject();
-    clearProposal();
-    lastSurfacedRef.current = null;
-  }, [onReject, clearProposal]);
-
-  const diff = proposal ? diffGraphs(graph, proposal.graph as WorkflowGraph) : null;
-  const isEmpty = messages.length === 0 && !proposal && !sending && !error;
+  const isEmpty = messages.length === 0 && !sending && !error;
 
   return (
     <aside
@@ -216,56 +200,6 @@ export default function WorkflowCopilotPanel({
           <p className="text-xs text-coral" data-testid="workflow-copilot-error">
             {error === 'offline' ? t('flows.copilot.offline') : t('flows.copilot.error')}
           </p>
-        )}
-
-        {proposal && diff && (
-          <div
-            data-testid="workflow-copilot-proposal"
-            className="rounded-xl border border-ocean-300 bg-surface p-3 dark:border-ocean-700">
-            <p className="text-xs font-semibold text-ocean-900 dark:text-ocean-100">
-              {proposal.name || t('flows.copilot.proposalTitle')}
-            </p>
-            <p className="mt-1 text-[11px] text-content-muted">{t('flows.copilot.previewHint')}</p>
-
-            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-              {diff.addedNodeIds.size > 0 && (
-                <span
-                  data-testid="workflow-copilot-added"
-                  className="rounded-full bg-sage-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
-                  {t('flows.copilot.added').replace('{count}', String(diff.addedNodeIds.size))}
-                </span>
-              )}
-              {diff.removedNodeIds.size > 0 && (
-                <span
-                  data-testid="workflow-copilot-removed"
-                  className="rounded-full bg-coral-100 px-2 py-0.5 font-medium text-coral-700 dark:bg-coral-500/15 dark:text-coral-300">
-                  {t('flows.copilot.removed').replace('{count}', String(diff.removedNodeIds.size))}
-                </span>
-              )}
-              {!diff.hasChanges && (
-                <span className="text-content-faint">{t('flows.copilot.noChanges')}</span>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                data-testid="workflow-copilot-accept"
-                onClick={accept}>
-                {t('flows.copilot.accept')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                data-testid="workflow-copilot-reject"
-                onClick={reject}>
-                {t('flows.copilot.reject')}
-              </Button>
-            </div>
-          </div>
         )}
       </div>
 

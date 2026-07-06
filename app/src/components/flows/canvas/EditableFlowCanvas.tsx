@@ -193,6 +193,20 @@ function EditableFlowCanvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initialEdges);
   const rfRef = useRef<ReactFlowInstance<FlowNode, FlowEdge> | null>(null);
 
+  // Copilot auto-apply highlight (Phase 6 redesign): `addedNodeIds` arrives
+  // once per mount (the host bumps `canvasVersion`/remounts this component on
+  // every auto-applied proposal) rather than standing for the duration of a
+  // preview-under-review. Mirror it into local state and fade it out after a
+  // few seconds so newly added nodes flash sage-green then settle, instead of
+  // staying ringed forever with no Accept/Reject to dismiss them.
+  const [visibleAddedNodeIds, setVisibleAddedNodeIds] = useState<ReadonlySet<string>>(addedNodeIds);
+  useEffect(() => {
+    setVisibleAddedNodeIds(addedNodeIds);
+    if (addedNodeIds.size === 0) return;
+    const timer = setTimeout(() => setVisibleAddedNodeIds(EMPTY_ID_SET), 3000);
+    return () => clearTimeout(timer);
+  }, [addedNodeIds]);
+
   // ── Undo / redo history ───────────────────────────────────────────────────
   // A bounded past/future stack of {nodes, edges} snapshots so structural edits
   // (add / connect / delete / move) and config edits are recoverable without
@@ -336,7 +350,7 @@ function EditableFlowCanvas({
   // tag errored nodes with the `flow-node-error` class the canvas CSS rings, and
   // overlay each node's live run status (`flow-node-running`/`-success`/`-failed`).
   const hasRunOverlay = Object.keys(runProgress).length > 0;
-  const hasDiffOverlay = addedNodeIds.size > 0 || removedNodeIds.size > 0;
+  const hasDiffOverlay = visibleAddedNodeIds.size > 0 || removedNodeIds.size > 0;
   const displayNodes = useMemo(() => {
     if (erroredIds.size === 0 && !hasRunOverlay && !hasDiffOverlay) return nodes;
     return nodes.map(n => {
@@ -344,15 +358,27 @@ function EditableFlowCanvas({
       if (erroredIds.has(n.id)) extra.push('flow-node-error');
       const runClass = FLOW_RUN_NODE_STATUS_CLASS[runProgress[n.id]];
       if (runClass) extra.push(runClass);
-      // Copilot diff overlay (Phase 5c): sage ring on added, ghost on removed.
-      if (addedNodeIds.has(n.id)) extra.push('flow-node-added');
+      // Copilot auto-apply highlight: sage ring on just-added nodes, fading
+      // out ~3s after mount (see the `visibleAddedNodeIds` effect above).
+      // `removedNodeIds` (ghosted) is unused today — there's no preview
+      // overlay to carry over removed nodes anymore — but stays wired for
+      // API compatibility.
+      if (visibleAddedNodeIds.has(n.id)) extra.push('flow-node-added');
       if (removedNodeIds.has(n.id)) extra.push('flow-node-removed');
       if (extra.length === 0) return n;
       return { ...n, className: `${n.className ?? ''} ${extra.join(' ')}`.trim() };
     });
     // `runProgress` is a stable-enough dependency (new object only on a real
     // status change, see the hook's setState guard).
-  }, [nodes, erroredIds, runProgress, hasRunOverlay, hasDiffOverlay, addedNodeIds, removedNodeIds]);
+  }, [
+    nodes,
+    erroredIds,
+    runProgress,
+    hasRunOverlay,
+    hasDiffOverlay,
+    visibleAddedNodeIds,
+    removedNodeIds,
+  ]);
 
   // Load the secret-free credential refs once for the node-config credential
   // picker (http_request / tool_call). Guarded: outside Tauri (or if the RPC

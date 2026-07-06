@@ -10,6 +10,7 @@ import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Flow } from '../../services/api/flowsApi';
+import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import FlowCanvasPage, { FlowCanvasDraftPage } from '../FlowCanvasPage';
 
 const getFlow = vi.hoisted(() => vi.fn());
@@ -23,6 +24,43 @@ vi.mock('../../services/api/flowsApi', () => ({
   createFlow,
   validateFlow,
   listFlowConnections,
+}));
+
+// The real WorkflowCopilotPanel drives a full Redux-backed chat runtime
+// (`useWorkflowBuilderChat`) that's out of scope here — `WorkflowCopilotPanel.
+// test.tsx` covers its own behavior in isolation. This test only cares about
+// what `FlowCanvasPage` does with a proposal once the panel hands one up via
+// `onProposal`, so the mock is just a button that fires it on click.
+const proposalWithAddedNode: WorkflowProposal = {
+  name: 'Revised flow',
+  graph: {
+    schema_version: 1,
+    name: 'Daily digest',
+    nodes: [
+      { id: 't', kind: 'trigger', name: 'Start', config: {}, ports: [], position: { x: 0, y: 0 } },
+      {
+        id: 'agent-1',
+        kind: 'agent',
+        name: 'Notify',
+        config: {},
+        ports: [],
+        position: { x: 200, y: 0 },
+      },
+    ],
+    edges: [],
+  },
+  requireApproval: false,
+  summary: { trigger: 'manual', steps: [] },
+};
+vi.mock('../../components/flows/WorkflowCopilotPanel', () => ({
+  default: ({ onProposal }: { onProposal: (proposal: WorkflowProposal) => void }) => (
+    <button
+      type="button"
+      data-testid="mock-copilot-propose"
+      onClick={() => onProposal(proposalWithAddedNode)}>
+      propose
+    </button>
+  ),
 }));
 
 function makeFlow(overrides: Partial<Flow> = {}): Flow {
@@ -181,6 +219,49 @@ describe('FlowCanvasPage', () => {
       'agent',
       'trigger',
     ]);
+  });
+
+  // -------------------------------------------------------------------------
+  // Copilot direct-apply (UX redesign) — a proposal applies STRAIGHT to the
+  // draft, no Accept card, and an "Undo" toast is the safety net.
+  // -------------------------------------------------------------------------
+  it('auto-applies a copilot proposal to the draft with no Accept click', async () => {
+    getFlow.mockResolvedValue(makeFlow());
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('flow-canvas-copilot-toggle'));
+    fireEvent.click(screen.getByTestId('mock-copilot-propose'));
+
+    // Save immediately — no Accept click anywhere in this flow — and the
+    // persisted graph already reflects the proposal's added node.
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+    await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
+    const [, update] = updateFlow.mock.calls[0];
+    expect(update.graph.nodes.map((n: { kind: string }) => n.kind).sort()).toEqual([
+      'agent',
+      'trigger',
+    ]);
+  });
+
+  it('shows an Undo toast after auto-apply and reverts the draft when clicked', async () => {
+    getFlow.mockResolvedValue(makeFlow());
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('flow-canvas-copilot-toggle'));
+    fireEvent.click(screen.getByTestId('mock-copilot-propose'));
+
+    // The proposal's new node ("Notify") is live on the canvas immediately —
+    // no Accept click anywhere — and the auto-apply toast offers an "Undo"
+    // action instead of a review card.
+    expect(screen.getByText('Notify')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Applied — undo?')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Undo'));
+
+    // The draft reverts to the pre-apply graph — the auto-applied node is gone.
+    await waitFor(() => expect(screen.queryByText('Notify')).not.toBeInTheDocument());
   });
 
   it('does not prompt when navigating Back with no unsaved changes', async () => {

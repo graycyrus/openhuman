@@ -16,11 +16,12 @@
 //!
 //! **Human-in-the-loop invariant (shared with [`super::tools::ProposeWorkflowTool`]):**
 //! nothing here EVER persists or enables a flow. `revise_workflow` only
-//! validates and returns a proposal payload (identical contract to
-//! `propose_workflow`); the read tools are pure reads; `dry_run_workflow`
-//! executes against `tinyflows`' deterministic **mock** capabilities so no real
-//! LLM / tool / HTTP / code side effect can fire. Only the user's own
-//! "Save & enable" click (→ `openhuman.flows_create`) writes anything.
+//! validates the revised graph and applies it to the user's canvas draft
+//! (identical contract to `propose_workflow`); the read tools are pure reads;
+//! `dry_run_workflow` executes against `tinyflows`' deterministic **mock**
+//! capabilities so no real LLM / tool / HTTP / code side effect can fire. Only
+//! the user's own Save action in the canvas (→ `openhuman.flows_create` /
+//! `openhuman.flows_update`) writes anything.
 //!
 //! The agent's full tool scope (see `agent_registry/agents/workflow_builder/
 //! agent.toml`) also grants the Composio **discovery/connect** tools —
@@ -80,10 +81,10 @@ impl Tool for ReviseWorkflowTool {
         "Refine an EXISTING workflow draft: supply the full updated tinyflows \
          WorkflowGraph (your revision applied to the prior draft — NOT a \
          regeneration from scratch) plus the `instruction` that motivated the \
-         change. Like propose_workflow, this ONLY VALIDATES the revised graph \
-         and returns a proposal summary for the user to review — it NEVER \
-         creates, updates, or enables the flow. Same graph shape and node kinds \
-         as propose_workflow. If validation fails, fix the graph and call again."
+         change. Like propose_workflow, this validates the revised graph and \
+         applies it to the user's canvas draft — it NEVER creates, updates, or \
+         enables a saved flow. Same graph shape and node kinds as \
+         propose_workflow. If validation fails, fix the graph and call again."
     }
 
     fn parameters_schema(&self) -> Value {

@@ -4427,7 +4427,7 @@ const en: TranslationMap = {
   'flows.suggest.trigger.manual': 'On demand',
   'flows.copilot.open': 'Copilot',
   'flows.copilot.title': 'Workflow copilot',
-  'flows.copilot.subtitle': 'Ask for changes and review each proposal before applying it.',
+  'flows.copilot.subtitle': 'Ask for changes — they apply to your canvas immediately.',
   'flows.copilot.close': 'Close copilot',
   'flows.copilot.placeholder': 'Ask for a change…',
   'flows.copilot.send': 'Send',
@@ -4435,7 +4435,7 @@ const en: TranslationMap = {
   'flows.copilot.error': 'Could not reach the workflow builder. Please try again.',
   'flows.copilot.offline': 'You are offline. Reconnect to use the copilot.',
   'flows.copilot.emptyState':
-    'Describe a change to this workflow and the builder will propose an update.',
+    'Describe a change to this workflow and the builder will build it directly onto your canvas.',
   'flows.copilot.proposalTitle': 'Proposed changes',
   'flows.copilot.added': '{count} added',
   'flows.copilot.removed': '{count} removed',
@@ -4443,7 +4443,9 @@ const en: TranslationMap = {
   'flows.copilot.accept': 'Apply to draft',
   'flows.copilot.reject': 'Dismiss',
   'flows.copilot.previewHint': 'Reviewing a proposed draft — nothing is saved yet.',
-  'flows.copilot.repairDisplay': 'A run failed — please look at it and propose a fix.',
+  'flows.copilot.repairDisplay': 'A run failed — please look at it and fix it.',
+  'flows.copilot.appliedTitle': 'Applied — undo?',
+  'flows.copilot.undo': 'Undo',
 
   // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved
   // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node

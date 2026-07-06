@@ -3833,7 +3833,7 @@ const messages: TranslationMap = {
   'flows.copilot.open': 'Copilote',
   'flows.copilot.title': 'Copilote de flux',
   'flows.copilot.subtitle':
-    'Demandez des modifications et examinez chaque proposition avant de l’appliquer.',
+    'Demandez des changements — ils s’appliquent immédiatement à votre canevas.',
   'flows.copilot.close': 'Fermer le copilote',
   'flows.copilot.placeholder': 'Demandez une modification…',
   'flows.copilot.send': 'Envoyer',
@@ -3850,6 +3850,8 @@ const messages: TranslationMap = {
   'flows.copilot.reject': 'Ignorer',
   'flows.copilot.previewHint': 'Examen d’un brouillon proposé — rien n’est encore enregistré.',
   'flows.copilot.repairDisplay': 'Une exécution a échoué ; examinez-la et proposez une correction.',
+  'flows.copilot.appliedTitle': 'Appliqué — annuler ?',
+  'flows.copilot.undo': 'Annuler',
   'flows.list.view': 'Voir le workflow',
   'flows.list.export': 'Exporter',
   'flows.list.exported': 'Workflow exporté',

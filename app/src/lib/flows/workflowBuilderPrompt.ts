@@ -1,6 +1,7 @@
 /**
- * workflowBuilderPrompt (Phase 5c) — builds the natural-language turn text that
- * routes a chat turn to the `workflow_builder` specialist agent.
+ * workflowBuilderPrompt (Phase 6 redesign — direct-apply) — builds the
+ * natural-language turn text that routes a chat turn to the `workflow_builder`
+ * specialist agent.
  *
  * There is no UI affordance to target a named agent for a turn: `chatSend`
  * carries only a thread + optional model/behaviour `profile_id`, and the core
@@ -10,26 +11,27 @@
  * `agent_registry/agents/workflow_builder/agent.toml`). So instead of routing
  * directly, we phrase the turn so that delegation fires deterministically and
  * the specialist ends its turn by calling `propose_workflow` / `revise_workflow`
- * — the runtime then surfaces the returned proposal as a `WorkflowProposalCard`.
+ * — the runtime then applies the returned graph straight to the canvas draft
+ * (the `FlowCanvasPage` copilot's direct-apply, no Accept/Reject card).
  *
- * Every builder here keeps the "propose, never persist" invariant: the prompts
- * ask for a PROPOSAL only. Saving/enabling stays behind the explicit
- * `WorkflowProposalCard` "Save & enable" click; nothing here can reach
- * `flows_create`/`flows_update`/`set_enabled`.
+ * Every builder here keeps the "build, never persist" invariant: the prompts
+ * ask the agent to build/apply directly onto the LOCAL canvas draft only.
+ * Saving/enabling stays behind the canvas's own explicit Save button; nothing
+ * here can reach `flows_create`/`flows_update`/`set_enabled`.
  */
 import type { WorkflowGraph } from './types';
 
 /** A leading directive that reliably trips the `build_workflow` delegation. */
 const DELEGATE_DIRECTIVE =
-  'Use the workflow builder to design a tinyflows automation and return a workflow proposal for me to review. Do not save, enable, or run anything.';
+  'Use the workflow builder to design a tinyflows automation. Build it directly onto my canvas — apply the graph, then describe what you built in plain language. No JSON, no "proposal", no "Save & enable" — just build it and tell me. Do not save, enable, or run anything.';
 
 /**
- * Revise variant: still "propose, never persist" for saving/enabling, but the
+ * Revise variant: still "build, never persist" for saving/enabling, but the
  * copilot may run an ALREADY-SAVED flow to test it — only when I ask and after
  * confirming with me first (the specialist's own prompt enforces the ask).
  */
 const DELEGATE_DIRECTIVE_REVISE =
-  'Use the workflow builder to revise this tinyflows automation and return the revised proposal. Do not save or enable anything (I save via the UI). You may run_workflow the SAVED flow to test it, but ONLY if I ask and only after you confirm with me first.';
+  'Use the workflow builder to revise this tinyflows automation. Apply the revision directly to my canvas, then describe what changed in plain language. No JSON, no "proposal", no "Save & enable". Do not save or enable anything (I save via the UI). You may run_workflow the SAVED flow to test it, but ONLY if I ask and only after you confirm with me first.';
 
 /** Serialize a graph compactly for injection as agent context. */
 function serializeGraph(graph: WorkflowGraph): string {
@@ -75,7 +77,11 @@ export function buildRevisePrompt(
       `This workflow is saved with flow id \`${flowId}\` — if I ask you to run/test it, you may run_workflow that id, but confirm with me first.`
     );
   }
-  lines.push('', 'Revise it as follows and return the full revised proposal:', trimmed);
+  lines.push(
+    '',
+    'Revise it as follows, apply the change directly to my canvas, and describe what changed:',
+    trimmed
+  );
   return lines.join('\n');
 }
 
@@ -100,7 +106,7 @@ export function buildRepairPrompt(ctx: RepairPromptContext): string {
   const parts = [
     DELEGATE_DIRECTIVE,
     '',
-    `A run of this workflow failed (run id: ${ctx.runId}). Read the run with get_flow_run, diagnose why it failed, and propose a fix.`,
+    `A run of this workflow failed (run id: ${ctx.runId}). Read the run with get_flow_run, diagnose why it failed, and apply a fix directly to my canvas.`,
   ];
   if (ctx.error && ctx.error.trim().length > 0) {
     parts.push('', `Run error: ${ctx.error.trim()}`);
@@ -115,7 +121,7 @@ export function buildRepairPrompt(ctx: RepairPromptContext): string {
     serializeGraph(ctx.graph),
     '```',
     '',
-    'Return the full corrected proposal.'
+    'Apply the corrected graph directly to my canvas and describe the fix.'
   );
   return parts.join('\n');
 }

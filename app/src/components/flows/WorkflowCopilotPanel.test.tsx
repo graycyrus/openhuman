@@ -46,15 +46,7 @@ describe('WorkflowCopilotPanel', () => {
   });
 
   it('sends a revise turn that injects the current graph', async () => {
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
+    render(<WorkflowCopilotPanel graph={baseGraph} onProposal={vi.fn()} onClose={vi.fn()} />);
     // The copilot now uses the shared ChatComposer (textarea by placeholder,
     // `send-message-button` for send).
     fireEvent.change(screen.getByPlaceholderText('flows.copilot.placeholder'), {
@@ -71,78 +63,45 @@ describe('WorkflowCopilotPanel', () => {
   it('renders the conversation transcript (user + agent turns)', () => {
     hookState.messages = [
       { id: 'm1', content: 'add a Slack step', sender: 'user' },
-      { id: 'm2', content: 'Done — proposed a Slack notification.', sender: 'agent' },
+      { id: 'm2', content: 'Done — added a Slack notification.', sender: 'agent' },
     ];
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
+    render(<WorkflowCopilotPanel graph={baseGraph} onProposal={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByTestId('workflow-copilot-user')).toHaveTextContent('add a Slack step');
     expect(screen.getByTestId('workflow-copilot-agent')).toHaveTextContent(
-      'Done — proposed a Slack notification.'
+      'Done — added a Slack notification.'
     );
     // With a transcript present, the empty-state hint is gone.
     expect(screen.queryByTestId('workflow-copilot-empty')).not.toBeInTheDocument();
   });
 
-  it('surfaces a new proposal to the host and shows the added/removed diff', () => {
+  it('surfaces a new proposal to the host directly (no Accept/Reject card) and clears it', () => {
     const onProposal = vi.fn();
-    // proposed drops "b" and adds "c" vs. base [a, b].
     hookState.proposal = proposalWith(['a', 'c']);
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={onProposal}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
+    render(<WorkflowCopilotPanel graph={baseGraph} onProposal={onProposal} onClose={vi.fn()} />);
+
+    // The host is handed the proposal immediately — direct-apply, no review step.
     expect(onProposal).toHaveBeenCalledWith(hookState.proposal);
-    // Both a single added ("c") and a single removed ("b") badge appear.
-    expect(screen.getByTestId('workflow-copilot-added')).toBeInTheDocument();
-    expect(screen.getByTestId('workflow-copilot-removed')).toBeInTheDocument();
+    // Once surfaced, the panel clears it from the thread's pending-proposal
+    // state so closing/reopening the panel can't re-fire the same proposal.
+    expect(hookState.clearProposal).toHaveBeenCalledTimes(1);
+    // There is no Accept/Reject card anymore — the panel is just chat.
+    expect(screen.queryByTestId('workflow-copilot-proposal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-copilot-accept')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-copilot-reject')).not.toBeInTheDocument();
   });
 
-  it('Accept applies to the draft and clears the proposal (never persists)', () => {
-    const onAccept = vi.fn();
+  it('does not re-surface the same proposal object across a re-render', () => {
+    const onProposal = vi.fn();
     hookState.proposal = proposalWith(['a', 'c']);
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={onAccept}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
+    const { rerender } = render(
+      <WorkflowCopilotPanel graph={baseGraph} onProposal={onProposal} onClose={vi.fn()} />
     );
-    fireEvent.click(screen.getByTestId('workflow-copilot-accept'));
-    expect(onAccept).toHaveBeenCalledWith(hookState.proposal);
-    expect(hookState.clearProposal).toHaveBeenCalledTimes(1);
-  });
+    expect(onProposal).toHaveBeenCalledTimes(1);
 
-  it('Reject discards the proposal without applying it', () => {
-    const onReject = vi.fn();
-    const onAccept = vi.fn();
-    hookState.proposal = proposalWith(['a', 'c']);
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={onAccept}
-        onReject={onReject}
-        onClose={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByTestId('workflow-copilot-reject'));
-    expect(onReject).toHaveBeenCalledTimes(1);
-    expect(onAccept).not.toHaveBeenCalled();
-    expect(hookState.clearProposal).toHaveBeenCalledTimes(1);
+    // Same proposal reference, e.g. a re-render triggered by an unrelated prop
+    // change — must not fire onProposal again.
+    rerender(<WorkflowCopilotPanel graph={baseGraph} onProposal={onProposal} onClose={vi.fn()} />);
+    expect(onProposal).toHaveBeenCalledTimes(1);
   });
 
   it('auto-sends a repair turn once when opened with a repair seed', () => {
@@ -150,8 +109,6 @@ describe('WorkflowCopilotPanel', () => {
       <WorkflowCopilotPanel
         graph={baseGraph}
         onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
         onClose={vi.fn()}
         repairSeed={{ runId: 'run-7', error: 'boom', graph: baseGraph }}
       />

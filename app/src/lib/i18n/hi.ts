@@ -3753,7 +3753,7 @@ const messages: TranslationMap = {
   'flows.suggest.trigger.manual': 'मांग पर',
   'flows.copilot.open': 'सहपायलट',
   'flows.copilot.title': 'वर्कफ़्लो सहपायलट',
-  'flows.copilot.subtitle': 'बदलाव माँगें और लागू करने से पहले हर प्रस्ताव की समीक्षा करें।',
+  'flows.copilot.subtitle': 'बदलाव माँगें — वे तुरंत आपके कैनवास पर लागू हो जाते हैं।',
   'flows.copilot.close': 'सहपायलट बंद करें',
   'flows.copilot.placeholder': 'एक बदलाव माँगें…',
   'flows.copilot.send': 'भेजें',
@@ -3770,6 +3770,8 @@ const messages: TranslationMap = {
   'flows.copilot.previewHint':
     'एक प्रस्तावित ड्राफ़्ट की समीक्षा हो रही है — अभी कुछ सहेजा नहीं गया।',
   'flows.copilot.repairDisplay': 'एक रन विफल हुआ; उसे देखें और सुधार सुझाएँ।',
+  'flows.copilot.appliedTitle': 'लागू किया गया — पूर्ववत करें?',
+  'flows.copilot.undo': 'पूर्ववत करें',
   'flows.list.view': 'वर्कफ़्लो देखें',
   'flows.list.export': 'निर्यात',
   'flows.list.exported': 'वर्कफ़्लो निर्यात किया गया',

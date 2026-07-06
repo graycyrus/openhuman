@@ -3798,7 +3798,7 @@ const messages: TranslationMap = {
   'flows.suggest.trigger.manual': 'Na żądanie',
   'flows.copilot.open': 'Kopilot',
   'flows.copilot.title': 'Kopilot przepływów',
-  'flows.copilot.subtitle': 'Poproś o zmiany i sprawdź każdą propozycję przed jej zastosowaniem.',
+  'flows.copilot.subtitle': 'Poproś o zmiany — zostaną od razu zastosowane na Twoim płótnie.',
   'flows.copilot.close': 'Zamknij kopilota',
   'flows.copilot.placeholder': 'Poproś o zmianę…',
   'flows.copilot.send': 'Wyślij',
@@ -3816,6 +3816,8 @@ const messages: TranslationMap = {
     'Przeglądasz proponowaną wersję roboczą — nic nie zostało jeszcze zapisane.',
   'flows.copilot.repairDisplay':
     'Uruchomienie nie powiodło się; przejrzyj je i zaproponuj poprawkę.',
+  'flows.copilot.appliedTitle': 'Zastosowano — cofnąć?',
+  'flows.copilot.undo': 'Cofnij',
   'flows.list.view': 'Wyświetl przepływ pracy',
   'flows.list.export': 'Eksportuj',
   'flows.list.exported': 'Wyeksportowano przepływ pracy',

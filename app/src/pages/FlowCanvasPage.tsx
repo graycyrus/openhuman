@@ -35,7 +35,7 @@ import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
-import { buildPreviewGraph, diffGraphs } from '../lib/flows/graphDiff';
+import { diffGraphs } from '../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { type RepairPromptContext } from '../lib/flows/workflowBuilderPrompt';
 import { useT } from '../lib/i18n/I18nContext';
@@ -168,13 +168,15 @@ function FlowEditor({
     }
   }, [titleDraft, name, isDraft, flowId]);
 
-  // ── Canvas copilot + draft overlay (Phase 5c) ─────────────────────────────
-  // `draftGraph` is the current ACCEPTED draft (starts as the loaded graph),
-  // kept in sync with manual canvas edits via `onGraphChange`. A copilot
-  // proposal enters `preview`: the canvas re-seeds (bump `canvasVersion`) with
-  // the proposed graph plus ghosted removed nodes, painted diff-style. Accept
-  // commits the proposed graph into `draftGraph`; Reject reverts to the frozen
-  // base. NOTHING here persists — the canvas's own Save is the only gate.
+  // ── Canvas copilot: direct-apply + AI-undo (Phase 6 redesign) ─────────────
+  // `draftGraph` is the current draft (starts as the loaded graph), kept in
+  // sync with manual canvas edits via `onGraphChange`. A copilot proposal
+  // applies STRAIGHT to `draftGraph` — no preview, no Accept/Reject — and the
+  // canvas re-seeds (bump `canvasVersion`) highlighting the newly added nodes.
+  // `previousDrafts` is a small undo stack of pre-apply snapshots so an
+  // "Undo" toast can revert the most recent AI change; the canvas's own
+  // in-editor undo/redo history doesn't survive the remount, so this is the
+  // safety net. NOTHING here persists — the canvas's own Save is the only gate.
   const [copilotOpen, setCopilotOpen] = useState(initialCopilotSeed !== null);
   // Per-workflow copilot thread: seeded from the session cache so opening/closing
   // the panel (or switching flows and back) resumes the same conversation
@@ -190,84 +192,85 @@ function FlowEditor({
     [flowId]
   );
   const [draftGraph, setDraftGraph] = useState<WorkflowGraph>(graph);
-  const [preview, setPreview] = useState<{
-    proposal: WorkflowProposal;
-    base: WorkflowGraph;
-    addedNodeIds: Set<string>;
-    removedNodeIds: Set<string>;
-  } | null>(null);
+  // AI-undo stack: pre-apply `draftGraph` snapshots, most-recent last. Bounded
+  // so a long copilot session doesn't grow this unboundedly. Only ever read via
+  // its own setter's updater function (below), never rendered directly.
+  const [, setPreviousDrafts] = useState<WorkflowGraph[]>([]);
+  const AI_UNDO_STACK_LIMIT = 10;
+  // Node ids the most recent auto-applied proposal added, so the canvas can
+  // flash a "just added" highlight on remount (Phase 5c's diff ring, now a
+  // transient flash instead of a standing preview state).
+  const [lastAddedNodeIds, setLastAddedNodeIds] = useState<Set<string> | undefined>(undefined);
   const [canvasVersion, setCanvasVersion] = useState(0);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
+    setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);
+  }, []);
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(item => item.id !== id));
+  }, []);
 
   // Last-persisted graph, independent of canvas remounts (fixes a P1: the
   // editable canvas seeds its own dirty baseline from whatever graph it's
-  // mounted with, so bumping `canvasVersion` on Accept — remounting the
-  // canvas with the just-accepted proposal as its "initial" graph — made an
-  // unsaved accepted proposal instantly read as clean; the accepted change
-  // was then lost on back/reload instead of gating behind the required Save.
-  // Only ever updated by a real Save (`handleSave` below), so a diff against
-  // it survives any number of accept/reject/preview remounts.
+  // mounted with, so bumping `canvasVersion` on an auto-apply — remounting
+  // the canvas with the just-applied graph as its "initial" graph — made an
+  // unsaved AI change instantly read as clean; the change was then lost on
+  // back/reload instead of gating behind the required Save. Only ever
+  // updated by a real Save (`handleSave` below), so a diff against it
+  // survives any number of auto-apply/undo/manual-edit remounts.
   const persistedGraphRef = useRef<WorkflowGraph>(graph);
 
-  const handleGraphChange = useCallback(
-    (next: WorkflowGraph) => {
-      // Freeze the draft while a proposal is under review — the preview graph
-      // (with ghosts) must not overwrite the real draft.
-      if (preview) return;
-      setDraftGraph(next);
-    },
-    [preview]
-  );
+  const handleGraphChange = useCallback((next: WorkflowGraph) => {
+    setDraftGraph(next);
+  }, []);
 
-  const handleProposal = useCallback(
+  // Undo the most recent auto-applied AI change: pop the pre-apply snapshot
+  // off `previousDrafts` and restore it as the draft. Fired from the "Undo"
+  // action on the auto-apply toast.
+  const undoLastAutoApply = useCallback(() => {
+    setPreviousDrafts(prev => {
+      if (prev.length === 0) return prev;
+      const restored = prev[prev.length - 1];
+      log('copilot auto-apply: undo — restoring previous draft');
+      setDraftGraph(restored);
+      setLastAddedNodeIds(undefined);
+      setCanvasVersion(v => v + 1);
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  // A copilot proposal applies DIRECTLY to the canvas — no preview, no
+  // Accept/Reject. The pre-apply draft is pushed onto the AI-undo stack first
+  // so an "Undo" toast can revert it; the canvas remounts (bump
+  // `canvasVersion`) with the new graph, highlighting the added nodes.
+  const handleAutoApply = useCallback(
     (proposal: WorkflowProposal) => {
       const proposedGraph = proposal.graph as WorkflowGraph;
       const d = diffGraphs(draftGraph, proposedGraph);
-      log('copilot proposal: added=%d removed=%d', d.addedNodeIds.size, d.removedNodeIds.size);
-      setPreview({
-        proposal,
-        base: draftGraph,
-        addedNodeIds: d.addedNodeIds,
-        removedNodeIds: d.removedNodeIds,
-      });
+      log('copilot auto-apply: added=%d removed=%d', d.addedNodeIds.size, d.removedNodeIds.size);
+      setPreviousDrafts(prev => [...prev, draftGraph].slice(-AI_UNDO_STACK_LIMIT));
+      setDraftGraph(proposedGraph);
+      setLastAddedNodeIds(d.addedNodeIds);
       setCanvasVersion(v => v + 1);
+      addToast({
+        type: 'info',
+        title: t('flows.copilot.appliedTitle'),
+        action: { label: t('flows.copilot.undo'), handler: undoLastAutoApply },
+      });
     },
-    [draftGraph]
+    [draftGraph, addToast, t, undoLastAutoApply]
   );
 
-  const handleAcceptProposal = useCallback((proposal: WorkflowProposal) => {
-    log('copilot proposal accepted');
-    setDraftGraph(proposal.graph as WorkflowGraph);
-    setPreview(null);
-    setCanvasVersion(v => v + 1);
-  }, []);
-
-  const handleRejectProposal = useCallback(() => {
-    log('copilot proposal rejected');
-    setPreview(null);
-    setCanvasVersion(v => v + 1);
-  }, []);
-
-  // The graph the canvas renders: the proposed+ghosted preview while reviewing,
-  // else the accepted draft.
-  const editorGraph = useMemo(
-    () =>
-      preview
-        ? buildPreviewGraph(
-            preview.base,
-            preview.proposal.graph as WorkflowGraph,
-            preview.removedNodeIds
-          )
-        : draftGraph,
-    [preview, draftGraph]
-  );
-  const { nodes, edges } = useMemo(() => workflowGraphToXyflow(editorGraph), [editorGraph]);
+  // The canvas always renders the live draft — the copilot no longer has a
+  // preview/ghost overlay to layer on top.
+  const { nodes, edges } = useMemo(() => workflowGraphToXyflow(draftGraph), [draftGraph]);
   const meta = useMemo(
     () => ({ schema_version: graph.schema_version, id: flowId ?? undefined, name }),
     [graph.schema_version, flowId, name]
   );
   const initialDirty = useMemo(
-    () => JSON.stringify(editorGraph) !== JSON.stringify(persistedGraphRef.current),
-    [editorGraph]
+    () => JSON.stringify(draftGraph) !== JSON.stringify(persistedGraphRef.current),
+    [draftGraph]
   );
 
   // Repair seed for the copilot: bind the run context to the CURRENT draft.
@@ -449,9 +452,7 @@ function FlowEditor({
             onDirtyChange={setDirty}
             activeRunId={activeRunId}
             onGraphChange={handleGraphChange}
-            addedNodeIds={preview?.addedNodeIds}
-            removedNodeIds={preview?.removedNodeIds}
-            saveDisabled={preview !== null}
+            addedNodeIds={lastAddedNodeIds}
             initialDirty={initialDirty}
           />
 
@@ -504,11 +505,9 @@ function FlowEditor({
 
         {copilotOpen && (
           <WorkflowCopilotPanel
-            graph={preview?.base ?? draftGraph}
+            graph={draftGraph}
             flowId={flowId}
-            onProposal={handleProposal}
-            onAccept={handleAcceptProposal}
-            onReject={handleRejectProposal}
+            onProposal={handleAutoApply}
             onClose={() => setCopilotOpen(false)}
             repairSeed={copilotRepairSeed}
             seedThreadId={copilotThreadId}
@@ -516,6 +515,8 @@ function FlowEditor({
           />
         )}
       </div>
+
+      <ToastContainer notifications={toasts} onRemove={removeToast} />
     </PanelPage>
   );
 }

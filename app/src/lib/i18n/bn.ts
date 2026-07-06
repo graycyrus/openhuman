@@ -3753,7 +3753,7 @@ const messages: TranslationMap = {
   'flows.suggest.trigger.manual': 'চাহিদা অনুযায়ী',
   'flows.copilot.open': 'কো-পাইলট',
   'flows.copilot.title': 'ওয়ার্কফ্লো কো-পাইলট',
-  'flows.copilot.subtitle': 'পরিবর্তন চান এবং প্রয়োগ করার আগে প্রতিটি প্রস্তাব পর্যালোচনা করুন।',
+  'flows.copilot.subtitle': 'পরিবর্তন চান — সেগুলো সাথে সাথে আপনার ক্যানভাসে প্রয়োগ হবে।',
   'flows.copilot.close': 'কো-পাইলট বন্ধ করুন',
   'flows.copilot.placeholder': 'একটি পরিবর্তন চান…',
   'flows.copilot.send': 'পাঠান',
@@ -3771,6 +3771,8 @@ const messages: TranslationMap = {
   'flows.copilot.previewHint':
     'একটি প্রস্তাবিত খসড়া পর্যালোচনা হচ্ছে — এখনও কিছু সংরক্ষণ করা হয়নি।',
   'flows.copilot.repairDisplay': 'একটি রান ব্যর্থ হয়েছে; এটি দেখুন এবং একটি সমাধান প্রস্তাব করুন।',
+  'flows.copilot.appliedTitle': 'প্রয়োগ করা হয়েছে — ফিরিয়ে নেবেন?',
+  'flows.copilot.undo': 'পূর্বাবস্থায় ফেরান',
   'flows.list.view': 'ওয়ার্কফ্লো দেখুন',
   'flows.list.export': 'রপ্তানি',
   'flows.list.exported': 'ওয়ার্কফ্লো রপ্তানি হয়েছে',
