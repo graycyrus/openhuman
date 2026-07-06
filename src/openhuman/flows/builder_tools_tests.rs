@@ -203,13 +203,22 @@ async fn search_live_catalog_all_terms_must_match() {
 
 #[tokio::test]
 async fn search_live_catalog_ranks_curated_before_uncurated_without_hiding_either() {
+    // Uses its own cache key (never `"gmail"`) — the process-global
+    // `LIVE_CATALOG_CACHE` is shared with every other `#[tokio::test]` in
+    // this file, most of which seed `"gmail"` with a single curated entry.
+    // This test's 2-item, exact-order assertion would be flaky if a
+    // concurrently-running test's `seed_live_catalog_cache("gmail", ..)`
+    // replaced the entry between this seed and the query below.
     let mut uncurated = seeded_gmail_send_contract();
     uncurated.slug = "GMAIL_UNCURATED_SEND".to_string();
     uncurated.is_curated = false;
-    seed_live_catalog_cache("gmail", vec![uncurated, seeded_gmail_send_contract()]);
+    seed_live_catalog_cache(
+        "gmailranktest",
+        vec![uncurated, seeded_gmail_send_contract()],
+    );
 
     let config = Config::default();
-    let results = search_live_catalog(&config, "send", Some("gmail"), 40).await;
+    let results = search_live_catalog(&config, "send", Some("gmailranktest"), 40).await;
     assert_eq!(results.len(), 2, "a real, uncurated action is never hidden");
     assert_eq!(results[0]["featured"], true, "curated match ranks first");
     assert_eq!(results[1]["featured"], false);
@@ -274,12 +283,17 @@ async fn search_tool_catalog_grounds_output_fields_from_the_live_catalog() {
 #[tokio::test]
 async fn search_tool_catalog_degrades_gracefully_when_output_schema_unknown() {
     // The seeded action has no output schema — the tool must still succeed,
-    // with an empty `output_fields` list rather than erroring.
+    // with an empty `output_fields` list rather than erroring. Uses its own
+    // fictional toolkit key (never the real `"slack"` key) — `slack` is a
+    // statically-catalogued toolkit elsewhere in this test suite (e.g.
+    // `ops_tests.rs`'s `validate_tool_contracts` tests), and this fixture's
+    // `is_curated: false` would otherwise race with those tests over the
+    // shared process-global `LIVE_CATALOG_CACHE` entry for `"slack"`.
     seed_live_catalog_cache(
-        "slack",
+        "slackschematest",
         vec![ToolContract {
-            slug: "SLACK_SEND_MESSAGE".to_string(),
-            toolkit: "slack".to_string(),
+            slug: "SLACKSCHEMATEST_SEND_MESSAGE".to_string(),
+            toolkit: "slackschematest".to_string(),
             description: None,
             required_args: vec!["channel".to_string()],
             input_schema: None,
@@ -293,7 +307,7 @@ async fn search_tool_catalog_degrades_gracefully_when_output_schema_unknown() {
     let tmp = TempDir::new().unwrap();
     let tool = SearchToolCatalogTool::new(test_config(&tmp));
     let result = tool
-        .execute(json!({ "query": "send", "toolkit": "slack" }))
+        .execute(json!({ "query": "send", "toolkit": "slackschematest" }))
         .await
         .unwrap();
     assert!(!result.is_error, "{}", result.output());
