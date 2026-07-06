@@ -207,9 +207,17 @@ jobs:
       # `submodules: recursive`, which would also pull the large tauri-cef fork
       # this job never builds. Mirrors the same fix in test-reusable.yml's
       # `unit-tests` job.
+      #
+      # `actions/checkout` scopes its own `safe.directory` config to a
+      # temporary HOME for the duration of the checkout step only — it does
+      # not persist into this container job's real HOME, so a bare `git`
+      # invocation in a later step hits "detected dubious ownership" here.
+      # Add the workspace as a safe directory ourselves before touching git.
       - name: Init tinychannels submodule (drift-guard test reads its schemas)
         if: needs.changes.outputs.frontend == 'true'
-        run: git submodule update --init vendor/tinychannels
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git submodule update --init vendor/tinychannels
 
       - name: Cache pnpm store
         id: pnpm-cache
