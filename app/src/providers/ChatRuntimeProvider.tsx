@@ -922,6 +922,39 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onSubagentToolResult: event => {
+        // Phase 5c: the Flows prompt bar / canvas copilot route to the
+        // `workflow_builder` specialist via delegation (`build_workflow`), so a
+        // `propose_workflow`/`revise_workflow` proposal is produced INSIDE the
+        // delegated worker and arrives here (not on `onToolResult`). This
+        // extraction must run BEFORE the timeline-entry guards below: under
+        // the workflow_builder subagent's heavy event volume, the progress
+        // channel (bounded, `try_send`) can drop earlier events, so the
+        // timeline row for this call may never have been created — gating
+        // proposal extraction on finding that row silently drops the
+        // proposal and the Accept/Reject card never renders (bug). The
+        // extraction only needs `tool_name`/`success`/`output`, all present
+        // directly on the event, with no timeline dependency. Surface it on
+        // the PARENT thread (`event.thread_id`, which the progress bridge
+        // always stamps with the parent request's thread, not the child's)
+        // so the same `WorkflowProposalCard` the direct-tool path uses
+        // renders it. Still validate-only — the card's explicit Save is the
+        // sole persistence gate.
+        const subagentProposal = maybeParseWorkflowProposalTool(
+          event.tool_name,
+          event.success,
+          event.output
+        );
+        if (subagentProposal) {
+          rtLog('workflow proposal parsed (delegated worker)', {
+            thread: event.thread_id,
+            tool: event.tool_name,
+            name: subagentProposal.name,
+          });
+          dispatch(
+            setWorkflowProposalForThread({ threadId: event.thread_id, proposal: subagentProposal })
+          );
+        }
+
         const taskId = event.subagent?.task_id ?? event.skill_id;
         const agentId = event.subagent?.agent_id;
         if (!agentId) return;
@@ -960,30 +993,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             failure: event.success ? undefined : parseToolFailure(event.failure),
           })
         );
-
-        // Phase 5c: the Flows prompt bar / canvas copilot route to the
-        // `workflow_builder` specialist via delegation (`build_workflow`), so a
-        // `propose_workflow`/`revise_workflow` proposal is produced INSIDE the
-        // delegated worker and arrives here (not on `onToolResult`). Surface it
-        // on the PARENT thread (`event.thread_id`) so the same
-        // `WorkflowProposalCard` / copilot the direct-tool path uses renders it.
-        // Still validate-only — the card's explicit Save is the sole persistence
-        // gate.
-        const subagentProposal = maybeParseWorkflowProposalTool(
-          event.tool_name,
-          event.success,
-          event.output
-        );
-        if (subagentProposal) {
-          rtLog('workflow proposal parsed (delegated worker)', {
-            thread: event.thread_id,
-            tool: event.tool_name,
-            name: subagentProposal.name,
-          });
-          dispatch(
-            setWorkflowProposalForThread({ threadId: event.thread_id, proposal: subagentProposal })
-          );
-        }
       },
       onSubagentTextDelta: (event: ChatSubagentTextDeltaEvent) => {
         const taskId = event.subagent?.task_id;
