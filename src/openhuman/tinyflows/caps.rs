@@ -1370,8 +1370,14 @@ pub(crate) async fn composio_response_fields(config: &Config, slug: &str) -> Opt
 
     let mut by_slug = std::collections::HashMap::new();
     for tool in &resp.value.tools {
-        let fields = response_fields_from_schema(tool.function.output_parameters.as_ref());
-        by_slug.insert(tool.function.name.to_ascii_uppercase(), fields);
+        // Only cache an entry when the listing actually published an output
+        // schema — an absent `output_parameters` must stay "unknown" (no
+        // entry, so lookups fall through to `None`) rather than collapsing
+        // into `Some(vec![])`, which would mean "schema present, no fields".
+        if let Some(schema) = tool.function.output_parameters.as_ref() {
+            let fields = response_fields_from_schema(Some(schema));
+            by_slug.insert(tool.function.name.to_ascii_uppercase(), fields);
+        }
     }
     let found = by_slug.get(&slug_key).cloned();
     if let Ok(mut cache) = RESPONSE_FIELDS_CACHE.get_or_init(Default::default).lock() {
@@ -2911,5 +2917,64 @@ mod tests {
             ),
             other => panic!("expected a capability error, got: {other:?}"),
         }
+    }
+
+    // ── response_fields_from_schema ─────────────────────────────────────────
+    // Direct unit tests for the pure schema-extraction step inside
+    // `composio_response_fields`'s live-fetch loop — cheaper and more
+    // targeted than exercising the whole `composio_list_tools` round trip,
+    // and covers the schema shapes that loop actually has to handle.
+
+    #[test]
+    fn response_fields_from_schema_reads_standard_properties_object() {
+        let schema = json!({
+            "type": "object",
+            "properties": { "id": {"type": "string"}, "threadId": {"type": "string"} }
+        });
+        assert_eq!(
+            response_fields_from_schema(Some(&schema)),
+            vec!["id".to_string(), "threadId".to_string()]
+        );
+    }
+
+    #[test]
+    fn response_fields_from_schema_reads_nested_data_error_wrapper_as_top_level_keys() {
+        // A `{data, error}` envelope has no special unwrapping — the function
+        // documents (and this test locks in) that it reports the schema's own
+        // top-level property names, not the fields nested inside `data`.
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "data": {"type": "object", "properties": {"id": {"type": "string"}}},
+                "error": {"type": "string"}
+            }
+        });
+        assert_eq!(
+            response_fields_from_schema(Some(&schema)),
+            vec!["data".to_string(), "error".to_string()]
+        );
+    }
+
+    #[test]
+    fn response_fields_from_schema_falls_back_to_top_level_keys_minus_schema_keywords() {
+        // Legacy/loose shape with no `properties` wrapper: falls back to the
+        // schema object's own keys, filtering out JSON-Schema keywords.
+        let schema = json!({
+            "type": "object",
+            "description": "legacy shape",
+            "id": {"type": "string"},
+            "threadId": {"type": "string"}
+        });
+        assert_eq!(
+            response_fields_from_schema(Some(&schema)),
+            vec!["id".to_string(), "threadId".to_string()]
+        );
+    }
+
+    #[test]
+    fn response_fields_from_schema_empty_for_none_or_non_object() {
+        assert!(response_fields_from_schema(None).is_empty());
+        assert!(response_fields_from_schema(Some(&json!("not an object"))).is_empty());
+        assert!(response_fields_from_schema(Some(&json!({}))).is_empty());
     }
 }
