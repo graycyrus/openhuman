@@ -732,7 +732,9 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
 /// field can't be proven wrong, whereas a nonexistent slug or a missing
 /// required arg are both provably broken.
 pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
-    use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
+    use crate::openhuman::memory_sync::composio::providers::{
+        catalog_for_toolkit, get_provider, toolkit_from_slug,
+    };
     use crate::openhuman::tinyflows::caps::{fetch_live_toolkit_catalog, missing_required_args};
 
     let mut errors = Vec::new();
@@ -779,6 +781,40 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
             ));
             continue;
         };
+
+        // Mirror `flow_tool_allowed`'s Path A: a toolkit OpenHuman ships a
+        // static curated catalog for is a hard curated-only allowlist at
+        // RUNTIME — `find_curated` rejects any slug that isn't one of the
+        // curated actions, regardless of whether it's a real live action.
+        // `search_tool_catalog`/`get_tool_contract` deliberately surface
+        // real-but-uncurated actions too (ranking signal only, never
+        // hidden — see `ToolContract::is_curated`'s doc), so without this
+        // check a graph could pass authoring/save with a real-but-uncurated
+        // action on a curated toolkit and then fail every run with "tool
+        // not permitted". Hold authoring to the same bar the runtime gate
+        // enforces instead of loosening the runtime gate.
+        let has_static_catalog = get_provider(&toolkit)
+            .and_then(|p| p.curated_tools())
+            .or_else(|| catalog_for_toolkit(&toolkit))
+            .is_some();
+        if has_static_catalog && !contract.is_curated {
+            tracing::warn!(
+                target: "flows",
+                node = %node.id,
+                %slug,
+                %toolkit,
+                "[flows] tool-contract check: slug is real but not curated for a statically-catalogued toolkit — rejecting to match the runtime allowlist"
+            );
+            errors.push(format!(
+                "Node '{}': `{slug}` is a real `{toolkit}` action but not one of OpenHuman's \
+                 curated actions for `{toolkit}` — the runtime tool gate only allows curated \
+                 actions for toolkits with a curated catalog, so this would be rejected on \
+                 every run. Use search_tool_catalog {{ query: ..., toolkit: \"{toolkit}\" }} and \
+                 pick a result with `featured: true`.",
+                node.id
+            ));
+            continue;
+        }
 
         let args = node.config.get("args").cloned().unwrap_or(Value::Null);
         let missing = missing_required_args(&contract.required_args, &args);

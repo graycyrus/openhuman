@@ -1844,7 +1844,13 @@ fn seeded_slack_send_contract() -> ToolContract {
             "properties": { "ts": {"type": "string"}, "channel": {"type": "string"} }
         })),
         primary_array_path: None,
-        is_curated: false,
+        // `slack` ships a static curated catalog (`catalog_for_toolkit`), so
+        // `validate_tool_contracts` now enforces the same curated-only bar
+        // `flow_tool_allowed`'s Path A does at runtime (Codex feedback on
+        // this PR) — this fixture models a real curated Slack action, not
+        // an uncurated one, since these tests exercise the required-arg /
+        // hallucinated-slug checks rather than the curation gate itself.
+        is_curated: true,
     }
 }
 
@@ -1906,6 +1912,52 @@ async fn validate_tool_contracts_passes_a_fully_wired_real_slug() {
     }));
     let errors = validate_tool_contracts(&config, &g).await;
     assert!(errors.is_empty(), "{errors:?}");
+}
+
+/// (Codex feedback on this PR) `notion` ships a static curated catalog
+/// (`catalog_for_toolkit`), so at RUNTIME `flow_tool_allowed`'s Path A
+/// hard-rejects any slug `find_curated` doesn't recognize — even a real,
+/// live action. Without this check, a real-but-uncurated action for a
+/// statically-catalogued toolkit would pass authoring/save here and then
+/// fail every single run as "tool not permitted". Uses its own toolkit key
+/// (`notion`, not `slack`/`gmail`) since it seeds different `is_curated`
+/// content than every other test sharing those keys.
+#[tokio::test]
+async fn validate_tool_contracts_rejects_a_real_but_uncurated_action_on_a_statically_catalogued_toolkit(
+) {
+    seed_live_catalog_cache(
+        "notion",
+        vec![ToolContract {
+            slug: "NOTION_UNCURATED_ACTION".to_string(),
+            toolkit: "notion".to_string(),
+            description: None,
+            required_args: vec![],
+            input_schema: None,
+            output_fields: vec![],
+            output_schema: None,
+            primary_array_path: None,
+            // Real (a live catalog fetch found it), but NOT one of
+            // OpenHuman's curated Notion actions.
+            is_curated: false,
+        }],
+    );
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "NOTION_UNCURATED_ACTION", "args": {} } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_tool_contracts(&config, &g).await;
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("NOTION_UNCURATED_ACTION"),
+        "{}",
+        errors[0]
+    );
+    assert!(errors[0].contains("curated"), "{}", errors[0]);
 }
 
 #[tokio::test]
