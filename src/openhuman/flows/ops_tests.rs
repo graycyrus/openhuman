@@ -319,6 +319,49 @@ async fn flows_run_records_failed_status_when_a_node_errors() {
     );
 }
 
+#[tokio::test]
+async fn flows_run_populates_error_when_a_continue_policy_node_errors() {
+    // Unlike the default `on_error: stop` (previous test), `"continue"` turns
+    // the node failure into data on the default port instead of failing the
+    // run future — the run settles `Ok`, but the errored step still degrades
+    // the terminal status to `"failed"` via `degrade_completed_status`. That
+    // path must still populate `FlowRun.error` (its doc contract: "Error
+    // message when status == \"failed\"") even though the engine's
+    // `ExecutionStep` carries no message of its own for this case.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let graph = json!({
+        "name": "boom-continue",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "x", "kind": "tool_call", "name": "X", "config": { "on_error": "continue" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "x" } ]
+    });
+
+    let created = flows_create(&config, "boom-continue".to_string(), graph, false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .expect("on_error:continue must settle the run future Ok, not bubble up an Err");
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "failed");
+    let error = run_row
+        .value
+        .error
+        .as_deref()
+        .expect("a degraded-to-failed run must populate FlowRun.error, not leave it None");
+    assert!(error.contains('x'), "got: {error}");
+
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status.as_deref(), Some("failed"));
+}
+
 // ── automatic-dispatch binding (issue B2 finding #1) ─────────────────────
 //
 // Live testing found that `flows_create` persisted a freshly-created,
@@ -1212,6 +1255,47 @@ async fn flows_cancel_run_of_an_already_completed_run_errors() {
 }
 
 #[tokio::test]
+async fn flows_cancel_run_of_a_completed_with_warnings_run_errors() {
+    // A settled `completed_with_warnings` run (run honesty, PR2) must be just
+    // as terminal as a plain `completed` run — otherwise `flows_cancel_run`
+    // falls through to its not-in-flight path and overwrites the row (and the
+    // flow summary) as `"cancelled"`, silently discarding the warning status
+    // the run already recorded.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // Force the settled row to the warning status directly — an end-to-end
+    // null-binding graph isn't needed to exercise this guard.
+    store::finish_flow_run(
+        &config,
+        &thread_id,
+        "completed_with_warnings",
+        &chrono::Utc::now().to_rfc3339(),
+        &[],
+        &[],
+        None,
+    )
+    .unwrap();
+
+    let err = flows_cancel_run(&config, &thread_id)
+        .await
+        .expect_err("cancelling a completed_with_warnings run must be a clear error");
+    assert!(err.contains("already terminal"), "got: {err}");
+
+    // And the row must still read back as the warning status, not overwritten.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "completed_with_warnings");
+}
+
+#[tokio::test]
 async fn flows_cancel_run_missing_run_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -1739,6 +1823,84 @@ fn binding_to_agent_with_matching_schema_is_accepted() {
     );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// degrade_completed_status (PR2 — run honesty)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn clean_step(node_id: &str) -> FlowRunStep {
+    FlowRunStep {
+        node_id: node_id.to_string(),
+        output: Value::Null,
+        port: None,
+        status: Some("success".to_string()),
+        duration_ms: Some(1),
+        diagnostics: Vec::new(),
+    }
+}
+
+#[test]
+fn degrade_completed_status_all_clean_stays_completed() {
+    let steps = vec![clean_step("a"), clean_step("b")];
+    assert_eq!(degrade_completed_status(&steps), "completed");
+}
+
+#[test]
+fn degrade_completed_status_null_binding_becomes_warnings() {
+    let mut warned = clean_step("a");
+    warned.diagnostics = vec![json!({ "location": "args.to", "expression": "=item.to" })];
+    let steps = vec![clean_step("trigger"), warned];
+    assert_eq!(degrade_completed_status(&steps), "completed_with_warnings");
+}
+
+#[test]
+fn degrade_completed_status_errored_step_becomes_failed() {
+    let mut errored = clean_step("a");
+    errored.status = Some("error".to_string());
+    let steps = vec![clean_step("trigger"), errored];
+    assert_eq!(degrade_completed_status(&steps), "failed");
+}
+
+#[test]
+fn degrade_completed_status_error_outranks_diagnostics() {
+    // A step can carry both an error status and null-resolution diagnostics
+    // (e.g. it errored trying to use the unresolved value) — failed wins.
+    let mut errored_with_diagnostics = clean_step("a");
+    errored_with_diagnostics.status = Some("error".to_string());
+    errored_with_diagnostics.diagnostics =
+        vec![json!({ "location": "args.to", "expression": "=item.to" })];
+    let steps = vec![errored_with_diagnostics];
+    assert_eq!(degrade_completed_status(&steps), "failed");
+}
+
+#[test]
+fn failed_step_error_summary_none_when_no_step_errored() {
+    let steps = vec![clean_step("a"), clean_step("b")];
+    assert_eq!(failed_step_error_summary(&steps), None);
+}
+
+#[test]
+fn failed_step_error_summary_names_the_errored_node() {
+    let mut errored = clean_step("x");
+    errored.status = Some("error".to_string());
+    let steps = vec![clean_step("trigger"), errored];
+    let summary = failed_step_error_summary(&steps).expect("an errored step must summarize");
+    assert!(summary.contains('x'), "got: {summary}");
+}
+
+#[test]
+fn failed_step_error_summary_names_every_errored_node() {
+    let mut errored_a = clean_step("a");
+    errored_a.status = Some("error".to_string());
+    let mut errored_b = clean_step("b");
+    errored_b.status = Some("error".to_string());
+    let steps = vec![errored_a, errored_b];
+    let summary = failed_step_error_summary(&steps).unwrap();
+    assert!(
+        summary.contains('a') && summary.contains('b'),
+        "got: {summary}"
+    );
+}
+
 #[test]
 fn envelope_violation_detected() {
     // `summarize` DOES declare a matching schema, but the binding reaches
@@ -1819,4 +1981,35 @@ fn agent_prompt_binding_unaffected() {
         "edges": [ { "from_node": "t", "to_node": "summarize" } ]
     }));
     assert!(validate_binding_resolvability(&g).is_empty());
+}
+
+#[test]
+fn finalize_terminal_status_pending_approval_wins_over_error() {
+    // Precedence: an outstanding pending_approval always wins, even if a step
+    // also settled with an error — mirrors degrade_completed_status's own
+    // precedence rule, now centralized in finalize_terminal_status.
+    let mut errored = clean_step("a");
+    errored.status = Some("error".to_string());
+    let steps = vec![errored];
+    let (status, error) = finalize_terminal_status(&steps, &["gate".to_string()]);
+    assert_eq!(status, "pending_approval");
+    assert_eq!(error, None);
+}
+
+#[test]
+fn finalize_terminal_status_populates_error_on_degraded_failure() {
+    let mut errored = clean_step("x");
+    errored.status = Some("error".to_string());
+    let steps = vec![errored];
+    let (status, error) = finalize_terminal_status(&steps, &[]);
+    assert_eq!(status, "failed");
+    assert!(error.unwrap().contains('x'));
+}
+
+#[test]
+fn finalize_terminal_status_no_error_when_clean() {
+    let steps = vec![clean_step("a")];
+    let (status, error) = finalize_terminal_status(&steps, &[]);
+    assert_eq!(status, "completed");
+    assert_eq!(error, None);
 }

@@ -3502,6 +3502,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': '来源输入项',
   'flowRuns.status.running': '运行中',
   'flowRuns.status.completed': '已完成',
+  'flowRuns.status.completed_with_warnings': '完成但有警告',
   'flowRuns.status.pending_approval': '等待批准',
   'flowRuns.status.failed': '失败',
   'flowRuns.status.cancelled': '已取消',

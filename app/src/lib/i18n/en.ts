@@ -4341,6 +4341,7 @@ const en: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': 'Source input item',
   'flowRuns.status.running': 'Running',
   'flowRuns.status.completed': 'Completed',
+  'flowRuns.status.completed_with_warnings': 'Completed with warnings',
   'flowRuns.status.pending_approval': 'Awaiting approval',
   'flowRuns.status.failed': 'Failed',
   'flowRuns.status.cancelled': 'Cancelled',

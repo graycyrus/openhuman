@@ -42,6 +42,9 @@ fn is_dm_stream(kind: &str, stream_id: &str) -> bool {
 fn classify_message(plaintext: String, fallback_timestamp: &str) -> ClassifiedMessage {
     match SessionEnvelopeV1::parse(&plaintext) {
         Some(env) => {
+            // Compute the session key while `env` is still fully intact (before any
+            // field moves below), since `session_key` borrows `&env`.
+            let session_id = env.session_key();
             let label = (env.scope.scope_type == "folder").then(|| env.scope.key.clone());
             let workspace = (!env.scope.cwd.is_empty()).then(|| env.scope.cwd.clone());
             let timestamp = if env.message.timestamp.is_empty() {
@@ -51,7 +54,11 @@ fn classify_message(plaintext: String, fallback_timestamp: &str) -> ClassifiedMe
             };
             ClassifiedMessage {
                 chat_kind: ChatKind::Session,
-                session_id: env.scope.harness_session_id,
+                // Key on the single per-pair session id (the shared `wrapper_session_id`
+                // both peers put on every message for a thread), so a reply threads back
+                // into the same session. Falls back to `harness_session_id` for a legacy
+                // envelope with no per-pair id. See `SessionEnvelopeV1::session_key`.
+                session_id,
                 role: env.message.role,
                 source: env.harness.provider,
                 label,
@@ -85,6 +92,27 @@ fn persist_message(
     now: &str,
 ) -> Result<bool, String> {
     store::with_connection(workspace_dir, |c| {
+        // Invariant guard (session windows only): the wake cursor keys on `session_id`
+        // while `seq` (= `env.message.line`) is monotonic only within one emitting
+        // harness. `upsert_session` clamps `last_seq` with `MAX(..)` and the wake fires
+        // only on `last_seq > cursor`, so a non-monotonic inbound `seq` (a peer reusing
+        // one `wrapper_session_id` across harness sessions, or a plugin-composed message
+        // whose line is 0) is persisted + acked but can SILENTLY skip the graph. Log it
+        // so the break surfaces in prod instead of dropping quietly. Robust fix (a
+        // per-wrapper monotonic ingest cursor) tracked in #4583.
+        if classified.chat_kind == ChatKind::Session {
+            if let Ok(Some(existing_last_seq)) =
+                store::session_last_seq(c, agent_id, &classified.session_id)
+            {
+                if classified.seq <= existing_last_seq {
+                    log::warn!(
+                        target: LOG,
+                        "[orchestration] wrapper session {} got seq {} <= last_seq {} — possible cross-harness reuse; wake may skip",
+                        classified.session_id, classified.seq, existing_last_seq
+                    );
+                }
+            }
+        }
         store::upsert_session(
             c,
             &OrchestrationSession {
@@ -273,7 +301,7 @@ mod tests {
     fn classifies_harness_envelope_as_session() {
         let c = classify_message(ENVELOPE.to_string(), "2026-07-02T09:00:00Z");
         assert_eq!(c.chat_kind, ChatKind::Session);
-        assert_eq!(c.session_id, "h1");
+        assert_eq!(c.session_id, "w1"); // keyed on the shared per-pair wrapper_session_id
         assert_eq!(c.role, "user");
         assert_eq!(c.source, "codex");
         assert_eq!(c.label.as_deref(), Some("my-repo")); // folder scope → label
@@ -307,8 +335,32 @@ mod tests {
         assert!(persist_message(tmp.path(), "m2", "@peer", &master, "now").unwrap());
 
         store::with_connection(tmp.path(), |c| {
-            assert_eq!(store::count_messages(c, "@peer", "h1")?, 1);
+            assert_eq!(store::count_messages(c, "@peer", "w1")?, 1); // per-pair wrapper id
             assert_eq!(store::count_messages(c, "@peer", "master")?, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn persist_still_stores_a_lower_seq_in_the_same_wrapper_session() {
+        // The non-monotonic-seq guard only WARNS — it must never block persistence.
+        // A later message on the same wrapper session with a LOWER seq (e.g. a
+        // plugin-composed line 0, or a different emitting harness) still lands.
+        let tmp = tempfile::tempdir().unwrap();
+        let hi = classify_message(ENVELOPE.to_string(), "2026-07-02T09:00:00Z"); // seq 7
+        assert!(persist_message(tmp.path(), "m1", "@peer", &hi, "now").unwrap());
+
+        let lo = classify_message(
+            ENVELOPE.replace("\"line\": 7", "\"line\": 3"),
+            "2026-07-02T09:00:00Z",
+        );
+        assert_eq!(lo.session_id, "w1");
+        assert_eq!(lo.seq, 3); // lower than the stored last_seq (7) → guard warns
+        assert!(persist_message(tmp.path(), "m9", "@peer", &lo, "now").unwrap());
+
+        store::with_connection(tmp.path(), |c| {
+            assert_eq!(store::count_messages(c, "@peer", "w1")?, 2); // both stored despite the warn
             Ok(())
         })
         .unwrap();

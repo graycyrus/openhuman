@@ -3739,6 +3739,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.sourceInputTitle': 'Źródłowy element wejściowy',
   'flowRuns.status.running': 'W trakcie',
   'flowRuns.status.completed': 'Zakończono',
+  'flowRuns.status.completed_with_warnings': 'Ukończono z ostrzeżeniami',
   'flowRuns.status.pending_approval': 'Oczekuje na zatwierdzenie',
   'flowRuns.status.failed': 'Niepowodzenie',
   'flowRuns.status.cancelled': 'Anulowano',
