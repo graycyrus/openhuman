@@ -397,17 +397,40 @@ fn missing_required_args_flags_absent_and_null() {
     assert!(super::caps::missing_required_args(&required, &full).is_empty());
 }
 
+/// Minimal seeded [`ToolContract`](super::caps::ToolContract) for the tests
+/// below — only `required_args` matters for the preflight, so every other
+/// field is left at its "unknown" default.
+fn seeded_required_args_contract(
+    slug: &str,
+    toolkit: &str,
+    required: &[&str],
+) -> super::caps::ToolContract {
+    super::caps::ToolContract {
+        slug: slug.to_string(),
+        toolkit: toolkit.to_string(),
+        description: None,
+        required_args: required.iter().map(|s| s.to_string()).collect(),
+        input_schema: None,
+        output_fields: Vec::new(),
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: false,
+    }
+}
+
 #[tokio::test]
 async fn preflight_fails_before_dispatch_naming_the_missing_field() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     // Seed the schema cache so no live Composio backend is needed.
-    let mut entries = std::collections::HashMap::new();
-    entries.insert(
-        "GMAIL_SEND_EMAIL".to_string(),
-        vec!["to".to_string(), "subject".to_string(), "body".to_string()],
+    super::caps::seed_live_catalog_cache(
+        "gmail",
+        vec![seeded_required_args_contract(
+            "GMAIL_SEND_EMAIL",
+            "gmail",
+            &["to", "subject", "body"],
+        )],
     );
-    super::caps::seed_required_args_cache("gmail", entries);
 
     // `to` resolved to null (the classic mis-wired agent → tool_call case).
     let err = super::caps::preflight_composio_args(
@@ -455,9 +478,14 @@ async fn preflight_invoker_gates_the_mock_tool_path() {
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let mut entries = std::collections::HashMap::new();
-    entries.insert("GMAIL_SEND_EMAIL".to_string(), vec!["to".to_string()]);
-    super::caps::seed_required_args_cache("gmail", entries);
+    super::caps::seed_live_catalog_cache(
+        "gmail",
+        vec![seeded_required_args_contract(
+            "GMAIL_SEND_EMAIL",
+            "gmail",
+            &["to"],
+        )],
+    );
 
     let mock = tinyflows::caps::mock::mock_capabilities();
     let invoker = super::caps::PreflightToolInvoker {

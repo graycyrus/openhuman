@@ -1823,6 +1823,246 @@ fn binding_to_agent_with_matching_schema_is_accepted() {
     );
 }
 
+// ── validate_tool_contracts (systemic tool-contract fix, Part 2) ───────────
+//
+// The live-catalog cache is process-global (`LIVE_CATALOG_CACHE`) — every
+// test below seeds the exact toolkit it needs via `seed_live_catalog_cache`
+// so none of this touches a live Composio backend.
+
+use crate::openhuman::tinyflows::caps::{seed_live_catalog_cache, ToolContract};
+
+fn seeded_slack_send_contract() -> ToolContract {
+    ToolContract {
+        slug: "SLACK_SEND_MESSAGE".to_string(),
+        toolkit: "slack".to_string(),
+        description: None,
+        required_args: vec!["channel".to_string(), "text".to_string()],
+        input_schema: None,
+        output_fields: vec!["ts".to_string(), "channel".to_string()],
+        output_schema: Some(json!({
+            "type": "object",
+            "properties": { "ts": {"type": "string"}, "channel": {"type": "string"} }
+        })),
+        primary_array_path: None,
+        is_curated: false,
+    }
+}
+
+#[tokio::test]
+async fn validate_tool_contracts_rejects_a_hallucinated_slug() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_POST_MESSAGE_TO_CHANNEL",
+                "args": { "channel": "#general", "text": "hi" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_tool_contracts(&config, &g).await;
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("post"), "{}", errors[0]);
+    assert!(
+        errors[0].contains("SLACK_POST_MESSAGE_TO_CHANNEL"),
+        "{}",
+        errors[0]
+    );
+    assert!(errors[0].contains("search_tool_catalog"), "{}", errors[0]);
+}
+
+#[tokio::test]
+async fn validate_tool_contracts_rejects_a_missing_required_arg() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_tool_contracts(&config, &g).await;
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("`text`"), "{}", errors[0]);
+    assert!(errors[0].contains("get_tool_contract"), "{}", errors[0]);
+}
+
+#[tokio::test]
+async fn validate_tool_contracts_passes_a_fully_wired_real_slug() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_tool_contracts(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn validate_tool_contracts_skips_expression_derived_and_native_slugs() {
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "dynamic", "kind": "tool_call", "name": "Dynamic",
+              "config": { "slug": "=item.tool", "args": {} } },
+            { "id": "native", "kind": "tool_call", "name": "Native",
+              "config": { "slug": "oh:web_search", "args": {} } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "dynamic" },
+            { "from_node": "t", "to_node": "native" }
+        ]
+    }));
+    let errors = validate_tool_contracts(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn validate_tool_contracts_skips_rather_than_rejects_when_the_catalog_is_unreachable() {
+    // No seed for this toolkit and no live backend configured — the fetch
+    // fails, and the node must be SKIPPED (never false-rejected).
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SOMEUNSEEDEDTOOLKIT_DO_THING", "args": {} } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_tool_contracts(&config, &g).await;
+    assert!(
+        errors.is_empty(),
+        "a live-catalog fetch failure must skip, not reject: {errors:?}"
+    );
+}
+
+// ── graph_wiring_warnings: required-arg advisory + output-field/split_out.path
+//    advisories (Part 2c/2d) ────────────────────────────────────────────────
+
+/// `graph_wiring_warnings`'s own required-arg check, exercised DIRECTLY
+/// (rather than through `revise_workflow`/`save_workflow`, where the newer
+/// `validate_tool_contracts` hard-rejects the identical condition first —
+/// see `revise_workflow_rejects_a_missing_required_composio_arg` in
+/// `builder_tools_tests.rs`). Keeps this advisory code path covered for any
+/// caller that consults `graph_wiring_warnings` without also running the
+/// hard gate first.
+#[tokio::test]
+async fn graph_wiring_warnings_flags_a_missing_required_arg() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let warnings = graph_wiring_warnings(&config, &g).await;
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("`text`") && w.contains("post")),
+        "{warnings:?}"
+    );
+}
+
+#[tokio::test]
+async fn graph_wiring_warnings_flags_a_downstream_field_not_in_output_fields() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              // Reads a field that isn't in SLACK_SEND_MESSAGE's real
+              // output_fields (`ts`/`channel`) — must WARN, not reject.
+              "config": { "set": { "note": "=nodes.post.item.json.not_a_real_field" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    let warnings = graph_wiring_warnings(&config, &g).await;
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("not_a_real_field") && w.contains("post")),
+        "{warnings:?}"
+    );
+}
+
+#[tokio::test]
+async fn graph_wiring_warnings_is_silent_when_the_downstream_field_is_real() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              "config": { "set": { "note": "=nodes.post.item.json.ts" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    let warnings = graph_wiring_warnings(&config, &g).await;
+    assert!(
+        !warnings.iter().any(|w| w.contains("not in")),
+        "a real output field must not warn: {warnings:?}"
+    );
+}
+
+#[tokio::test]
+async fn graph_wiring_warnings_suggests_the_real_split_out_path() {
+    let mut contract = seeded_slack_send_contract();
+    contract.slug = "SLACKFANOUT_SEND_MESSAGE".to_string();
+    contract.toolkit = "slackfanout".to_string();
+    contract.primary_array_path = Some("data.messages".to_string());
+    seed_live_catalog_cache("slackfanout", vec![contract]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACKFANOUT_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } },
+            { "id": "split", "kind": "split_out", "name": "Split",
+              "config": { "path": "items" } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "split" }
+        ]
+    }));
+    let warnings = graph_wiring_warnings(&config, &g).await;
+    assert!(
+        warnings.iter().any(|w| w.contains("json.data.messages")),
+        "{warnings:?}"
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // degrade_completed_status (PR2 — run honesty)
 // ─────────────────────────────────────────────────────────────────────────────
