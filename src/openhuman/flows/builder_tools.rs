@@ -735,6 +735,17 @@ impl Tool for ListAgentProfilesTool {
 /// for a graph that would silently no-op. Diagnostics on `agent`-node prompt
 /// expressions (or any non-`tool_call` node) are NOT fatal here — a null in
 /// prose is not execution-breaking the way a null tool arg is.
+///
+/// **`on_error: continue`/`route` does not mask a `tool_call` failure either.**
+/// Those policies convert an executor error (e.g. the required-arg preflight
+/// rejecting a null arg) into a routed error ITEM so the *run* still completes
+/// (`Ok(outcome)`) — the failing node's `ExecutionStep` carries an EMPTY
+/// `diagnostics` (the null check above would miss it) but its `status` is
+/// [`StepStatus::Error`](tinyflows::observability::StepStatus::Error). Every
+/// such `tool_call` step is collected into `node_errors`
+/// (`{ node_id, error }`, the error text read back out of the run's `output`
+/// state — see [`tool_call_error_message`]) and fails the dry run the same as
+/// a null resolution.
 pub struct DryRunWorkflowTool {
     security: Arc<SecurityPolicy>,
     config: Arc<Config>,
@@ -922,27 +933,69 @@ impl Tool for DryRunWorkflowTool {
             })
             .collect();
 
+        // Collect every `tool_call` node whose EXECUTOR errored (e.g. the
+        // Composio required-arg preflight rejecting a missing/null arg) —
+        // regardless of that node's `on_error` policy. A `"continue"`/`"route"`
+        // policy converts the failure into a routed error ITEM and the run
+        // still completes successfully (`Ok(outcome)`), so the naive
+        // `null_resolutions` check above misses it entirely: the failing
+        // node's `ExecutionStep` carries an EMPTY `diagnostics` (the engine
+        // never got far enough to trace an `=`-expression — see
+        // `tinyflows::engine`'s error-item path) even though the node
+        // genuinely failed. Only `"stop"` (the default) fails the whole run —
+        // and that's already caught above via `Ok(Err(e))` before this point,
+        // so every `StepStatus::Error` step reachable here is exactly the
+        // continue/route case. The error text itself isn't on the step (the
+        // engine only attaches it to the routed error item), so it's read
+        // back out of `outcome.output`.
+        let node_errors: Vec<Value> = observer
+            .steps()
+            .iter()
+            .filter(|step| {
+                tool_call_node_ids.contains(step.node_id.as_str())
+                    && matches!(step.status, tinyflows::observability::StepStatus::Error)
+            })
+            .map(|step| {
+                let error =
+                    tool_call_error_message(&outcome.output, &step.node_id).unwrap_or_else(|| {
+                        format!(
+                            "tool_call node '{}' failed during the sandbox run — its `on_error` \
+                             policy turned the failure into routed/continued data instead of \
+                             failing the whole dry run, but the underlying error still means the \
+                             node is broken.",
+                            step.node_id
+                        )
+                    });
+                json!({ "node_id": step.node_id, "error": error })
+            })
+            .collect();
+
         tracing::info!(
             target: "flows",
             node_count = graph.nodes.len(),
             pending_approvals = outcome.pending_approvals.len(),
             null_resolution_count = null_resolutions.len(),
+            node_error_count = node_errors.len(),
             "[flows] dry_run_workflow: sandbox run finished"
         );
 
-        if !null_resolutions.is_empty() {
+        if !null_resolutions.is_empty() || !node_errors.is_empty() {
             tracing::debug!(
                 target: "flows",
                 ?null_resolutions,
-                "[flows] dry_run_workflow: tool_call arg(s) resolved to null — failing the dry run"
+                ?node_errors,
+                "[flows] dry_run_workflow: tool_call issue(s) found — failing the dry run"
             );
             return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                 "sandbox": true,
                 "ok": false,
                 "null_resolutions": null_resolutions,
-                "message": "These tool_call args resolved to null — wire them from an upstream \
-                    node's real output, and give any agent node an output_parser.schema so its \
-                    fields are addressable.",
+                "node_errors": node_errors,
+                "message": "These tool_call args resolved to null, or a tool_call node failed \
+                    during the sandbox run (even one recovered via on_error: continue/route) — \
+                    wire null-resolved args from an upstream node's real output (give any agent \
+                    node an output_parser.schema so its fields are addressable), and fix or \
+                    rewire whatever tool_call node_errors names.",
             }))?));
         }
 
@@ -952,9 +1005,34 @@ impl Tool for DryRunWorkflowTool {
             "output": outcome.output,
             "pending_approvals": outcome.pending_approvals,
             "null_resolutions": null_resolutions,
+            "node_errors": node_errors,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work.",
         }))?))
     }
+}
+
+/// Best-effort extraction of the human-readable error message the engine
+/// recorded for a `tool_call` node whose `on_error` policy is `"continue"` or
+/// `"route"`. Such a node's failure is converted into an error ITEM on its
+/// output (`{ "error": { "message", "node" } }` — see `tinyflows::engine`'s
+/// `error_item`) rather than failing the whole run, so the message lives in
+/// the run's `output` state, not on the [`tinyflows::observability::ExecutionStep`]
+/// itself (whose `diagnostics` stays empty for an error step — see
+/// [`DryRunWorkflowTool::execute`]'s `node_errors` collection).
+fn tool_call_error_message(output: &Value, node_id: &str) -> Option<String> {
+    output
+        .get("nodes")?
+        .get(node_id)?
+        .get("items")?
+        .as_array()?
+        .iter()
+        .find_map(|item| {
+            item.get("json")?
+                .get("error")?
+                .get("message")?
+                .as_str()
+                .map(str::to_string)
+        })
 }
 
 /// A [`tinyflows::observability::RunObserver`] that captures every finished

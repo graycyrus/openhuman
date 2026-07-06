@@ -485,6 +485,140 @@ async fn dry_run_passes_when_tool_call_binds_to_upstream_tool_output() {
 }
 
 #[tokio::test]
+async fn dry_run_flags_tool_call_error_when_on_error_is_route() {
+    // `on_error: "route"` converts the preflight failure into a routed error
+    // ITEM so the SANDBOX RUN as a whole still completes (`Ok(outcome)`) —
+    // exactly the case the naive `null_resolutions`-only check would miss,
+    // because the failing node's diagnostics stay empty (the engine never
+    // got far enough to trace an `=`-expression before the preflight error).
+    // Seed the same schema as `dry_run_catches_unwired_required_composio_arg`
+    // (process-global cache; keep the arg list identical across tests).
+    let mut entries = std::collections::HashMap::new();
+    entries.insert(
+        "GMAIL_SEND_EMAIL".to_string(),
+        vec!["to".to_string(), "body".to_string()],
+    );
+    crate::openhuman::tinyflows::caps::seed_required_args_cache("gmail", entries);
+
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Send email",
+              "config": { "slug": "GMAIL_SEND_EMAIL", "on_error": "route",
+                "args": { "to": "=item.email", "body": "hello" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    });
+
+    // `to` misses (trigger input has no `email`) — a real run would fail the
+    // preflight; `on_error: "route"` must not let that slip through as `ok: true`.
+    let result = tool
+        .execute(json!({ "graph": graph, "input": {} }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(
+        parsed["ok"], false,
+        "on_error: route must not mask a real tool_call failure: {parsed}"
+    );
+    let node_errors = parsed["node_errors"].as_array().expect("node_errors array");
+    assert_eq!(node_errors.len(), 1, "{parsed}");
+    assert_eq!(node_errors[0]["node_id"], "post");
+    assert!(
+        node_errors[0]["error"].as_str().unwrap().contains("to"),
+        "error must name the missing field: {parsed}"
+    );
+}
+
+#[tokio::test]
+async fn dry_run_flags_tool_call_error_when_on_error_is_continue() {
+    // Same case as above, but `on_error: "continue"` — the other policy that
+    // converts a node failure into routed data instead of failing the run.
+    let mut entries = std::collections::HashMap::new();
+    entries.insert(
+        "GMAIL_SEND_EMAIL".to_string(),
+        vec!["to".to_string(), "body".to_string()],
+    );
+    crate::openhuman::tinyflows::caps::seed_required_args_cache("gmail", entries);
+
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Send email",
+              "config": { "slug": "GMAIL_SEND_EMAIL", "on_error": "continue",
+                "args": { "to": "=item.email", "body": "hello" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    });
+
+    let result = tool
+        .execute(json!({ "graph": graph, "input": {} }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(
+        parsed["ok"], false,
+        "on_error: continue must not mask a real tool_call failure: {parsed}"
+    );
+    assert_eq!(
+        parsed["node_errors"].as_array().unwrap().len(),
+        1,
+        "{parsed}"
+    );
+}
+
+#[tokio::test]
+async fn dry_run_passes_when_agent_enum_schema_binds_to_tool_call() {
+    // The agent declares an `enum`-constrained field; the schema-aware mock
+    // must synthesize an ALLOWED value (not a generic `""` placeholder, which
+    // would fail the vendored validator's `enum` check) so a correctly-built
+    // graph using an enum schema dry-runs green instead of false-positiving.
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "triage", "kind": "agent", "name": "Triage",
+              "config": { "agent_ref": "researcher", "prompt": "triage this",
+                "output_parser": { "schema": { "type": "object",
+                    "required": ["priority"],
+                    "properties": {
+                        "priority": { "type": "string", "enum": ["urgent", "normal"] }
+                    } } } } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "oh:noop",
+                "args": { "priority": "=nodes.triage.item.json.priority" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "triage" },
+            { "from_node": "triage", "to_node": "post" }
+        ]
+    });
+
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(
+        parsed["ok"], true,
+        "enum-schema agent must dry-run green: {parsed}"
+    );
+    assert!(parsed["null_resolutions"].as_array().unwrap().is_empty());
+    assert!(parsed["node_errors"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn revise_workflow_warns_on_unwired_required_composio_arg() {
     let mut entries = std::collections::HashMap::new();
     entries.insert(

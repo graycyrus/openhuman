@@ -857,11 +857,12 @@ fn prepend_system_message(request: &mut Value, system_prompt: &str) {
 /// describing an object with `properties`, returns an object with every
 /// declared property present, populated with a type-appropriate placeholder
 /// (`string` → `""`, `number`/`integer` → `0`, `boolean` → `false`, `object` →
-/// `{}`, `array` → `[]`, anything else → `null`) — enough to satisfy the
-/// vendored validator's `type`/`required` checks (see
-/// `tinyflows::nodes::integration::schema::validate`) without a real model
-/// call. With no schema, mirrors the vendored `MockAgentRunner`'s default echo
-/// shape so dry-run behavior for schema-less agents is unchanged.
+/// `{}`, `array` → `[]`, anything else → `null`; a property with a non-empty
+/// `enum` gets its FIRST allowed value instead — see [`placeholder_for_type`])
+/// — enough to satisfy the vendored validator's `type`/`required`/`enum`
+/// checks (see `tinyflows::nodes::integration::schema::validate`) without a
+/// real model call. With no schema, mirrors the vendored `MockAgentRunner`'s
+/// default echo shape so dry-run behavior for schema-less agents is unchanged.
 #[derive(Debug, Default, Clone)]
 pub struct SchemaAwareMockAgentRunner;
 
@@ -923,7 +924,24 @@ fn placeholder_for_schema(schema: &Value) -> Value {
 
 /// The placeholder value for one property's subschema, keyed by its
 /// declared JSON-Schema `type` (see [`placeholder_for_schema`]).
+///
+/// An `enum` constraint is honored FIRST, before falling back to the
+/// type-only placeholder: the vendored validator
+/// (`tinyflows::nodes::integration::schema::validate`) rejects any value not
+/// listed in a schema's `enum`, and a generic type placeholder (e.g. `""` for
+/// `{"type": "string", "enum": ["urgent", "normal"]}`) is essentially never
+/// one of the allowed values — that would fail the dry run even though a real
+/// agent, prompted with the schema, could easily satisfy it. The schema
+/// author's own first listed value is always allowed by construction, so it's
+/// returned as-is (whatever its JSON type).
 fn placeholder_for_type(subschema: &Value) -> Value {
+    if let Some(first_allowed) = subschema
+        .get("enum")
+        .and_then(Value::as_array)
+        .and_then(|values| values.first())
+    {
+        return first_allowed.clone();
+    }
     match subschema.get("type").and_then(Value::as_str) {
         Some("string") => json!(""),
         Some("number" | "integer") => json!(0),
@@ -2204,6 +2222,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn schema_aware_mock_agent_populates_an_enum_property_with_an_allowed_value() {
+        // A generic string placeholder (`""`) would fail the vendored
+        // validator's `enum` check even though a real agent could easily
+        // satisfy it — the mock must pick one of the schema's own allowed
+        // values (see `placeholder_for_type`'s enum handling).
+        let runner = SchemaAwareMockAgentRunner;
+        let request = json!({
+            "prompt": "triage",
+            "output_parser": { "schema": { "type": "object",
+                "required": ["priority"],
+                "properties": {
+                    "priority": { "type": "string", "enum": ["urgent", "normal"] }
+                } } }
+        });
+        let out = runner
+            .run_agent("researcher", request, None)
+            .await
+            .expect("run_agent");
+        let allowed = ["urgent", "normal"];
+        assert!(
+            allowed.contains(&out["priority"].as_str().unwrap()),
+            "expected an allowed enum value, got: {out}"
+        );
+    }
+
+    #[tokio::test]
     async fn schema_aware_mock_agent_ignores_null_schema() {
         // `output_parser: { schema: null }` (or no `output_parser` at all) is
         // treated identically to "no schema" — the vendored echo shape.
@@ -2250,6 +2294,32 @@ mod tests {
         );
         assert_eq!(placeholder_for_type(&json!({ "type": "array" })), json!([]));
         assert_eq!(placeholder_for_type(&json!({})), Value::Null);
+    }
+
+    #[test]
+    fn placeholder_for_type_prefers_the_first_enum_value_over_the_generic_type() {
+        // A generic type placeholder (`""`) is essentially never one of an
+        // enum's allowed values, so it must never be used when `enum` is set.
+        assert_eq!(
+            placeholder_for_type(&json!({ "type": "string", "enum": ["urgent", "normal"] })),
+            json!("urgent")
+        );
+        // The first enum value wins even when its JSON type doesn't match
+        // `type` (schema authors sometimes skip `type` entirely with `enum`).
+        assert_eq!(
+            placeholder_for_type(&json!({ "enum": [1, 2, 3] })),
+            json!(1)
+        );
+    }
+
+    #[test]
+    fn placeholder_for_type_ignores_an_empty_enum() {
+        // An empty `enum` array has no first value to prefer — fall back to
+        // the type-only placeholder rather than panicking or returning null.
+        assert_eq!(
+            placeholder_for_type(&json!({ "type": "string", "enum": [] })),
+            json!("")
+        );
     }
 
     fn integration(
