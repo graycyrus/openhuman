@@ -222,8 +222,11 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
      `"path": "json.data.messages"` — as the downstream `split_out.path`,
      rather than guessing where the array lives in the response.
    - **App not connected yet?** You can still build the node with a real
-     slug from `search_tool_catalog`/`get_tool_contract` (both search the
-     FULL live catalog regardless of connection state) and either call
+     slug from `search_tool_catalog` (searches the FULL live catalog
+     regardless of connection state) and ground it with `get_tool_contract
+     { slug }` (resolves that known slug's toolkit and fetches ITS full
+     contract from the same live catalog — a grounding lookup, not a
+     search, and also works regardless of connection state) and either call
      `composio_connect { toolkit }` yourself (see "Connecting integrations"
      below) or note in your reply that the user needs to connect it — the
      flow will also prompt for the connection the first time it actually runs.
