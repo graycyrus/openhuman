@@ -1068,11 +1068,7 @@ pub async fn flows_run(
     let outcome = journaled.outcome;
 
     let settled = settle_steps(config, &thread_id, &outcome.output);
-    let status = if !outcome.pending_approvals.is_empty() {
-        "pending_approval"
-    } else {
-        degrade_completed_status(&settled)
-    };
+    let (status, error) = finalize_terminal_status(&settled, &outcome.pending_approvals);
     store::record_run(config, flow_id, status).map_err(|e| e.to_string())?;
     finish_flow_run_row(
         config,
@@ -1080,7 +1076,7 @@ pub async fn flows_run(
         status,
         &settled,
         &outcome.pending_approvals,
-        None,
+        error.as_deref(),
     );
     export_run_to_langfuse(
         config,
@@ -1271,11 +1267,7 @@ pub async fn flows_resume(
     let outcome = journaled.outcome;
 
     let settled = settle_steps(config, thread_id, &outcome.output);
-    let status = if !outcome.pending_approvals.is_empty() {
-        "pending_approval"
-    } else {
-        degrade_completed_status(&settled)
-    };
+    let (status, error) = finalize_terminal_status(&settled, &outcome.pending_approvals);
     store::record_run(config, flow_id, status).map_err(|e| e.to_string())?;
     finish_flow_run_row(
         config,
@@ -1283,7 +1275,7 @@ pub async fn flows_resume(
         status,
         &settled,
         &outcome.pending_approvals,
-        None,
+        error.as_deref(),
     );
     export_run_to_langfuse(
         config,
@@ -1635,6 +1627,52 @@ fn degrade_completed_status(steps: &[FlowRunStep]) -> &'static str {
     } else {
         "completed"
     }
+}
+
+/// Names the node(s) whose step settled with `status == "error"` — the
+/// engine's `ExecutionStep` carries no error message of its own for a step
+/// that failed under an `on_error: "continue"`/`"route"` policy (it only
+/// fails the *run* future, and so gets an actual error string, when the
+/// policy is `"stop"`), so this is the best available detail for
+/// [`FlowRun::error`] when [`degrade_completed_status`] degrades to
+/// `"failed"` without an outer run-future `Err`.
+fn failed_step_error_summary(steps: &[FlowRunStep]) -> Option<String> {
+    let failed_nodes: Vec<&str> = steps
+        .iter()
+        .filter(|s| s.status.as_deref() == Some("error"))
+        .map(|s| s.node_id.as_str())
+        .collect();
+    if failed_nodes.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "node(s) failed after retries: {}",
+            failed_nodes.join(", ")
+        ))
+    }
+}
+
+/// Computes a settled run's terminal status and, when that status is
+/// `"failed"`, an accompanying error message — shared by `flows_run` and
+/// `flows_resume` so the two call sites can't drift on the
+/// `pending_approval` > `degrade_completed_status` precedence or forget to
+/// populate [`FlowRun::error`] (its doc contract: "Error message when
+/// `status == \"failed\"`") for a run that degraded via a settled step error
+/// rather than an outer run-future `Err`.
+fn finalize_terminal_status(
+    settled: &[FlowRunStep],
+    pending_approvals: &[String],
+) -> (&'static str, Option<String>) {
+    if !pending_approvals.is_empty() {
+        return ("pending_approval", None);
+    }
+    let status = degrade_completed_status(settled);
+    let error = if status == "failed" {
+        failed_step_error_summary(settled)
+    } else {
+        None
+    };
+    (status, error)
 }
 
 /// Milliseconds since the Unix epoch, for `CoreNotificationEvent::timestamp_ms`.
