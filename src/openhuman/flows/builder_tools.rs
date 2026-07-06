@@ -167,6 +167,25 @@ impl Tool for ReviseWorkflowTool {
             }
         };
 
+        // Enforcing binding-resolvability gate (see
+        // `ops::validate_binding_resolvability`): reject outright — rather
+        // than merely warn — a `tool_call` binding that is guaranteed to
+        // resolve null (or the wrong value) at runtime, so the builder must
+        // fix the graph before the revision can even be proposed.
+        let binding_errors = ops::validate_binding_resolvability(&graph);
+        if !binding_errors.is_empty() {
+            tracing::debug!(
+                target: "flows",
+                %name,
+                error_count = binding_errors.len(),
+                "[flows] revise_workflow: binding-resolvability check rejected the revised graph"
+            );
+            return Ok(ToolResult::error(format!(
+                "{}\n\nFix these bindings and call revise_workflow again.",
+                binding_errors.join("\n\n")
+            )));
+        }
+
         let summary = super::tools::build_summary(&graph);
         let mut warnings = ops::graph_trigger_warnings(&graph);
         // Author-time wiring check: unwired REQUIRED Composio args come back
@@ -1176,6 +1195,41 @@ impl Tool for SaveWorkflowTool {
             .filter(|s| !s.is_empty())
             .map(str::to_string);
 
+        // Same migrate/validate + enforcing binding-resolvability gate as
+        // propose_workflow/revise_workflow, run HERE at the tool level (not
+        // inside `ops::flows_update`, which the UI/RPC also call for a
+        // human's own edits and which must stay permissive) — so an agent
+        // can never persist a graph with an unresolvable `tool_call` binding
+        // either. See `ops::validate_binding_resolvability`.
+        let graph = match validate_and_migrate_graph(graph_json.clone()) {
+            Ok(graph) => graph,
+            Err(e) => {
+                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] save_workflow: validation failed");
+                return Ok(ToolResult::error(format!(
+                    "Workflow graph is invalid: {e}. Fix the graph and call save_workflow again."
+                )));
+            }
+        };
+        let binding_errors = ops::validate_binding_resolvability(&graph);
+        if !binding_errors.is_empty() {
+            tracing::debug!(
+                target: "flows",
+                %flow_id,
+                error_count = binding_errors.len(),
+                "[flows] save_workflow: binding-resolvability check rejected the graph"
+            );
+            return Ok(ToolResult::error(format!(
+                "{}\n\nFix these bindings and call save_workflow again.",
+                binding_errors.join("\n\n")
+            )));
+        }
+        // Author-time warnings (unfired trigger kinds + unwired REQUIRED
+        // Composio args) were previously computed by propose/revise but never
+        // surfaced again at save time — add them here so the agent sees any
+        // non-fatal wiring gaps that remain in the final persisted graph.
+        let mut warnings = ops::graph_trigger_warnings(&graph);
+        warnings.extend(ops::graph_wiring_warnings(&self.config, &graph).await);
+
         tracing::info!(
             target: "flows",
             %flow_id,
@@ -1200,6 +1254,7 @@ impl Tool for SaveWorkflowTool {
                     "enabled": flow.enabled,
                     "require_approval": flow.require_approval,
                     "node_count": flow.graph.nodes.len(),
+                    "warnings": warnings,
                 }))?))
             }
             Err(e) => {

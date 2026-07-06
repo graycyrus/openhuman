@@ -1654,3 +1654,169 @@ fn flow_stream_target_generates_request_id_when_absent_or_blank() {
     // Two mints are distinct uuids.
     assert_ne!(a.request_id, b.request_id);
 }
+
+// ── validate_binding_resolvability ──────────────────────────────────────────
+
+/// Runs a candidate graph `Value` through the exact same migrate/validate
+/// path the builder tools use, for a [`WorkflowGraph`] test fixture.
+fn graph(value: Value) -> WorkflowGraph {
+    validate_and_migrate_graph(value).expect("structurally valid test graph")
+}
+
+#[test]
+fn binding_to_agent_without_schema_is_rejected() {
+    // The exact live-failure shape: `summarize` has no `output_parser.schema`
+    // at all, so its structured output has no addressable `channel` field.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "agent_ref": "researcher", "prompt": "summarize" } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.json.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_binding_resolvability(&g);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("post"), "{}", errors[0]);
+    assert!(errors[0].contains("channel"), "{}", errors[0]);
+    assert!(errors[0].contains("summarize"), "{}", errors[0]);
+    assert!(errors[0].contains("output_parser.schema"), "{}", errors[0]);
+}
+
+#[test]
+fn binding_to_agent_with_schema_missing_field_is_rejected() {
+    // A schema IS declared, but it doesn't cover the field the binding reads.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "prompt": "summarize",
+                "output_parser": { "schema": { "type": "object",
+                    "properties": { "summary": { "type": "string" } } } } } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.json.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_binding_resolvability(&g);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("channel"), "{}", errors[0]);
+}
+
+#[test]
+fn binding_to_agent_with_matching_schema_is_accepted() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "prompt": "summarize",
+                "output_parser": { "schema": { "type": "object",
+                    "required": ["channel"],
+                    "properties": { "channel": { "type": "string" } } } } } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.json.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "post" }
+        ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn envelope_violation_detected() {
+    // `summarize` DOES declare a matching schema, but the binding reaches
+    // into `.item.channel` (skipping `.json`) — that dereferences the
+    // `{json,text,raw}` envelope wrapper itself, not the field inside it.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "prompt": "summarize",
+                "output_parser": { "schema": { "type": "object",
+                    "properties": { "channel": { "type": "string" } } } } } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_binding_resolvability(&g);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("json"), "{}", errors[0]);
+    assert!(errors[0].contains("summarize"), "{}", errors[0]);
+}
+
+#[test]
+fn non_enveloping_node_binding_is_accepted() {
+    // `code` nodes emit their item directly (no envelope) — `.item.<field>`
+    // is the correct, and only, form.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "compute", "kind": "code", "name": "Compute",
+              "config": { "language": "javascript", "source": "return {channel:'general'};" } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.compute.item.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "compute" },
+            { "from_node": "compute", "to_node": "post" }
+        ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn literal_args_unaffected() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "general", "count": 3, "cc": ["a@b.com"] } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    assert!(validate_binding_resolvability(&g).is_empty());
+}
+
+#[test]
+fn agent_prompt_binding_unaffected() {
+    // The check is scoped to `tool_call` `args` only — an agent's own
+    // config (its prompt) is never inspected, even if it references a
+    // dangling/unschemad node path.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "prompt": "=nodes.missing.item.channel" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "summarize" } ]
+    }));
+    assert!(validate_binding_resolvability(&g).is_empty());
+}

@@ -770,3 +770,95 @@ async fn save_workflow_rejects_invalid_graph_and_leaves_flow_intact() {
         "original graph must be untouched"
     );
 }
+
+// ── save_workflow: enforcing binding-resolvability gate ─────────────────────
+
+/// The proven live-failure shape (same as
+/// `tools_tests::propose_workflow_rejects_unschemad_agent_binding`): a
+/// `summarize` agent with no `output_parser.schema`, and a `notify` tool_call
+/// binding `args.channel` to its (unschemad, therefore unresolvable) output.
+fn unresolvable_binding_graph() -> Value {
+    json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "agent_ref": "researcher", "prompt": "summarize" } },
+            { "id": "notify", "kind": "tool_call", "name": "Notify",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.json.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "notify" }
+        ]
+    })
+}
+
+#[tokio::test]
+async fn save_workflow_rejects_unschemad_agent_binding() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow_id = seed_flow(&config, "Blank flow").await;
+    let tool = SaveWorkflowTool::new(config.clone());
+
+    let result = tool
+        .execute(json!({ "flow_id": flow_id, "graph": unresolvable_binding_graph() }))
+        .await
+        .unwrap();
+
+    assert!(result.is_error, "must be rejected: {}", result.output());
+    let output = result.output();
+    assert!(output.contains("notify"), "{output}");
+    assert!(output.contains("channel"), "{output}");
+    assert!(output.contains("summarize"), "{output}");
+    assert!(output.contains("output_parser.schema"), "{output}");
+
+    // The flow it tried to save onto must be untouched.
+    let saved = ops::flows_get(&config, &flow_id).await.unwrap().value;
+    assert_eq!(saved.name, "Blank flow");
+    assert_eq!(
+        saved.graph.nodes.len(),
+        1,
+        "original graph must be untouched"
+    );
+}
+
+#[tokio::test]
+async fn save_workflow_accepts_correctly_schemad_graph() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow_id = seed_flow(&config, "Blank flow").await;
+    let tool = SaveWorkflowTool::new(config.clone());
+
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "agent_ref": "researcher", "prompt": "summarize",
+                "output_parser": { "schema": { "type": "object",
+                    "required": ["channel"],
+                    "properties": { "channel": { "type": "string" } } } } } },
+            { "id": "notify", "kind": "tool_call", "name": "Notify",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.json.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "notify" }
+        ]
+    });
+
+    let result = tool
+        .execute(json!({ "flow_id": flow_id, "graph": graph, "name": "Summarize and notify" }))
+        .await
+        .unwrap();
+
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["type"], "workflow_saved");
+    assert_eq!(parsed["node_count"], 3);
+
+    let saved = ops::flows_get(&config, &flow_id).await.unwrap().value;
+    assert_eq!(saved.name, "Summarize and notify");
+    assert_eq!(saved.graph.nodes.len(), 3);
+}
