@@ -631,6 +631,31 @@ impl Tool for SearchToolCatalogTool {
             "[flows] search_tool_catalog: searching curated Composio catalog (read-only)"
         );
         let mut results = search_curated_catalog(&query, toolkit, MAX_CATALOG_RESULTS);
+
+        // Resolve each *distinct* slug's output fields concurrently rather
+        // than awaiting one `composio_response_fields` call per matched
+        // result in sequence — a broad query spanning several toolkits would
+        // otherwise pay for their catalog round trips back-to-back (the
+        // per-toolkit cache only helps repeat lookups, not the first one).
+        let mut unique_slugs: Vec<String> = results
+            .iter()
+            .filter_map(|r| r.get("slug").and_then(Value::as_str).map(str::to_string))
+            .collect();
+        unique_slugs.sort();
+        unique_slugs.dedup();
+        let fetched = futures::future::join_all(unique_slugs.into_iter().map(|slug| {
+            let config = self.config.clone();
+            async move {
+                let fields =
+                    crate::openhuman::tinyflows::caps::composio_response_fields(&config, &slug)
+                        .await;
+                (slug, fields)
+            }
+        }))
+        .await;
+        let response_fields_by_slug: std::collections::HashMap<String, Option<Vec<String>>> =
+            fetched.into_iter().collect();
+
         for result in &mut results {
             let Some(slug) = result
                 .get("slug")
@@ -639,9 +664,7 @@ impl Tool for SearchToolCatalogTool {
             else {
                 continue;
             };
-            let response_fields =
-                crate::openhuman::tinyflows::caps::composio_response_fields(&self.config, &slug)
-                    .await;
+            let response_fields = response_fields_by_slug.get(&slug).cloned().flatten();
             let Value::Object(map) = result else {
                 continue;
             };
