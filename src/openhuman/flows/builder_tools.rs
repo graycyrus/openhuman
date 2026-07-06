@@ -718,6 +718,23 @@ impl Tool for ListAgentProfilesTool {
 /// so a Composio `tool_call` whose required arg is missing or `=`-resolved to
 /// null fails the dry run with the same actionable, field-naming error a real
 /// run would produce — the echo mocks alone would happily accept a null `to`.
+///
+/// **Null-resolution check (the "produces functionally-broken workflows" fix):**
+/// a required arg can be present *and non-Composio* (a native `oh:` tool, or a
+/// Composio arg the catalog has no cached schema for) and still be wired to a
+/// `=`-expression that silently resolves to `null` — the preflight above only
+/// catches a *missing/null Composio-required* arg, so a graph like that used to
+/// dry-run green and then do nothing at runtime. The run is driven through
+/// [`tinyflows::engine::run_with_observer`] with a [`CapturingObserver`] that
+/// records every node's [`ExecutionStep::diagnostics`](tinyflows::observability::ExecutionStep)
+/// — the `=`-expressions the vendored engine itself traced as null-resolved
+/// (see `tinyflows::expr::resolve_traced`). After the run settles, every
+/// diagnostic on a **`tool_call` node's `args.*` location** is collected; any
+/// hit fails the dry run with `ok: false` and the offending
+/// `{ node_id, location, expression }` list, rather than reporting `ok: true`
+/// for a graph that would silently no-op. Diagnostics on `agent`-node prompt
+/// expressions (or any non-`tool_call` node) are NOT fatal here — a null in
+/// prose is not execution-breaking the way a null tool arg is.
 pub struct DryRunWorkflowTool {
     security: Arc<SecurityPolicy>,
     config: Arc<Config>,
@@ -825,14 +842,16 @@ impl Tool for DryRunWorkflowTool {
             }
         };
 
-        // Wire the mock `AgentRunner` (echoes `agent_ref`/request/conn) so a
-        // draft with `agent` nodes exercises the agent-node path during the
-        // dry run instead of erroring on a missing capability — the plain
-        // `mock_capabilities()` leaves `agent: None`. No real agent turn fires;
-        // the mock runner is a deterministic echo, same contract as the other
-        // sandbox mocks.
+        // Wire the schema-aware mock `AgentRunner` so a draft with `agent`
+        // nodes exercises the agent-node path during the dry run instead of
+        // erroring on a missing capability — the plain `mock_capabilities()`
+        // leaves `agent: None`. No real agent turn fires; the mock runner is a
+        // deterministic echo, same contract as the other sandbox mocks, except
+        // it additionally honors `config.output_parser.schema` (see its doc)
+        // so the null-resolution check below doesn't false-positive on an
+        // agent node that correctly declared a schema.
         let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(
-            tinyflows::caps::mock::MockAgentRunner,
+            crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner,
         );
         // Wiring preflight over the echo mocks (see the struct doc): required
         // Composio args must be present and non-null even in the sandbox.
@@ -840,7 +859,25 @@ impl Tool for DryRunWorkflowTool {
             config: self.config.clone(),
             inner: caps.tools.clone(),
         });
-        let run = tinyflows::engine::run(&compiled, input, &caps);
+
+        // Which node ids are `tool_call` nodes — the null-resolution check
+        // below is scoped to just these (see the struct doc: a null in an
+        // `agent`'s prompt is not execution-breaking the way a null tool arg
+        // is, so only `tool_call` diagnostics fail the dry run).
+        let tool_call_node_ids: std::collections::HashSet<&str> = graph
+            .nodes
+            .iter()
+            .filter(|node| node.kind == tinyflows::model::NodeKind::ToolCall)
+            .map(|node| node.id.as_str())
+            .collect();
+
+        // Capture every node's execution diagnostics (null-resolved
+        // `=`-expressions the engine itself traced — see
+        // `tinyflows::expr::resolve_traced`) as the sandbox run executes, so
+        // they can be inspected once the run settles.
+        let observer = Arc::new(CapturingObserver::default());
+        let observer_dyn: Arc<dyn tinyflows::observability::RunObserver> = observer.clone();
+        let run = tinyflows::engine::run_with_observer(&compiled, input, &caps, &observer_dyn);
         let outcome = match tokio::time::timeout(
             std::time::Duration::from_secs(DRY_RUN_TIMEOUT_SECS),
             run,
@@ -864,20 +901,91 @@ impl Tool for DryRunWorkflowTool {
             }
         };
 
+        // Collect every null-resolved `=`-expression that landed on a
+        // `tool_call` node's `args.*` config path — the class of binding
+        // mistake that "builds" (compiles, dry-runs against echo mocks) but
+        // does nothing at runtime because the wired field never had a value.
+        let null_resolutions: Vec<Value> = observer
+            .steps()
+            .iter()
+            .filter(|step| tool_call_node_ids.contains(step.node_id.as_str()))
+            .flat_map(|step| {
+                step.diagnostics.iter().filter_map(|diag| {
+                    (diag.location == "args" || diag.location.starts_with("args.")).then(|| {
+                        json!({
+                            "node_id": step.node_id,
+                            "location": diag.location,
+                            "expression": diag.expression,
+                        })
+                    })
+                })
+            })
+            .collect();
+
         tracing::info!(
             target: "flows",
             node_count = graph.nodes.len(),
             pending_approvals = outcome.pending_approvals.len(),
+            null_resolution_count = null_resolutions.len(),
             "[flows] dry_run_workflow: sandbox run finished"
         );
+
+        if !null_resolutions.is_empty() {
+            tracing::debug!(
+                target: "flows",
+                ?null_resolutions,
+                "[flows] dry_run_workflow: tool_call arg(s) resolved to null — failing the dry run"
+            );
+            return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                "sandbox": true,
+                "ok": false,
+                "null_resolutions": null_resolutions,
+                "message": "These tool_call args resolved to null — wire them from an upstream \
+                    node's real output, and give any agent node an output_parser.schema so its \
+                    fields are addressable.",
+            }))?));
+        }
 
         Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
             "sandbox": true,
             "ok": true,
             "output": outcome.output,
             "pending_approvals": outcome.pending_approvals,
+            "null_resolutions": null_resolutions,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work.",
         }))?))
+    }
+}
+
+/// A [`tinyflows::observability::RunObserver`] that captures every finished
+/// node's [`ExecutionStep`](tinyflows::observability::ExecutionStep) — in
+/// particular its `diagnostics` (null-resolved `=`-expressions the engine
+/// traced during that node's config resolution) — so [`DryRunWorkflowTool`]
+/// can inspect them once the sandbox run settles. See the struct's "Null-
+/// resolution check" doc for why this exists.
+#[derive(Default)]
+struct CapturingObserver {
+    steps: std::sync::Mutex<Vec<tinyflows::observability::ExecutionStep>>,
+}
+
+impl tinyflows::observability::RunObserver for CapturingObserver {
+    fn on_step_finish(&self, step: &tinyflows::observability::ExecutionStep) {
+        self.steps
+            .lock()
+            .expect("CapturingObserver steps mutex poisoned")
+            .push(step.clone());
+    }
+}
+
+impl CapturingObserver {
+    /// A snapshot of every step recorded so far (steps are pushed
+    /// synchronously from `on_step_finish`, so once the run's future resolves
+    /// every step it will ever record is already present).
+    fn steps(&self) -> Vec<tinyflows::observability::ExecutionStep> {
+        self.steps
+            .lock()
+            .expect("CapturingObserver steps mutex poisoned")
+            .clone()
     }
 }
 

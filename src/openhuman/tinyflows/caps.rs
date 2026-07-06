@@ -836,6 +836,104 @@ fn prepend_system_message(request: &mut Value, system_prompt: &str) {
     }
 }
 
+/// A **dry-run-only** [`AgentRunner`] mock that, unlike the vendored crate's
+/// `tinyflows::caps::mock::MockAgentRunner`, respects an `agent` node's
+/// `config.output_parser.schema` when synthesizing its echo response.
+///
+/// `DryRunWorkflowTool` (`flows::builder_tools`) wires this in place of the
+/// vendored `MockAgentRunner` so its null-resolution check (every `tool_call`
+/// arg that resolves to `null`) doesn't **false-positive** on a CORRECTLY-built
+/// agent node. Without it: the vendored `MockAgentRunner` always echoes
+/// `{ agent, request, connection }` regardless of schema, and the vendored
+/// `agent` node's output-parser sub-port (`tinyflows::nodes::integration::schema`)
+/// then fails that shape against ANY declared schema (no field matches) and
+/// falls to a one-shot LLM auto-fix that the sandbox's plain `MockLlm` also
+/// can't satisfy — so the whole dry run would error out even for a workflow a
+/// real run (via [`OpenHumanAgentRunner`], whose completion the same sub-port
+/// validates/repairs against the schema) would execute cleanly.
+///
+/// When `request` (the resolved node config `run_agent` receives — see
+/// [`AgentRunner::run_agent`]) carries a non-null `output_parser.schema`
+/// describing an object with `properties`, returns an object with every
+/// declared property present, populated with a type-appropriate placeholder
+/// (`string` → `""`, `number`/`integer` → `0`, `boolean` → `false`, `object` →
+/// `{}`, `array` → `[]`, anything else → `null`) — enough to satisfy the
+/// vendored validator's `type`/`required` checks (see
+/// `tinyflows::nodes::integration::schema::validate`) without a real model
+/// call. With no schema, mirrors the vendored `MockAgentRunner`'s default echo
+/// shape so dry-run behavior for schema-less agents is unchanged.
+#[derive(Debug, Default, Clone)]
+pub struct SchemaAwareMockAgentRunner;
+
+#[async_trait]
+impl AgentRunner for SchemaAwareMockAgentRunner {
+    async fn run_agent(
+        &self,
+        agent_ref: &str,
+        request: Value,
+        conn: Option<&str>,
+    ) -> Result<Value> {
+        let schema = request
+            .get("output_parser")
+            .and_then(|parser| parser.get("schema"))
+            .filter(|schema| !schema.is_null());
+        match schema {
+            Some(schema) => {
+                let placeholder = placeholder_for_schema(schema);
+                tracing::debug!(
+                    target: "flows",
+                    agent_ref,
+                    "[flows] dry_run: schema-aware mock agent synthesized a placeholder \
+                     matching output_parser.schema"
+                );
+                Ok(placeholder)
+            }
+            None => {
+                tracing::debug!(
+                    target: "flows",
+                    agent_ref,
+                    "[flows] dry_run: schema-aware mock agent has no output_parser.schema — \
+                     mirroring the vendored MockAgentRunner echo shape"
+                );
+                Ok(json!({ "agent": agent_ref, "request": request, "connection": conn }))
+            }
+        }
+    }
+}
+
+/// Builds a placeholder JSON value satisfying `schema`'s `properties`/`type`
+/// constraints, for [`SchemaAwareMockAgentRunner`]. Only the shallow, top-level
+/// `properties` map is populated — enough for the minimal validator in
+/// `tinyflows::nodes::integration::schema` (`type`, `required`, `properties`);
+/// deeply-nested `required` constraints on a nested `object`/`array` property
+/// are a documented limitation (the placeholder for those is an empty `{}`/`[]`).
+fn placeholder_for_schema(schema: &Value) -> Value {
+    match schema.get("properties").and_then(Value::as_object) {
+        Some(props) => {
+            let placeholders = props
+                .iter()
+                .map(|(key, subschema)| (key.clone(), placeholder_for_type(subschema)));
+            Value::Object(placeholders.collect())
+        }
+        // No `properties` to enumerate (e.g. a bare `{"type": "array"}`
+        // schema) — fall back to a type-only placeholder for the schema itself.
+        None => placeholder_for_type(schema),
+    }
+}
+
+/// The placeholder value for one property's subschema, keyed by its
+/// declared JSON-Schema `type` (see [`placeholder_for_schema`]).
+fn placeholder_for_type(subschema: &Value) -> Value {
+    match subschema.get("type").and_then(Value::as_str) {
+        Some("string") => json!(""),
+        Some("number" | "integer") => json!(0),
+        Some("boolean") => json!(false),
+        Some("object") => json!({}),
+        Some("array") => json!([]),
+        _ => Value::Null,
+    }
+}
+
 /// Parses a `"composio:<toolkit>:<connection_id>"` `connection_ref` (see the
 /// node catalog, `my_docs/ohxtf/commons/12-node-catalog-0.2.md`) and returns
 /// the trailing connection id segment. Values that don't match this shape
@@ -1220,8 +1318,10 @@ pub(crate) async fn preflight_composio_args(
     let first = &missing[0];
     Err(EngineError::Capability(format!(
         "tool_call `{slug}`: required arg(s) {list} missing or resolved to null — wire each from \
-         an upstream node's output, e.g. \"{first}\": \"=nodes.<node_id>.item.<field>\". If the \
-         value comes from an agent node, give that agent an output schema \
+         an upstream node's output, e.g. \"{first}\": \"=nodes.<node_id>.item.json.<field>\" \
+         (drop `.json` only if `<node_id>` is a code/transform/split_out/merge/trigger node — \
+         `agent`/`tool_call`/`http_request` nodes wrap their output in a `{{json,text,raw}}` \
+         envelope). If the value comes from an agent node, give that agent an output schema \
          (config.output_parser.schema) so its fields are addressable."
     )))
 }
@@ -2058,6 +2158,98 @@ mod tests {
         let mut req = json!("just a string");
         prepend_system_message(&mut req, "persona");
         assert_eq!(req, json!("just a string"));
+    }
+
+    // ── SchemaAwareMockAgentRunner ───────────────────────────────────────────
+
+    #[tokio::test]
+    async fn schema_aware_mock_agent_mirrors_vendored_echo_without_a_schema() {
+        // No `output_parser.schema` on the request: identical shape to the
+        // vendored `MockAgentRunner` so schema-less dry runs are unaffected.
+        let runner = SchemaAwareMockAgentRunner;
+        let request = json!({ "prompt": "hi" });
+        let out = runner
+            .run_agent("researcher", request.clone(), Some("conn_1"))
+            .await
+            .expect("run_agent");
+        assert_eq!(out["agent"], "researcher");
+        assert_eq!(out["request"], request);
+        assert_eq!(out["connection"], "conn_1");
+    }
+
+    #[tokio::test]
+    async fn schema_aware_mock_agent_populates_declared_properties() {
+        let runner = SchemaAwareMockAgentRunner;
+        let request = json!({
+            "prompt": "extract",
+            "output_parser": { "schema": { "type": "object",
+                "required": ["email", "count", "active", "meta", "tags"],
+                "properties": {
+                    "email": { "type": "string" },
+                    "count": { "type": "integer" },
+                    "active": { "type": "boolean" },
+                    "meta": { "type": "object" },
+                    "tags": { "type": "array" }
+                } } }
+        });
+        let out = runner
+            .run_agent("researcher", request, None)
+            .await
+            .expect("run_agent");
+        assert_eq!(out["email"], "");
+        assert_eq!(out["count"], 0);
+        assert_eq!(out["active"], false);
+        assert_eq!(out["meta"], json!({}));
+        assert_eq!(out["tags"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn schema_aware_mock_agent_ignores_null_schema() {
+        // `output_parser: { schema: null }` (or no `output_parser` at all) is
+        // treated identically to "no schema" — the vendored echo shape.
+        let runner = SchemaAwareMockAgentRunner;
+        let request = json!({ "prompt": "hi", "output_parser": { "schema": null } });
+        let out = runner
+            .run_agent("researcher", request.clone(), None)
+            .await
+            .expect("run_agent");
+        assert_eq!(out["agent"], "researcher");
+        assert_eq!(out["request"], request);
+    }
+
+    #[test]
+    fn placeholder_for_schema_falls_back_to_type_without_properties() {
+        assert_eq!(
+            placeholder_for_schema(&json!({ "type": "array" })),
+            json!([])
+        );
+        assert_eq!(
+            placeholder_for_schema(&json!({ "type": "string" })),
+            json!("")
+        );
+    }
+
+    #[test]
+    fn placeholder_for_type_covers_every_json_schema_type() {
+        assert_eq!(
+            placeholder_for_type(&json!({ "type": "string" })),
+            json!("")
+        );
+        assert_eq!(placeholder_for_type(&json!({ "type": "number" })), json!(0));
+        assert_eq!(
+            placeholder_for_type(&json!({ "type": "integer" })),
+            json!(0)
+        );
+        assert_eq!(
+            placeholder_for_type(&json!({ "type": "boolean" })),
+            json!(false)
+        );
+        assert_eq!(
+            placeholder_for_type(&json!({ "type": "object" })),
+            json!({})
+        );
+        assert_eq!(placeholder_for_type(&json!({ "type": "array" })), json!([]));
+        assert_eq!(placeholder_for_type(&json!({})), Value::Null);
     }
 
     fn integration(

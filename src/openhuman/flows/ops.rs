@@ -203,8 +203,9 @@ pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph
             );
             warnings.push(format!(
                 "Node '{}': required arg `{missing}` of `{slug}` is not wired — set \
-                 args.{missing}, e.g. \"=nodes.<upstream_id>.item.<field>\" (an agent feeding \
-                 this value needs an output schema so its fields are addressable).",
+                 args.{missing}, e.g. \"=nodes.<upstream_id>.item.json.<field>\" (an agent \
+                 feeding this value needs an output schema — `output_parser.schema` — so its \
+                 fields are addressable).",
                 node.id
             ));
         }
