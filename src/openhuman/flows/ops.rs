@@ -343,16 +343,27 @@ const JQ_KEYWORDS: &[&str] = &[
 /// this is a conservative pattern match rather than a real compiler
 /// round-trip: quoted jq string literals are stripped first (so quoted prose
 /// inside a legitimate concatenation like `="Hi " + .item.name` is never
-/// scanned), then the remainder is scanned for **two or more consecutive**
-/// whitespace-separated barewords that are neither jq keywords nor path
-/// segments (`.foo`, `.foo.bar`) — a real jq program never juxtaposes two
-/// bare identifiers like that. Deliberately narrow (2+ in a row, not 1): a
-/// false negative here just leaves prose alone (nothing new was broken); a
-/// false positive would reject a legitimate author's graph.
+/// scanned — this includes respecting a `\"` escape inside the string, so a
+/// quoted literal like `="Say \"hi\" to " + .item.name` doesn't desync the
+/// quote-toggle and leak its trailing prose into the bareword scan), then the
+/// remainder is scanned for **two or more consecutive** whitespace-separated
+/// barewords that are neither jq keywords nor path segments (`.foo`,
+/// `.foo.bar`) — a real jq program never juxtaposes two bare identifiers like
+/// that. Deliberately narrow (2+ in a row, not 1): a false negative here just
+/// leaves prose alone (nothing new was broken); a false positive would reject
+/// a legitimate author's graph.
 fn agent_prompt_looks_like_invalid_jq(expr_body: &str) -> bool {
     let mut stripped = String::with_capacity(expr_body.len());
     let mut in_str = false;
-    for c in expr_body.chars() {
+    let mut chars = expr_body.chars();
+    while let Some(c) = chars.next() {
+        // An escaped char inside a jq string literal (`\"`, `\\`, `\n`, …) —
+        // consume both the backslash and the escaped char without toggling
+        // `in_str`, so an escaped quote never prematurely ends the string.
+        if in_str && c == '\\' {
+            chars.next();
+            continue;
+        }
         if c == '"' {
             in_str = !in_str;
             continue;
@@ -431,6 +442,21 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
     // unaffected.
     for node in &graph.nodes {
         if node.kind != NodeKind::Agent {
+            continue;
+        }
+        // Both runtime paths (`build_completion_messages` and
+        // `node_request_to_prompt` in `tinyflows/caps.rs`) fall through to a
+        // non-empty `messages` array once `prompt` resolves to `null` — which
+        // is exactly what this bad `=`-expression prompt does. So a node that
+        // declares real `messages` never actually runs on the null prompt;
+        // rejecting the graph for it would be a false positive against a
+        // vestigial/unused legacy `prompt` field.
+        let messages_supply_the_turn = node
+            .config
+            .get("messages")
+            .and_then(Value::as_array)
+            .is_some_and(|entries| !entries.is_empty());
+        if messages_supply_the_turn {
             continue;
         }
         let Some(prompt) = node.config.get("prompt").and_then(Value::as_str) else {

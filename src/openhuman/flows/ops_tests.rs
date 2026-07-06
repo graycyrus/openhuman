@@ -2047,6 +2047,76 @@ fn agent_plain_prompt_is_accepted() {
 }
 
 #[test]
+fn agent_prompt_with_escaped_quote_inside_jq_string_is_accepted() {
+    // Regression for the quote-toggle desync: an escaped quote (`\"`) inside
+    // a jq string literal must not flip the strip pass's `in_str` state.
+    // Before the fix, the text between the escaped quote and the string's
+    // real closing quote ("hello world") leaked out of the string-stripping
+    // pass as if it were bare jq code, tripping the "two consecutive
+    // barewords" prose heuristic and rejecting this otherwise-valid
+    // concatenation expression.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "greet", "kind": "agent", "name": "Greet",
+              "config": { "prompt": "=\"Say \\\"hello world\\\" nicely\" + .item.name" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "greet" } ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn agent_prose_prompt_with_populated_messages_is_accepted() {
+    // Both runtime paths (`build_completion_messages` /
+    // `node_request_to_prompt` in `tinyflows/caps.rs`) fall through to a
+    // populated `messages` array once `prompt` resolves to `null` — exactly
+    // what this prose-as-`=`-expression prompt does. So a node with real
+    // `messages` never actually runs on the null prompt; this gate must not
+    // reject the graph for a vestigial/unused `prompt` field alongside it.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": {
+                  "prompt": "=You are given an email: .item. Classify the following email.",
+                  "messages": [ { "role": "user", "content": "Classify this email." } ]
+              } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn agent_prose_prompt_with_empty_messages_is_still_rejected() {
+    // An empty `messages` array doesn't supply the turn at runtime (both
+    // `build_completion_messages` and `node_request_to_prompt` treat an empty
+    // array the same as absent) — the prose-prompt gate must still apply.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": {
+                  "prompt": "=You are given an email: .item. Classify the following email.",
+                  "messages": []
+              } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    }));
+    let errors = validate_binding_resolvability(&g);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+}
+
+#[test]
 fn finalize_terminal_status_pending_approval_wins_over_error() {
     // Precedence: an outstanding pending_approval always wins, even if a step
     // also settled with an error — mirrors degrade_completed_status's own
