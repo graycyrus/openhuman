@@ -1414,14 +1414,19 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
 ///   a `running` row whose task is gone): no live task exists to unwind, so
 ///   this settles the row terminally itself and drops the checkpoint.
 ///
-/// A run that is already terminal (`completed` / `failed` / `cancelled`) is a
-/// clear error, not a silent no-op.
+/// A run that is already terminal (`completed` / `completed_with_warnings` /
+/// `failed` / `cancelled`) is a clear error, not a silent no-op — otherwise a
+/// settled warning run could be overwritten as `"cancelled"`, corrupting the
+/// run-honesty status it already recorded.
 pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcome<Value>, String> {
     let run = store::get_flow_run(config, run_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow run '{run_id}' not found"))?;
 
-    if matches!(run.status.as_str(), "completed" | "failed" | "cancelled") {
+    if matches!(
+        run.status.as_str(),
+        "completed" | "completed_with_warnings" | "failed" | "cancelled"
+    ) {
         return Err(format!(
             "flow run '{run_id}' is already terminal (status: {}) — nothing to cancel",
             run.status

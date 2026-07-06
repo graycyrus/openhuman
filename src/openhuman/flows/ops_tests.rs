@@ -1212,6 +1212,47 @@ async fn flows_cancel_run_of_an_already_completed_run_errors() {
 }
 
 #[tokio::test]
+async fn flows_cancel_run_of_a_completed_with_warnings_run_errors() {
+    // A settled `completed_with_warnings` run (run honesty, PR2) must be just
+    // as terminal as a plain `completed` run — otherwise `flows_cancel_run`
+    // falls through to its not-in-flight path and overwrites the row (and the
+    // flow summary) as `"cancelled"`, silently discarding the warning status
+    // the run already recorded.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // Force the settled row to the warning status directly — an end-to-end
+    // null-binding graph isn't needed to exercise this guard.
+    store::finish_flow_run(
+        &config,
+        &thread_id,
+        "completed_with_warnings",
+        &chrono::Utc::now().to_rfc3339(),
+        &[],
+        &[],
+        None,
+    )
+    .unwrap();
+
+    let err = flows_cancel_run(&config, &thread_id)
+        .await
+        .expect_err("cancelling a completed_with_warnings run must be a clear error");
+    assert!(err.contains("already terminal"), "got: {err}");
+
+    // And the row must still read back as the warning status, not overwritten.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "completed_with_warnings");
+}
+
+#[tokio::test]
 async fn flows_cancel_run_missing_run_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
