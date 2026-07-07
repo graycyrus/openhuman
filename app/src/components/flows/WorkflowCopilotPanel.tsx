@@ -19,6 +19,7 @@
  * Invariant: the copilot only PROPOSES. Accept applies to the UNSAVED local
  * draft (no `flows_update`); persistence stays behind the canvas's own Save.
  */
+import createDebug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BubbleMarkdown } from '../../features/conversations/components/AgentMessageBubble';
@@ -30,6 +31,8 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
 import Button from '../ui/Button';
+
+const log = createDebug('app:flows:copilot-panel');
 
 /**
  * Context for a repair turn opened from a failed run's inspector ("Fix with
@@ -146,6 +149,21 @@ export default function WorkflowCopilotPanel({
   // then carries the state, so later revises don't need it).
   const pendingAskRef = useRef<string | null>(null);
 
+  // Sets/clears `pendingAskRef` after a turn settles, logging the decision
+  // (stable prefix + thread correlation, never the raw ask/answer text — that
+  // may carry user-authored content).
+  const updatePendingAsk = useCallback(
+    (proposed: boolean, ask: string) => {
+      log(
+        'pendingAsk: %s thread=%s',
+        proposed ? 'cleared (proposal landed)' : 'set (still open)',
+        threadId
+      );
+      pendingAskRef.current = proposed ? null : ask;
+    },
+    [threadId]
+  );
+
   // Auto-send the repair turn once when opened from a failed run.
   const repairSentRef = useRef(false);
   useEffect(() => {
@@ -163,9 +181,9 @@ export default function WorkflowCopilotPanel({
         failingNodeIds: repairSeed.failingNodeIds ?? [],
       },
     }).then(({ proposed }) => {
-      pendingAskRef.current = proposed ? null : instruction;
+      updatePendingAsk(proposed, instruction);
     });
-  }, [repairSeed, send, t]);
+  }, [repairSeed, send, t, updatePendingAsk]);
 
   // Auto-send the build turn once when opened from the prompt bar's
   // instant-create path: the user's description becomes the first user turn on
@@ -188,12 +206,12 @@ export default function WorkflowCopilotPanel({
       // building. Carry the original description forward so the user's
       // free-text answer (via `submit` below) doesn't strand the agent with
       // no idea what it was asked to build.
-      pendingAskRef.current = proposed ? null : buildSeed.description;
+      updatePendingAsk(proposed, buildSeed.description);
     });
     // `graph`/`flowId` are read once for the seed turn — later edits must not
     // re-fire it (guarded by the ref regardless).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildSeed, send]);
+  }, [buildSeed, send, updatePendingAsk]);
 
   // Keep the transcript pinned to the newest message / streamed activity.
   // `scrollTo` is optional-chained: jsdom (tests) doesn't implement it.
@@ -214,9 +232,9 @@ export default function WorkflowCopilotPanel({
         displayText: trimmed,
         request: { mode: 'revise', instruction, graph, flowId },
       });
-      pendingAskRef.current = proposed ? null : instruction;
+      updatePendingAsk(proposed, instruction);
     },
-    [text, sending, send, graph, flowId]
+    [text, sending, send, graph, flowId, updatePendingAsk]
   );
 
   const handleInputKeyDown = useCallback(

@@ -312,4 +312,44 @@ describe('WorkflowCopilotPanel', () => {
     );
     expect(hookState.send).toHaveBeenCalledTimes(1);
   });
+
+  it('carries the build seed description forward when the auto-sent build turn asks a clarifying question instead of proposing', async () => {
+    hookState.send = vi
+      .fn()
+      // The auto-sent build turn asks a question rather than proposing.
+      .mockResolvedValueOnce({ proposed: false })
+      // The user's free-text answer then resolves it.
+      .mockResolvedValueOnce({ proposed: true });
+
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        flowId="flow-1"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        buildSeed={{ description: 'post a daily summary to slack' }}
+      />
+    );
+    // Flush the microtasks the seed effect awaits before recording
+    // `pendingAskRef` from the resolved `{ proposed: false }`.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(hookState.send).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByPlaceholderText('flows.copilot.placeholder'), {
+      target: { value: '#eng' },
+    });
+    fireEvent.click(screen.getByTestId('send-message-button'));
+
+    expect(hookState.send).toHaveBeenCalledTimes(2);
+    const secondArg = hookState.send.mock.calls[1][0];
+    // The follow-up must carry the build seed's original description forward,
+    // not just the bare "#eng" answer.
+    expect(secondArg.request.instruction).toContain('post a daily summary to slack');
+    expect(secondArg.request.instruction).toContain('#eng');
+  });
 });
