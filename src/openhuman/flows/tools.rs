@@ -120,7 +120,7 @@ impl Tool for ProposeWorkflowTool {
                 },
                 "require_approval": {
                     "type": "boolean",
-                    "description": "Force a human-approval gate on every outbound tool/HTTP action this flow takes once saved. Defaults to false; set true only when the user explicitly asks for an approval step."
+                    "description": "Force a human-approval gate on every outbound tool/HTTP action this flow takes once saved. Defaults to true for agent-proposed flows."
                 }
             },
             "required": ["name", "graph"]
@@ -152,7 +152,7 @@ impl Tool for ProposeWorkflowTool {
         let require_approval = args
             .get("require_approval")
             .and_then(Value::as_bool)
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         tracing::debug!(
             target: "flows",

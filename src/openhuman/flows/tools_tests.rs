@@ -112,7 +112,7 @@ async fn missing_graph_is_an_error() {
 }
 
 #[tokio::test]
-async fn omitted_require_approval_defaults_false_in_result() {
+async fn omitted_require_approval_defaults_true_in_result() {
     let tmp = TempDir::new().unwrap();
     let tool = ProposeWorkflowTool::new(test_config(&tmp));
 
@@ -122,7 +122,7 @@ async fn omitted_require_approval_defaults_false_in_result() {
         .unwrap();
 
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], false);
+    assert_eq!(parsed["require_approval"], true);
 }
 
 #[tokio::test]

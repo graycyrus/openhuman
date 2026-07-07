@@ -58,7 +58,7 @@ async fn revise_workflow_validates_and_returns_revision_proposal() {
 }
 
 #[tokio::test]
-async fn revise_workflow_omitted_require_approval_defaults_false() {
+async fn revise_workflow_omitted_require_approval_defaults_true() {
     let tmp = TempDir::new().unwrap();
     let tool = ReviseWorkflowTool::new(test_config(&tmp));
 
@@ -69,7 +69,7 @@ async fn revise_workflow_omitted_require_approval_defaults_false() {
 
     assert!(!result.is_error, "{}", result.output());
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], false);
+    assert_eq!(parsed["require_approval"], true);
 }
 
 #[tokio::test]
