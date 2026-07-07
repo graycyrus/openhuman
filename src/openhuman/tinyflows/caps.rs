@@ -1751,6 +1751,51 @@ pub(crate) fn missing_required_args(required: &[String], args: &Value) -> Vec<St
         .collect()
 }
 
+/// [B13] Returns argument names in `args` that are NOT declared `properties`
+/// of `schema` — the NAME-VALIDITY counterpart to [`missing_required_args`]'s
+/// PRESENCE check. Catches the class of bug `missing_required_args` alone
+/// cannot: a builder wires a real, well-typed value under an arg name the
+/// action's schema doesn't recognize at all (e.g. `SLACK_SEND_MESSAGE`'s
+/// `text` when the live action actually wants `markdown_text`) — the
+/// required arg still LOOKS satisfied from `missing_required_args`'
+/// perspective (a value is present under *some* key), so the mistake sails
+/// through authoring/save and only 400s from the real provider at runtime.
+///
+/// `None` means "cannot validate this schema — skip, never reject", so a
+/// caller must never turn a `None` into a rejection:
+/// - `schema` is `None` (`ToolContract::input_schema` unknown for this slug), or
+/// - `schema` is not a JSON object, or names no object `properties` map (an
+///   unrecognized/legacy shape — nothing to check names against), or
+/// - `schema` declares `additionalProperties: true` (Composio explicitly
+///   telling us to accept arbitrary keys beyond the declared ones).
+///
+/// `Some(vec![])` means the schema WAS usable and every arg name in `args`
+/// is a real declared property. `args` must be a JSON object to check
+/// against; any other shape (including `Value::Null` — no args wired at
+/// all) yields `Some(vec![])`, mirroring `missing_required_args`' treatment
+/// of an absent/non-object `args`.
+pub(crate) fn unsupported_arg_names(schema: Option<&Value>, args: &Value) -> Option<Vec<String>> {
+    let schema_obj = schema?.as_object()?;
+    if schema_obj
+        .get("additionalProperties")
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        return None;
+    }
+    let properties = schema_obj.get("properties")?.as_object()?;
+    let Some(args_obj) = args.as_object() else {
+        return Some(Vec::new());
+    };
+    let mut unsupported: Vec<String> = args_obj
+        .keys()
+        .filter(|k| !properties.contains_key(k.as_str()))
+        .cloned()
+        .collect();
+    unsupported.sort();
+    Some(unsupported)
+}
+
 /// Required-arg preflight for a Composio `tool_call`: fails **before** the
 /// Composio dispatch when a required arg is missing or resolved to `null`,
 /// with a message that names the field and the likely fix — instead of letting
@@ -3614,6 +3659,76 @@ mod tests {
         assert!(response_fields_from_schema(None).is_empty());
         assert!(response_fields_from_schema(Some(&json!("not an object"))).is_empty());
         assert!(response_fields_from_schema(Some(&json!({}))).is_empty());
+    }
+
+    // ── unsupported_arg_names (B13) ──────────────────────────────────────────
+    // Direct unit tests for the pure name-validity check — see
+    // `openhuman::flows::ops_tests` for the end-to-end
+    // `validate_tool_contracts` coverage of the same behavior.
+
+    #[test]
+    fn unsupported_arg_names_flags_a_name_not_in_properties() {
+        let schema = json!({
+            "type": "object",
+            "properties": { "channel": {"type": "string"}, "markdown_text": {"type": "string"} }
+        });
+        let args = json!({ "channel": "#general", "text": "hi" });
+        assert_eq!(
+            unsupported_arg_names(Some(&schema), &args),
+            Some(vec!["text".to_string()])
+        );
+    }
+
+    #[test]
+    fn unsupported_arg_names_empty_when_every_name_is_a_real_property() {
+        let schema = json!({
+            "type": "object",
+            "properties": { "channel": {"type": "string"}, "markdown_text": {"type": "string"} }
+        });
+        let args = json!({ "channel": "#general", "markdown_text": "hi" });
+        assert_eq!(unsupported_arg_names(Some(&schema), &args), Some(vec![]));
+    }
+
+    #[test]
+    fn unsupported_arg_names_skips_when_schema_is_none() {
+        let args = json!({ "anything": "goes" });
+        assert_eq!(unsupported_arg_names(None, &args), None);
+    }
+
+    #[test]
+    fn unsupported_arg_names_skips_when_schema_has_no_properties_object() {
+        // Legacy/loose schema shape (no `properties` map at all) — nothing to
+        // validate names against, so this must skip, not reject.
+        let schema = json!({ "type": "object", "description": "legacy shape" });
+        let args = json!({ "anything": "goes" });
+        assert_eq!(unsupported_arg_names(Some(&schema), &args), None);
+    }
+
+    #[test]
+    fn unsupported_arg_names_skips_when_additional_properties_is_true() {
+        let schema = json!({
+            "type": "object",
+            "properties": { "channel": {"type": "string"} },
+            "additionalProperties": true
+        });
+        let args = json!({ "channel": "#general", "any_extra_field": "hi" });
+        assert_eq!(unsupported_arg_names(Some(&schema), &args), None);
+    }
+
+    #[test]
+    fn unsupported_arg_names_empty_for_null_or_non_object_args() {
+        let schema = json!({
+            "type": "object",
+            "properties": { "channel": {"type": "string"} }
+        });
+        assert_eq!(
+            unsupported_arg_names(Some(&schema), &Value::Null),
+            Some(vec![])
+        );
+        assert_eq!(
+            unsupported_arg_names(Some(&schema), &json!("not an object")),
+            Some(vec![])
+        );
     }
 
     // ── compute_primary_array_path ──────────────────────────────────────────

@@ -873,6 +873,49 @@ async fn dry_run_flags_null_resolved_agent_prompt() {
 }
 
 #[tokio::test]
+async fn dry_run_flags_null_resolved_agent_input_context() {
+    // The B7 counterpart to `dry_run_flags_null_resolved_agent_prompt`:
+    // `input_context` has been the agent's primary upstream-data channel
+    // since #4590, so a null-resolved `input_context` is just as
+    // execution-breaking as a null `prompt` — the agent runs with no
+    // upstream data at all. Must fail the dry run the same way.
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": { "prompt": "Classify the email as urgent, normal, or low priority.",
+                "input_context": "=nodes.missing.item.json.body" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    });
+
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(
+        parsed["ok"], false,
+        "a null-resolved agent input_context must fail the dry run: {parsed}"
+    );
+    let agent_input_context_nulls = parsed["agent_input_context_nulls"]
+        .as_array()
+        .expect("agent_input_context_nulls array");
+    assert_eq!(agent_input_context_nulls.len(), 1, "{parsed}");
+    assert_eq!(agent_input_context_nulls[0]["node_id"], "classify");
+    assert_eq!(agent_input_context_nulls[0]["location"], "input_context");
+    assert!(
+        agent_input_context_nulls[0]["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("upstream"),
+        "{parsed}"
+    );
+}
+
+#[tokio::test]
 async fn dry_run_passes_when_agent_uses_input_context_instead_of_prompt_expression() {
     // The FALSE-POSITIVE-PREVENTION case: the same data need, wired the
     // correct way — `input_context` carries the upstream item, `prompt`
@@ -897,6 +940,13 @@ async fn dry_run_passes_when_agent_uses_input_context_instead_of_prompt_expressi
     assert_eq!(parsed["ok"], true, "{parsed}");
     assert!(
         parsed["agent_prompt_nulls"].as_array().unwrap().is_empty(),
+        "{parsed}"
+    );
+    assert!(
+        parsed["agent_input_context_nulls"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
         "{parsed}"
     );
 }

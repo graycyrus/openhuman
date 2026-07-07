@@ -944,6 +944,16 @@ impl Tool for ListAgentProfilesTool {
 /// `agent_prompt_nulls` (`{ node_id, location, expression, suggestion }`) and
 /// added to the same `ok: false` condition as `null_resolutions`.
 ///
+/// **Agent-`input_context` null check:** the SAME treatment applies to a
+/// null-resolved **`input_context`** (`location == "input_context"`) — since
+/// #4590 this is the agent's primary upstream-data channel (the very field
+/// `prompt`-embedded jq expressions were supposed to stop needing), so a
+/// `null` here is just as execution-breaking as a null `prompt`: the agent
+/// runs with no upstream data at all. Collected separately into
+/// `agent_input_context_nulls` (`{ node_id, location, expression, suggestion }`,
+/// mirroring `agent_prompt_nulls` exactly) and added to the same `ok: false`
+/// condition as `null_resolutions`/`agent_prompt_nulls`.
+///
 /// **`on_error: continue`/`route` does not mask a `tool_call` failure either.**
 /// Those policies convert an executor error (e.g. the required-arg preflight
 /// rejecting a null arg) into a routed error ITEM so the *run* still completes
@@ -1181,6 +1191,32 @@ impl Tool for DryRunWorkflowTool {
             })
             .collect();
 
+        // Collect every null-resolved `agent`-node `input_context` — mirrors
+        // `agent_prompt_nulls` exactly (see the struct doc's "Agent-
+        // `input_context` null check" section): `input_context` has been the
+        // agent's primary upstream-data channel since #4590, so a null
+        // resolution here is just as execution-breaking as a null `prompt` —
+        // the agent runs with no upstream data at all.
+        let agent_input_context_nulls: Vec<Value> = observer
+            .steps()
+            .iter()
+            .filter(|step| agent_node_ids.contains(step.node_id.as_str()))
+            .flat_map(|step| {
+                step.diagnostics.iter().filter_map(|diag| {
+                    (diag.location == "input_context").then(|| {
+                        json!({
+                            "node_id": step.node_id,
+                            "location": diag.location,
+                            "expression": diag.expression,
+                            "suggestion": "Wire input_context from a real upstream field, e.g. \
+                                \"=nodes.<node_id>.item.json.<field>\" (or \"=item\" off the \
+                                trigger), not an expression that resolves to null.",
+                        })
+                    })
+                })
+            })
+            .collect();
+
         // Collect every `tool_call` node whose EXECUTOR errored (e.g. the
         // Composio required-arg preflight rejecting a missing/null arg) —
         // regardless of that node's `on_error` policy. A `"continue"`/`"route"`
@@ -1224,34 +1260,41 @@ impl Tool for DryRunWorkflowTool {
             pending_approvals = outcome.pending_approvals.len(),
             null_resolution_count = null_resolutions.len(),
             agent_prompt_null_count = agent_prompt_nulls.len(),
+            agent_input_context_null_count = agent_input_context_nulls.len(),
             node_error_count = node_errors.len(),
             "[flows] dry_run_workflow: sandbox run finished"
         );
 
-        if !null_resolutions.is_empty() || !agent_prompt_nulls.is_empty() || !node_errors.is_empty()
+        if !null_resolutions.is_empty()
+            || !agent_prompt_nulls.is_empty()
+            || !agent_input_context_nulls.is_empty()
+            || !node_errors.is_empty()
         {
             tracing::debug!(
                 target: "flows",
                 ?null_resolutions,
                 ?agent_prompt_nulls,
+                ?agent_input_context_nulls,
                 ?node_errors,
-                "[flows] dry_run_workflow: tool_call/agent-prompt issue(s) found — failing the \
-                 dry run"
+                "[flows] dry_run_workflow: tool_call/agent-prompt/agent-input_context issue(s) \
+                 found — failing the dry run"
             );
             return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                 "sandbox": true,
                 "ok": false,
                 "null_resolutions": null_resolutions,
                 "agent_prompt_nulls": agent_prompt_nulls,
+                "agent_input_context_nulls": agent_input_context_nulls,
                 "node_errors": node_errors,
-                "message": "These tool_call args resolved to null, an agent node's prompt \
-                    resolved to null (an EMPTY prompt — see agent_prompt_nulls), or a tool_call \
+                "message": "These tool_call args resolved to null, an agent node's prompt or \
+                    input_context resolved to null (an EMPTY prompt — see agent_prompt_nulls — \
+                    or no upstream data at all — see agent_input_context_nulls), or a tool_call \
                     node failed during the sandbox run (even one recovered via on_error: \
                     continue/route) — wire null-resolved args from an upstream node's real \
                     output (give any agent node an output_parser.schema so its fields are \
-                    addressable), feed upstream data into a null-resolved agent prompt via \
-                    input_context instead of a jq expression inside the prompt text, and fix or \
-                    rewire whatever tool_call node_errors names.",
+                    addressable), feed upstream data into a null-resolved agent prompt/ \
+                    input_context from a real upstream field instead of a jq expression inside \
+                    the prompt text, and fix or rewire whatever tool_call node_errors names.",
             }))?));
         }
 
@@ -1262,6 +1305,7 @@ impl Tool for DryRunWorkflowTool {
             "pending_approvals": outcome.pending_approvals,
             "null_resolutions": null_resolutions,
             "agent_prompt_nulls": agent_prompt_nulls,
+            "agent_input_context_nulls": agent_input_context_nulls,
             "node_errors": node_errors,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work.",
         }))?))

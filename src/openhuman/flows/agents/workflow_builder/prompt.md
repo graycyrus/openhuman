@@ -139,10 +139,13 @@ connected, `list_flow_connections` → build the `tool_call` node with the real
      left as a plain instruction — never a `.item`/`nodes.` reference woven
      into prose. `save_workflow`/`propose_workflow` REJECT a `prompt` that
      reads as prose written as a `=`-expression.
-   - If `dry_run_workflow` reports `"ok": false` with a `null_resolutions` or
-     `agent_prompt_nulls` list, **fix every one** before proposing — add the
-     missing schema, move data into `input_context`, or rewire the expression
-     to a real upstream field. Don't propose/save a graph `dry_run_workflow`
+   - If `dry_run_workflow` reports `"ok": false` with a `null_resolutions`,
+     `agent_prompt_nulls`, or `agent_input_context_nulls` list, **fix every
+     one** before proposing — add the missing schema, move data into
+     `input_context`, or rewire the expression to a real upstream field.
+     `agent_input_context_nulls` means the agent's `input_context` itself
+     resolved to null — the agent ran with NO upstream data at all, same
+     severity as a null `prompt`. Don't propose/save a graph `dry_run_workflow`
      flagged.
 5. **`propose_workflow`** (first draft) or **`revise_workflow`** (iterating on a
    prior draft — apply the change to the existing graph, don't regenerate from
@@ -198,6 +201,16 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    address (`=nodes.<agent_id>.item.json.<field>` — see "the envelope" below).
    Without a schema the agent emits `{text: "..."}` (no other fields) and any
    `.item.json.<field>`-style binding to it resolves to null.
+
+   **If an agent's output field feeds a `condition` (or is otherwise used as
+   a boolean), declare that field `"type": "boolean"` in
+   `config.output_parser.schema`.** Routing itself is correct once the value
+   IS a real boolean — the failure mode is authoring one that isn't: an
+   ungrounded/loosely-typed field lets the model emit the STRING `"false"`,
+   which is truthy, so a condition meant to route on `false` silently takes
+   the `true` branch instead. Typing the field as `boolean` in the schema is
+   what makes the output-parser coerce/validate it into a real boolean rather
+   than a string that merely looks like one.
 3. **`tool_call`** — an action. Two flavours by `config.slug`:
    - **Composio app action** — `config.slug` = a real action slug (from
      `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`
@@ -212,6 +225,17 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
      expression misses) fails BEFORE the provider call — in
      `propose_workflow`/`revise_workflow`/`save_workflow` (hard reject),
      `dry_run_workflow`, and real runs — with an error naming the field.
+   - **Every key in `config.args` must be one of `input_schema`'s real
+     property names — NEVER a guessed one.** A field that "sounds right" but
+     isn't declared in `input_schema.properties` (e.g. wiring
+     `SLACK_SEND_MESSAGE` with `text` when the action's real schema names the
+     field `markdown_text`) is REJECTED at `propose_workflow`/
+     `revise_workflow`/`save_workflow` naming the bad key and, when derivable,
+     the schema's valid property names — a value being present under the
+     WRONG key still 400s against the real provider at runtime, so this is a
+     hard gate, not just an advisory. Always read the exact property names
+     off `get_tool_contract`'s `input_schema` before wiring `config.args`,
+     never off memory/convention for that app.
    - **The slug itself is enforced too.** `propose_workflow` /
      `revise_workflow` / `save_workflow` HARD-REJECT a `tool_call` whose
      slug isn't a real action in the live Composio catalog for its toolkit —
@@ -248,7 +272,11 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    `body`; `config.connection_ref` = an `http_cred:<name>` for auth.
 5. **`code`** — `config.language` (`"javascript"` | `"python"`) + `config.source`.
 6. **`condition`** — boolean gate on `config.field`; routes to the **`true`** or
-   **`false`** port. Wire both (or the `false` branch dead-ends).
+   **`false`** port. Wire both (or the `false` branch dead-ends). If
+   `config.field` binds to an `agent` node's output, that field's
+   `output_parser.schema` property MUST be declared `"type": "boolean"` (see
+   the `agent` node kind above) — an untyped/string field can carry the
+   truthy string `"false"` and route to the wrong port.
 7. **`switch`** — multi-way on `config.expression` or `config.field`; routes to
    the matching **case** port, else **`default`**.
 8. **`merge`** — fan-in barrier; passes inputs through. No config.
