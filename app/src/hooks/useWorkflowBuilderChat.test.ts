@@ -33,10 +33,12 @@ vi.mock('../store/hooks', () => ({
     }),
 }));
 
+const THREAD_NOT_FOUND_MESSAGE = vi.hoisted(() => 'This thread is no longer available.');
 vi.mock('../store/threadSlice', () => ({
   createNewThread: (labels: string[]) => ({ type: 'createNewThread', labels }),
   addMessageLocal: (p: unknown) => ({ type: 'addMessageLocal', p }),
   loadThreadMessages: (threadId: string) => ({ type: 'loadThreadMessages', threadId }),
+  THREAD_NOT_FOUND_MESSAGE,
 }));
 vi.mock('../store/chatRuntimeSlice', () => ({
   clearWorkflowProposalForThread: (p: unknown) => ({ type: 'clearProposal', p }),
@@ -78,6 +80,10 @@ describe('useWorkflowBuilderChat', () => {
       }
       if (action.type === 'addMessageLocal') {
         return { unwrap: () => Promise.resolve(undefined) };
+      }
+      if (action.type === 'loadThreadMessages') {
+        // Default: fetch succeeds (mirrors the real thunk's fulfilled action).
+        return Promise.resolve({ type: 'loadThreadMessages/fulfilled', payload: { messages: [] } });
       }
       return undefined;
     });
@@ -377,6 +383,71 @@ describe('useWorkflowBuilderChat', () => {
           threadId: 'previously-persisted-thread',
         })
       );
+    });
+
+    it('clears threadId when the seeded thread no longer exists (stale persisted id)', async () => {
+      // `loadThreadMessages` rejects with THREAD_NOT_FOUND_MESSAGE when the
+      // cached/seeded thread was deleted server-side (see threadSlice.ts).
+      // The hook must null out its `threadId` so a caller's onThreadIdChange
+      // effect (WorkflowCopilotPanel -> FlowCanvasPage) clears the stale
+      // `workflowCopilotThreads.ts` cache entry and the next send() creates a
+      // fresh thread instead of retrying the dead one forever.
+      dispatch.mockImplementation((action: { type: string }) => {
+        if (action.type === 'createNewThread') {
+          return { unwrap: () => Promise.resolve({ id: 'builder-1' }) };
+        }
+        if (action.type === 'addMessageLocal') {
+          return { unwrap: () => Promise.resolve(undefined) };
+        }
+        if (action.type === 'loadThreadMessages') {
+          return Promise.resolve({
+            type: 'loadThreadMessages/rejected',
+            payload: THREAD_NOT_FOUND_MESSAGE,
+          });
+        }
+        return undefined;
+      });
+
+      const { result } = renderHook(() => useWorkflowBuilderChat('stale-thread'));
+      expect(result.current.threadId).toBe('stale-thread');
+
+      await waitFor(() => expect(result.current.threadId).toBeNull());
+    });
+  });
+
+  describe('recovering from a stale thread id during send()', () => {
+    it('clears threadId when addMessageLocal fails because the seeded thread was deleted', async () => {
+      // Mirrors a stale `workflowCopilotThreads.ts` seed surviving past mount
+      // (e.g. the rehydrate GET raced and lost, or the thread was deleted
+      // between mount and this send). `addMessageLocal` rejects with
+      // THREAD_NOT_FOUND_MESSAGE (see threadSlice.ts); the hook must recover
+      // by nulling `threadId` so the NEXT send creates a fresh thread instead
+      // of erroring forever against the dead one.
+      dispatch.mockImplementation((action: { type: string }) => {
+        if (action.type === 'addMessageLocal') {
+          return { unwrap: () => Promise.reject(THREAD_NOT_FOUND_MESSAGE) };
+        }
+        if (action.type === 'loadThreadMessages') {
+          return Promise.resolve({
+            type: 'loadThreadMessages/fulfilled',
+            payload: { messages: [] },
+          });
+        }
+        return undefined;
+      });
+
+      const { result } = renderHook(() => useWorkflowBuilderChat('stale-thread'));
+      expect(result.current.threadId).toBe('stale-thread');
+
+      await act(async () => {
+        await result.current.send({
+          displayText: 'hi',
+          request: { mode: 'create', instruction: 'x' },
+        });
+      });
+
+      expect(result.current.error).toBe(THREAD_NOT_FOUND_MESSAGE);
+      expect(result.current.threadId).toBeNull();
     });
   });
 });

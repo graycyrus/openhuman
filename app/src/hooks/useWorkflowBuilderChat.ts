@@ -37,7 +37,12 @@ import {
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
-import { addMessageLocal, createNewThread, loadThreadMessages } from '../store/threadSlice';
+import {
+  addMessageLocal,
+  createNewThread,
+  loadThreadMessages,
+  THREAD_NOT_FOUND_MESSAGE,
+} from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
 
 const log = createDebug('app:flows:builder-chat');
@@ -134,10 +139,11 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
   // `onThreadIdChange` and re-passes it in as `seedThreadId` on the next
   // render. Without this distinction, the rehydrate effect below would treat
   // that echo as "an existing persisted thread just got selected" and refetch
-  // it from the core mid-turn — `loadThreadMessages.fulfilled` REPLACES
-  // `messagesByThreadId[threadId]` wholesale, so a response that lands before
-  // the backend has caught up with the just-appended local turn would erase
-  // the user's message (and any streamed reply) from the visible transcript.
+  // it from the core mid-turn — a redundant `loadThreadMessages` GET racing
+  // the in-flight turn's own append. `loadThreadMessages.fulfilled` merges a
+  // locally-appended message that predates the fetch's snapshot back in
+  // (rather than wholesale-replacing), so this guard is defense-in-depth
+  // against the unnecessary refetch itself, not a correctness requirement.
   const createdThreadIdRef = useRef<string | null>(null);
 
   const proposalsByThread = useAppSelector(
@@ -195,10 +201,11 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
   // `FlowCanvasPage` re-passes that straight back in as `seedThreadId` on the
   // next render — so `seedThreadId` also changes right after a fresh thread is
   // created by a first send, not just when a truly pre-existing persisted
-  // thread is (re)selected. Rehydrating in that case would race the in-flight
-  // turn: `loadThreadMessages.fulfilled` replaces the thread's message array
-  // wholesale, so a fetch that resolves before the backend reflects the
-  // just-appended turn would wipe it back out of the transcript.
+  // thread is (re)selected. Rehydrating in that case would be a wasted GET
+  // racing the in-flight turn's own append; `loadThreadMessages.fulfilled`
+  // merges rather than wholesale-replaces (see `threadSlice.ts`), so a
+  // straggler fetch can no longer wipe out a newer local append, but skipping
+  // it here still avoids the redundant round trip.
   useEffect(() => {
     if (!seedThreadId) return;
     if (createdThreadIdRef.current === seedThreadId) {
@@ -206,7 +213,23 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
       return;
     }
     log('rehydrate: loading persisted messages + turn state/history thread=%s', seedThreadId);
-    void dispatch(loadThreadMessages(seedThreadId));
+    // A persisted seed (`workflowCopilotThreads.ts`) can point at a thread
+    // that no longer exists (e.g. deleted/purged since it was cached).
+    // `loadThreadMessages` evicts the stale thread from Redux in that case
+    // and rejects with `THREAD_NOT_FOUND_MESSAGE` — null out this hook's
+    // `threadId` in response so the effect below that reports it back up
+    // (`WorkflowCopilotPanel` -> `onThreadIdChange` -> `FlowCanvasPage`)
+    // clears the stale cached id too, letting the next `send()` create a
+    // fresh thread instead of retrying the dead one forever.
+    void dispatch(loadThreadMessages(seedThreadId)).then((action: { payload?: unknown }) => {
+      if (action?.payload === THREAD_NOT_FOUND_MESSAGE) {
+        log(
+          'rehydrate: thread=%s no longer exists — clearing seed so a future send starts fresh',
+          seedThreadId
+        );
+        setThreadId(current => (current === seedThreadId ? null : current));
+      }
+    });
     void dispatch(fetchAndHydrateTurnState(seedThreadId));
     void dispatch(fetchAndHydrateTurnHistory(seedThreadId));
   }, [seedThreadId, dispatch]);
@@ -314,6 +337,20 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
         const msg = err instanceof Error ? err.message : String(err);
         log('send: failed err=%o', err);
         setError(msg);
+        // The pre-existing/seeded thread this turn targeted no longer exists
+        // server-side (deleted/purged since it was cached) — `addMessageLocal`
+        // already evicted it from Redux; clear it here too so the next send
+        // creates a fresh thread instead of retrying the dead one forever.
+        // Scoped to `targetThreadId === threadId` (the thread this hook was
+        // seeded/already bound to) so a failure on a thread just created this
+        // same call doesn't get misattributed.
+        if (msg === THREAD_NOT_FOUND_MESSAGE && targetThreadId === threadId) {
+          log(
+            'send: thread=%s no longer exists — clearing cached id so the next send starts fresh',
+            targetThreadId
+          );
+          setThreadId(null);
+        }
       } finally {
         setLocalSending(false);
       }
