@@ -1638,24 +1638,6 @@ pub(crate) fn compute_primary_array_path(schema: Option<&Value>) -> Option<Strin
     None
 }
 
-/// Whether `schema` already declares a top-level `data` property.
-///
-/// Composio's `output_parameters` normally describes the tool's PAYLOAD
-/// directly (e.g. `{messages: [...], nextPageToken: ...}` for
-/// `GMAIL_FETCH_EMAILS`) — the same value Composio's execute response wraps
-/// in `{data: <payload>, successful, error, costUsd, …}` a layer up, NOT a
-/// shape the schema itself declares. But a listing is, in principle, free to
-/// publish a schema that already nests its fields under a literal `data` key
-/// (e.g. a hand-authored custom-tool schema modeled directly on the execute
-/// envelope) — this is the escape hatch [`compute_composio_array_path`] uses
-/// to avoid double-prefixing that case.
-fn schema_has_top_level_data_property(schema: Option<&Value>) -> bool {
-    schema
-        .and_then(|s| s.get("properties"))
-        .and_then(Value::as_object)
-        .is_some_and(|props| props.contains_key("data"))
-}
-
 /// [`compute_primary_array_path`], adjusted for the wrapper EVERY Composio
 /// `tool_call` result carries at runtime.
 ///
@@ -1666,17 +1648,19 @@ fn schema_has_top_level_data_property(schema: Option<&Value>) -> bool {
 /// walks) describes only `<payload>`, the content of that `data` field, not
 /// the envelope around it. So the bare walk's result (e.g. `"messages"`) is
 /// missing the `data.` segment a real `split_out.path`/downstream binding
-/// needs (`"data.messages"`) — this wrapper adds it.
+/// needs (`"data.messages"`) — this wrapper adds it, UNCONDITIONALLY.
 ///
-/// Skips the extra prefix when the schema already declares its own
-/// top-level `data` property ([`schema_has_top_level_data_property`]) —
-/// the shallowest-array walk will already have found the array under (or
-/// as) that key, so prefixing again would double it (`"data.data.…"`).
+/// There is no escape hatch for a payload schema that itself happens to
+/// declare a top-level `data` property (e.g. a provider whose real payload
+/// shape is `{data: {messages: [...]}}`, unrelated to Composio's own
+/// wrapper) — `output_parameters` describes the payload only, per the
+/// invariant documented on [`ToolContract::output_fields`], so the real
+/// runtime path in that case is `data.data.messages`, not `data.messages`.
+/// Treating a payload-level `data` key as "this schema already models the
+/// envelope" silently drops a real wrapper segment and points a downstream
+/// binding / `split_out.path` at the wrong (non-existent) array.
 pub(crate) fn compute_composio_array_path(schema: Option<&Value>) -> Option<String> {
     let path = compute_primary_array_path(schema)?;
-    if schema_has_top_level_data_property(schema) {
-        return Some(path);
-    }
     Some(format!("data.{path}"))
 }
 
@@ -3627,10 +3611,16 @@ mod tests {
     }
 
     #[test]
-    fn compute_composio_array_path_does_not_double_prefix_a_schema_that_already_wraps_data() {
-        // Defensive case: a listing whose schema already declares its own
-        // top-level `data` key (e.g. modeled directly on the execute
-        // envelope) must not get ANOTHER `data.` prefix stacked on top.
+    fn compute_composio_array_path_still_prefixes_data_when_the_payload_schema_itself_has_a_data_key(
+    ) {
+        // A payload whose own real shape happens to have a top-level `data`
+        // key (unrelated to Composio's wrapper — e.g. a provider that
+        // itself returns `{data: {messages: [...]}}`) must NOT be mistaken
+        // for "this schema already models the envelope". `output_parameters`
+        // always describes the payload only (see `ToolContract::output_fields`'s
+        // doc) — the real runtime path still needs the wrapper's `data.`
+        // prefix stacked on top, landing on `data.data.messages`, not
+        // `data.messages`.
         let schema = json!({
             "type": "object",
             "properties": {
@@ -3642,7 +3632,7 @@ mod tests {
         });
         assert_eq!(
             compute_composio_array_path(Some(&schema)),
-            Some("data.messages".to_string())
+            Some("data.data.messages".to_string())
         );
     }
 

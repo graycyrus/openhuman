@@ -2125,6 +2125,71 @@ async fn graph_wiring_warnings_flags_a_downstream_binding_missing_the_data_prefi
     );
 }
 
+/// Codex feedback on this PR: a binding to the WHOLE payload
+/// (`=nodes.post.item.json.data`, e.g. wiring an agent's `input_context` off
+/// the entire tool_call result) must NOT be flagged as "missing the `data.`
+/// segment" — it already IS the `data` field, there's nothing to strip a
+/// prefix off of. Before this fix the code suggested rewiring to the
+/// nonsense `item.json.data.data`.
+#[tokio::test]
+async fn graph_wiring_warnings_is_silent_for_a_whole_payload_binding() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              "config": { "set": { "note": "=nodes.post.item.json.data" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    assert!(
+        graph_wiring_warnings(&config, &g).await.is_empty(),
+        "{:?}",
+        graph_wiring_warnings(&config, &g).await
+    );
+}
+
+/// Codex feedback on this PR: `ComposioExecuteResponse`'s OTHER top-level
+/// envelope fields (`successful`, `error`, `costUsd`, `markdownFormatted`)
+/// live alongside `data`, not inside it — a binding straight to one of
+/// these is real and legitimate. Before this fix the code flagged
+/// `.item.json.successful` / `.item.json.error` as missing the `data.`
+/// segment and suggested the nonsense `item.json.data.successful`.
+#[tokio::test]
+async fn graph_wiring_warnings_is_silent_for_composio_envelope_metadata_fields() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              "config": { "set": {
+                "ok": "=nodes.post.item.json.successful",
+                "err": "=nodes.post.item.json.error"
+              } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    assert!(
+        graph_wiring_warnings(&config, &g).await.is_empty(),
+        "{:?}",
+        graph_wiring_warnings(&config, &g).await
+    );
+}
+
 #[tokio::test]
 async fn graph_wiring_warnings_suggests_the_real_split_out_path() {
     let mut contract = seeded_slack_send_contract();

@@ -240,6 +240,16 @@ pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph
 /// binding that dereferences `.item.<field>` without `.json` on an
 /// enveloping node — that shape is already a HARD reject in
 /// [`validate_binding_resolvability`], not a warning here.
+///
+/// Also skipped for a binding that addresses the whole payload
+/// (`=nodes.<id>.item.json.data`, e.g. as an agent `input_context`) or one
+/// of `ComposioExecuteResponse`'s OTHER top-level envelope fields —
+/// `successful`, `error`, `costUsd`, `markdownFormatted` — which live
+/// alongside `data`, not inside it. `OpenHumanTools::invoke` serializes the
+/// whole `ComposioExecuteResponse` verbatim, so these ARE real
+/// `.item.json.<x>` fields with no `data.` prefix; flagging them as
+/// "missing the `data.` segment" would rewire an already-correct binding to
+/// a nonsense path (e.g. suggesting `.item.json.data.successful`).
 async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
     use crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog;
@@ -279,6 +289,21 @@ async fn graph_output_field_warnings(config: &Config, graph: &WorkflowGraph) -> 
             };
             // Output schema unknown — nothing real to check `field_path` against.
             if contract.output_schema.is_none() {
+                continue;
+            }
+
+            // Whole-payload access (`.item.json.data`, e.g. an agent's
+            // `input_context`) or one of `ComposioExecuteResponse`'s OTHER
+            // top-level envelope fields — these live alongside `data`, not
+            // inside it, and are real fields regardless of this action's
+            // `output_fields` (see this fn's doc). Not a "missing `data.`"
+            // mistake.
+            const COMPOSIO_ENVELOPE_METADATA_FIELDS: &[&str] =
+                &["successful", "error", "costUsd", "markdownFormatted"];
+            if field_path == "data"
+                || COMPOSIO_ENVELOPE_METADATA_FIELDS
+                    .contains(&field_path.split('.').next().unwrap_or(&field_path))
+            {
                 continue;
             }
 
