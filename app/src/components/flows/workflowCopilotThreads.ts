@@ -26,7 +26,11 @@
  * `main.tsx`), so this stays a plain sync read/write unlike the async
  * redux-persist storage contract in `userScopedStorage.ts`.
  */
+import createDebug from 'debug';
+
 import { getActiveUserId } from '../../store/userScopedStorage';
+
+const log = createDebug('app:flows:copilot-threads');
 
 const STORAGE_PREFIX = 'copilot-thread:';
 
@@ -42,22 +46,30 @@ function storageKey(flowId: string | null): string {
 }
 
 export function getCopilotThreadId(flowId: string | null): string | null {
+  const flowKey = copilotThreadKey(flowId);
   try {
-    return window.localStorage.getItem(storageKey(flowId));
-  } catch {
+    const threadId = window.localStorage.getItem(storageKey(flowId));
+    log('get flow=%s -> %s', flowKey, threadId ?? '(none)');
+    return threadId;
+  } catch (err) {
+    log('get flow=%s failed: %o', flowKey, err);
     return null;
   }
 }
 
 export function setCopilotThreadId(flowId: string | null, threadId: string | null): void {
+  const flowKey = copilotThreadKey(flowId);
   try {
     if (threadId) {
       window.localStorage.setItem(storageKey(flowId), threadId);
+      log('set flow=%s -> thread=%s', flowKey, threadId);
     } else {
       window.localStorage.removeItem(storageKey(flowId));
+      log('clear flow=%s', flowKey);
     }
-  } catch {
+  } catch (err) {
     // Private-mode / quota errors are non-fatal — worst case the copilot
     // simply starts a fresh thread on the next open instead of resuming.
+    log('set flow=%s failed: %o', flowKey, err);
   }
 }
