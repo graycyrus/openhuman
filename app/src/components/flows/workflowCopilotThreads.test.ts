@@ -74,6 +74,34 @@ describe('workflowCopilotThreads', () => {
     }
   });
 
+  it('degrades to a no-op when localStorage.setItem throws (write path)', () => {
+    const original = window.localStorage.setItem;
+    // Simulate private-mode / quota errors on the write path.
+    window.localStorage.setItem = () => {
+      throw new Error('quota exceeded');
+    };
+    try {
+      expect(() => setCopilotThreadId('flow-1', 'thread-abc')).not.toThrow();
+    } finally {
+      window.localStorage.setItem = original;
+    }
+  });
+
+  it('degrades to a no-op when localStorage.removeItem throws (clear path)', () => {
+    setCopilotThreadId('flow-1', 'thread-abc');
+
+    const original = window.localStorage.removeItem;
+    // Simulate private-mode / quota errors on the clear path.
+    window.localStorage.removeItem = () => {
+      throw new Error('unavailable');
+    };
+    try {
+      expect(() => setCopilotThreadId('flow-1', null)).not.toThrow();
+    } finally {
+      window.localStorage.removeItem = original;
+    }
+  });
+
   describe('user scoping (#900/#983 convention)', () => {
     it('namespaces the storage key with the active user id', () => {
       userScopedState.activeUserId = 'user-a';
