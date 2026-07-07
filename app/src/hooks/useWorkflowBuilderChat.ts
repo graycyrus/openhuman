@@ -223,6 +223,11 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
           const lastMessage = latest[latest.length - 1];
           const alreadyStreamed =
             lastMessage?.sender === 'agent' && lastMessage.content === result.assistantText;
+          log(
+            'send: assistantText fallback thread=%s alreadyStreamed=%s',
+            targetThreadId,
+            alreadyStreamed
+          );
           if (!alreadyStreamed) {
             const assistantMessage: ThreadMessage = {
               id: `msg_${globalThis.crypto.randomUUID()}`,
