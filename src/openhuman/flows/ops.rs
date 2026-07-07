@@ -811,7 +811,9 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
     use crate::openhuman::memory_sync::composio::providers::{
         catalog_for_toolkit, get_provider, toolkit_from_slug,
     };
-    use crate::openhuman::tinyflows::caps::{fetch_live_toolkit_catalog, missing_required_args};
+    use crate::openhuman::tinyflows::caps::{
+        fetch_live_toolkit_catalog, missing_required_args, unsupported_arg_names,
+    };
 
     let mut errors = Vec::new();
     for node in &graph.nodes {
@@ -914,6 +916,63 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
                  \"{slug}\" }} for the exact required_args list).",
                 node.id, missing[0]
             ));
+        }
+
+        // [B13] Arg-NAME validity: `missing_required_args` only proves a
+        // required arg is PRESENT — it says nothing about whether every arg
+        // the builder wired is actually a property this action's schema
+        // recognizes. A misnamed/unsupported field (the live bug: wiring
+        // `SLACK_SEND_MESSAGE` with `text` when the action wants
+        // `markdown_text`) sails through the check above unrejected — a
+        // value IS present, just under the wrong key — and only surfaces as
+        // a runtime 400 from the real provider. `unsupported_arg_names`
+        // returns `None` when the schema can't be used to validate names
+        // (unknown schema, or `additionalProperties: true`) — that case is
+        // deliberately never rejected here (best-effort, same posture as the
+        // rest of this gate).
+        if let Some(unsupported) = unsupported_arg_names(contract.input_schema.as_ref(), &args) {
+            if !unsupported.is_empty() {
+                let valid_names: Vec<String> = contract
+                    .input_schema
+                    .as_ref()
+                    .and_then(|s| s.get("properties"))
+                    .and_then(Value::as_object)
+                    .map(|props| {
+                        let mut names: Vec<String> = props.keys().cloned().collect();
+                        names.sort();
+                        names
+                    })
+                    .unwrap_or_default();
+                tracing::warn!(
+                    target: "flows",
+                    node = %node.id,
+                    %slug,
+                    ?unsupported,
+                    ?valid_names,
+                    "[flows] tool-contract check: arg name(s) not declared by the action's \
+                     input schema — rejecting"
+                );
+                let bad_list = unsupported
+                    .iter()
+                    .map(|m| format!("`{m}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let valid_suffix = if valid_names.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        " — valid arg names for `{slug}` are: {}",
+                        valid_names.join(", ")
+                    )
+                };
+                errors.push(format!(
+                    "Node '{}': tool_call `{slug}` has unsupported arg name(s) {bad_list} — not \
+                     a property of this action's input schema{valid_suffix}. Call \
+                     get_tool_contract {{ slug: \"{slug}\" }} and use the exact property names \
+                     from `input_schema` (never guess an arg name).",
+                    node.id
+                ));
+            }
         }
     }
     errors
