@@ -40,9 +40,23 @@ function KebabIcon() {
 export default function FlowRowMenu({ items, rowId }: FlowRowMenuProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEscapeKey(() => setOpen(false), open);
+
+  // Toggle open; when opening, flip the menu upward if there isn't room below —
+  // otherwise the last row's downward menu gets clipped by the list card.
+  const toggle = useCallback(() => {
+    setOpen(prev => {
+      if (!prev && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropUp(window.innerHeight - rect.bottom < 200);
+      }
+      return !prev;
+    });
+  }, []);
 
   // Close on any click outside the menu container.
   useEffect(() => {
@@ -68,7 +82,8 @@ export default function FlowRowMenu({ items, rowId }: FlowRowMenuProps) {
         aria-expanded={open}
         aria-label={t('flows.list.moreActions')}
         title={t('flows.list.moreActions')}
-        onClick={() => setOpen(o => !o)}
+        ref={buttonRef}
+        onClick={toggle}
         className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary">
         <KebabIcon />
       </button>
@@ -77,7 +92,9 @@ export default function FlowRowMenu({ items, rowId }: FlowRowMenuProps) {
         <div
           role="menu"
           data-testid={`flow-menu-list-${rowId}`}
-          className="absolute right-0 z-20 mt-1 min-w-[10rem] overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg">
+          className={`absolute right-0 z-20 min-w-[10rem] overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg ${
+            dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}>
           {items.map(item => (
             <button
               key={item.key}
