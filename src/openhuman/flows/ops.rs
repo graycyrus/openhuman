@@ -1055,12 +1055,10 @@ pub async fn flows_create(
     config: &Config,
     name: String,
     graph_json: Value,
-    require_approval: bool,
 ) -> Result<RpcOutcome<Flow>, String> {
     let graph = validate_and_migrate_graph(graph_json)?;
-    tracing::debug!(target: "flows", %name, node_count = graph.nodes.len(), require_approval, "[flows] flows_create: persisting new flow");
-    let flow =
-        store::create_flow(config, name, graph, require_approval).map_err(|e| e.to_string())?;
+    tracing::debug!(target: "flows", %name, node_count = graph.nodes.len(), "[flows] flows_create: persisting new flow");
+    let flow = store::create_flow(config, name, graph).map_err(|e| e.to_string())?;
 
     if flow.enabled {
         tracing::debug!(target: "flows", flow_id = %flow.id, "[flows] flows_create: flow is enabled — binding automatic-dispatch trigger");
@@ -1306,30 +1304,27 @@ fn title_case_toolkit(toolkit: &str) -> String {
         .join(" ")
 }
 
-/// Updates a flow's name, graph, and/or `require_approval` toggle.
-/// Re-validates the graph (whether newly supplied or the existing one)
-/// before persisting, same as `flows_create`.
+/// Updates a flow's name and/or graph. Re-validates the graph (whether newly
+/// supplied or the existing one) before persisting, same as `flows_create`.
 ///
 /// When the caller supplies a new `graph_json` and the flow is (still)
 /// enabled, re-binds the automatic-dispatch trigger if the trigger
 /// kind/config actually changed (e.g. a new schedule cron expression) —
 /// otherwise the stale binding from the old graph would keep firing on the
 /// old cadence, or a newly-added schedule would never get bound at all.
-/// Skipped entirely for a name/`require_approval`-only update (no
-/// `graph_json` supplied), since the trigger definitely didn't change.
+/// Skipped entirely for a name-only update (no `graph_json` supplied), since
+/// the trigger definitely didn't change.
 pub async fn flows_update(
     config: &Config,
     id: &str,
     name: Option<String>,
     graph_json: Option<Value>,
-    require_approval: Option<bool>,
 ) -> Result<RpcOutcome<Flow>, String> {
     let existing = store::get_flow(config, id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow '{id}' not found"))?;
 
     let new_name = name.unwrap_or_else(|| existing.name.clone());
-    let new_require_approval = require_approval.unwrap_or(existing.require_approval);
     let graph_changed = graph_json.is_some();
     let graph = match graph_json {
         Some(raw) => validate_and_migrate_graph(raw)?,
@@ -1340,8 +1335,8 @@ pub async fn flows_update(
     };
 
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_update: persisting changes");
-    let updated = store::update_flow_graph(config, id, new_name, graph, new_require_approval)
-        .map_err(|e| e.to_string())?;
+    let updated =
+        store::update_flow_graph(config, id, new_name, graph).map_err(|e| e.to_string())?;
 
     if graph_changed && updated.enabled {
         let trigger_unchanged = bus::extract_trigger_kind(&existing)
@@ -1676,7 +1671,6 @@ pub async fn flows_run(
         target: "flows",
         flow_id = %flow_id,
         thread_id = %thread_id,
-        require_approval = flow.require_approval,
         "[flows] flows_run: starting checkpointed run"
     );
 
@@ -1704,7 +1698,7 @@ pub async fn flows_run(
         finish_flow_run_row(config, &thread_id, "failed", &observed, &[], Some(error));
     };
 
-    let origin = workflow_origin(flow_id, flow.require_approval);
+    let origin = workflow_origin(flow_id);
     // Per-run in-memory journal: tinyflows records every graph event as a
     // durable GraphObservation under the run's tinyagents run id, which the
     // post-run Langfuse export reads back. Process-local and dropped with the
@@ -1910,7 +1904,7 @@ pub async fn flows_resume(
         "[flows] flows_resume: resuming checkpointed run"
     );
 
-    let origin = workflow_origin(flow_id, flow.require_approval);
+    let origin = workflow_origin(flow_id);
     // Same per-run journal as `flows_run`: the resumed execution mints a new
     // tinyagents run id, so its observation slice is read under that id.
     let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
@@ -2198,11 +2192,13 @@ async fn drop_checkpoint(config: &Config, thread_id: &str) {
 
 /// Builds the `TrustedAutomation { Workflow }` origin scoped around every
 /// `flows_run` / `flows_resume` invocation. See `flows_run`'s doc for why
-/// this applies uniformly regardless of caller.
-fn workflow_origin(flow_id: &str, require_approval: bool) -> AgentTurnOrigin {
+/// this applies uniformly regardless of caller. Flows have no per-flow
+/// human-in-the-loop toggle — every run scopes the same trust root, which the
+/// approval gate always allows without parking.
+fn workflow_origin(flow_id: &str) -> AgentTurnOrigin {
     AgentTurnOrigin::TrustedAutomation {
         job_id: flow_id.to_string(),
-        source: TrustedAutomationSource::Workflow { require_approval },
+        source: TrustedAutomationSource::Workflow,
     }
 }
 

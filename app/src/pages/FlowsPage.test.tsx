@@ -64,7 +64,6 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
     updated_at: '2026-01-01T00:00:00Z',
     last_run_at: null,
     last_status: null,
-    require_approval: false,
     ...overrides,
   };
 }
@@ -287,7 +286,7 @@ describe('FlowsPage', () => {
     await waitFor(() => expect(importFlow).toHaveBeenCalledWith({ nodes: [] }, 'auto'));
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/flows/draft', {
-        state: { name: 'Imported', graph, requireApproval: true, importWarnings: ['heads up'] },
+        state: { name: 'Imported', graph, importWarnings: ['heads up'] },
       })
     );
   });

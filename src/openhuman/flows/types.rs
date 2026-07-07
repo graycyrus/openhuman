@@ -98,16 +98,8 @@ pub struct Flow {
     pub updated_at: String,
     /// RFC3339 timestamp of the most recent run, if any.
     pub last_run_at: Option<String>,
-    /// Outcome of the most recent run: `"completed"` | `"pending_approval"` | `"failed"`.
+    /// Outcome of the most recent run: `"completed"` | `"failed"`.
     pub last_status: Option<String>,
-    /// "Require approval for outbound actions" (issue B2). When `true`, the
-    /// approval gate does NOT auto-allow this flow's `TrustedAutomation
-    /// { Workflow }` trust root — every external_effect tool/HTTP call the
-    /// flow makes still parks for a real decision, regardless of how the run
-    /// was triggered. See `src/openhuman/approval/gate.rs` and
-    /// `src/openhuman/agent/turn_origin.rs::TrustedAutomationSource::Workflow`.
-    #[serde(default)]
-    pub require_approval: bool,
 }
 
 /// One step of a persisted [`FlowRun`] (run-history inspector).
@@ -362,21 +354,19 @@ mod tests {
             updated_at: "2026-01-01T00:00:00Z".to_string(),
             last_run_at: None,
             last_status: None,
-            require_approval: false,
         };
         let json = serde_json::to_string(&flow).expect("serialize");
         let back: Flow = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.id, flow.id);
         assert_eq!(back.graph, flow.graph);
         assert!(back.last_run_at.is_none());
-        assert!(!back.require_approval);
     }
 
     #[test]
-    fn flow_require_approval_defaults_false_when_omitted_from_json() {
-        // Legacy/serialized JSON authored before the field existed must still
-        // deserialize (SQLite rows are migrated via `add_column_if_missing`,
-        // but any bare JSON fixture should also default safely).
+    fn flow_has_no_require_approval_field() {
+        // The flows human-in-the-loop toggle was removed entirely — the
+        // field must not exist, and legacy JSON that still carries it must
+        // still deserialize cleanly (serde just ignores the unknown key).
         let json = serde_json::json!({
             "id": "flow_1",
             "name": "demo",
@@ -384,9 +374,10 @@ mod tests {
             "graph": sample_graph(),
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z",
+            "require_approval": true,
         });
         let flow: Flow = serde_json::from_value(json).expect("deserialize");
-        assert!(!flow.require_approval);
+        assert_eq!(flow.id, "flow_1");
     }
 
     #[test]

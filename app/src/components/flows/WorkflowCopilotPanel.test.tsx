@@ -27,12 +27,7 @@ function graph(ids: string[]): WorkflowGraph {
 }
 
 function proposalWith(ids: string[]): WorkflowProposal {
-  return {
-    name: 'Revised flow',
-    graph: graph(ids),
-    requireApproval: true,
-    summary: { trigger: 'manual', steps: [] },
-  };
+  return { name: 'Revised flow', graph: graph(ids), summary: { trigger: 'manual', steps: [] } };
 }
 
 const baseGraph = graph(['a', 'b']);

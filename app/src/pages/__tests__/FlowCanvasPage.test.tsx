@@ -61,7 +61,6 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
     updated_at: '2026-01-01T00:00:00Z',
     last_run_at: null,
     last_status: null,
-    require_approval: false,
     ...overrides,
   };
 }
@@ -253,7 +252,7 @@ describe('FlowCanvasPage', () => {
   }
 
   it('renders the draft canvas from router state without fetching or persisting', async () => {
-    renderDraft({ name: 'Proposed flow', graph: draftGraph, requireApproval: true });
+    renderDraft({ name: 'Proposed flow', graph: draftGraph });
 
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
     expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Proposed flow');
@@ -265,18 +264,17 @@ describe('FlowCanvasPage', () => {
   });
 
   it('creates (never updates) the flow when a draft is saved', async () => {
-    renderDraft({ name: 'Proposed flow', graph: draftGraph, requireApproval: true });
+    renderDraft({ name: 'Proposed flow', graph: draftGraph });
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
     // Edit to make it dirty, then Save → the single persistence gate fires
-    // `flows_create` (with the require-approval flag), not `flows_update`.
+    // `flows_create`, not `flows_update`.
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
     fireEvent.click(screen.getByTestId('flow-editor-save'));
 
     await waitFor(() => expect(createFlow).toHaveBeenCalledTimes(1));
-    const [name, graph, requireApproval] = createFlow.mock.calls[0];
+    const [name, graph] = createFlow.mock.calls[0];
     expect(name).toBe('Proposed flow');
-    expect(requireApproval).toBe(true);
     expect(graph.nodes.map((n: { kind: string }) => n.kind).sort()).toEqual(['agent', 'trigger']);
     expect(updateFlow).not.toHaveBeenCalled();
   });

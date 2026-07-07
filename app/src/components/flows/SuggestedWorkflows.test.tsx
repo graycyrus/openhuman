@@ -134,7 +134,6 @@ describe('SuggestedWorkflows', () => {
     hookState.proposal = {
       name: 'Auto-file receipts',
       graph: { nodes: [], edges: [] },
-      requireApproval: true,
       summary: { trigger: 'app_event', steps: [] },
     } as unknown as WorkflowProposal;
 

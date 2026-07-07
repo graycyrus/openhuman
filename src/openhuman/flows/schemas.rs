@@ -157,16 +157,6 @@ fn stream_request_id_input() -> FieldSchema {
     }
 }
 
-fn require_approval_input() -> FieldSchema {
-    FieldSchema {
-        name: "require_approval",
-        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-        comment: "Force a human-approval gate on every outbound tool/HTTP action this flow \
-                  takes, regardless of its saved-flow trust root. Defaults to `false`.",
-        required: false,
-    }
-}
-
 fn run_output_fields() -> Vec<FieldSchema> {
     vec![
         FieldSchema {
@@ -367,7 +357,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                         "A tinyflows WorkflowGraph (nodes + edges); validated and migrated on save.",
                     required: true,
                 },
-                require_approval_input(),
             ],
             outputs: vec![flow_output()],
         },
@@ -515,7 +504,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Replacement WorkflowGraph, if changing it.",
                     required: false,
                 },
-                require_approval_input(),
             ],
             outputs: vec![flow_output()],
         },
@@ -752,9 +740,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
                           propose-only, see #4596). The server renders the agent's brief — the \
                           frontend no longer crafts prompts. Returns `{ proposal, assistant_text, \
                           error }`, where `proposal` is the `{ type: 'workflow_proposal', name, \
-                          graph, require_approval, summary, warnings }` the agent produced (or \
-                          null). No mode auto-persists a graph; save/enable/run stay behind the \
-                          user's explicit action.",
+                          graph, summary, warnings }` the agent produced (or null). No mode \
+                          auto-persists a graph; save/enable/run stay behind the user's explicit \
+                          action.",
             inputs: vec![
                 FieldSchema {
                     name: "mode",
@@ -892,11 +880,7 @@ fn handle_create(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let name = read_required::<String>(&params, "name")?;
         let graph = read_required::<Value>(&params, "graph")?;
-        let require_approval = params
-            .get("require_approval")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        to_json(ops::flows_create(&config, name, graph, require_approval).await?)
+        to_json(ops::flows_create(&config, name, graph).await?)
     })
 }
 
@@ -963,8 +947,7 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
             .transpose()
             .map_err(|e| format!("invalid 'name': {e}"))?;
         let graph = params.get("graph").filter(|v| !v.is_null()).cloned();
-        let require_approval = params.get("require_approval").and_then(Value::as_bool);
-        to_json(ops::flows_update(&config, id.trim(), name, graph, require_approval).await?)
+        to_json(ops::flows_update(&config, id.trim(), name, graph).await?)
     })
 }
 
@@ -1291,14 +1274,11 @@ mod tests {
     }
 
     #[test]
-    fn schemas_create_require_approval_is_optional() {
+    fn schemas_create_has_no_require_approval_field() {
+        // The flows human-in-the-loop toggle was removed entirely — the RPC
+        // param must not exist (not merely optional).
         let s = schemas("create");
-        let field = s
-            .inputs
-            .iter()
-            .find(|f| f.name == "require_approval")
-            .unwrap();
-        assert!(!field.required);
+        assert!(s.inputs.iter().all(|f| f.name != "require_approval"));
     }
 
     #[test]

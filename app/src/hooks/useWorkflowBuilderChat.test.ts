@@ -105,7 +105,6 @@ describe('useWorkflowBuilderChat', () => {
     const proposal: WorkflowProposal = {
       name: 'Digest',
       graph: { nodes: [], edges: [] },
-      requireApproval: true,
       summary: { trigger: 'schedule', steps: [] },
     };
     buildWorkflow.mockResolvedValue(okResult({ proposal }));
@@ -184,7 +183,6 @@ describe('useWorkflowBuilderChat', () => {
     const proposal: WorkflowProposal = {
       name: 'Digest',
       graph: { nodes: [], edges: [] },
-      requireApproval: true,
       summary: { trigger: 'schedule', steps: [] },
     };
     buildWorkflow.mockResolvedValue(

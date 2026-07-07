@@ -167,7 +167,6 @@ describe('flowsApi', () => {
       updated_at: '2026-01-01T00:00:00Z',
       last_run_at: null,
       last_status: null,
-      require_approval: false,
     };
 
     it('calls openhuman.flows_list with no params', async () => {
@@ -204,7 +203,6 @@ describe('flowsApi', () => {
         updated_at: '2026-01-01T00:00:00Z',
         last_run_at: null,
         last_status: null,
-        require_approval: false,
       };
       mockCallCoreRpc.mockResolvedValue(cliEnvelope(flow));
 
@@ -371,7 +369,6 @@ describe('flowsApi', () => {
       type: 'workflow_proposal',
       name: 'Digest',
       graph: { schema_version: 1, name: 'g', nodes: [], edges: [] },
-      require_approval: true,
       summary: { trigger: 'manual', steps: [] },
     };
 

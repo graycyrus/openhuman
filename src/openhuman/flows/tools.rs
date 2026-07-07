@@ -117,10 +117,6 @@ impl Tool for ProposeWorkflowTool {
                         }
                     },
                     "required": ["nodes", "edges"]
-                },
-                "require_approval": {
-                    "type": "boolean",
-                    "description": "Force a human-approval gate on every outbound tool/HTTP action this flow takes once saved. Defaults to false; set true only when the user explicitly asks for an approval step."
                 }
             },
             "required": ["name", "graph"]
@@ -149,15 +145,9 @@ impl Tool for ProposeWorkflowTool {
             _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
         };
 
-        let require_approval = args
-            .get("require_approval")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
         tracing::debug!(
             target: "flows",
             %name,
-            require_approval,
             workspace = %self.config.workspace_dir.display(),
             "[flows] propose_workflow: validating candidate graph"
         );
@@ -229,7 +219,6 @@ impl Tool for ProposeWorkflowTool {
             target: "flows",
             %name,
             node_count = graph.nodes.len(),
-            require_approval,
             warning_count = warnings.len(),
             "[flows] propose_workflow: proposal ready for user review"
         );
@@ -238,7 +227,6 @@ impl Tool for ProposeWorkflowTool {
             "type": "workflow_proposal",
             "name": name,
             "graph": graph_value,
-            "require_approval": require_approval,
             "summary": summary,
             "warnings": warnings,
         }))?))
@@ -248,10 +236,11 @@ impl Tool for ProposeWorkflowTool {
 /// Runs a **saved** workflow by id so the `workflow-builder` agent can *test*
 /// it end-to-end. Unlike [`crate::openhuman::flows::builder_tools::DryRunWorkflowTool`]
 /// (a MOCK sandbox), this is a **real** run — so it is `PermissionLevel::Write`
-/// with `external_effect() == true`. Two safety layers remain: the flow's own
-/// `require_approval` gate still pauses outbound-action nodes mid-run, and the
-/// agent prompt requires it to ASK THE USER for confirmation before ever
-/// calling this. It only runs an already-persisted flow (no `flow_id`, no run).
+/// with `external_effect() == true`. There is no human-in-the-loop pause on a
+/// flow run (that toggle was removed — a run always executes to completion
+/// unattended); the only remaining safety layer is the agent prompt requiring
+/// it to ASK THE USER for confirmation before ever calling this. It only runs
+/// an already-persisted flow (no `flow_id`, no run).
 pub struct RunFlowTool {
     config: Arc<Config>,
 }
@@ -278,12 +267,11 @@ impl Tool for RunFlowTool {
 
     fn description(&self) -> &str {
         "Run a SAVED workflow by id to TEST it end-to-end. This is a REAL run, not a \
-         simulation — real effects can fire (use dry_run_workflow for a safe MOCK run \
-         instead). It only works on a flow the user has already saved; pass its `flow_id`. \
-         You MUST ask the user to confirm and wait for an explicit 'yes' before calling this \
-         — never run a workflow unprompted. The flow's own approval gate still pauses \
-         outbound-action nodes. Params: { flow_id (required), input? }. Returns the run's \
-         status + any nodes paused for approval."
+         simulation — real effects fire immediately, with no approval pause (use \
+         dry_run_workflow for a safe MOCK run instead). It only works on a flow the user has \
+         already saved; pass its `flow_id`. You MUST ask the user to confirm and wait for an \
+         explicit 'yes' before calling this — never run a workflow unprompted. Params: \
+         { flow_id (required), input? }. Returns the run's status."
     }
 
     fn parameters_schema(&self) -> Value {

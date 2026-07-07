@@ -93,14 +93,14 @@ pub enum TrustedAutomationSource {
     /// trigger payload (webhook body, Composio event, …) stays untrusted —
     /// nothing in it can introduce a *new* action, only feed the pre-declared
     /// one's arguments.
-    Workflow {
-        /// Mirrors `Flow::require_approval`: when `true` the gate does NOT
-        /// auto-allow this trust root — every external_effect call still
-        /// parks for a real decision (same shape as `GoalContinuation`),
-        /// letting a user force human review on a specific flow's outbound
-        /// actions regardless of the trust root above.
-        require_approval: bool,
-    },
+    ///
+    /// Flows have no per-flow human-in-the-loop toggle: a `Workflow` origin
+    /// always auto-allows an external_effect call (same shortcut a
+    /// user-authorized cron job gets) — a run never parks for approval. The
+    /// autonomy tier itself is still enforced ahead of this (see
+    /// `crate::openhuman::tinyflows::caps::enforce_node_tier_gate`); this
+    /// origin only governs the approval-gate layer.
+    Workflow,
 }
 
 tokio::task_local! {

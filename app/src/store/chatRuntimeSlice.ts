@@ -518,8 +518,6 @@ export interface WorkflowProposal {
   name: string;
   /** The validated tinyflows WorkflowGraph, ready to hand to `flows_create` as-is. */
   graph: unknown;
-  /** Whether the flow should require approval on every outbound action once saved. */
-  requireApproval: boolean;
   summary: {
     /** One-line description of the trigger (e.g. `"schedule: 0 9 * * *"`). */
     trigger: string;

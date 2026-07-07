@@ -3,15 +3,18 @@
  * ----------------------------------
  *
  * Right-side drawer showing a single durable `tinyflows` run's status + step
- * timeline, opened from the "View run" action on {@link FlowApprovalCard}.
- * Drawer chrome mirrors `features/conversations/components/SubagentDrawer.tsx`
- * (fixed overlay + backdrop-click-to-close + Escape-to-close) so it renders
- * as a fixed overlay regardless of where the parent mounts it in the DOM.
+ * timeline, opened from the "View run" action on a flow's run history
+ * (`FlowRunsDrawer` / `FlowRunsSidebar`). Drawer chrome mirrors
+ * `features/conversations/components/SubagentDrawer.tsx` (fixed overlay +
+ * backdrop-click-to-close + Escape-to-close) so it renders as a fixed
+ * overlay regardless of where the parent mounts it in the DOM.
  *
  * Data comes from {@link useFlowRunPoller}, which polls
  * `openhuman.flows_get_run` every 2s until the run reaches a terminal status
- * (`completed`/`failed`) — `pending_approval` keeps polling since the run can
- * still be resumed elsewhere.
+ * (`completed`/`failed`) — `pending_approval` keeps polling since a node-level
+ * checkpoint gate elsewhere in the graph could still resolve it. There is no
+ * approval UI here (the flows human-in-the-loop toggle was removed); this
+ * status just displays like any other non-terminal state.
  *
  * `FlowRunStep` is lean by design (`node_id` + `output` + optional `port`
  * only — no per-step status/timing), so each step renders as a plain label
@@ -247,7 +250,6 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
 
   const startedAt = formatTimestamp(run?.started_at);
   const finishedAt = formatTimestamp(run?.finished_at);
-  const pendingCount = run?.pending_approvals.length ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" data-testid="flow-run-inspector-drawer">
@@ -355,18 +357,6 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
                     onClick={handleFixWithAgent}>
                     {t('flowRuns.inspector.fixWithAgent')}
                   </Button>
-                </div>
-              )}
-
-              {/* Pending approvals banner */}
-              {run.status === 'pending_approval' && pendingCount > 0 && (
-                <div
-                  data-testid="flow-run-pending-approvals-banner"
-                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-                  {t('flowRuns.inspector.pendingApprovalsCount').replace(
-                    '{count}',
-                    String(pendingCount)
-                  )}
                 </div>
               )}
 

@@ -218,21 +218,24 @@ A flow run is guarded on **two independent layers**, an outer one owned by the
 flows runtime and an inner one owned by the agent harness.
 
 **Outer gate - the flow's origin + autonomy tier.** `flows_run`/`flows_resume`
-scope a `TrustedAutomation { source: Workflow { require_approval } }` origin
-around the whole engine future
-([`flows/ops.rs`](../../../src/openhuman/flows/ops.rs), via
-`with_origin`). Before an *acting* node dispatches, the seam consults the user's
-`[autonomy]` tier through `SecurityPolicy::gate_decision` for that node's
-`CommandClass` (`http_request` → Network, `code` → Write, native `oh:` tools →
-their classified class) in `enforce_node_tier_gate`
+scope a `TrustedAutomation { source: Workflow }` origin around the whole engine
+future ([`flows/ops.rs`](../../../src/openhuman/flows/ops.rs), via
+`with_origin`). Flows have no per-flow human-in-the-loop toggle: this origin
+always resolves to `Allow` at the `ApprovalGate`
+([`approval/gate.rs`](../../../src/openhuman/approval/gate.rs)) — a run never
+parks for approval, regardless of the autonomy tier's decision. Before an
+*acting* node dispatches, the seam still consults the user's `[autonomy]` tier
+through `SecurityPolicy::gate_decision` for that node's `CommandClass`
+(`http_request` → Network, `code` → Write, native `oh:` tools → their
+classified class) in `enforce_node_tier_gate`
 ([`caps.rs`](../../../src/openhuman/tinyflows/caps.rs)):
 
 - a `readonly` run **`Block`s** at the network/code boundary and never dispatches;
-- a `supervised` run's `Prompt` decision is escalated by `gate_call_for_tier`
-  into a **forced `ApprovalGate` round-trip** - even when the flow's own
-  `require_approval` is `false`, so the tier's "ask me" can't be silently
-  defeated by a saved flow's default trust;
-- a `full` run passes through.
+- a `supervised`/`full` run's `Allow`/`Prompt` decision both pass through to
+  the (always-allowing) `ApprovalGate` unattended — there is no forced
+  human-in-the-loop round trip anymore (the former `gate_call_for_tier`
+  escalation this section used to describe was removed alongside the
+  flow-level `require_approval` toggle it protected against).
 
 Composio `tool_call` nodes get an extra deny-by-default **curation gate**
 (`is_curated_flow_tool`): a slug is allowed only if it resolves to a known,

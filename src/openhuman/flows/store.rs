@@ -100,6 +100,14 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
     // `require_approval` (issue B2) — added post-hoc so a workspace created
     // before this column existed still opens cleanly. Mirrors
     // `cron::store`'s `add_column_if_missing` idiom.
+    //
+    // The flows human-in-the-loop concept this column backed has since been
+    // removed (a workflow run never parks for approval regardless of any
+    // per-flow toggle). Dropping the column outright would need a real
+    // migration this store has no established idiom for (unlike adding one);
+    // instead the column stays in the schema for compatibility with rows
+    // written by older builds, but every write hardcodes it to `0` and no
+    // read ever surfaces it — see `upsert_flow`/`map_flow_row` below.
     add_column_if_missing(
         &conn,
         "flow_definitions",
@@ -148,17 +156,21 @@ fn add_column_if_missing(conn: &Connection, table: &str, name: &str, sql_type: &
 
 /// Shared column list for every `flow_definitions` SELECT — keeps
 /// [`map_flow_row`]'s positional `row.get(N)` calls in sync with the query.
-const FLOW_DEFINITION_COLUMNS: &str = "id, name, graph_json, enabled, created_at, updated_at, \
-     last_run_at, last_status, require_approval";
+/// Deliberately excludes `require_approval`: the column still exists (see
+/// the store-open migration note above) but nothing reads it anymore.
+const FLOW_DEFINITION_COLUMNS: &str =
+    "id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status";
 
-/// Inserts or fully replaces a flow definition row.
+/// Inserts or fully replaces a flow definition row. `require_approval` is
+/// always persisted as `0` — the flows human-in-the-loop toggle it backed
+/// was removed; the column stays for legacy-row compatibility only.
 pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
     let graph_json = serde_json::to_string(&flow.graph).context("Failed to serialize graph")?;
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO flow_definitions
                 (id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status, require_approval)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 graph_json = excluded.graph_json,
@@ -166,7 +178,7 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
                 updated_at = excluded.updated_at,
                 last_run_at = excluded.last_run_at,
                 last_status = excluded.last_status,
-                require_approval = excluded.require_approval",
+                require_approval = 0",
             params![
                 flow.id,
                 flow.name,
@@ -176,7 +188,6 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
                 flow.updated_at,
                 flow.last_run_at,
                 flow.last_status,
-                if flow.require_approval { 1 } else { 0 },
             ],
         )
         .context("Failed to upsert flow definition")?;
@@ -185,13 +196,12 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
     })
 }
 
-/// Duplicates an existing [`Flow`] into a fresh row: same graph +
-/// `require_approval`, a new id/timestamps, the given `new_name`, and
-/// **`enabled = false`** so the copy never auto-fires (no schedule/app_event
-/// trigger is bound while disabled — the caller relies on this to keep a
-/// duplicate inert until explicitly enabled). `last_run_at`/`last_status` are
-/// reset to `None` — run history does not carry over. Returns the persisted
-/// copy.
+/// Duplicates an existing [`Flow`] into a fresh row: same graph, a new
+/// id/timestamps, the given `new_name`, and **`enabled = false`** so the copy
+/// never auto-fires (no schedule/app_event trigger is bound while disabled —
+/// the caller relies on this to keep a duplicate inert until explicitly
+/// enabled). `last_run_at`/`last_status` are reset to `None` — run history
+/// does not carry over. Returns the persisted copy.
 pub fn insert_duplicate_flow(config: &Config, source: &Flow, new_name: String) -> Result<Flow> {
     let now = Utc::now().to_rfc3339();
     let flow = Flow {
@@ -203,7 +213,6 @@ pub fn insert_duplicate_flow(config: &Config, source: &Flow, new_name: String) -
         updated_at: now,
         last_run_at: None,
         last_status: None,
-        require_approval: source.require_approval,
     };
     upsert_flow(config, &flow)?;
     tracing::debug!(target: "flows", source_id = %source.id, new_id = %flow.id, "[flows] inserted duplicate flow (disabled)");
@@ -216,7 +225,6 @@ pub fn create_flow(
     config: &Config,
     name: String,
     graph: tinyflows::model::WorkflowGraph,
-    require_approval: bool,
 ) -> Result<Flow> {
     let now = Utc::now().to_rfc3339();
     let flow = Flow {
@@ -228,7 +236,6 @@ pub fn create_flow(
         updated_at: now,
         last_run_at: None,
         last_status: None,
-        require_approval,
     };
     upsert_flow(config, &flow)?;
     Ok(flow)
@@ -317,14 +324,13 @@ pub fn set_enabled(config: &Config, id: &str, enabled: bool) -> Result<Flow> {
     get_flow(config, id)?.ok_or_else(|| anyhow::anyhow!("flow '{id}' not found after update"))
 }
 
-/// Replaces a flow's name/graph/`require_approval` (re-validated by the
-/// caller before this is invoked) in place, bumping `updated_at`.
+/// Replaces a flow's name/graph (re-validated by the caller before this is
+/// invoked) in place, bumping `updated_at`.
 pub fn update_flow_graph(
     config: &Config,
     id: &str,
     name: String,
     graph: tinyflows::model::WorkflowGraph,
-    require_approval: bool,
 ) -> Result<Flow> {
     let graph_json = serde_json::to_string(&graph).context("Failed to serialize graph")?;
     let now = Utc::now().to_rfc3339();
@@ -333,15 +339,8 @@ pub fn update_flow_graph(
     // `enabled` / `last_run_at` / `last_status` from a read-modify-write.
     let changed = with_connection(config, |conn| {
         conn.execute(
-            "UPDATE flow_definitions SET name = ?1, graph_json = ?2, updated_at = ?3, \
-             require_approval = ?4 WHERE id = ?5",
-            params![
-                name,
-                graph_json,
-                now,
-                if require_approval { 1 } else { 0 },
-                id
-            ],
+            "UPDATE flow_definitions SET name = ?1, graph_json = ?2, updated_at = ?3 WHERE id = ?4",
+            params![name, graph_json, now, id],
         )
         .context("Failed to update flow")
     })?;
@@ -386,7 +385,6 @@ fn map_flow_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Flow> {
         updated_at: row.get(5)?,
         last_run_at: row.get(6)?,
         last_status: row.get(7)?,
-        require_approval: row.get::<_, i64>(8)? != 0,
     })
 }
 

@@ -29,8 +29,6 @@ export interface FlowCanvasDraftState {
   name: string;
   /** The candidate graph to open as an editable, unsaved draft. */
   graph: WorkflowGraph;
-  /** "Require approval for outbound actions" toggle to carry into `flows_create`. */
-  requireApproval: boolean;
   /**
    * Non-fatal import warnings (Phase 4d) — surfaced as toasts over the draft
    * canvas when a graph was imported via `flows_import` (unmapped n8n node
@@ -45,12 +43,7 @@ export function asFlowCanvasDraftState(state: unknown): FlowCanvasDraftState | n
   if (!state || typeof state !== 'object') return null;
   const record = state as Record<string, unknown>;
   const graph = record.graph;
-  if (
-    typeof record.name !== 'string' ||
-    !graph ||
-    typeof graph !== 'object' ||
-    typeof record.requireApproval !== 'boolean'
-  ) {
+  if (typeof record.name !== 'string' || !graph || typeof graph !== 'object') {
     return null;
   }
   const importWarnings = Array.isArray(record.importWarnings)
@@ -59,7 +52,6 @@ export function asFlowCanvasDraftState(state: unknown): FlowCanvasDraftState | n
   return {
     name: record.name,
     graph: graph as WorkflowGraph,
-    requireApproval: record.requireApproval,
     ...(importWarnings ? { importWarnings } : {}),
   };
 }

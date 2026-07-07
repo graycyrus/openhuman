@@ -112,35 +112,9 @@ async fn missing_graph_is_an_error() {
 }
 
 #[tokio::test]
-async fn omitted_require_approval_defaults_false_in_result() {
-    let tmp = TempDir::new().unwrap();
-    let tool = ProposeWorkflowTool::new(test_config(&tmp));
-
-    let result = tool
-        .execute(json!({ "name": "demo", "graph": valid_graph() }))
-        .await
-        .unwrap();
-
-    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], false);
-}
-
-#[tokio::test]
-async fn explicit_require_approval_false_is_respected() {
-    let tmp = TempDir::new().unwrap();
-    let tool = ProposeWorkflowTool::new(test_config(&tmp));
-
-    let result = tool
-        .execute(json!({ "name": "demo", "graph": valid_graph(), "require_approval": false }))
-        .await
-        .unwrap();
-
-    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], false);
-}
-
-#[tokio::test]
-async fn explicit_require_approval_true_is_respected() {
+async fn proposal_result_has_no_require_approval_field() {
+    // The flows human-in-the-loop toggle was removed entirely — the
+    // proposal shape must not carry it, even if a caller still sends it.
     let tmp = TempDir::new().unwrap();
     let tool = ProposeWorkflowTool::new(test_config(&tmp));
 
@@ -150,7 +124,7 @@ async fn explicit_require_approval_true_is_respected() {
         .unwrap();
 
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], true);
+    assert!(parsed.get("require_approval").is_none());
 }
 
 #[tokio::test]

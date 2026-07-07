@@ -25,7 +25,7 @@
 //! effect can fire. The carve-out is [`SaveWorkflowTool`]: it persists a graph
 //! onto a flow that ALREADY exists (the Flows prompt bar's instant-create path
 //! makes the flow first and hands the agent its id) — but the agent still
-//! cannot *create* a flow, and never touches `enabled`/`require_approval`.
+//! cannot *create* a flow, and never touches `enabled`.
 //!
 //! The agent's full tool scope (see `agent_registry/agents/workflow_builder/
 //! agent.toml`) also grants the Composio **discovery/connect** tools —
@@ -111,10 +111,6 @@ impl Tool for ReviseWorkflowTool {
                 "instruction": {
                     "type": "string",
                     "description": "The revision instruction that motivated this change (e.g. 'add a Slack step after the summary'). Echoed back for the review card; does not affect validation."
-                },
-                "require_approval": {
-                    "type": "boolean",
-                    "description": "Force a human-approval gate on every outbound action once saved. Defaults to false; set true only when the user explicitly asks for an approval step."
                 }
             },
             "required": ["name", "graph"]
@@ -143,15 +139,10 @@ impl Tool for ReviseWorkflowTool {
             .get("instruction")
             .and_then(Value::as_str)
             .map(str::to_string);
-        let require_approval = args
-            .get("require_approval")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
 
         tracing::debug!(
             target: "flows",
             %name,
-            require_approval,
             has_instruction = instruction.is_some(),
             workspace = %self.config.workspace_dir.display(),
             "[flows] revise_workflow: validating revised candidate graph"
@@ -215,7 +206,6 @@ impl Tool for ReviseWorkflowTool {
             target: "flows",
             %name,
             node_count = graph.nodes.len(),
-            require_approval,
             warning_count = warnings.len(),
             "[flows] revise_workflow: revised proposal ready for user review"
         );
@@ -225,7 +215,6 @@ impl Tool for ReviseWorkflowTool {
             "revision": true,
             "name": name,
             "graph": graph_value,
-            "require_approval": require_approval,
             "summary": summary,
             "warnings": warnings,
         });
@@ -367,7 +356,6 @@ impl Tool for GetFlowTool {
                     "id": f.id,
                     "name": f.name,
                     "enabled": f.enabled,
-                    "require_approval": f.require_approval,
                     "last_status": f.last_status,
                     "graph": graph,
                 }))?))
@@ -1340,8 +1328,9 @@ impl CapturingObserver {
 /// - **Update-only.** It requires an existing `flow_id`; there is still no tool
 ///   to *create* a flow, so the agent can only write where the host (or user)
 ///   already made a flow.
-/// - **Never touches enablement or the approval gate.** `enabled` and
-///   `require_approval` are not parameters; whatever the user set stays.
+/// - **Never touches enablement.** `enabled` is not a parameter; whatever the
+///   user set stays. (There is no approval-gate toggle to preserve either —
+///   the flows human-in-the-loop concept was removed entirely.)
 /// - **Real persistence, real consequences.** Saving a `schedule`/`app_event`
 ///   trigger onto an ENABLED flow arms it (the trigger binds and will fire on
 ///   its own) — hence `PermissionLevel::Write`. The description tells the agent
@@ -1492,7 +1481,7 @@ impl Tool for SaveWorkflowTool {
             "[flows] save_workflow: agent-initiated save to existing flow"
         );
 
-        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None).await {
+        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json)).await {
             Ok(outcome) => {
                 let flow = outcome.value;
                 tracing::info!(
@@ -1507,7 +1496,6 @@ impl Tool for SaveWorkflowTool {
                     "flow_id": flow.id,
                     "name": flow.name,
                     "enabled": flow.enabled,
-                    "require_approval": flow.require_approval,
                     "node_count": flow.graph.nodes.len(),
                     "warnings": warnings,
                 }))?))

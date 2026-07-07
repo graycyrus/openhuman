@@ -70,14 +70,13 @@ fn usage_to_json(usage: &Option<UsageInfo>) -> Value {
 /// tools gate (`policy.gate_decision(CommandClass::Network)`), so a read-only
 /// run can never reach the network or run arbitrary code.
 ///
-/// `Allow`/`Prompt` return `Ok(decision)`: this function only enforces the
-/// non-negotiable `Block` floor itself. The caller uses the returned
-/// [`GateDecision`] to drive [`gate_call_for_tier`] immediately after, which is
-/// what actually performs the `Prompt` round-trip (see that function's doc for
-/// why this is not automatic — a saved workflow's own `require_approval` flag
-/// would otherwise silently override the tier's `Prompt` decision). The error
-/// is prefixed with [`POLICY_BLOCKED_MARKER`] so the harness's repeated-failure
-/// middleware recognizes it as a permanent, don't-retry refusal.
+/// `Allow`/`Prompt` both return `Ok(decision)` and proceed — flows have no
+/// human-in-the-loop concept (removed): a `Workflow` origin always resolves to
+/// [`GateOutcome::Allow`] at [`gate_call_for_tier`] regardless of this tier
+/// decision, so `Prompt` no longer forces a round trip here. This function
+/// only enforces the non-negotiable `Block` floor. The error is prefixed with
+/// [`POLICY_BLOCKED_MARKER`] so the harness's repeated-failure middleware
+/// recognizes it as a permanent, don't-retry refusal.
 fn enforce_node_tier_gate(
     security: &SecurityPolicy,
     class: CommandClass,
@@ -110,92 +109,28 @@ fn enforce_node_tier_gate(
     Ok(decision)
 }
 
-/// Dispatches to the process-global [`ApprovalGate`](crate::openhuman::approval::ApprovalGate),
-/// escalating a `Prompt`-tier decision into a forced human-in-the-loop round
-/// trip regardless of the running flow's own `require_approval` toggle.
+/// Dispatches to the process-global [`ApprovalGate`](crate::openhuman::approval::ApprovalGate)
+/// for its allowlist/audit bookkeeping.
 ///
-/// **Why this is needed (Codex P1 finding):** `ApprovalGate::intercept_audited`
-/// branches on the scoped [`AgentTurnOrigin`](crate::openhuman::agent::turn_origin::AgentTurnOrigin) —
-/// for a `TrustedAutomation { source: Workflow { require_approval: false }, .. }`
-/// origin (the default for every saved flow unless the author opts in) it
-/// returns `Allow` unconditionally, the same pre-declared-trust-root shortcut a
-/// user-authorized cron job gets. That shortcut is correct when the node's
-/// autonomy-tier decision was itself `Allow`, but it silently defeats a
-/// Supervised-tier `Prompt` decision: without this escalation, a Supervised
-/// user's `http_request`/`code` node would run unattended purely because the
-/// flow's `require_approval` defaults to `false` — the tier's "ask me" was
-/// never actually enforced.
-///
-/// When `tier_decision` is [`GateDecision::Prompt`] and the current origin is a
-/// `Workflow { require_approval: false }` trust root, this scopes a *for this
-/// call only* `Workflow { require_approval: true }` origin around
-/// `intercept_audited`, forcing the real parking/HITL flow. `GateDecision::Allow`
-/// (and any other origin shape) passes through unchanged — existing behavior.
+/// **Flows never park for approval** (the flows `require_approval` / HITL
+/// concept was removed): a `Workflow` origin always resolves to
+/// [`crate::openhuman::approval::GateOutcome::Allow`] inside
+/// `intercept_audited` regardless of the tier decision that gated dispatch
+/// (see [`enforce_node_tier_gate`]) — a `Prompt` tier decision no longer
+/// forces a human-in-the-loop round trip here (that escalation, the former
+/// "Codex P1" fix, was removed alongside the flow-level toggle it protected
+/// against). The hard `Block` floor from [`enforce_node_tier_gate`] is
+/// unaffected and still refuses outright before this is ever called.
 async fn gate_call_for_tier(
-    tier_decision: GateDecision,
     tool_name: &str,
     action_summary: &str,
     args_redacted: Value,
 ) -> (crate::openhuman::approval::GateOutcome, Option<String>) {
-    use crate::openhuman::agent::turn_origin;
-
     let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() else {
         return (crate::openhuman::approval::GateOutcome::Allow, None);
     };
-
-    match escalated_origin_for_prompt(tier_decision, turn_origin::current()) {
-        Some(escalated) => {
-            tracing::debug!(
-                target: "flows",
-                tool_name,
-                "[flows] node tier gate: tier decision is Prompt — escalating this dispatch to a \
-                 forced approval round-trip regardless of the flow's require_approval toggle"
-            );
-            turn_origin::with_origin(
-                escalated,
-                gate.intercept_audited(tool_name, action_summary, args_redacted),
-            )
-            .await
-        }
-        None => {
-            gate.intercept_audited(tool_name, action_summary, args_redacted)
-                .await
-        }
-    }
-}
-
-/// Pure decision core of [`gate_call_for_tier`]: when `tier_decision` is
-/// [`GateDecision::Prompt`] and `origin` is a `Workflow { require_approval:
-/// false }` trust root, returns a clone of that origin with `require_approval`
-/// flipped to `true` (the forced escalation). Otherwise returns `None` — the
-/// caller then dispatches through the unmodified origin, matching prior
-/// behavior. Split out as a free function over plain values (no gate, no
-/// task-local read) so the escalation policy is unit-testable without a live
-/// `ApprovalGate`.
-fn escalated_origin_for_prompt(
-    tier_decision: GateDecision,
-    origin: Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin>,
-) -> Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin> {
-    use crate::openhuman::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
-
-    if tier_decision != GateDecision::Prompt {
-        return None;
-    }
-    match origin {
-        Some(AgentTurnOrigin::TrustedAutomation {
-            job_id,
-            source:
-                TrustedAutomationSource::Workflow {
-                    require_approval: false,
-                },
-        }) => Some(AgentTurnOrigin::TrustedAutomation {
-            job_id,
-            source: TrustedAutomationSource::Workflow {
-                require_approval: true,
-            },
-        }),
-        _ => None,
-    }
+    gate.intercept_audited(tool_name, action_summary, args_redacted)
+        .await
 }
 
 /// Cap on the serialized `input_context` block size (bytes of the pretty-
@@ -1331,21 +1266,21 @@ async fn resolve_composio_account(
 ///   `composio_connection_id`).
 /// - **Trust gate**: invocation is also routed through the OpenHuman
 ///   `ApprovalGate` (mirrors `tinyagents/middleware.rs::ApprovalSecurityMiddleware`)
-///   before dispatch, closing the Codex P1 finding that flow tool nodes
-///   bypassed the Network/tool approval gate entirely. `ops::flows_run` /
-///   `flows_resume` scope a `TrustedAutomation { Workflow }` origin around
-///   the whole run, so the gate either auto-allows (pre-declared trust root)
-///   or — when the flow's `require_approval` is set — parks for a real
-///   decision. No gate installed (unit tests, some hosts) means no gating,
-///   same as the existing agent tool-loop middleware.
+///   before dispatch — kept for its allowlist/audit bookkeeping only.
+///   `ops::flows_run` / `flows_resume` scope a `TrustedAutomation { Workflow }`
+///   origin around the whole run, and that origin always auto-allows (flows
+///   have no human-in-the-loop toggle anymore — a run never parks). No gate
+///   installed (unit tests, some hosts) means no gating, same as the existing
+///   agent tool-loop middleware.
 ///
 /// // SECURITY NOTE (tinyflows 0.3, now the pinned version): integration nodes
 /// // `=`-resolve config from upstream/trigger data, so a trigger-driven flow
 /// // whose `slug`/`url` is `=`-derived lets untrusted trigger data pick *which*
 /// // curated + in-scope + connected tool/endpoint runs (blast radius bounded by
-/// // the curation + scope + connection checks above and the approval gate).
-/// // For such flows authors should set `require_approval`. FOLLOW-UP: auto-force
-/// // approval when a trigger-driven run's tool/http config contains `=`-exprs.
+/// // the curation + scope + connection checks above). There is no longer a
+/// // human-in-the-loop mitigation available for this (the flows approval
+/// // toggle was removed) — the curation/scope/connection checks are the only
+/// // remaining backstop for an `=`-derived tool/http config.
 pub struct OpenHumanTools {
     pub config: Arc<Config>,
 }
@@ -1882,8 +1817,7 @@ impl ToolInvoker for OpenHumanTools {
             let tier_decision = enforce_node_tier_gate(&security, class, "tool_call")?;
             let summary = crate::openhuman::approval::summarize_action(tool_name, &args);
             let redacted = crate::openhuman::approval::redact_args(&args);
-            let (outcome, _request_id) =
-                gate_call_for_tier(tier_decision, tool_name, &summary, redacted).await;
+            let (outcome, _request_id) = gate_call_for_tier(tool_name, &summary, redacted).await;
             if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
                 return Err(EngineError::Capability(reason));
             }
@@ -2204,20 +2138,16 @@ impl HttpClient for OpenHumanHttp {
 
         // Autonomy-tier gate (Phase 2): an http_request node reaches the network,
         // so it is Network-class. A read-only run `Block`s here and never
-        // dispatches; Supervised/Full fall through to the ApprovalGate below.
-        // `gate_call_for_tier` is what actually performs the `Prompt` round-trip
-        // — it escalates a Supervised `Prompt` decision into a forced approval
-        // regardless of the flow's own `require_approval` toggle (Codex P1).
-        let tier_decision =
-            enforce_node_tier_gate(&self.security, CommandClass::Network, "http_request")?;
+        // dispatches; Supervised/Full fall through to the ApprovalGate below,
+        // which always allows (flows never park for approval).
+        enforce_node_tier_gate(&self.security, CommandClass::Network, "http_request")?;
 
         // The approval gate summarizes/redacts the request BEFORE any credential
         // is injected, so a stored secret never lands in the approval UI or
         // audit trail. Injection happens strictly after this point.
         let summary = crate::openhuman::approval::summarize_action(TOOL_NAME, &request);
         let redacted = crate::openhuman::approval::redact_args(&request);
-        let (outcome, audit_id) =
-            gate_call_for_tier(tier_decision, TOOL_NAME, &summary, redacted).await;
+        let (outcome, audit_id) = gate_call_for_tier(TOOL_NAME, &summary, redacted).await;
         if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
             return Err(EngineError::Capability(reason));
         }
@@ -2299,10 +2229,11 @@ impl HttpClient for OpenHumanHttp {
 /// **Phase 2 — autonomy-tier gating:** a `code` node runs arbitrary user code
 /// in a sandbox, so it is treated as [`CommandClass::Write`] (state-changing but
 /// sandbox-bounded — not inherently catastrophic). Before dispatch it consults
-/// [`enforce_node_tier_gate`]: a read-only run `Block`s and never executes; a
-/// Supervised run then routes through the `ApprovalGate` (Write ⇒ `Prompt`); a
-/// Full run executes silently. This closes the prior gap where the code node had
-/// no policy check and no approval gate at all.
+/// [`enforce_node_tier_gate`]: a read-only run `Block`s and never executes;
+/// Supervised/Full both fall through to the `ApprovalGate`, which always
+/// allows for a flow run (flows never park for approval). This closes the
+/// prior gap where the code node had no policy check at all — the hard
+/// `Block` floor still applies under a read-only tier.
 pub struct OpenHumanCode {
     pub config: Arc<Config>,
     pub security: Arc<SecurityPolicy>,
@@ -2315,21 +2246,20 @@ impl CodeRunner for OpenHumanCode {
     async fn run(&self, language: CodeLanguage, source: &str, input: Value) -> Result<Value> {
         // Autonomy-tier gate (Phase 2): sandboxed arbitrary-code execution is
         // Write-class. A read-only run `Block`s here and never spawns anything;
-        // Supervised/Full fall through to the ApprovalGate below.
-        let tier_decision = enforce_node_tier_gate(&self.security, CommandClass::Write, "code")?;
+        // Supervised/Full fall through to the ApprovalGate below, which always
+        // allows (flows never park for approval).
+        enforce_node_tier_gate(&self.security, CommandClass::Write, "code")?;
 
-        // Approval gate (mirrors OpenHumanTools/OpenHumanHttp): `gate_call_for_tier`
-        // is what turns a Supervised-tier `Prompt` decision into a real human
-        // round-trip before any code runs — escalating past the flow's own
-        // `require_approval` toggle when the tier itself says "ask me" (Codex P1).
-        // A Deny short-circuits. The audit summary is computed on a redacted view
-        // of the request, never the raw source secrets, matching the other
-        // acting adapters.
+        // Approval gate (mirrors OpenHumanTools/OpenHumanHttp) — kept for its
+        // allowlist/audit bookkeeping; it always resolves to `Allow` for a
+        // flow's `Workflow` origin, so this can only ever short-circuit on a
+        // `Deny` from some other layer, not from human review (there is none).
+        // The audit summary is computed on a redacted view of the request,
+        // never the raw source secrets, matching the other acting adapters.
         let action = json!({ "language": format!("{language:?}"), "source": source });
         let summary = crate::openhuman::approval::summarize_action("flows_code", &action);
         let redacted = crate::openhuman::approval::redact_args(&action);
-        let (gate_outcome, audit_id) =
-            gate_call_for_tier(tier_decision, "flows_code", &summary, redacted).await;
+        let (gate_outcome, audit_id) = gate_call_for_tier("flows_code", &summary, redacted).await;
         if let crate::openhuman::approval::GateOutcome::Deny { reason } = gate_outcome {
             return Err(EngineError::Capability(reason));
         }
@@ -3421,68 +3351,6 @@ mod tests {
         }
     }
 
-    // ── Codex P1: Prompt-tier decisions must escalate past a workflow's own
-    // require_approval=false default, never silently auto-allow ────────────
-
-    use crate::openhuman::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
-
-    fn workflow_origin(job_id: &str, require_approval: bool) -> AgentTurnOrigin {
-        AgentTurnOrigin::TrustedAutomation {
-            job_id: job_id.to_string(),
-            source: TrustedAutomationSource::Workflow { require_approval },
-        }
-    }
-
-    /// A `Prompt` tier decision on a default (`require_approval: false`)
-    /// workflow trust root escalates to `require_approval: true` — the forced
-    /// human-in-the-loop round trip that closes the Codex P1 finding.
-    #[test]
-    fn prompt_decision_escalates_default_workflow_origin() {
-        let escalated = escalated_origin_for_prompt(
-            GateDecision::Prompt,
-            Some(workflow_origin("flow-1", false)),
-        )
-        .expect("a Prompt decision on require_approval=false must escalate");
-        assert!(matches!(
-            escalated,
-            AgentTurnOrigin::TrustedAutomation {
-                source: TrustedAutomationSource::Workflow {
-                    require_approval: true
-                },
-                ..
-            }
-        ));
-    }
-
-    /// A flow that already opted into `require_approval: true` needs no
-    /// escalation — it's already forced through the parking flow.
-    #[test]
-    fn prompt_decision_does_not_re_escalate_already_gated_workflow() {
-        assert!(escalated_origin_for_prompt(
-            GateDecision::Prompt,
-            Some(workflow_origin("flow-1", true))
-        )
-        .is_none());
-    }
-
-    /// An `Allow` tier decision never escalates, regardless of the workflow's
-    /// `require_approval` toggle — Full-tier runs keep running unattended.
-    #[test]
-    fn allow_decision_never_escalates() {
-        assert!(escalated_origin_for_prompt(
-            GateDecision::Allow,
-            Some(workflow_origin("flow-1", false))
-        )
-        .is_none());
-    }
-
-    /// No scoped origin (or a non-Workflow origin) never escalates — there is
-    /// nothing to force through the workflow-specific parking flow.
-    #[test]
-    fn prompt_decision_does_not_escalate_without_a_workflow_origin() {
-        assert!(escalated_origin_for_prompt(GateDecision::Prompt, None).is_none());
-    }
-
     // ── Phase 7: sub_workflow-by-id resolver ───────────────────────────────
 
     fn resolver_test_config(tmp: &tempfile::TempDir) -> Config {
@@ -3520,7 +3388,7 @@ mod tests {
         let config = Arc::new(resolver_test_config(&tmp));
 
         let graph_json = serde_json::to_value(trigger_only_graph()).unwrap();
-        let flow = flows::ops::flows_create(&config, "child".to_string(), graph_json, false)
+        let flow = flows::ops::flows_create(&config, "child".to_string(), graph_json)
             .await
             .expect("create flow");
         let flow_id = flow.value.id.clone();

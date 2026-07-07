@@ -20,7 +20,6 @@ import {
 } from '../../store/notificationSlice';
 import Button from '../ui/Button';
 import CoreNotificationCard from './CoreNotificationCard';
-import FlowApprovalCard from './FlowApprovalCard';
 import NotificationCard from './NotificationCard';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,10 +27,13 @@ import NotificationCard from './NotificationCard';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A paused `tinyflows` run's approval prompt (issue B3a) — id set by
- * `notify_pending_approval` in `src/openhuman/flows/ops.rs`. Routed to
- * `FlowApprovalCard` instead of the generic `CoreNotificationCard`, which is
- * hardcoded to the meeting auto-join RPC.
+ * A paused `tinyflows` run's node-level checkpoint gate (a per-node
+ * `requires_approval` config, unrelated to the removed flow-level
+ * human-in-the-loop toggle) still stamps a `flow-pending-approval:*` id via
+ * `notify_pending_approval` in `src/openhuman/flows/ops.rs`. There is no
+ * flow-run approval UI anymore — `CoreNotificationCard` is hardcoded to the
+ * meeting auto-join RPC and would render a broken "Approve" action for this
+ * id, so these are filtered out rather than misrendered.
  */
 function isFlowApproval(item: { id: string }): boolean {
   return item.id.startsWith('flow-pending-approval:');
@@ -196,13 +198,11 @@ const NotificationCenter = () => {
             always shown first, independent of integration load state. */}
         {coreActionItems.length > 0 && (
           <div className="divide-y-0">
-            {coreActionItems.map(item =>
-              isFlowApproval(item) ? (
-                <FlowApprovalCard key={item.id} notification={item} />
-              ) : (
+            {coreActionItems
+              .filter(item => !isFlowApproval(item))
+              .map(item => (
                 <CoreNotificationCard key={item.id} notification={item} />
-              )
-            )}
+              ))}
           </div>
         )}
 

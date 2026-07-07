@@ -118,10 +118,8 @@ export interface Flow {
   updated_at: string;
   /** RFC3339 timestamp of the most recent run, if any. */
   last_run_at: string | null;
-  /** Outcome of the most recent run: `"completed"` | `"pending_approval"` | `"failed"`. */
+  /** Outcome of the most recent run: `"completed"` | `"failed"`. */
   last_status: string | null;
-  /** "Require approval for outbound actions" toggle (issue B2). */
-  require_approval: boolean;
 }
 
 /**
@@ -176,7 +174,6 @@ export interface FlowConnection {
 export interface FlowUpdate {
   name?: string;
   graph?: unknown;
-  requireApproval?: boolean;
 }
 
 /** Lifecycle status of a {@link FlowSuggestion} (`src/openhuman/flows/types.rs::SuggestionStatus`). */
@@ -241,23 +238,13 @@ function unwrapCliEnvelope<T>(payload: unknown): T {
  * `propose_workflow` tool (`src/openhuman/flows/tools.rs`) only validates a
  * candidate graph and returns a summary; `WorkflowProposalCard`'s "Save &
  * enable" button is what calls this function, directly from the client, on
- * the user's explicit action. `requireApproval` defaults server-side to
- * `false` when omitted, but the B4 proposal flow always passes it explicitly
- * (defaulting to `true` on the Rust tool side) so a saved agent-proposed flow
- * starts with its outbound-action approval gate on.
+ * the user's explicit action.
  */
-export async function createFlow(
-  name: string,
-  graph: unknown,
-  requireApproval?: boolean
-): Promise<Flow> {
-  log('createFlow: request name=%s requireApproval=%s', name, requireApproval ?? 'default');
+export async function createFlow(name: string, graph: unknown): Promise<Flow> {
+  log('createFlow: request name=%s', name);
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_create',
-    params:
-      requireApproval === undefined
-        ? { name, graph }
-        : { name, graph, require_approval: requireApproval },
+    params: { name, graph },
   });
   const flow = unwrapCliEnvelope<Flow>(response);
   log('createFlow: response id=%s name=%s enabled=%s', flow.id, flow.name, flow.enabled);
@@ -265,10 +252,14 @@ export async function createFlow(
 }
 
 /**
- * Resume a `pending_approval` flow run past its checkpoint via
- * `openhuman.flows_resume`. `approvals` should name the node ids from the
- * triggering notification's `node_ids` payload — the Rust side rejects the
- * call outright unless at least one named id matches a currently-pending gate.
+ * Resume a run paused on a node-level `requires_approval` checkpoint gate
+ * (a per-node tinyflows config, unrelated to the removed flow-level
+ * human-in-the-loop toggle) via `openhuman.flows_resume`. `approvals` should
+ * name the node ids from the triggering notification's `node_ids` payload —
+ * the Rust side rejects the call outright unless at least one named id
+ * matches a currently-pending gate. There is no dedicated UI surface for this
+ * anymore (the flow-run approval card was removed); kept as a thin RPC
+ * wrapper for callers that still need to drive a resume programmatically.
  */
 export async function resumeFlow(
   id: string,
@@ -434,16 +425,14 @@ export async function duplicateFlow(id: string): Promise<Flow> {
  */
 export async function updateFlow(id: string, update: FlowUpdate): Promise<Flow> {
   log(
-    'updateFlow: request id=%s name=%s graph=%s requireApproval=%s',
+    'updateFlow: request id=%s name=%s graph=%s',
     id,
     update.name ?? '(unchanged)',
-    update.graph === undefined ? '(unchanged)' : 'present',
-    update.requireApproval ?? 'unchanged'
+    update.graph === undefined ? '(unchanged)' : 'present'
   );
   const params: Record<string, unknown> = { id };
   if (update.name !== undefined) params.name = update.name;
   if (update.graph !== undefined) params.graph = update.graph;
-  if (update.requireApproval !== undefined) params.require_approval = update.requireApproval;
   const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_update', params });
   const flow = unwrapCliEnvelope<Flow>(response);
   log('updateFlow: response id=%s name=%s', flow.id, flow.name);
@@ -633,9 +622,6 @@ export function mapWorkflowProposal(payload: unknown): WorkflowProposal | null {
   return {
     name: obj.name,
     graph: obj.graph,
-    // The Rust tool defaults `require_approval` to true when omitted, so treat
-    // anything other than an explicit false as true — in lockstep with the server.
-    requireApproval: obj.require_approval !== false,
     summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
   };
 }

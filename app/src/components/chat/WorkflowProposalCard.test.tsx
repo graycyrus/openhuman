@@ -30,7 +30,6 @@ function proposal(partial: Partial<WorkflowProposal> = {}): WorkflowProposal {
   return {
     name: 'Daily standup summary',
     graph: { nodes: [], edges: [] },
-    requireApproval: true,
     summary: {
       trigger: 'schedule: 0 9 * * *',
       steps: [
@@ -70,9 +69,7 @@ describe('WorkflowProposalCard', () => {
     const p = proposal();
     render(<WorkflowProposalCard threadId="t1" proposal={p} />);
     fireEvent.click(screen.getByText('chat.flowProposal.save'));
-    await waitFor(() =>
-      expect(mockCreateFlow).toHaveBeenCalledWith(p.name, p.graph, p.requireApproval)
-    );
+    await waitFor(() => expect(mockCreateFlow).toHaveBeenCalledWith(p.name, p.graph));
     expect(mockDispatch).toHaveBeenCalledTimes(1);
   });
 
@@ -107,11 +104,7 @@ describe('WorkflowProposalCard', () => {
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     const [route, opts] = mockNavigate.mock.calls[0];
     expect(route).toBe('/flows/draft');
-    expect(opts.state).toEqual({
-      name: p.name,
-      graph: p.graph,
-      requireApproval: p.requireApproval,
-    });
+    expect(opts.state).toEqual({ name: p.name, graph: p.graph });
 
     // The single persistence gate is untouched — no create/update, and the
     // proposal is left intact in the thread (not dismissed).
@@ -135,17 +128,5 @@ describe('WorkflowProposalCard', () => {
       />
     );
     expect(screen.getByText('chat.flowProposal.noSteps')).toBeInTheDocument();
-  });
-
-  it('shows the require-approval hint only when requireApproval is true', () => {
-    const { rerender } = render(
-      <WorkflowProposalCard threadId="t1" proposal={proposal({ requireApproval: true })} />
-    );
-    expect(screen.getByText('chat.flowProposal.requireApprovalHint')).toBeInTheDocument();
-
-    rerender(
-      <WorkflowProposalCard threadId="t1" proposal={proposal({ requireApproval: false })} />
-    );
-    expect(screen.queryByText('chat.flowProposal.requireApprovalHint')).not.toBeInTheDocument();
   });
 });

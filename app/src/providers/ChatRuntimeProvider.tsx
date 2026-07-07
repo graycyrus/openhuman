@@ -264,8 +264,8 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
  * `WorkflowProposal` for `WorkflowProposalCard` (issue B4 — agent-first
  * Workflow authoring). The tool's `execute()`
  * (`src/openhuman/flows/tools.rs`) returns
- * `{ type: "workflow_proposal", name, graph, require_approval, summary }` as
- * its `ToolResult` body; this maps that wire shape onto the store's camelCase
+ * `{ type: "workflow_proposal", name, graph, summary }` as its `ToolResult`
+ * body; this maps that wire shape onto the store's camelCase
  * `WorkflowProposal`. Returns `null` for anything that fails to parse or
  * doesn't match the expected shape — defensive, since a malformed proposal
  * must never crash the chat runtime, it should just silently not render a
@@ -324,10 +324,6 @@ function parseWorkflowProposal(output: string): WorkflowProposal | null {
   return {
     name: obj.name,
     graph: obj.graph,
-    // The Rust tool defaults `require_approval` to `true` when the caller
-    // omits it, so treat anything other than an explicit `false` as `true`
-    // here too — keeps the client's fallback in lockstep with the server's.
-    requireApproval: obj.require_approval !== false,
     summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
   };
 }

@@ -281,7 +281,6 @@ export default function FlowsPage() {
         const draft: FlowCanvasDraftState = {
           name: graph.name || file.name.replace(/\.[^.]+$/, ''),
           graph,
-          requireApproval: true,
           importWarnings: result.warnings,
         };
         navigate(FLOW_CANVAS_DRAFT_ROUTE, { state: draft });

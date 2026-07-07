@@ -58,22 +58,10 @@ async fn revise_workflow_validates_and_returns_revision_proposal() {
 }
 
 #[tokio::test]
-async fn revise_workflow_omitted_require_approval_defaults_false() {
-    let tmp = TempDir::new().unwrap();
-    let tool = ReviseWorkflowTool::new(test_config(&tmp));
-
-    let result = tool
-        .execute(json!({ "name": "Revised flow", "graph": valid_graph() }))
-        .await
-        .unwrap();
-
-    assert!(!result.is_error, "{}", result.output());
-    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], false);
-}
-
-#[tokio::test]
-async fn revise_workflow_explicit_require_approval_true_is_respected() {
+async fn revise_workflow_result_has_no_require_approval_field() {
+    // The flows human-in-the-loop toggle was removed entirely — the
+    // revised proposal shape must not carry it, even if a caller still
+    // sends it.
     let tmp = TempDir::new().unwrap();
     let tool = ReviseWorkflowTool::new(test_config(&tmp));
 
@@ -88,7 +76,7 @@ async fn revise_workflow_explicit_require_approval_true_is_respected() {
 
     assert!(!result.is_error, "{}", result.output());
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
-    assert_eq!(parsed["require_approval"], true);
+    assert!(parsed.get("require_approval").is_none());
 }
 
 #[tokio::test]
@@ -954,7 +942,6 @@ async fn seed_flow(config: &Arc<Config>, name: &str) -> String {
             "nodes": [ { "id": "t", "kind": "trigger", "name": "Manual" } ],
             "edges": []
         }),
-        true,
     )
     .await
     .unwrap();
@@ -1013,8 +1000,9 @@ async fn save_workflow_persists_graph_and_name_onto_existing_flow() {
     assert_eq!(parsed["flow_id"], flow_id.as_str());
     assert_eq!(parsed["name"], "AI News Digest");
     assert_eq!(parsed["node_count"], 2);
-    // Enablement / approval gate are NOT touched by the tool.
-    assert_eq!(parsed["require_approval"], true);
+    // Enablement is NOT touched by the tool, and there is no approval-gate
+    // field at all anymore (the flows human-in-the-loop concept was removed).
+    assert!(parsed.get("require_approval").is_none());
 
     // The graph + name really persisted.
     let saved = ops::flows_get(&config, &flow_id).await.unwrap().value;

@@ -1469,7 +1469,6 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
             type: 'workflow_proposal',
             name: 'Notify on new signup',
             graph: { nodes: [], edges: [] },
-            require_approval: true,
             summary: { trigger: 'signup.created', steps: [] },
           }),
           // No `subagent` block and no prior `onSubagentSpawned`/`onSubagentToolCall`
@@ -1486,7 +1485,6 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       const proposal = store.getState().chatRuntime.pendingWorkflowProposalsByThread[threadId];
       expect(proposal).toMatchObject({
         name: 'Notify on new signup',
-        requireApproval: true,
         summary: { trigger: 'signup.created' },
       });
     });

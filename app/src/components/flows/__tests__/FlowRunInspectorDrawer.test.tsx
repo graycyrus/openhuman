@@ -3,8 +3,9 @@
  *
  * Asserts: renders null when `runId` is null; loading state; renders fetched
  * run data (status pill, steps, expandable output, port pill); error state;
- * pending-approvals banner when `status === 'pending_approval'`; run.error
- * banner; Escape and backdrop both close; close button calls `onClose`.
+ * `pending_approval` renders like any other non-terminal status (no special
+ * approval banner — that concept was removed); run.error banner; Escape and
+ * backdrop both close; close button calls `onClose`.
  *
  * Mocks `useFlowRunPoller` directly rather than the underlying RPC client —
  * its own poll-until-terminal contract is covered by
@@ -99,19 +100,14 @@ describe('FlowRunInspectorDrawer', () => {
     expect(screen.getByTestId('flow-run-inspector-error')).toHaveTextContent('network down');
   });
 
-  it('shows the pending-approvals banner when status is pending_approval', () => {
+  it('renders a pending_approval run like any other non-terminal status, with no approval banner', () => {
     useFlowRunPoller.mockReturnValue({
       run: makeRun({ status: 'pending_approval', pending_approvals: ['node-a', 'node-b'] }),
       loading: false,
       error: null,
     });
     renderDrawer('thread-1', vi.fn());
-    expect(screen.getByTestId('flow-run-pending-approvals-banner')).toHaveTextContent('2');
-  });
-
-  it('does not show the pending-approvals banner for a running run', () => {
-    useFlowRunPoller.mockReturnValue({ run: makeRun(), loading: false, error: null });
-    renderDrawer('thread-1', vi.fn());
+    expect(screen.getByTestId('flow-run-status-pill')).toBeInTheDocument();
     expect(screen.queryByTestId('flow-run-pending-approvals-banner')).not.toBeInTheDocument();
   });
 

@@ -308,13 +308,13 @@ pub fn all_tools_with_runtime(
         Box::new(DryRunWorkflowTool::new(security.clone(), config.clone())),
         // Real end-to-end test run of a SAVED flow (Write / external-effect). The
         // workflow-builder prompt requires it to ask the user for confirmation
-        // first, and the flow's own approval gate still pauses outbound nodes.
+        // first; a flow run never pauses for approval (no HITL toggle exists).
         Box::new(RunFlowTool::new(config.clone())),
         // Persist a built graph onto an EXISTING saved flow (Write). Used only
         // when the USER explicitly asks the agent to save; the seeded build
         // turn from the Flows prompt bar is propose-only (see #4596) — Accept
         // + the canvas's own Save persist the graph. The tool itself can
-        // never create a flow or change enabled/require_approval.
+        // never create a flow or change `enabled`.
         Box::new(SaveWorkflowTool::new(config.clone())),
         // Flow Scout discovery: the `flow_discovery` agent's terminal emit
         // sink. Read-only reasoning over the user's data ends by calling

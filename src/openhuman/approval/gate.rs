@@ -320,20 +320,14 @@ impl ApprovalGate {
         // An autonomous goal continuation runs with no user present, so an
         // irreversible external action must never be auto-allowed — not even via
         // the `autonomy.auto_approve` allowlist. Skip the shortcut for that
-        // origin and fall through to the parking flow below. A workflow run
-        // whose flow has `require_approval` set gets the same treatment — the
-        // user explicitly asked for every outbound action on that flow to be
-        // gated, and a global tool allowlist must not silently override that
-        // per-flow choice.
+        // origin and fall through to the parking flow below. Flows have no
+        // per-flow human-in-the-loop toggle (removed) — a `Workflow` origin
+        // always takes the trust-root shortcut below, so it does not need to
+        // participate in this bypass.
         let bypass_auto_approve_shortcut = matches!(
             &origin,
             AgentTurnOrigin::TrustedAutomation {
                 source: TrustedAutomationSource::GoalContinuation,
-                ..
-            } | AgentTurnOrigin::TrustedAutomation {
-                source: TrustedAutomationSource::Workflow {
-                    require_approval: true
-                },
                 ..
             }
         );
@@ -456,42 +450,16 @@ impl ApprovalGate {
                 // here) still make progress on the goal.
             }
             AgentTurnOrigin::TrustedAutomation {
-                source:
-                    TrustedAutomationSource::Workflow {
-                        require_approval: false,
-                    },
+                source: TrustedAutomationSource::Workflow,
                 job_id,
             } => {
                 tracing::debug!(
                     tool = tool_name,
                     flow_id = %job_id,
                     "[approval::gate] trusted workflow automation — pre-declared action, \
-                     allowing without prompt"
+                     allowing without prompt (flows never park for approval)"
                 );
                 return (GateOutcome::Allow, None);
-            }
-            AgentTurnOrigin::TrustedAutomation {
-                source:
-                    TrustedAutomationSource::Workflow {
-                        require_approval: true,
-                    },
-                job_id,
-            } => {
-                tracing::info!(
-                    tool = tool_name,
-                    flow_id = %job_id,
-                    "[approval::gate] workflow run has require_approval enabled — parking for \
-                     HITL review instead of auto-allowing the trust root"
-                );
-                // Fall through to the parking flow (same shape as
-                // GoalContinuation): persists a `pending_approvals` audit row
-                // and publishes `ApprovalRequested`. There is no chat thread to
-                // route the prompt to for a background/triggered flow run yet
-                // (B3 will add a dedicated review surface) — a caller can still
-                // decide it via `approval_decide` (e.g. a generic pending-
-                // approvals list) before the TTL elapses; absent a decision this
-                // TTL-denies, the conservative fail-closed default for a
-                // user-forced HITL gate.
             }
             AgentTurnOrigin::Cli => {
                 tracing::debug!(
@@ -1402,14 +1370,14 @@ mod tests {
 
     #[tokio::test]
     async fn intercept_with_workflow_origin_trust_root_allows_without_prompt() {
-        // A saved+enabled flow's pre-declared tool/HTTP action (trust root,
-        // `require_approval: false`) is allowed without a prompt.
+        // A saved+enabled flow's pre-declared tool/HTTP action is a trust
+        // root — allowed without a prompt. Flows have no per-flow
+        // human-in-the-loop toggle (removed): a `Workflow` origin always
+        // takes this shortcut, it never parks.
         let (gate, _dir) = test_gate();
         let origin = AgentTurnOrigin::TrustedAutomation {
             job_id: "flow-1".into(),
-            source: TrustedAutomationSource::Workflow {
-                require_approval: false,
-            },
+            source: TrustedAutomationSource::Workflow,
         };
         let outcome = turn_origin::with_origin(
             origin,
@@ -1424,48 +1392,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn intercept_with_workflow_require_approval_persists_and_ttl_denies() {
-        // A per-flow `require_approval: true` toggle forces every external
-        // action through the HITL gate even though the origin carries a
-        // trust root — same conservative park-and-audit shape as
-        // `GoalContinuation` / `ExternalChannel`, since there is no flow
-        // review surface to route the prompt to yet (B3).
-        let (gate, _dir) = test_gate(); // 2s TTL
-        let gate = Arc::new(gate);
+    async fn intercept_with_workflow_origin_never_parks_across_repeated_calls() {
+        // A `Workflow` origin always allows, regardless of how many
+        // external_effect calls a run makes — there is no per-flow toggle
+        // (or any other condition) that can flip it into the parking flow.
+        let (gate, _dir) = test_gate();
         let origin = AgentTurnOrigin::TrustedAutomation {
             job_id: "flow-2".into(),
-            source: TrustedAutomationSource::Workflow {
-                require_approval: true,
-            },
+            source: TrustedAutomationSource::Workflow,
         };
-
-        let g = gate.clone();
-        let handle = tokio::spawn(async move {
-            turn_origin::with_origin(
-                origin,
-                g.intercept("composio", "post to slack", serde_json::json!({})),
+        for _ in 0..3 {
+            let outcome = turn_origin::with_origin(
+                origin.clone(),
+                gate.intercept("composio", "post to slack", serde_json::json!({})),
             )
-            .await
-        });
-
-        let mut tries = 0;
-        loop {
-            if !gate.list_pending().unwrap().is_empty() {
-                break;
-            }
-            tries += 1;
-            assert!(
-                tries < 50,
-                "audit row never appeared for require_approval workflow origin"
-            );
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            .await;
+            assert!(matches!(outcome, GateOutcome::Allow));
         }
-
-        let outcome = handle.await.unwrap();
-        match outcome {
-            GateOutcome::Deny { reason } => assert!(reason.contains("timed out")),
-            other => panic!("expected deny, got {other:?}"),
-        }
+        assert!(
+            gate.list_pending().unwrap().is_empty(),
+            "a workflow run must never park an approval request"
+        );
     }
 
     #[tokio::test]

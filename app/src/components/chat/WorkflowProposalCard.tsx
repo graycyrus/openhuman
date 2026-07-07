@@ -68,11 +68,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
       graph.nodes.length,
       graph.edges.length
     );
-    const draft: FlowCanvasDraftState = {
-      name: proposal.name,
-      graph,
-      requireApproval: proposal.requireApproval,
-    };
+    const draft: FlowCanvasDraftState = { name: proposal.name, graph };
     navigate(FLOW_CANVAS_DRAFT_ROUTE, { state: draft });
   };
 
@@ -81,7 +77,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
     setSaving(true);
     setErrorMsg(null);
     try {
-      await createFlow(proposal.name, proposal.graph, proposal.requireApproval);
+      await createFlow(proposal.name, proposal.graph);
       dispatch(clearWorkflowProposalForThread({ threadId }));
       onSaved?.();
     } catch (e) {
@@ -144,12 +140,6 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
               <p className="mt-1 text-xs text-content-faint">{t('chat.flowProposal.noSteps')}</p>
             )}
           </div>
-
-          {proposal.requireApproval && (
-            <p className="mt-2 text-xs text-content-faint">
-              {t('chat.flowProposal.requireApprovalHint')}
-            </p>
-          )}
 
           {errorMsg && <p className="mt-2 text-xs text-coral">⚠ {errorMsg}</p>}
 

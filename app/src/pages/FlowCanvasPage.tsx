@@ -128,8 +128,6 @@ interface EditorFlow {
   flowId: string | null;
   name: string;
   graph: WorkflowGraph;
-  /** "Require approval" toggle carried into `flows_create` when saving a draft. */
-  requireApproval: boolean;
 }
 
 /** The editable canvas body — split out so its hooks only mount once a flow loads. */
@@ -154,7 +152,7 @@ function FlowEditor({
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
-  const { flowId, graph, requireApproval } = editorFlow;
+  const { flowId, graph } = editorFlow;
   // Draft (unsaved) canvases have no persisted id yet; Save creates the flow
   // rather than updating one, and there is nothing runnable to run.
   const isDraft = flowId === null;
@@ -329,7 +327,7 @@ function FlowEditor({
           next.nodes.length,
           next.edges.length
         );
-        const created = await createFlow(name, next, requireApproval);
+        const created = await createFlow(name, next);
         log('save: draft persisted as flow id=%s', created.id);
         navigate(`/flows/${created.id}`, { replace: true });
         return;
@@ -339,7 +337,7 @@ function FlowEditor({
       persistedGraphRef.current = next;
       log('save: flow id=%s persisted', flowId);
     },
-    [isDraft, flowId, name, requireApproval, navigate]
+    [isDraft, flowId, name, navigate]
   );
 
   // Warn on hard tab close / reload while there are unsaved edits.
@@ -612,12 +610,7 @@ export default function FlowCanvasPage() {
     return (
       <FlowEditor
         key={flow.id}
-        editorFlow={{
-          flowId: flow.id,
-          name: flow.name,
-          graph: flow.graph as WorkflowGraph,
-          requireApproval: flow.require_approval,
-        }}
+        editorFlow={{ flowId: flow.id, name: flow.name, graph: flow.graph as WorkflowGraph }}
         initialCopilotSeed={copilotSeed}
         initialBuildSeed={buildSeed}
       />
@@ -701,14 +694,7 @@ export function FlowCanvasDraftPage() {
   if (draft) {
     return (
       <>
-        <FlowEditor
-          editorFlow={{
-            flowId: null,
-            name: draft.name,
-            graph: draft.graph,
-            requireApproval: draft.requireApproval,
-          }}
-        />
+        <FlowEditor editorFlow={{ flowId: null, name: draft.name, graph: draft.graph }} />
         <ToastContainer notifications={toasts} onRemove={removeToast} />
       </>
     );
