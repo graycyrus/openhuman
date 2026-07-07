@@ -2152,12 +2152,16 @@ mod tests {
         let _ = handle.await.unwrap();
     }
 
-    /// Drain `rx` (tolerating broadcast lag from unrelated concurrent
-    /// publishers on the process-wide bus) until a `FlowApprovalRequested`
-    /// arrives.
+    /// Drain `rx` until a `FlowApprovalRequested` for `expected_flow_id`
+    /// arrives. The event bus is process-wide and other tests in this file
+    /// (and elsewhere) publish on it concurrently — including other
+    /// `FlowApprovalRequested` events for *different* flow ids — so this must
+    /// filter by flow id, not just by variant, and tolerate both unrelated
+    /// events and broadcast lag rather than returning the first match.
     async fn find_flow_approval_requested(
         rx: &mut tokio::sync::broadcast::Receiver<crate::core::event_bus::DomainEvent>,
-    ) -> (String, String, String, String) {
+        expected_flow_id: &str,
+    ) -> (String, String, String) {
         loop {
             match rx.recv().await {
                 Ok(crate::core::event_bus::DomainEvent::FlowApprovalRequested {
@@ -2166,7 +2170,7 @@ mod tests {
                     run_id,
                     tool_name,
                     ..
-                }) => return (request_id, flow_id, run_id, tool_name),
+                }) if flow_id == expected_flow_id => return (request_id, run_id, tool_name),
                 Ok(_) => continue,
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
