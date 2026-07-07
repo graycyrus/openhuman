@@ -152,7 +152,11 @@ describe('useWorkflowBuilderChat', () => {
 
   it('surfaces a clarifying question as an assistant message when the builder returns plain text with no proposal (fallback)', async () => {
     buildWorkflow.mockResolvedValue(
-      okResult({ proposal: null, error: null, assistantText: 'Which Slack channel — #eng or #sales?' })
+      okResult({
+        proposal: null,
+        error: null,
+        assistantText: 'Which Slack channel — #eng or #sales?',
+      })
     );
     const { result } = renderHook(() => useWorkflowBuilderChat());
     await act(async () => {
@@ -171,9 +175,9 @@ describe('useWorkflowBuilderChat', () => {
     );
     expect(appendedAgentMessages[0]?.p?.threadId).toBe('builder-1');
     // No proposal was surfaced for this turn.
-    expect(
-      dispatch.mock.calls.some(([a]) => (a as { type: string }).type === 'setProposal')
-    ).toBe(false);
+    expect(dispatch.mock.calls.some(([a]) => (a as { type: string }).type === 'setProposal')).toBe(
+      false
+    );
   });
 
   it('does not double-append when a proposal is returned alongside assistant text', async () => {

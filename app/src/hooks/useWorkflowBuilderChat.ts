@@ -80,8 +80,16 @@ export interface UseWorkflowBuilderChat {
   liveResponse: string;
   /** Last send error (thread create / RPC failure), or `null`. */
   error: string | null;
-  /** Send a builder turn, creating the dedicated thread on first use. */
-  send: (params: WorkflowBuilderSendParams) => Promise<void>;
+  /**
+   * Send a builder turn, creating the dedicated thread on first use. Resolves
+   * with `proposed: true` iff this turn's `flows_build` call returned a
+   * proposal — `false` for a clarifying question, an error, or a call that
+   * never ran (already sending / offline). Callers that loop a conversation
+   * (the copilot's free-text follow-ups) use this to know whether the turn's
+   * instruction is still "unresolved" and must be carried into the next turn
+   * — see `WorkflowCopilotPanel`'s `pendingAskRef`.
+   */
+  send: (params: WorkflowBuilderSendParams) => Promise<{ proposed: boolean }>;
   /** Clear the current proposal (e.g. after Accept/Reject) without persisting. */
   clearProposal: () => void;
 }
@@ -142,16 +150,17 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
     async ({ displayText, request }: WorkflowBuilderSendParams) => {
       if (localSending) {
         log('send: ignored — a turn is already dispatching');
-        return;
+        return { proposed: false };
       }
       if (socketStatus !== 'connected') {
         log('send: blocked — socket not connected (%s)', socketStatus);
         setError('offline');
-        return;
+        return { proposed: false };
       }
       setLocalSending(true);
       setError(null);
       let targetThreadId = threadId;
+      let proposed = false;
       try {
         if (!targetThreadId) {
           log('send: creating dedicated builder thread');
@@ -192,6 +201,7 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
         // `pendingWorkflowProposalsByThread` from the tool result; re-writing the
         // same value here is idempotent and covers a missed socket event / CLI.
         if (result.proposal) {
+          proposed = true;
           dispatch(
             setWorkflowProposalForThread({ threadId: targetThreadId, proposal: result.proposal })
           );
@@ -232,6 +242,7 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
       } finally {
         setLocalSending(false);
       }
+      return { proposed };
     },
     [dispatch, localSending, socketStatus, threadId]
   );

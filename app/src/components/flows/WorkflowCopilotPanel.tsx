@@ -133,13 +133,27 @@ export default function WorkflowCopilotPanel({
     }
   }, [proposal, onProposal]);
 
+  // Holds the ORIGINAL ask when a turn ends without a proposal — i.e. the
+  // agent asked a genuinely-ambiguous clarifying question (the prompt's
+  // "bucket 3" branch) and stopped rather than revising. `submit` always
+  // sends `mode: 'revise'` with the CURRENT graph, but while a question is
+  // still open that graph hasn't changed yet, so a bare follow-up answer
+  // ("#eng") would be the agent's ENTIRE context for the next turn — the
+  // original request ("post a daily summary to Slack") would be lost and the
+  // turn renders as "Revise it as follows: #eng" against a stale/blank draft.
+  // Prepending the unresolved ask keeps that context alive across the Q&A
+  // round-trip; it's cleared once a turn actually proposes (the graph itself
+  // then carries the state, so later revises don't need it).
+  const pendingAskRef = useRef<string | null>(null);
+
   // Auto-send the repair turn once when opened from a failed run.
   const repairSentRef = useRef(false);
   useEffect(() => {
     if (!repairSeed || repairSentRef.current) return;
     repairSentRef.current = true;
-    void send({
-      displayText: t('flows.copilot.repairDisplay'),
+    const instruction = t('flows.copilot.repairDisplay');
+    send({
+      displayText: instruction,
       request: {
         mode: 'repair',
         instruction: '',
@@ -148,6 +162,8 @@ export default function WorkflowCopilotPanel({
         error: repairSeed.error ?? null,
         failingNodeIds: repairSeed.failingNodeIds ?? [],
       },
+    }).then(({ proposed }) => {
+      pendingAskRef.current = proposed ? null : instruction;
     });
   }, [repairSeed, send, t]);
 
@@ -162,11 +178,17 @@ export default function WorkflowCopilotPanel({
   useEffect(() => {
     if (!buildSeed || buildSentRef.current) return;
     buildSentRef.current = true;
-    void send({
+    send({
       displayText: buildSeed.description,
       request: flowId
         ? { mode: 'build', instruction: buildSeed.description, graph, flowId }
         : { mode: 'revise', instruction: buildSeed.description, graph, flowId },
+    }).then(({ proposed }) => {
+      // Not proposed => the seed turn asked a clarifying question instead of
+      // building. Carry the original description forward so the user's
+      // free-text answer (via `submit` below) doesn't strand the agent with
+      // no idea what it was asked to build.
+      pendingAskRef.current = proposed ? null : buildSeed.description;
     });
     // `graph`/`flowId` are read once for the seed turn — later edits must not
     // re-fire it (guarded by the ref regardless).
@@ -184,10 +206,15 @@ export default function WorkflowCopilotPanel({
       const trimmed = (raw ?? text).trim();
       if (!trimmed || sending) return;
       setText('');
-      await send({
+      const priorAsk = pendingAskRef.current;
+      const instruction = priorAsk
+        ? `${priorAsk}\n\n(This is my answer to your question above: ${trimmed})`
+        : trimmed;
+      const { proposed } = await send({
         displayText: trimmed,
-        request: { mode: 'revise', instruction: trimmed, graph, flowId },
+        request: { mode: 'revise', instruction, graph, flowId },
       });
+      pendingAskRef.current = proposed ? null : instruction;
     },
     [text, sending, send, graph, flowId]
   );
