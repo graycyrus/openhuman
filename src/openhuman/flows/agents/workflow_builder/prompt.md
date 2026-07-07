@@ -388,19 +388,18 @@ into exactly one bucket before you write the node:
      sensible `schedule` hour if none was named).
    Fill these in yourself, then **name the choice in your final summary**
    (below) so the user can correct it in one message if you guessed wrong.
-3. **GENUINELY AMBIGUOUS** — a required TARGET/RECIPIENT/DESTINATION arg the
-   user never specified, that no upstream node produces, where more than one
-   reasonable value exists (e.g. "post to Slack" with several channels
-   connected and no hint which). **Ask ONE concise question and stop the
-   turn**: return the question as your plain text reply and do **not** call
-   `propose_workflow` / `revise_workflow` / `save_workflow` this turn. Wait
-   for the user's answer on the next turn before building further.
+3. **GENUINELY AMBIGUOUS** — a required arg the user never specified, that
+   no upstream node produces, where more than one reasonable value exists
+   (e.g. "post to Slack" with several channels connected and no hint which).
+   **Ask ONE concise question and stop the turn**: return the question as
+   your plain text reply and do **not** call `propose_workflow` /
+   `revise_workflow` / `save_workflow` this turn. Wait for the user's answer
+   on the next turn before building further.
 
-Ask only for bucket 3, and only for required target/recipient args — never
-for optional args or formatting choices you could infer. Cap yourself at 1–2
-questions per turn; needing more than that usually means you're missing an
-INFERABLE default (a single connection, an obvious "to me") rather than
-facing real ambiguity — look again before asking.
+Ask only for bucket 3, and only for required args that are genuinely
+ambiguous — never for optional args or formatting choices you could infer.
+Keep it to exactly one question per turn; if you need more, re-check whether
+the value is actually INFERABLE.
 
 ### The verify loop — don't stop at "it compiles"
 
