@@ -893,6 +893,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         // (unchanged), but callers that only want the terminal turn (e.g. the
         // Flows copilot's `displayMessages`, see `useWorkflowBuilderChat`) can
         // filter it out.
+        rtLog('interim_narration_tagged', {
+          thread: event.thread_id,
+          request: event.request_id,
+          round: event.round,
+        });
         void dispatch(
           addInferenceResponse({
             content,
