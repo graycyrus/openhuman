@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use tinyflows::model::{NodeKind, TriggerKind, WorkflowGraph};
 
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
+use crate::openhuman::approval::{FlowRunContext, APPROVAL_FLOW_RUN_CONTEXT};
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
 use crate::openhuman::flows::run_registry;
@@ -1779,16 +1780,27 @@ pub async fn flows_run(
             thread_id.clone(),
         ),
     );
-    let run = with_origin(
-        origin,
-        tinyflows::engine::run_with_checkpointer_journaled_observed(
-            &compiled,
-            input,
-            &caps,
-            checkpointer,
-            &thread_id,
-            journal.clone(),
-            &observer,
+    // Scope the flow/run correlation (issue flow-approval-surface, PR2)
+    // alongside the `Workflow` origin so a tool call the engine dispatches
+    // can, if it parks in the `ApprovalGate`, stamp its `PendingApproval` with
+    // `source_context = Flow { flow_id, run_id }` — the origin alone only
+    // carries `flow_id`. See `approval::gate::APPROVAL_FLOW_RUN_CONTEXT`.
+    let run = APPROVAL_FLOW_RUN_CONTEXT.scope(
+        FlowRunContext {
+            flow_id: flow_id.to_string(),
+            run_id: thread_id.clone(),
+        },
+        with_origin(
+            origin,
+            tinyflows::engine::run_with_checkpointer_journaled_observed(
+                &compiled,
+                input,
+                &caps,
+                checkpointer,
+                &thread_id,
+                journal.clone(),
+                &observer,
+            ),
         ),
     );
     let timed = tokio::time::timeout(std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS), run);
@@ -1986,17 +1998,27 @@ pub async fn flows_resume(
     // `rejections` (issue G4 — deny semantics): a denied gate routes to its
     // `error` port (recovery branch) or, if it has none, fails the run. The
     // empty-rejections case is byte-for-byte the prior approve-only resume.
-    let run = with_origin(
-        origin,
-        tinyflows::engine::resume_with_checkpointer_journaled_observed(
-            &compiled,
-            &caps,
-            checkpointer,
-            thread_id,
-            approvals,
-            rejections,
-            journal.clone(),
-            &observer,
+    //
+    // Same flow/run correlation scope as `flows_run` (see its comment) — a
+    // resumed run can dispatch further tool calls that park, and those parks
+    // need `source_context` too.
+    let run = APPROVAL_FLOW_RUN_CONTEXT.scope(
+        FlowRunContext {
+            flow_id: flow_id.to_string(),
+            run_id: thread_id.to_string(),
+        },
+        with_origin(
+            origin,
+            tinyflows::engine::resume_with_checkpointer_journaled_observed(
+                &compiled,
+                &caps,
+                checkpointer,
+                thread_id,
+                approvals,
+                rejections,
+                journal.clone(),
+                &observer,
+            ),
         ),
     );
 
