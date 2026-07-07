@@ -1390,6 +1390,17 @@ pub struct ToolContract {
     /// [`Self::output_schema`] is `None` (unknown) OR when it's `Some` but
     /// names no top-level properties; check `output_schema` to tell those
     /// two apart.
+    ///
+    /// **These name fields of the tool's PAYLOAD, not of the runtime
+    /// envelope.** Composio's `output_parameters` (what [`Self::output_schema`]
+    /// mirrors) describes the return value the provider hands back — the
+    /// same value that ends up under `ComposioExecuteResponse.data` — NOT
+    /// the `{data, successful, error, costUsd, …}` envelope the execute
+    /// response wraps it in. So a downstream binding to one of these fields
+    /// off a `tool_call` node must dereference `.item.json.data.<field>`
+    /// (the engine's own `{json,text,raw}` envelope, THEN Composio's
+    /// `data` wrapper), never the bare `.item.json.<field>` an agent/
+    /// `http_request` output would use.
     pub output_fields: Vec<String>,
     /// The action's full output JSON Schema, when Composio publishes one.
     /// `None` means "unknown to this listing", not "empty" — mirrors
@@ -1397,9 +1408,13 @@ pub struct ToolContract {
     pub output_schema: Option<Value>,
     /// Dotted path (relative to the envelope's own `json` field — prefix
     /// with `"json."` for a `split_out.path`, e.g. `"json.data.messages"`)
-    /// to the first array-typed property in [`Self::output_schema`], via
-    /// [`compute_primary_array_path`]. `None` when the output schema is
-    /// unknown or names no array property.
+    /// to the first array-typed property in the tool's real runtime output,
+    /// via [`compute_composio_array_path`]. Already accounts for Composio's
+    /// `data` wrapper (see [`Self::output_fields`]'s doc) — this is NOT the
+    /// bare [`compute_primary_array_path`] walk over [`Self::output_schema`],
+    /// which is relative to the unwrapped payload and would be missing the
+    /// leading `data.` segment. `None` when the output schema is unknown or
+    /// names no array property.
     pub primary_array_path: Option<String>,
     /// Whether this action is ALSO one of OpenHuman's hand-curated actions
     /// for its toolkit (`catalog_for_toolkit` /
@@ -1552,7 +1567,7 @@ pub(crate) async fn fetch_live_toolkit_catalog(
             let output_fields =
                 response_fields_from_schema(tool.function.output_parameters.as_ref());
             let primary_array_path =
-                compute_primary_array_path(tool.function.output_parameters.as_ref());
+                compute_composio_array_path(tool.function.output_parameters.as_ref());
             let is_curated = curated_catalog.is_some_and(|cat| find_curated(cat, &slug).is_some());
             ToolContract {
                 slug,
@@ -1576,10 +1591,16 @@ pub(crate) async fn fetch_live_toolkit_catalog(
 
 /// Walks an output JSON Schema breadth-first for the first `type: "array"`
 /// property, returning its dotted path relative to the schema's own root
-/// (e.g. `"data.messages"` for a Gmail-list-shaped `{data: {messages:
-/// [...]}}` schema, or `"messages"` for a flatter `{messages: [...]}`
+/// (e.g. `"data.messages"` for a schema that itself is shaped `{data:
+/// {messages: [...]}}`, or `"messages"` for a flatter `{messages: [...]}`
 /// schema). `None` when `schema` is absent or no array property is found at
 /// any depth.
+///
+/// Pure schema walker — relative to `schema`'s own root, nothing else. A
+/// real Composio `output_parameters` schema is normally shaped like the
+/// flatter example (it describes the tool's payload, not the runtime
+/// envelope around it) — [`compute_composio_array_path`] is the caller that
+/// adjusts for that envelope; this function has no opinion on it.
 ///
 /// Breadth-first (not depth-first): when a schema nests more than one array
 /// property, the SHALLOWEST one wins, since that is virtually always the one
@@ -1615,6 +1636,48 @@ pub(crate) fn compute_primary_array_path(schema: Option<&Value>) -> Option<Strin
         }
     }
     None
+}
+
+/// Whether `schema` already declares a top-level `data` property.
+///
+/// Composio's `output_parameters` normally describes the tool's PAYLOAD
+/// directly (e.g. `{messages: [...], nextPageToken: ...}` for
+/// `GMAIL_FETCH_EMAILS`) — the same value Composio's execute response wraps
+/// in `{data: <payload>, successful, error, costUsd, …}` a layer up, NOT a
+/// shape the schema itself declares. But a listing is, in principle, free to
+/// publish a schema that already nests its fields under a literal `data` key
+/// (e.g. a hand-authored custom-tool schema modeled directly on the execute
+/// envelope) — this is the escape hatch [`compute_composio_array_path`] uses
+/// to avoid double-prefixing that case.
+fn schema_has_top_level_data_property(schema: Option<&Value>) -> bool {
+    schema
+        .and_then(|s| s.get("properties"))
+        .and_then(Value::as_object)
+        .is_some_and(|props| props.contains_key("data"))
+}
+
+/// [`compute_primary_array_path`], adjusted for the wrapper EVERY Composio
+/// `tool_call` result carries at runtime.
+///
+/// A `tool_call` node's real output (`OpenHumanTools::invoke`, which
+/// `serde_json::to_value`s the client's `ComposioExecuteResponse` verbatim)
+/// is `{data: <payload>, successful, error, costUsd, …}` — but the schema
+/// Composio publishes as `output_parameters` (what [`compute_primary_array_path`]
+/// walks) describes only `<payload>`, the content of that `data` field, not
+/// the envelope around it. So the bare walk's result (e.g. `"messages"`) is
+/// missing the `data.` segment a real `split_out.path`/downstream binding
+/// needs (`"data.messages"`) — this wrapper adds it.
+///
+/// Skips the extra prefix when the schema already declares its own
+/// top-level `data` property ([`schema_has_top_level_data_property`]) —
+/// the shallowest-array walk will already have found the array under (or
+/// as) that key, so prefixing again would double it (`"data.data.…"`).
+pub(crate) fn compute_composio_array_path(schema: Option<&Value>) -> Option<String> {
+    let path = compute_primary_array_path(schema)?;
+    if schema_has_top_level_data_property(schema) {
+        return Some(path);
+    }
+    Some(format!("data.{path}"))
 }
 
 /// Best-effort lookup of a Composio action's **required** top-level parameter
@@ -3535,6 +3598,59 @@ mod tests {
         );
         assert_eq!(
             compute_primary_array_path(Some(
+                &json!({ "type": "object", "properties": { "id": { "type": "string" } } })
+            )),
+            None
+        );
+    }
+
+    // ── compute_composio_array_path (B1: the `data` wrapper prefix) ─────────
+
+    #[test]
+    fn compute_composio_array_path_prefixes_data_for_an_unwrapped_payload_schema() {
+        // The real shape: Composio's `output_parameters` for GMAIL_FETCH_EMAILS
+        // describes the payload directly — no `data` key in the schema — but
+        // the tool_call's real runtime output nests that payload one level
+        // deeper under `data` (`ComposioExecuteResponse`). The array path must
+        // account for that even though the schema itself never mentions `data`.
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "messages": { "type": "array" },
+                "nextPageToken": { "type": "string" }
+            }
+        });
+        assert_eq!(
+            compute_composio_array_path(Some(&schema)),
+            Some("data.messages".to_string())
+        );
+    }
+
+    #[test]
+    fn compute_composio_array_path_does_not_double_prefix_a_schema_that_already_wraps_data() {
+        // Defensive case: a listing whose schema already declares its own
+        // top-level `data` key (e.g. modeled directly on the execute
+        // envelope) must not get ANOTHER `data.` prefix stacked on top.
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": { "messages": { "type": "array" } }
+                }
+            }
+        });
+        assert_eq!(
+            compute_composio_array_path(Some(&schema)),
+            Some("data.messages".to_string())
+        );
+    }
+
+    #[test]
+    fn compute_composio_array_path_none_when_the_bare_walk_finds_nothing() {
+        assert_eq!(compute_composio_array_path(None), None);
+        assert_eq!(
+            compute_composio_array_path(Some(
                 &json!({ "type": "object", "properties": { "id": { "type": "string" } } })
             )),
             None

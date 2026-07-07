@@ -220,14 +220,18 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    - **Wiring a DOWNSTREAM node off THIS tool's output?** Don't guess the
      field name (e.g. assuming `GMAIL_FETCH_EMAILS` returns `.messages`) —
      `get_tool_contract`'s `output_fields` names the action's REAL top-level
-     output field names. Bind `=nodes.<tool_call_id>.item.json.<field>` to
-     one of those. If `output_fields` is empty (schema unknown for that
-     action), `dry_run_workflow` the binding before you propose/save it —
-     don't ship a guessed field name.
+     output field names. **A Composio tool_call's result is wrapped in
+     `data`** (`ComposioExecuteResponse`), one level DEEPER than the engine's
+     own `{json,text,raw}` envelope — so bind
+     `=nodes.<tool_call_id>.item.json.data.<field>` (not `.item.json.<field>`)
+     to one of those `output_fields`. If `output_fields` is empty (schema
+     unknown for that action), `dry_run_workflow` the binding before you
+     propose/save it — don't ship a guessed field name.
    - **Fanning out over THIS tool's result list (`split_out`)?** Use
      `get_tool_contract`'s `primary_array_path`, prefixed `json.` — e.g.
-     `"path": "json.data.messages"` — as the downstream `split_out.path`,
-     rather than guessing where the array lives in the response.
+     `"path": "json.data.messages"` — as the downstream `split_out.path`.
+     `primary_array_path` already includes the `data.` segment above, so
+     just prefix `json.` — don't guess where the array lives in the response.
    - **App not connected yet?** You can still build the node with a real
      slug from `search_tool_catalog` (searches the FULL live catalog
      regardless of connection state) and ground it with `get_tool_contract
@@ -285,7 +289,15 @@ Use expressions to thread data between steps (a `transform`'s `set`, an
 kinds is that envelope, NOT the structured value itself:
 
 - Structured fields live under **`.json`** — `"=nodes.<id>.item.json.<field>"`
-  (jq: `"=.nodes[\"<id>\"].items[0].json.<field>"`).
+  (jq: `"=.nodes[\"<id>\"].items[0].json.<field>"`) — **except a Composio
+  `tool_call`**, whose real output nests one level DEEPER, under `data`:
+  `"=nodes.<id>.item.json.data.<field>"`. That's Composio's own execute-
+  response wrapper (`{data, successful, error, costUsd, …}`), stacked
+  underneath the engine's `{json,text,raw}` envelope — `agent` and
+  `http_request` nodes carry no such wrapper and keep the plain
+  `.item.json.<field>` form. A native `oh:`-prefixed tool_call also has no
+  `data` wrapper (it isn't a Composio call) — this only applies to a
+  `tool_call` whose `slug` is a real Composio action.
 - Prose lives under **`.text`** — `"=nodes.<id>.item.text"`.
 - `code`, `transform`, `split_out`, `merge`, `output_parser`, `sub_workflow`,
   and `trigger` nodes do **NOT** envelope — their output is addressed directly,

@@ -734,11 +734,17 @@ impl Tool for GetToolContractTool {
          slug, toolkit, description, required_args, input_schema, output_fields, \
          output_schema, primary_array_path, is_curated }. Use `required_args` for EVERY arg \
          you must wire in config.args; use `output_fields` for a downstream \
-         `=nodes.<id>.item.json.<field>` binding — never guess a field name; use \
-         `primary_array_path` (prefixed with `json.`, e.g. \"json.data.messages\") verbatim as \
-         a downstream split_out.path when you need to fan out over this action's result list. \
-         Call this for every real slug right before you wire its args — search_tool_catalog's \
-         summary is enough to find the slug, this is what grounds the wiring."
+         `=nodes.<id>.item.json.data.<field>` binding — note the `data.` segment: a Composio \
+         tool_call's real runtime output wraps its payload in `data` \
+         (`ComposioExecuteResponse`), so `output_fields` names fields INSIDE that wrapper, not \
+         top-level envelope keys — never guess a field name, and never drop the `data.` \
+         segment (`.item.json.<field>` with no `data.` resolves null even when `<field>` is a \
+         real output field). Use `primary_array_path` (prefixed with `json.`, e.g. \
+         \"json.data.messages\" — the `data.` segment is already baked into the value) verbatim \
+         as a downstream split_out.path when you need to fan out over this action's result \
+         list. Call this for every real slug right before you wire its args — \
+         search_tool_catalog's summary is enough to find the slug, this is what grounds the \
+         wiring."
     }
 
     fn parameters_schema(&self) -> Value {

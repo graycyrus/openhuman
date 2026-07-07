@@ -2043,9 +2043,11 @@ async fn graph_wiring_warnings_flags_a_downstream_field_not_in_output_fields() {
               "config": { "slug": "SLACK_SEND_MESSAGE",
                 "args": { "channel": "#general", "text": "hi" } } },
             { "id": "xform", "kind": "transform", "name": "Log",
-              // Reads a field that isn't in SLACK_SEND_MESSAGE's real
-              // output_fields (`ts`/`channel`) — must WARN, not reject.
-              "config": { "set": { "note": "=nodes.post.item.json.not_a_real_field" } } }
+              // Correctly `data.`-prefixed (a real tool_call's payload is
+              // always nested under `data`), but the field itself isn't in
+              // SLACK_SEND_MESSAGE's real output_fields (`ts`/`channel`) —
+              // must WARN, not reject.
+              "config": { "set": { "note": "=nodes.post.item.json.data.not_a_real_field" } } }
         ],
         "edges": [
             { "from_node": "t", "to_node": "post" },
@@ -2072,7 +2074,9 @@ async fn graph_wiring_warnings_is_silent_when_the_downstream_field_is_real() {
               "config": { "slug": "SLACK_SEND_MESSAGE",
                 "args": { "channel": "#general", "text": "hi" } } },
             { "id": "xform", "kind": "transform", "name": "Log",
-              "config": { "set": { "note": "=nodes.post.item.json.ts" } } }
+              // `data.ts` — correctly dereferences the Composio execute
+              // envelope's `data` wrapper before the real field name.
+              "config": { "set": { "note": "=nodes.post.item.json.data.ts" } } }
         ],
         "edges": [
             { "from_node": "t", "to_node": "post" },
@@ -2083,6 +2087,41 @@ async fn graph_wiring_warnings_is_silent_when_the_downstream_field_is_real() {
     assert!(
         !warnings.iter().any(|w| w.contains("not in")),
         "a real output field must not warn: {warnings:?}"
+    );
+}
+
+/// B1 regression test: the exact "hollow run" bug. Before this fix, a
+/// binding like `=nodes.post.item.json.ts` (a REAL field name, but missing
+/// the `data.` segment every Composio `tool_call`'s runtime output wraps its
+/// payload in) was silently accepted here — it looks like a legitimate
+/// binding to a known output field, but resolves `null` at runtime because
+/// the real value lives one level deeper, under `data`. This must now WARN.
+#[tokio::test]
+async fn graph_wiring_warnings_flags_a_downstream_binding_missing_the_data_prefix() {
+    seed_live_catalog_cache("slack", vec![seeded_slack_send_contract()]);
+    let config = Config::default();
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "#general", "text": "hi" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              // `ts` IS a real SLACK_SEND_MESSAGE output field — but without
+              // the `data.` prefix this is GUARANTEED to resolve null.
+              "config": { "set": { "note": "=nodes.post.item.json.ts" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    let warnings = graph_wiring_warnings(&config, &g).await;
+    assert!(
+        warnings.iter().any(|w| w.contains("item.json.data.ts")
+            && w.contains("post")
+            && w.contains("wraps its payload in `data`")),
+        "{warnings:?}"
     );
 }
 
