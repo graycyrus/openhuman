@@ -307,11 +307,14 @@ the run scope (`.`):
   the first output is used; a bad program yields `null` (never an error).
 - A string **without** a leading `=` is a literal. To emit a literal `=`, don't
   start the string with it.
-- **Never mix the shorthand with jq.** If an expression uses `|`, `[`,
-  functions (`any(...)`, `length`), or any jq beyond a plain dotted path, it
-  MUST start with `.` (the jq root): write
+- **Never mix the shorthand with jq.** If an expression **begins with a bare
+  scope key** (`item`/`items`/`run`/`nodes`) and continues into jq syntax —
+  `|`, `[`, functions (`any(...)`, `length`), or anything beyond a plain
+  dotted path — it MUST start with `.` instead (the jq root): write
   `"=.item.labels | any(.name==\"x\")"`, NOT `"=item.labels | any(...)"`. The
-  plain shorthand `"=item.labels"` (no jq) is fine alone.
+  plain shorthand `"=item.labels"` (no jq) is fine alone. Expressions that
+  already start with valid jq syntax (e.g. `"=[.item.a, .item.b]"` for array
+  construction) don't need an extra leading dot — only bare scope keys do.
 
 The scope exposes:
 
