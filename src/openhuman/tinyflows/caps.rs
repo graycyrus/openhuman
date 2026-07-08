@@ -1776,6 +1776,315 @@ pub(crate) fn compute_composio_array_path(schema: Option<&Value>) -> Option<Stri
     Some(format!("data.{path}"))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Real-output probe (systemic tool-contract fix, Part 3 / B12)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// [`compute_composio_array_path`] above is entirely schema-derived — it has
+// nothing to walk when Composio (or the backend-proxied listing path, see
+// [`crate::openhuman::composio::ComposioToolFunction::output_parameters`]'s
+// doc) simply never publishes `output_parameters` for an action. Verified
+// live: EVERY GitHub action's `get_tool_contract` (including the curated
+// `GITHUB_LIST_REPOSITORY_ISSUES`) comes back `output_fields: [],
+// output_schema: null, primary_array_path: null` — there is no schema at all
+// to fix a walker bug in. The one remaining source of ground truth is the
+// real response itself, so [`probe_tool_output_sample`] makes ONE bounded,
+// READ-only, REAL Composio call and derives the same shape of hint
+// (`primary_array_path`/`output_fields`) from the ACTUAL value instead.
+//
+// This is the exact bug observed live on flow "funny reminders v2": with no
+// schema to consult, the builder guessed `split_out.path = "json.data"` (the
+// whole envelope payload — one item, the `{issues:[...]}` container) instead
+// of the real `"json.data.issues"`, and the downstream condition/agent saw
+// the wrong shape and produced zero reminders.
+
+/// Top-level [`crate::openhuman::composio::ComposioExecuteResponse`] fields
+/// that are never part of the tool's own payload — skipped at the ROOT by
+/// [`compute_primary_array_path_from_value`]'s scan so an envelope field
+/// never masquerades as (or shadows) the real array. None of these are ever
+/// arrays in practice, but the skip is explicit so a future envelope field
+/// can't silently win a shallowest-wins tie against a real nested array.
+const COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT: &[&str] =
+    &["successful", "error", "costUsd", "markdownFormatted"];
+
+/// [`compute_primary_array_path`]'s counterpart for a REAL runtime value
+/// rather than a schema — walks a
+/// [`crate::openhuman::composio::ComposioExecuteResponse`]-shaped value
+/// (envelope AND payload together, e.g. `{data: {issues: [...]}, successful:
+/// true, …}`) breadth-first for the first array-typed property, skipping
+/// [`COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT`] at the root.
+///
+/// Because the scan starts at the envelope root (not the unwrapped payload),
+/// a hit under `data` naturally comes back prefixed (`"data.issues"`) with no
+/// separate `data.` stitching step needed, unlike
+/// [`compute_composio_array_path`] — this walks real data, not a schema
+/// relative to the unwrapped payload.
+///
+/// `None` when no array is found anywhere in the value (e.g. every field is a
+/// scalar) — a genuinely empty real list still serializes as `[]`, an array,
+/// so this only returns `None` for a shape that truly has no list anywhere.
+pub(crate) fn compute_primary_array_path_from_value(value: &Value) -> Option<String> {
+    let mut queue: std::collections::VecDeque<(String, &Value)> = std::collections::VecDeque::new();
+    queue.push_back((String::new(), value));
+
+    while let Some((path, node)) = queue.pop_front() {
+        let Some(obj) = node.as_object() else {
+            continue;
+        };
+        for (key, v) in obj {
+            if path.is_empty() && COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT.contains(&key.as_str()) {
+                continue;
+            }
+            if v.is_array() {
+                let prop_path = if path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{path}.{key}")
+                };
+                return Some(prop_path);
+            }
+        }
+        for (key, v) in obj {
+            if path.is_empty() && COMPOSIO_ENVELOPE_META_KEYS_AT_ROOT.contains(&key.as_str()) {
+                continue;
+            }
+            let prop_path = if path.is_empty() {
+                key.clone()
+            } else {
+                format!("{path}.{key}")
+            };
+            queue.push_back((prop_path, v));
+        }
+    }
+    None
+}
+
+/// One real, LIVE-sampled Composio action result — [`probe_tool_output_sample`]'s
+/// cached ground truth, keyed by action slug (uppercased). Distinct from
+/// (and takes priority over, via [`apply_probe_override`]) the schema-derived
+/// fields on [`ToolContract`]: a probe is an ACTUAL observed response, not a
+/// published schema Composio may or may not provide.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct ProbedOutputSample {
+    /// Dotted path (relative to the envelope's own `json` field — prefix with
+    /// `"json."` for a `split_out.path`, same convention as
+    /// [`ToolContract::primary_array_path`]) to the first array found in the
+    /// real response. `None` when the real response named no array at all.
+    pub primary_array_path: Option<String>,
+    /// Top-level field names of the real response's `data` payload — the
+    /// probed analogue of [`ToolContract::output_fields`].
+    pub output_fields: Vec<String>,
+    /// The full envelope-shaped sample value the probe observed, verbatim —
+    /// kept so a caller needing more than the derived path/fields has the
+    /// ground truth to consult.
+    pub sample: Value,
+}
+
+/// Process-level cache backing [`probe_tool_output_sample`]: action slug
+/// (uppercased) → the [`ProbedOutputSample`] it produced. One real probe per
+/// slug per process — mirrors [`LIVE_CATALOG_CACHE`]'s one-fetch-per-process
+/// shape, and for the same reason: a probe is a real, potentially
+/// rate-limited/billed external call, not something to repeat every turn.
+static PROBE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<String, ProbedOutputSample>>,
+> = std::sync::OnceLock::new();
+
+/// Seeds the probe cache for a slug — test hook so [`apply_probe_override`]
+/// and the enforcement checks that consult a probe can be exercised without a
+/// live Composio backend.
+#[cfg(test)]
+pub(crate) fn seed_probe_cache(slug: &str, sample: ProbedOutputSample) {
+    PROBE_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .expect("probe cache poisoned")
+        .insert(slug.trim().to_ascii_uppercase(), sample);
+}
+
+fn cache_probe_result(slug: &str, sample: ProbedOutputSample) {
+    if let Ok(mut cache) = PROBE_CACHE.get_or_init(Default::default).lock() {
+        cache.insert(slug.trim().to_ascii_uppercase(), sample);
+    }
+}
+
+/// Looks up a cached [`ProbedOutputSample`] for `slug`, or `None` when
+/// [`probe_tool_output_sample`] has never successfully probed it this
+/// process.
+pub(crate) fn probed_output_sample(slug: &str) -> Option<ProbedOutputSample> {
+    PROBE_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .ok()?
+        .get(&slug.trim().to_ascii_uppercase())
+        .cloned()
+}
+
+/// Overlays a cached [`probed_output_sample`] (if any) onto a schema-derived
+/// [`ToolContract`] — the probe, being an ACTUAL observed response, always
+/// wins over the schema-derived hint when both are present. A contract with
+/// no cached probe passes through unchanged. Called everywhere a
+/// [`ToolContract`] is consulted for wiring (`get_tool_contract`,
+/// `graph_output_field_warnings`, `graph_split_out_path_warnings`) so a
+/// probe the builder already ran is never shadowed by a stale/absent schema.
+pub(crate) fn apply_probe_override(mut contract: ToolContract) -> ToolContract {
+    if let Some(probe) = probed_output_sample(&contract.slug) {
+        if probe.primary_array_path.is_some() {
+            contract.primary_array_path = probe.primary_array_path;
+        }
+        if !probe.output_fields.is_empty() {
+            contract.output_fields = probe.output_fields;
+        }
+    }
+    contract
+}
+
+/// Best-effort classification of a Composio action slug's [`ToolScope`] —
+/// curated catalog first, falling back to `classify_unknown`'s verb
+/// heuristic. Used by [`probe_tool_output_sample`] to hard-refuse a
+/// non-`Read` action REGARDLESS of the user's per-toolkit scope preference —
+/// unlike [`flow_tool_allowed`], which honors a user's opt-in to Write/Admin
+/// for a real `tool_call` node, a schema-discovery probe must never perform a
+/// real mutation no matter what the user has toggled on: the builder never
+/// asked for (and the user never approved) THIS specific write.
+fn resolve_composio_action_scope(
+    slug: &str,
+) -> crate::openhuman::memory_sync::composio::providers::ToolScope {
+    use crate::openhuman::memory_sync::composio::providers::{
+        catalog_for_toolkit, classify_unknown, find_curated, get_provider, toolkit_from_slug,
+    };
+
+    if let Some(toolkit) = toolkit_from_slug(slug) {
+        if let Some(catalog) = get_provider(&toolkit)
+            .and_then(|p| p.curated_tools())
+            .or_else(|| catalog_for_toolkit(&toolkit))
+        {
+            if let Some(curated) = find_curated(catalog, slug) {
+                return curated.scope;
+            }
+        }
+    }
+    classify_unknown(slug)
+}
+
+/// `get_tool_output_sample`'s implementation — see the module comment above
+/// this section for why it exists. Gates, in order (fail closed on any):
+///
+/// 1. **Scope**: [`resolve_composio_action_scope`] must classify `slug` as
+///    `Read`.
+/// 2. **Connected**: the slug's toolkit must have an active Composio
+///    connection.
+///
+/// On success, derives + caches a [`ProbedOutputSample`] (process-lifetime,
+/// keyed by slug) and returns it. `args` is forwarded verbatim to the real
+/// call — the builder should pass the SAME arguments it intends to wire into
+/// the real `tool_call` node (this is a sample of THAT call, not a generic
+/// fixture); omitted/`null` becomes `{}`, which is fine for a
+/// zero-required-arg action.
+pub(crate) async fn probe_tool_output_sample(
+    config: &Config,
+    slug: &str,
+    args: Value,
+) -> std::result::Result<ProbedOutputSample, String> {
+    let slug = slug.trim();
+    if slug.is_empty() {
+        return Err("get_tool_output_sample: slug must not be empty".to_string());
+    }
+
+    let scope = resolve_composio_action_scope(slug);
+    if scope != crate::openhuman::memory_sync::composio::providers::ToolScope::Read {
+        tracing::warn!(
+            target: "flows",
+            %slug,
+            scope = scope.as_str(),
+            "[flows] get_tool_output_sample: refused — not a Read-scope action"
+        );
+        return Err(format!(
+            "get_tool_output_sample refuses `{slug}`: classified as {} — this probe is READ-only \
+             and never performs a real mutation, regardless of the user's scope preference. Use \
+             get_tool_contract for its schema-derived (possibly unknown) output shape instead.",
+            scope.as_str()
+        ));
+    }
+
+    let Some(toolkit) = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)
+    else {
+        return Err(format!(
+            "get_tool_output_sample: could not extract a toolkit from slug '{slug}' — it must \
+             look like '<TOOLKIT>_<ACTION>'."
+        ));
+    };
+
+    let integrations = crate::openhuman::composio::fetch_connected_integrations(config).await;
+    let connected = integrations
+        .iter()
+        .any(|i| i.connected && i.toolkit.eq_ignore_ascii_case(&toolkit));
+    if !connected {
+        tracing::warn!(target: "flows", %slug, %toolkit, "[flows] get_tool_output_sample: refused — toolkit not connected");
+        return Err(format!(
+            "get_tool_output_sample refuses `{slug}`: the '{toolkit}' toolkit has no active \
+             Composio connection for this user — connect it first (composio_connect), or fall \
+             back to get_tool_contract's schema-derived hint."
+        ));
+    }
+
+    tracing::debug!(
+        target: "flows",
+        %slug,
+        %toolkit,
+        "[flows] get_tool_output_sample: probing the real live response (read-only, bounded, one call)"
+    );
+
+    let kind = create_composio_client(config).map_err(|e| e.to_string())?;
+    let args_opt = if args.is_null() { None } else { Some(args) };
+    let resp = match kind {
+        ComposioClientKind::Backend(client) => client
+            .execute_tool(slug, args_opt)
+            .await
+            .map_err(|e| format!("get_tool_output_sample: real call to `{slug}` failed: {e}"))?,
+        ComposioClientKind::Direct(tool) => {
+            direct_execute(&tool, slug, args_opt, &config.composio.entity_id, None)
+                .await
+                .map_err(|e| format!("get_tool_output_sample: real call to `{slug}` failed: {e}"))?
+        }
+    };
+
+    if !resp.successful {
+        let detail = resp
+            .error
+            .as_deref()
+            .map(str::trim)
+            .filter(|e| !e.is_empty())
+            .unwrap_or("no error detail returned by the provider");
+        return Err(format!(
+            "get_tool_output_sample: `{slug}` reported failure at the connected provider: {detail}"
+        ));
+    }
+
+    let envelope = serde_json::to_value(&resp).map_err(|e| {
+        format!("get_tool_output_sample: could not serialize the real response: {e}")
+    })?;
+    let primary_array_path = compute_primary_array_path_from_value(&envelope);
+    let output_fields = resp
+        .data
+        .as_object()
+        .map(|obj| obj.keys().cloned().collect())
+        .unwrap_or_default();
+
+    let sample = ProbedOutputSample {
+        primary_array_path,
+        output_fields,
+        sample: envelope,
+    };
+    cache_probe_result(slug, sample.clone());
+    tracing::info!(
+        target: "flows",
+        %slug,
+        primary_array_path = ?sample.primary_array_path,
+        "[flows] get_tool_output_sample: probed + cached the real output shape"
+    );
+    Ok(sample)
+}
+
 /// Best-effort lookup of a Composio action's **required** top-level parameter
 /// names — a thin projection over [`fetch_live_toolkit_catalog`]'s
 /// [`ToolContract`]s (this used to run its own independent
@@ -4032,6 +4341,148 @@ mod tests {
             )),
             None
         );
+    }
+
+    // ── compute_primary_array_path_from_value (B12: the real-output probe) ──
+
+    #[test]
+    fn compute_primary_array_path_from_value_finds_a_named_array_under_data() {
+        // The exact GITHUB_LIST_REPOSITORY_ISSUES shape observed live: the
+        // real array lives at `data.issues` (a NAMED field), not `data.items`
+        // — and there is no schema at all to derive this from (verified live:
+        // `output_schema: null` for this action), so only a real-value probe
+        // can find it.
+        let value = json!({
+            "data": { "issues": [ { "id": 1 }, { "id": 2 } ], "total_count": 2 },
+            "successful": true,
+            "error": null,
+            "costUsd": 0.0,
+            "markdownFormatted": null
+        });
+        assert_eq!(
+            compute_primary_array_path_from_value(&value),
+            Some("data.issues".to_string())
+        );
+    }
+
+    #[test]
+    fn compute_primary_array_path_from_value_skips_envelope_metadata_at_the_root() {
+        // None of the envelope's OTHER top-level fields are ever arrays in
+        // practice, but the skip-list is explicit so one never wins a
+        // shallowest-wins tie against a real nested array.
+        let value = json!({
+            "successful": true,
+            "error": null,
+            "costUsd": 0.0,
+            "markdownFormatted": null,
+            "data": { "messages": ["a", "b"] }
+        });
+        assert_eq!(
+            compute_primary_array_path_from_value(&value),
+            Some("data.messages".to_string())
+        );
+    }
+
+    #[test]
+    fn compute_primary_array_path_from_value_none_when_no_array_anywhere() {
+        let value = json!({
+            "data": { "id": "abc123", "name": "octocat" },
+            "successful": true
+        });
+        assert_eq!(compute_primary_array_path_from_value(&value), None);
+        assert_eq!(compute_primary_array_path_from_value(&json!(null)), None);
+        assert_eq!(
+            compute_primary_array_path_from_value(&json!("scalar")),
+            None
+        );
+    }
+
+    // ── apply_probe_override (B12) ───────────────────────────────────────────
+
+    fn bare_contract(slug: &str) -> ToolContract {
+        ToolContract {
+            slug: slug.to_string(),
+            toolkit: "github".to_string(),
+            description: None,
+            required_args: vec![],
+            input_schema: None,
+            output_fields: vec![],
+            output_schema: None,
+            primary_array_path: None,
+            is_curated: true,
+        }
+    }
+
+    #[test]
+    fn apply_probe_override_overlays_a_cached_probe_onto_a_schemaless_contract() {
+        seed_probe_cache(
+            "PROBETEST_LIST_REPOSITORY_ISSUES",
+            ProbedOutputSample {
+                primary_array_path: Some("data.issues".to_string()),
+                output_fields: vec!["issues".to_string(), "total_count".to_string()],
+                sample: json!({ "data": { "issues": [], "total_count": 0 } }),
+            },
+        );
+        let contract = bare_contract("PROBETEST_LIST_REPOSITORY_ISSUES");
+        assert_eq!(contract.primary_array_path, None);
+        let overridden = apply_probe_override(contract);
+        assert_eq!(
+            overridden.primary_array_path,
+            Some("data.issues".to_string())
+        );
+        assert_eq!(
+            overridden.output_fields,
+            vec!["issues".to_string(), "total_count".to_string()]
+        );
+    }
+
+    #[test]
+    fn apply_probe_override_passes_through_unchanged_without_a_cached_probe() {
+        let contract = bare_contract("PROBETEST_SOME_UNPROBED_ACTION");
+        let overridden = apply_probe_override(contract.clone());
+        assert_eq!(overridden.primary_array_path, contract.primary_array_path);
+        assert_eq!(overridden.output_fields, contract.output_fields);
+    }
+
+    // ── resolve_composio_action_scope (B12: hard Read-only gate) ─────────────
+
+    #[test]
+    fn resolve_composio_action_scope_uses_the_curated_catalog_when_available() {
+        use crate::openhuman::memory_sync::composio::providers::ToolScope;
+        // GITHUB_LIST_REPOSITORY_ISSUES is curated as Read (github/tools.rs).
+        assert_eq!(
+            resolve_composio_action_scope("GITHUB_LIST_REPOSITORY_ISSUES"),
+            ToolScope::Read
+        );
+        // A curated Write action must classify as Write, not Read — the probe
+        // must refuse it regardless of the verb heuristic agreeing or not.
+        assert_eq!(
+            resolve_composio_action_scope("GMAIL_SEND_EMAIL"),
+            ToolScope::Write
+        );
+    }
+
+    #[test]
+    fn resolve_composio_action_scope_falls_back_to_the_verb_heuristic() {
+        use crate::openhuman::memory_sync::composio::providers::ToolScope;
+        assert_eq!(
+            resolve_composio_action_scope("MADEUPTOOLKIT_LIST_THINGS"),
+            ToolScope::Read
+        );
+        assert_eq!(
+            resolve_composio_action_scope("MADEUPTOOLKIT_DELETE_THING"),
+            ToolScope::Admin
+        );
+    }
+
+    // ── probe_tool_output_sample (B12: gates) ────────────────────────────────
+
+    #[tokio::test]
+    async fn probe_tool_output_sample_refuses_a_non_read_action_before_any_client_call() {
+        let config = Config::default();
+        let result = probe_tool_output_sample(&config, "GMAIL_SEND_EMAIL", json!({})).await;
+        let err = result.expect_err("a Write action must be refused");
+        assert!(err.contains("READ-only"), "{err}");
     }
 
     // ── fetch_live_toolkit_catalog / composio_required_args /
