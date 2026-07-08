@@ -1938,39 +1938,64 @@ pub(crate) fn apply_probe_override(mut contract: ToolContract) -> ToolContract {
     contract
 }
 
-/// Best-effort classification of a Composio action slug's [`ToolScope`] —
-/// curated catalog first, falling back to `classify_unknown`'s verb
-/// heuristic. Used by [`probe_tool_output_sample`] to hard-refuse a
-/// non-`Read` action REGARDLESS of the user's per-toolkit scope preference —
-/// unlike [`flow_tool_allowed`], which honors a user's opt-in to Write/Admin
-/// for a real `tool_call` node, a schema-discovery probe must never perform a
-/// real mutation no matter what the user has toggled on: the builder never
-/// asked for (and the user never approved) THIS specific write.
+/// Best-effort, but FAIL-CLOSED, classification of a Composio action slug's
+/// [`ToolScope`] — mirrors [`flow_tool_allowed`]'s Path A / Path B split
+/// rather than trusting `classify_unknown`'s verb heuristic unconditionally:
+///
+/// - Toolkit has no extractable prefix at all (`toolkit_from_slug` fails):
+///   `None` — nothing to confirm a scope against.
+/// - Toolkit HAS a static curated catalog (`get_provider().curated_tools()`
+///   or `catalog_for_toolkit`): the slug's scope is authoritative ONLY if the
+///   slug is actually one of that catalog's curated entries. An uncurated
+///   slug on a cataloged toolkit resolves to `None` — it must NOT fall
+///   through to the verb heuristic, which can misclassify an uncurated write
+///   action (e.g. a connected GitHub/Gmail action not in the curated list)
+///   as `Read` by name alone (see PR #4702 review — this exact hole would
+///   otherwise let the probe execute a real write).
+/// - Toolkit has NO static catalog at all: falls back to `classify_unknown`
+///   — the same authority [`flow_tool_allowed`]'s Path B accepts once it has
+///   already confirmed (via its own connected + live-catalog checks) the
+///   slug is real; here it's just the scope signal, gated further below.
+///
+/// Used exclusively by [`probe_tool_output_sample`] to hard-refuse anything
+/// that isn't a CONFIDENTLY CONFIRMED `Read` action REGARDLESS of the user's
+/// per-toolkit scope preference — unlike [`flow_tool_allowed`], which honors
+/// a user's opt-in to Write/Admin for a real `tool_call` node, a
+/// schema-discovery probe must never perform a real mutation no matter what
+/// the user has toggled on, and must never rely on a heuristic guess to
+/// decide that: the builder never asked for (and the user never approved)
+/// THIS specific write. `None` means "refuse — no confirmed Read scope", not
+/// "assume Read".
 fn resolve_composio_action_scope(
     slug: &str,
-) -> crate::openhuman::memory_sync::composio::providers::ToolScope {
+) -> Option<crate::openhuman::memory_sync::composio::providers::ToolScope> {
     use crate::openhuman::memory_sync::composio::providers::{
         catalog_for_toolkit, classify_unknown, find_curated, get_provider, toolkit_from_slug,
     };
 
-    if let Some(toolkit) = toolkit_from_slug(slug) {
-        if let Some(catalog) = get_provider(&toolkit)
-            .and_then(|p| p.curated_tools())
-            .or_else(|| catalog_for_toolkit(&toolkit))
-        {
-            if let Some(curated) = find_curated(catalog, slug) {
-                return curated.scope;
-            }
-        }
+    let toolkit = toolkit_from_slug(slug)?;
+    match get_provider(&toolkit)
+        .and_then(|p| p.curated_tools())
+        .or_else(|| catalog_for_toolkit(&toolkit))
+    {
+        // A static catalog exists for this toolkit — only a genuinely
+        // curated entry's scope is trustworthy; an uncurated slug fails
+        // closed rather than being guessed via the verb heuristic.
+        Some(catalog) => find_curated(catalog, slug).map(|curated| curated.scope),
+        // No static catalog anywhere for this toolkit — the heuristic is
+        // the only available signal (still gated by the connected-toolkit
+        // check below in `probe_tool_output_sample`).
+        None => Some(classify_unknown(slug)),
     }
-    classify_unknown(slug)
 }
 
 /// `get_tool_output_sample`'s implementation — see the module comment above
 /// this section for why it exists. Gates, in order (fail closed on any):
 ///
-/// 1. **Scope**: [`resolve_composio_action_scope`] must classify `slug` as
-///    `Read`.
+/// 1. **Scope**: [`resolve_composio_action_scope`] must CONFIRM `slug` as
+///    `Read` (`None` — no confirmed scope, e.g. an uncurated slug on a
+///    cataloged toolkit — refuses exactly like a confirmed non-`Read` scope
+///    does; it is never treated as "assume Read").
 /// 2. **Connected**: the slug's toolkit must have an active Composio
 ///    connection.
 ///
@@ -1990,20 +2015,40 @@ pub(crate) async fn probe_tool_output_sample(
         return Err("get_tool_output_sample: slug must not be empty".to_string());
     }
 
-    let scope = resolve_composio_action_scope(slug);
-    if scope != crate::openhuman::memory_sync::composio::providers::ToolScope::Read {
-        tracing::warn!(
-            target: "flows",
-            %slug,
-            scope = scope.as_str(),
-            "[flows] get_tool_output_sample: refused — not a Read-scope action"
-        );
-        return Err(format!(
-            "get_tool_output_sample refuses `{slug}`: classified as {} — this probe is READ-only \
-             and never performs a real mutation, regardless of the user's scope preference. Use \
-             get_tool_contract for its schema-derived (possibly unknown) output shape instead.",
-            scope.as_str()
-        ));
+    match resolve_composio_action_scope(slug) {
+        Some(crate::openhuman::memory_sync::composio::providers::ToolScope::Read) => {}
+        Some(other) => {
+            tracing::warn!(
+                target: "flows",
+                %slug,
+                scope = other.as_str(),
+                "[flows] get_tool_output_sample: refused — not a Read-scope action"
+            );
+            return Err(format!(
+                "get_tool_output_sample refuses `{slug}`: classified as {} — this probe is \
+                 READ-only and never performs a real mutation, regardless of the user's scope \
+                 preference. Use get_tool_contract for its schema-derived (possibly unknown) \
+                 output shape instead.",
+                other.as_str()
+            ));
+        }
+        None => {
+            tracing::warn!(
+                target: "flows",
+                %slug,
+                "[flows] get_tool_output_sample: refused — no confirmed Read scope (either no \
+                 extractable toolkit, or an uncurated slug on a toolkit with a static curated \
+                 catalog — fails closed rather than guessing via the verb heuristic)"
+            );
+            return Err(format!(
+                "get_tool_output_sample refuses `{slug}`: could not confirm this is a Read-scope \
+                 action. Either no toolkit could be extracted from the slug, or its toolkit ships \
+                 a static curated catalog and this slug is not one of its curated actions — this \
+                 probe never falls back to a verb-name heuristic in that case, since an uncurated \
+                 action on a cataloged toolkit could really be a write. Use get_tool_contract for \
+                 its schema-derived (possibly unknown) output shape instead."
+            ));
+        }
     }
 
     let Some(toolkit) = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)
@@ -4452,26 +4497,41 @@ mod tests {
         // GITHUB_LIST_REPOSITORY_ISSUES is curated as Read (github/tools.rs).
         assert_eq!(
             resolve_composio_action_scope("GITHUB_LIST_REPOSITORY_ISSUES"),
-            ToolScope::Read
+            Some(ToolScope::Read)
         );
         // A curated Write action must classify as Write, not Read — the probe
         // must refuse it regardless of the verb heuristic agreeing or not.
         assert_eq!(
             resolve_composio_action_scope("GMAIL_SEND_EMAIL"),
-            ToolScope::Write
+            Some(ToolScope::Write)
         );
     }
 
+    /// PR #4702 review (P1): a toolkit with a static curated catalog (like
+    /// `github`) must NOT fall through to the `classify_unknown` verb
+    /// heuristic for a slug that isn't actually one of its curated actions —
+    /// `GITHUB_LIST_WORKFLOWS` is a REAL GitHub action name (reads as
+    /// Read-scope by its `LIST` verb) that was deliberately left uncurated
+    /// (see the commented-out entry in `github/tools.rs`), so this must
+    /// resolve to `None` (fail closed), not `Some(ToolScope::Read)` — the
+    /// heuristic agreeing with the "looks safe" name is exactly the
+    /// misclassification hole this guards against.
     #[test]
-    fn resolve_composio_action_scope_falls_back_to_the_verb_heuristic() {
+    fn resolve_composio_action_scope_rejects_an_uncurated_slug_on_a_cataloged_toolkit() {
+        assert_eq!(resolve_composio_action_scope("GITHUB_LIST_WORKFLOWS"), None);
+    }
+
+    #[test]
+    fn resolve_composio_action_scope_falls_back_to_the_verb_heuristic_only_without_a_static_catalog(
+    ) {
         use crate::openhuman::memory_sync::composio::providers::ToolScope;
         assert_eq!(
             resolve_composio_action_scope("MADEUPTOOLKIT_LIST_THINGS"),
-            ToolScope::Read
+            Some(ToolScope::Read)
         );
         assert_eq!(
             resolve_composio_action_scope("MADEUPTOOLKIT_DELETE_THING"),
-            ToolScope::Admin
+            Some(ToolScope::Admin)
         );
     }
 
@@ -4483,6 +4543,18 @@ mod tests {
         let result = probe_tool_output_sample(&config, "GMAIL_SEND_EMAIL", json!({})).await;
         let err = result.expect_err("a Write action must be refused");
         assert!(err.contains("READ-only"), "{err}");
+    }
+
+    /// PR #4702 review (P1): the probe entry point itself must refuse an
+    /// uncurated-but-read-sounding slug on a cataloged toolkit BEFORE any
+    /// client call — not just `resolve_composio_action_scope` in isolation.
+    #[tokio::test]
+    async fn probe_tool_output_sample_refuses_an_uncurated_slug_on_a_cataloged_toolkit_before_any_client_call(
+    ) {
+        let config = Config::default();
+        let result = probe_tool_output_sample(&config, "GITHUB_LIST_WORKFLOWS", json!({})).await;
+        let err = result.expect_err("an uncurated slug on a cataloged toolkit must be refused");
+        assert!(err.contains("could not confirm"), "{err}");
     }
 
     // ── fetch_live_toolkit_catalog / composio_required_args /
