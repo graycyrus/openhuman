@@ -2523,6 +2523,87 @@ async fn graph_wiring_warnings_suggests_the_probed_split_out_path_when_schema_is
     );
 }
 
+/// CodeRabbit (PR #4702 review): parity coverage for the probe-override path
+/// in `graph_output_field_warnings` — mirrors
+/// `graph_wiring_warnings_suggests_the_probed_split_out_path_when_schema_is_unknown`
+/// above, but for a downstream FIELD binding rather than `split_out.path`.
+/// With no schema at all (`output_schema: None`, `output_fields: []`), the
+/// field-not-in-output_fields check would otherwise stay silent (nothing
+/// real to check against) — once `get_tool_output_sample` has probed the
+/// slug, the probed `output_fields` become the ground truth: a binding to a
+/// probed-real field is silent, and a binding to a field NOT in the probed
+/// set is flagged, exactly like the schema-known case already covers.
+#[tokio::test]
+async fn graph_wiring_warnings_uses_the_probed_output_fields_when_schema_is_unknown() {
+    let contract = ToolContract {
+        slug: "GHPROBEFIELDS_LIST_REPOSITORY_ISSUES".to_string(),
+        toolkit: "ghprobefields".to_string(),
+        description: None,
+        required_args: vec!["owner".to_string(), "repo".to_string()],
+        input_schema: None,
+        output_fields: vec![],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    };
+    seed_live_catalog_cache("ghprobefields", vec![contract]);
+    seed_probe_cache(
+        "GHPROBEFIELDS_LIST_REPOSITORY_ISSUES",
+        ProbedOutputSample {
+            primary_array_path: Some("data.issues".to_string()),
+            output_fields: vec!["issues".to_string(), "total_count".to_string()],
+            sample: json!({ "data": { "issues": [], "total_count": 0 } }),
+        },
+    );
+    let config = Config::default();
+
+    // A binding to a field the probe actually observed — silent.
+    let real_field = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "GHPROBEFIELDS_LIST_REPOSITORY_ISSUES",
+                "args": { "owner": "acme", "repo": "widgets" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              "config": { "set": { "note": "=nodes.post.item.json.data.total_count" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    assert!(
+        graph_wiring_warnings(&config, &real_field).await.is_empty(),
+        "a probed-real field must not warn: {:?}",
+        graph_wiring_warnings(&config, &real_field).await
+    );
+
+    // A binding to a field the probe did NOT observe — flagged, using the
+    // probed output_fields as ground truth even though the schema itself is
+    // unknown.
+    let fake_field = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "GHPROBEFIELDS_LIST_REPOSITORY_ISSUES",
+                "args": { "owner": "acme", "repo": "widgets" } } },
+            { "id": "xform", "kind": "transform", "name": "Log",
+              "config": { "set": { "note": "=nodes.post.item.json.data.not_a_probed_field" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "post" },
+            { "from_node": "post", "to_node": "xform" }
+        ]
+    }));
+    let warnings = graph_wiring_warnings(&config, &fake_field).await;
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("not_a_probed_field") && w.contains("post")),
+        "{warnings:?}"
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // degrade_completed_status (PR2 — run honesty)
 // ─────────────────────────────────────────────────────────────────────────────

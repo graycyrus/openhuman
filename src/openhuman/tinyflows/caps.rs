@@ -1875,8 +1875,15 @@ pub(crate) struct ProbedOutputSample {
     /// probed analogue of [`ToolContract::output_fields`].
     pub output_fields: Vec<String>,
     /// The full envelope-shaped sample value the probe observed, verbatim —
-    /// kept so a caller needing more than the derived path/fields has the
-    /// ground truth to consult.
+    /// returned to `probe_tool_output_sample`'s IMMEDIATE caller only for
+    /// this one call. **Never persisted** into [`PROBE_CACHE`]
+    /// ([`cache_probe_result`] redacts it to `Value::Null` before inserting)
+    /// — the process-wide cache is keyed by slug alone, and a real probe
+    /// response can carry one user/connection/args' actual private data
+    /// (repo issues, messages, …); nothing else in the process reads a
+    /// CACHED sample (only the derived `primary_array_path`/`output_fields`
+    /// do), so retaining the full payload there would be pure unnecessary
+    /// exposure (see PR #4702 review).
     pub sample: Value,
 }
 
@@ -1885,13 +1892,17 @@ pub(crate) struct ProbedOutputSample {
 /// slug per process — mirrors [`LIVE_CATALOG_CACHE`]'s one-fetch-per-process
 /// shape, and for the same reason: a probe is a real, potentially
 /// rate-limited/billed external call, not something to repeat every turn.
+///
+/// Entries here always have `sample` redacted to `Value::Null` — see
+/// [`cache_probe_result`] and [`ProbedOutputSample::sample`]'s doc.
 static PROBE_CACHE: std::sync::OnceLock<
     std::sync::Mutex<std::collections::HashMap<String, ProbedOutputSample>>,
 > = std::sync::OnceLock::new();
 
 /// Seeds the probe cache for a slug — test hook so [`apply_probe_override`]
 /// and the enforcement checks that consult a probe can be exercised without a
-/// live Composio backend.
+/// live Composio backend. Unlike [`cache_probe_result`], does NOT redact
+/// `sample` — tests seed only small synthetic fixtures, never real user data.
 #[cfg(test)]
 pub(crate) fn seed_probe_cache(slug: &str, sample: ProbedOutputSample) {
     PROBE_CACHE
@@ -1901,9 +1912,19 @@ pub(crate) fn seed_probe_cache(slug: &str, sample: ProbedOutputSample) {
         .insert(slug.trim().to_ascii_uppercase(), sample);
 }
 
+/// Caches the DERIVED metadata from a real probe — never the raw `sample`
+/// payload itself (redacted to `Value::Null` here). See
+/// [`ProbedOutputSample::sample`]'s doc for why: a real probe response can
+/// contain one user/connection/args' actual private data, and nothing that
+/// reads from the cache (only [`apply_probe_override`]) ever needs the raw
+/// payload — only the derived `primary_array_path`/`output_fields`.
 fn cache_probe_result(slug: &str, sample: ProbedOutputSample) {
+    let cached = ProbedOutputSample {
+        sample: Value::Null,
+        ..sample
+    };
     if let Ok(mut cache) = PROBE_CACHE.get_or_init(Default::default).lock() {
-        cache.insert(slug.trim().to_ascii_uppercase(), sample);
+        cache.insert(slug.trim().to_ascii_uppercase(), cached);
     }
 }
 
@@ -1926,11 +1947,17 @@ pub(crate) fn probed_output_sample(slug: &str) -> Option<ProbedOutputSample> {
 /// [`ToolContract`] is consulted for wiring (`get_tool_contract`,
 /// `graph_output_field_warnings`, `graph_split_out_path_warnings`) so a
 /// probe the builder already ran is never shadowed by a stale/absent schema.
+///
+/// `primary_array_path` is overlaid UNCONDITIONALLY (including `None`) once a
+/// probe exists: a probe's `None` is itself meaningful ("the real response
+/// named no array anywhere"), not "no opinion" — leaving a stale
+/// schema-derived path in place after a real observation disproves it would
+/// let a since-confirmed-wrong `split_out.path` keep looking supported (see
+/// PR #4702 review). `output_fields` only overlays when non-empty since an
+/// empty probe result there genuinely means "unknown", not "confirmed empty".
 pub(crate) fn apply_probe_override(mut contract: ToolContract) -> ToolContract {
     if let Some(probe) = probed_output_sample(&contract.slug) {
-        if probe.primary_array_path.is_some() {
-            contract.primary_array_path = probe.primary_array_path;
-        }
+        contract.primary_array_path = probe.primary_array_path;
         if !probe.output_fields.is_empty() {
             contract.output_fields = probe.output_fields;
         }
@@ -4487,6 +4514,53 @@ mod tests {
         let overridden = apply_probe_override(contract.clone());
         assert_eq!(overridden.primary_array_path, contract.primary_array_path);
         assert_eq!(overridden.output_fields, contract.output_fields);
+    }
+
+    /// CodeRabbit (PR #4702 review): a probe that OBSERVED the real response
+    /// and found no array anywhere must CLEAR a stale schema-derived
+    /// `primary_array_path`, not merely leave it in place because the probe's
+    /// own path happens to be `None`. A schema-derived path a real
+    /// observation just disproved is worse than no path at all — it would
+    /// otherwise keep suggesting a `split_out.path` the probe itself showed
+    /// is wrong.
+    #[test]
+    fn apply_probe_override_clears_a_stale_schema_path_when_the_probe_finds_no_array() {
+        seed_probe_cache(
+            "PROBETEST_CLEARS_STALE_PATH",
+            ProbedOutputSample {
+                primary_array_path: None,
+                output_fields: vec![],
+                sample: json!({ "data": { "id": "abc123" } }),
+            },
+        );
+        let mut contract = bare_contract("PROBETEST_CLEARS_STALE_PATH");
+        contract.primary_array_path = Some("data.items".to_string());
+        let overridden = apply_probe_override(contract);
+        assert_eq!(overridden.primary_array_path, None);
+    }
+
+    /// PR #4702 review (security): the process-wide [`PROBE_CACHE`] must
+    /// never retain the raw observed payload — only derived metadata. A real
+    /// probe response can carry one user/connection/args' actual private
+    /// data (repo issues, messages, …), and nothing that reads the CACHE
+    /// (only [`apply_probe_override`], via [`probed_output_sample`]) ever
+    /// needs the raw payload.
+    #[test]
+    fn cache_probe_result_redacts_the_raw_sample_before_caching() {
+        cache_probe_result(
+            "PROBETEST_REDACTS_SAMPLE",
+            ProbedOutputSample {
+                primary_array_path: Some("data.issues".to_string()),
+                output_fields: vec!["issues".to_string()],
+                sample: json!({ "data": { "issues": [{"secret": "do-not-retain"}] } }),
+            },
+        );
+        let cached =
+            probed_output_sample("PROBETEST_REDACTS_SAMPLE").expect("just cached this slug");
+        assert_eq!(cached.sample, Value::Null);
+        // The derived metadata is still cached faithfully — only the raw
+        // payload is redacted.
+        assert_eq!(cached.primary_array_path, Some("data.issues".to_string()));
     }
 
     // ── resolve_composio_action_scope (B12: hard Read-only gate) ─────────────
