@@ -1521,6 +1521,16 @@ pub fn flows_import(
 ///   `manual` trigger (or no trigger-kind discriminator at all) still
 ///   persists enabled: it only ever runs via an explicit `flows_run`, so
 ///   there is no surprise, and gating it would just add friction.
+///
+///   This means a caller that represents an explicit user-arming action
+///   (e.g. `WorkflowProposalCard`'s "Save & enable" click,
+///   `app/src/components/chat/WorkflowProposalCard.tsx`) must check the
+///   returned [`Flow`]'s `enabled` field and follow up with
+///   `flows_set_enabled(id, true)` when it comes back `false` — otherwise
+///   the button's own label lies to the user. That follow-up call is a
+///   legitimate, explicit enable, not the silent copilot auto-arm this rule
+///   exists to prevent (the copilot's `save_workflow` path has no such
+///   follow-up and stays disabled).
 /// - **Rule 2** ([`graph_has_outbound_side_effect`]): a graph containing any
 ///   `tool_call` / `http_request` / `code` node — the three kinds that can
 ///   produce a real outbound effect — forces `require_approval: true`,
