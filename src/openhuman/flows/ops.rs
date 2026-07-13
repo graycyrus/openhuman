@@ -1069,6 +1069,140 @@ pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGra
     errors
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Required-arg resolvability gate (issue B18)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// `validate_tool_contracts` (above) proves a required arg is PRESENT
+// (`missing_required_args`: absent or literal `null`) — it has no opinion on
+// whether an arg wired to a real-looking `=`-expression actually RESOLVES to
+// something at runtime, and it says nothing at all about an arg the live
+// schema doesn't individually mark `required` even though the PROVIDER
+// enforces it as a business rule — e.g. `GMAIL_SEND_EMAIL.subject`/`.body`
+// are each individually optional in the schema, but Gmail rejects a send
+// where BOTH are empty ("At least one of 'subject' or 'body' must be
+// provided with non-empty content"). A builder can wire either to an
+// upstream path that looks fully wired but resolves `null`, and neither
+// static check above has anything to say about it.
+//
+// `crate::openhuman::flows::builder_tools::DryRunWorkflowTool` already
+// detects exactly this class of null resolution (`null_resolutions`) by
+// running the graph through the same MOCK sandbox — but only as information
+// the agent is *instructed* (by prompt, not enforced in code) to act on
+// before calling `propose_workflow`/`save_workflow`. Nothing previously
+// stopped those tools from persisting the graph anyway.
+// [`validate_required_arg_resolvability`] closes that gap: it re-runs the
+// identical sandbox check and escalates ANY arg of a real (non-`=`-derived,
+// non-native) `tool_call` node that resolved `null` to a hard reject, wired
+// into `propose_workflow` / `revise_workflow` / `save_workflow` alongside
+// [`validate_binding_resolvability`] and [`validate_tool_contracts`].
+
+/// Wall-clock bound on the sandbox run this gate performs. Mirrors
+/// `builder_tools::DRY_RUN_TIMEOUT_SECS`'s purpose but kept short: unlike the
+/// opt-in `dry_run_workflow` tool, this check runs on EVERY
+/// propose/revise/save call, so a slow or pathological draft must not stall
+/// authoring.
+const REQUIRED_ARG_NULL_CHECK_TIMEOUT_SECS: u64 = 15;
+
+/// Sandbox-executes `graph` against `tinyflows`' deterministic MOCK
+/// capabilities (the same shape `DryRunWorkflowTool` uses — see this
+/// section's module doc) and returns one human-readable error per arg of a
+/// real (non-`=`-derived, non-native) `tool_call` node whose `=`-expression
+/// resolved to `null` during that run.
+///
+/// Deliberately does **not** wrap the mock `ToolInvoker` in
+/// [`crate::openhuman::tinyflows::caps::PreflightToolInvoker`] the way
+/// `DryRunWorkflowTool` does: that wrapper aborts the WHOLE sandbox run the
+/// instant a node with a `stop` `on_error` policy (the default) hits a
+/// schema-required null arg, which would lose the per-field diagnostic this
+/// gate exists to report for every OTHER node — and this check cares about
+/// EVERY arg, not just ones the schema happens to mark `required`. The plain
+/// mock tool invoker always "succeeds" (a deterministic echo), so the run
+/// settles and every node's config-resolution diagnostics get captured
+/// regardless of on_error policy or schema required-ness.
+///
+/// Best-effort, same posture as [`validate_tool_contracts`]: a compile
+/// failure (structural errors are already caught by
+/// [`validate_and_migrate_graph`] before this gate ever runs) or a sandbox
+/// error/timeout is SKIPPED — never turned into a false rejection. This
+/// check only ever adds a diagnostic the sandbox actually observed.
+pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -> Vec<String> {
+    use crate::openhuman::flows::builder_tools::CapturingObserver;
+    use crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner;
+
+    let Ok(compiled) = tinyflows::compiler::compile(graph) else {
+        return Vec::new();
+    };
+
+    let caps = tinyflows::caps::mock::mock_capabilities_with_agent(SchemaAwareMockAgentRunner);
+
+    let observer = Arc::new(CapturingObserver::default());
+    let observer_dyn: Arc<dyn tinyflows::observability::RunObserver> = observer.clone();
+    let run = tinyflows::engine::run_with_observer(&compiled, json!({}), &caps, &observer_dyn);
+    if tokio::time::timeout(
+        std::time::Duration::from_secs(REQUIRED_ARG_NULL_CHECK_TIMEOUT_SECS),
+        run,
+    )
+    .await
+    .is_err()
+    {
+        // Timed out — a different class of problem than this gate exists to
+        // catch; never block authoring on it here.
+        return Vec::new();
+    }
+    // A sandbox `Err` outcome here is a compile/capability issue unrelated
+    // to null args (the plain mock invoker never itself fails) — surfaced by
+    // the other gates / `dry_run_workflow` instead; this gate only adds
+    // diagnostics from a run that actually settled, so an error is silently
+    // skipped rather than turned into a (misleading) empty-errors success.
+
+    let tool_call_slugs: std::collections::HashMap<&str, &str> = graph
+        .nodes
+        .iter()
+        .filter(|n| n.kind == NodeKind::ToolCall)
+        .filter_map(|n| {
+            let slug = n.config.get("slug").and_then(Value::as_str)?;
+            Some((n.id.as_str(), slug))
+        })
+        .collect();
+
+    let mut errors = Vec::new();
+    for step in observer.steps() {
+        let Some(&slug) = tool_call_slugs.get(step.node_id.as_str()) else {
+            continue;
+        };
+        // `=`-derived slugs resolve from upstream/trigger data at runtime;
+        // native `oh:` tools have no external-provider rejection mode.
+        if slug.starts_with('=') || slug.starts_with("oh:") {
+            continue;
+        }
+        for diag in &step.diagnostics {
+            let Some(field) = diag.location.strip_prefix("args.") else {
+                continue;
+            };
+            tracing::warn!(
+                target: "flows",
+                node = %step.node_id,
+                %slug,
+                %field,
+                expression = %diag.expression,
+                "[flows] required-arg resolvability check: arg resolved null in sandbox — \
+                 rejecting"
+            );
+            errors.push(format!(
+                "Node '{}': arg `{field}` of `{slug}` (`{}`) resolved to `null` during a \
+                 sandboxed test run — an empty/missing `{field}` can be rejected by the real \
+                 provider at runtime (e.g. Gmail rejects a send with no subject or body). \
+                 Rewire it from an upstream node's output that actually has a value — call \
+                 dry_run_workflow to see exactly which upstream field is null — or drop the \
+                 field from args if it isn't really needed.",
+                step.node_id, diag.expression
+            ));
+        }
+    }
+    errors
+}
+
 /// Validates a candidate graph without persisting it — the same
 /// migrate/validate path `flows_create` and `ProposeWorkflowTool` use — and
 /// reports structural errors alongside non-fatal trigger warnings
