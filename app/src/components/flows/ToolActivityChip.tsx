@@ -23,10 +23,13 @@ export default function ToolActivityChip({ toolNames }: Props) {
   const { t } = useT();
   if (toolNames.length === 0) return null;
 
-  // First recognized tool wins the label (a turn calls at most one authoring
-  // tool per round in practice); an unrecognized/mixed set falls back to a
-  // generic "Using tools..." pill rather than dumping tool names verbatim.
-  const labelKey = toolNames.map(name => KNOWN_TOOL_LABEL_KEYS[name]).find(Boolean);
+  // Every tool must map to the SAME recognized label before we show a
+  // specific status (e.g. all of `propose_workflow`/`revise_workflow` map to
+  // "proposing..."); any unrecognized tool, or a mix of tools with different
+  // labels, falls back to a generic "Using tools..." pill rather than
+  // picking one tool's label arbitrarily or dumping tool names verbatim.
+  const labelKeys = toolNames.map(name => KNOWN_TOOL_LABEL_KEYS[name]);
+  const labelKey = labelKeys.every(key => key && key === labelKeys[0]) ? labelKeys[0] : undefined;
 
   return (
     <span

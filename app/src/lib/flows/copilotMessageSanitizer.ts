@@ -78,18 +78,33 @@ export function unwrapToolCallEnvelope(raw: string): UnwrappedToolCallMessage {
     return { text: raw, toolNames: [] };
   }
 
-  const { content } = parsed;
-  if (typeof content !== 'string') {
+  // Require `tool_calls` to be an array before treating this as a tool-call
+  // envelope at all — a content-only object like `{ "content": "hi" }` is
+  // ordinary JSON-looking prose, not a native envelope, and must pass
+  // through unchanged rather than being unwrapped down to `hi`.
+  if (!Array.isArray(parsed.tool_calls)) {
     log(
-      'unwrapToolCallEnvelope: envelope-shaped keys=%o but `content` missing/non-string — pass through',
+      'unwrapToolCallEnvelope: envelope-shaped keys=%o but `tool_calls` is not an array — pass through',
       keys
     );
     return { text: raw, toolNames: [] };
   }
+  const toolCalls = parsed.tool_calls as EnvelopeToolCall[];
 
-  const toolCalls = Array.isArray(parsed.tool_calls)
-    ? (parsed.tool_calls as EnvelopeToolCall[])
-    : [];
+  // The native dispatcher can serialize a tool-only turn with `content: null`
+  // (or omit `content` entirely) while still including `tool_calls`. Treat
+  // null/missing `content` as `''` so the bubble still exposes the tool
+  // activity chip instead of falling back to the raw JSON.
+  const { content } = parsed;
+  if (content !== null && content !== undefined && typeof content !== 'string') {
+    log(
+      'unwrapToolCallEnvelope: envelope-shaped keys=%o but `content` is non-string (and not null/missing) — pass through',
+      keys
+    );
+    return { text: raw, toolNames: [] };
+  }
+  const text = typeof content === 'string' ? content : '';
+
   const toolNames = toolCalls
     .map(call => call?.name)
     .filter((name): name is string => typeof name === 'string' && name.length > 0);
@@ -97,8 +112,8 @@ export function unwrapToolCallEnvelope(raw: string): UnwrappedToolCallMessage {
   log(
     'unwrapToolCallEnvelope: envelope keys=%o — extracted text (chars=%d) + toolNames=%o',
     keys,
-    content.length,
+    text.length,
     toolNames
   );
-  return { text: content, toolNames };
+  return { text, toolNames };
 }

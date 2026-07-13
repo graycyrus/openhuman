@@ -44,8 +44,24 @@ describe('ToolActivityChip', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('picks the first recognized tool label when multiple tool names are present', () => {
+  it('renders the shared label when every tool name maps to the same label', () => {
+    render(<ToolActivityChip toolNames={['propose_workflow', 'revise_workflow']} />);
+    expect(screen.getByTestId('tool-activity-chip')).toHaveTextContent(
+      'flows.copilot.tool.proposing'
+    );
+  });
+
+  it('renders the generic label when tool names map to different labels', () => {
+    render(<ToolActivityChip toolNames={['dry_run_workflow', 'save_workflow']} />);
+    expect(screen.getByTestId('tool-activity-chip')).toHaveTextContent(
+      'flows.copilot.tool.usingTools'
+    );
+  });
+
+  it('renders the generic label when one tool is unrecognized, even if another is recognized', () => {
     render(<ToolActivityChip toolNames={['some_other_tool', 'save_workflow']} />);
-    expect(screen.getByTestId('tool-activity-chip')).toHaveTextContent('flows.copilot.tool.saving');
+    expect(screen.getByTestId('tool-activity-chip')).toHaveTextContent(
+      'flows.copilot.tool.usingTools'
+    );
   });
 });

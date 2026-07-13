@@ -86,14 +86,35 @@ describe('unwrapToolCallEnvelope', () => {
     expect(result.toolNames).toEqual(['propose_workflow']);
   });
 
-  it('does not misread ordinary JSON-looking prose that lacks a `content` key as an envelope', () => {
+  it('unwraps a tool-only envelope with `content` missing entirely, surfacing tool names with empty text', () => {
     const raw = JSON.stringify({ tool_calls: [{ id: 'c1', name: 'x', arguments: '{}' }] });
+    const result = unwrapToolCallEnvelope(raw);
+    expect(result).toEqual({ text: '', toolNames: ['x'] });
+  });
+
+  it('unwraps a tool-only envelope with `content: null`, surfacing tool names with empty text', () => {
+    const raw = JSON.stringify({
+      content: null,
+      tool_calls: [{ id: 'c1', name: 'save_workflow', arguments: '{}' }],
+    });
+    const result = unwrapToolCallEnvelope(raw);
+    expect(result).toEqual({ text: '', toolNames: ['save_workflow'] });
+  });
+
+  it('passes through when `content` is present but non-string (and not null)', () => {
+    const raw = JSON.stringify({ content: 42, tool_calls: [] });
     const result = unwrapToolCallEnvelope(raw);
     expect(result).toEqual({ text: raw, toolNames: [] });
   });
 
-  it('passes through when `content` is present but non-string', () => {
-    const raw = JSON.stringify({ content: 42, tool_calls: [] });
+  it('passes through content-only JSON that lacks a `tool_calls` array (not an envelope)', () => {
+    const raw = JSON.stringify({ content: 'hi' });
+    const result = unwrapToolCallEnvelope(raw);
+    expect(result).toEqual({ text: raw, toolNames: [] });
+  });
+
+  it('passes through when `tool_calls` is present but not an array', () => {
+    const raw = JSON.stringify({ content: 'hi', tool_calls: 'nope' });
     const result = unwrapToolCallEnvelope(raw);
     expect(result).toEqual({ text: raw, toolNames: [] });
   });
