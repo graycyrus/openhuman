@@ -1108,7 +1108,23 @@ const REQUIRED_ARG_NULL_CHECK_TIMEOUT_SECS: u64 = 15;
 /// capabilities (the same shape `DryRunWorkflowTool` uses — see this
 /// section's module doc) and returns one human-readable error per arg of a
 /// real (non-`=`-derived, non-native) `tool_call` node whose `=`-expression
-/// resolved to `null` during that run.
+/// resolved to `null` during that run **and** whose expression is wired to a
+/// specific upstream node's output (directly, via the implicit
+/// `item`/`items` scope, or explicitly via `nodes.<id>...`) rather than to
+/// the trigger.
+///
+/// This run always sandboxes against `json!({})` as the trigger payload (see
+/// below), so any arg wired to trigger-scoped data — `=item.<field>` /
+/// `=items...` fed directly from the trigger node, or `=run.<field>` (the
+/// trigger metadata itself) — legitimately resolves `null` here even though a
+/// real webhook/app-event/manual trigger WILL populate it at runtime. Hard
+/// gate that on an empty mock run would reject every ordinary trigger-bound
+/// workflow (Codex feedback on PR #4826). Only a `null` resolved from a
+/// genuine upstream **node** reference is escalated — that's the real B18
+/// bug this gate exists to catch: an arg wired to a node output path that can
+/// never resolve (e.g. `GMAIL_SEND_EMAIL.subject =
+/// "=nodes.build_body.item.subject"` where `build_body` never produces
+/// `subject`), which stays broken no matter what the trigger payload is.
 ///
 /// Deliberately does **not** wrap the mock `ToolInvoker` in
 /// [`crate::openhuman::tinyflows::caps::PreflightToolInvoker`] the way
@@ -1166,6 +1182,17 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
         })
         .collect();
 
+    // The trigger node's id, if any — used below to tell a trigger-scoped
+    // `item`/`items` reference (the direct predecessor IS the trigger) apart
+    // from a real upstream-node reference. Graphs are expected to have
+    // exactly one trigger; `flows_validate` rejects zero/multiple before this
+    // gate ever runs, so `first()` here doesn't hide ambiguity.
+    let trigger_id: Option<&str> = graph
+        .nodes
+        .iter()
+        .find(|n| n.kind == NodeKind::Trigger)
+        .map(|n| n.id.as_str());
+
     let mut errors = Vec::new();
     for step in observer.steps() {
         let Some(&slug) = tool_call_slugs.get(step.node_id.as_str()) else {
@@ -1180,6 +1207,21 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
             let Some(field) = diag.location.strip_prefix("args.") else {
                 continue;
             };
+            if is_trigger_scoped_expression(&diag.expression, graph, &step.node_id, trigger_id) {
+                // Legitimately empty in this gate's `{}` mock run — the real
+                // trigger (webhook/app-event/manual) will populate it. Not
+                // the B18 broken-wiring case this gate exists to catch.
+                tracing::debug!(
+                    target: "flows",
+                    node = %step.node_id,
+                    %slug,
+                    %field,
+                    expression = %diag.expression,
+                    "[flows] required-arg resolvability check: trigger-scoped null in empty \
+                     mock run — not rejecting"
+                );
+                continue;
+            }
             tracing::warn!(
                 target: "flows",
                 node = %step.node_id,
@@ -1201,6 +1243,98 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
         }
     }
     errors
+}
+
+/// Returns the node id an explicit `nodes.<id>...` expression addresses —
+/// either the legacy dotted shorthand (`=nodes.build_body.item.subject`) or
+/// the jq bracket form (`=.nodes["build_body"].item.subject`) — or `None` if
+/// the expression's root isn't the `nodes` scope key at all. The expression
+/// scope's shape (`item` / `items` / `run` / `nodes`) is documented on
+/// `tinyflows`'s `expr` module and `nodes::expr_scope`.
+fn explicit_nodes_ref(expr: &str) -> Option<&str> {
+    let body = expr.strip_prefix('=')?.trim();
+    let body = body.strip_prefix('.').unwrap_or(body);
+    let rest = body.strip_prefix("nodes")?;
+    if let Some(after_dot) = rest.strip_prefix('.') {
+        // Dotted shorthand: `nodes.<id>.item.<field>` — the id ends at the
+        // next `.` or `[`.
+        let id = after_dot.split(['.', '[']).next()?;
+        (!id.is_empty()).then_some(id)
+    } else if let Some(after_bracket) = rest.strip_prefix('[') {
+        // jq bracket form: `nodes["<id>"]` / `nodes['<id>']`.
+        let after_bracket = after_bracket.trim_start();
+        let after_bracket = after_bracket
+            .strip_prefix('"')
+            .or_else(|| after_bracket.strip_prefix('\''))
+            .unwrap_or(after_bracket);
+        let id = after_bracket.split(['"', '\'', ']']).next()?;
+        (!id.is_empty()).then_some(id)
+    } else {
+        // `rest` is empty (bare `nodes`) or continues some other identifier
+        // (e.g. a hypothetical `nodesomething` — not this scope key at all).
+        None
+    }
+}
+
+/// Whether a null-resolved config expression on `node_id` is scoped to the
+/// TRIGGER's data rather than a specific upstream node's output — and
+/// therefore legitimately empty in [`validate_required_arg_resolvability`]'s
+/// `{}` mock run rather than evidence of broken wiring (see that function's
+/// doc comment and the Codex feedback it links).
+///
+/// - `=run...` always addresses the trigger payload/metadata directly
+///   (`crate::openhuman::tinyflows`'s `expr_scope` docs) — always
+///   trigger-scoped.
+/// - `=nodes.<id>...` / `=.nodes["<id>"]...` explicitly names an upstream
+///   node. Trigger-scoped only if `<id>` IS the trigger node; naming any
+///   other node is exactly the B18 broken-wiring case this gate exists to
+///   catch, so it is never treated as trigger-scoped.
+/// - `=item...` / `=items...` implicitly addresses `node_id`'s direct
+///   predecessor(s) output. Trigger-scoped only when EVERY incoming edge to
+///   `node_id` comes from the trigger node — a fan-in that mixes the trigger
+///   with a real upstream node, or an `item`/`items` reference fed entirely
+///   by real upstream nodes, keeps the existing (reject) behavior, since a
+///   node that already ran in the sandbox is expected to have produced its
+///   real, deterministic output.
+/// - Anything else (a jq expression not rooted at one of the above, or a
+///   malformed one) is conservatively treated as NOT trigger-scoped, matching
+///   this gate's pre-existing behavior.
+fn is_trigger_scoped_expression(
+    expr: &str,
+    graph: &WorkflowGraph,
+    node_id: &str,
+    trigger_id: Option<&str>,
+) -> bool {
+    let body = expr.strip_prefix('=').unwrap_or(expr).trim();
+    let body = body.strip_prefix('.').unwrap_or(body);
+
+    if body == "run" || body.starts_with("run.") || body.starts_with("run[") {
+        return true;
+    }
+
+    if let Some(referenced_id) = explicit_nodes_ref(expr) {
+        return trigger_id == Some(referenced_id);
+    }
+
+    let is_item_scoped = body == "item"
+        || body.starts_with("item.")
+        || body.starts_with("item[")
+        || body == "items"
+        || body.starts_with("items.")
+        || body.starts_with("items[");
+    if !is_item_scoped {
+        return false;
+    }
+
+    let Some(trigger_id) = trigger_id else {
+        return false;
+    };
+    let mut predecessors = graph
+        .edges
+        .iter()
+        .filter(|e| e.to_node == node_id)
+        .peekable();
+    predecessors.peek().is_some() && predecessors.all(|e| e.from_node == trigger_id)
 }
 
 /// Validates a candidate graph without persisting it — the same

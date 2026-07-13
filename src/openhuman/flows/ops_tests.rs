@@ -1995,6 +1995,58 @@ async fn validate_required_arg_resolvability_ignores_native_and_dynamic_slugs() 
     assert!(errors.is_empty(), "{errors:?}");
 }
 
+/// (Codex feedback on PR #4826) This gate sandbox-runs every graph against
+/// `json!({})` as the trigger payload, so a `tool_call` arg wired straight to
+/// the trigger's own data — `"to": "=item.email"` on a node whose only
+/// predecessor is the trigger — always resolves `null` here, even though a
+/// real webhook/app-event/manual trigger fires with a real payload. Hard-
+/// rejecting that blocked every ordinary trigger-bound workflow. Contrast
+/// with `validate_required_arg_resolvability_rejects_a_null_resolved_arg`
+/// above, where the same `=item.<field>` shorthand addresses a real
+/// (non-trigger) upstream node and stays a hard reject.
+#[tokio::test]
+async fn validate_required_arg_resolvability_allows_a_trigger_scoped_null_arg() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Webhook" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "GMAIL_SEND_EMAIL",
+                "args": { "recipient_email": "a@b.com", "subject": "hi", "body": "=item.email" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_required_arg_resolvability(&g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+/// The `nodes.<id>...` explicit-addressing form of the real B18 bug: an arg
+/// wired to a specific upstream (non-trigger) node's output path that never
+/// exists there. Unlike the trigger-scoped case above, this stays broken
+/// regardless of what the trigger payload looks like at runtime, so it must
+/// still hard-reject.
+#[tokio::test]
+async fn validate_required_arg_resolvability_rejects_an_explicit_nodes_reference() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "build_body", "kind": "code", "name": "Build Body",
+              "config": { "language": "javascript", "source": "return {};" } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "GMAIL_SEND_EMAIL",
+                "args": { "recipient_email": "a@b.com",
+                  "subject": "=nodes.build_body.item.subject" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "build_body" },
+            { "from_node": "build_body", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_required_arg_resolvability(&g).await;
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("`subject`"), "{}", errors[0]);
+    assert!(errors[0].contains("nodes.build_body"), "{}", errors[0]);
+}
+
 /// (Codex feedback on this PR) `notion` ships a static curated catalog
 /// (`catalog_for_toolkit`), so at RUNTIME `flow_tool_allowed`'s Path A
 /// hard-rejects any slug `find_curated` doesn't recognize — even a real,
