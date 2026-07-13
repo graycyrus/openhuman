@@ -1,3 +1,5 @@
+import createDebug from 'debug';
+
 /**
  * runItems — normalize a `tinyflows` run step's opaque `output` into the
  * n8n-style item-array shape the run inspector's per-item data browser
@@ -18,6 +20,7 @@
  * normalize into `FlowRunItem[]`. Anything it can't interpret as item-shaped is
  * treated as a single item whose `json` is the raw value — never throws.
  */
+const log = createDebug('app:flows:items');
 
 /** A single binary attachment reference (metadata only — bytes never inlined). */
 export interface FlowBinaryRef {
@@ -103,13 +106,35 @@ const PAYLOAD_ENVELOPE_KEYS = new Set(['json', 'raw', 'text']);
  * shape passes through unchanged.
  */
 function unwrapPayloadEnvelope(value: unknown): unknown {
-  if (!isPlainObject(value)) return value;
+  if (!isPlainObject(value)) {
+    log('unwrapPayloadEnvelope: non-object value (type=%s) — pass through', typeof value);
+    return value;
+  }
   const keys = Object.keys(value);
-  if (keys.length === 0 || !keys.every(key => PAYLOAD_ENVELOPE_KEYS.has(key))) return value;
-  if (!('json' in value)) return value;
-  if (value.json !== undefined && value.json !== null) return value.json;
-  if (value.raw !== undefined && value.raw !== null) return value.raw;
-  if (value.text !== undefined && value.text !== null) return value.text;
+  if (keys.length === 0 || !keys.every(key => PAYLOAD_ENVELOPE_KEYS.has(key))) {
+    log('unwrapPayloadEnvelope: non-envelope object (keys=%o) — pass through', keys);
+    return value;
+  }
+  if (!('json' in value)) {
+    log('unwrapPayloadEnvelope: envelope-shaped keys=%o but missing `json` — pass through', keys);
+    return value;
+  }
+  if (value.json !== undefined && value.json !== null) {
+    log('unwrapPayloadEnvelope: envelope keys=%o — selected `json` branch', keys);
+    return value.json;
+  }
+  if (value.raw !== undefined && value.raw !== null) {
+    log('unwrapPayloadEnvelope: envelope keys=%o — `json` empty, selected `raw` branch', keys);
+    return value.raw;
+  }
+  if (value.text !== undefined && value.text !== null) {
+    log(
+      'unwrapPayloadEnvelope: envelope keys=%o — `json`/`raw` empty, selected `text` branch',
+      keys
+    );
+    return value.text;
+  }
+  log('unwrapPayloadEnvelope: envelope keys=%o — all fields null, falling back to `json`', keys);
   return value.json;
 }
 
@@ -119,12 +144,14 @@ function toItem(raw: unknown): FlowRunItem {
   // is the discriminant — a plain data object without it is treated as the
   // payload itself (see below).
   if (isPlainObject(raw) && 'json' in raw) {
+    log('toItem: item-shaped input (has `json` key) — selected item branch');
     return {
       json: unwrapPayloadEnvelope(raw.json),
       binary: parseBinary(raw.binary),
       pairedIndex: resolvePairedIndex(raw.paired_item),
     };
   }
+  log('toItem: payload-shaped input (type=%s) — wrapping raw value as item json', typeof raw);
   return { json: unwrapPayloadEnvelope(raw), binary: [], pairedIndex: null };
 }
 
