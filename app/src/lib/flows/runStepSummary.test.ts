@@ -125,4 +125,26 @@ describe('summarizeStep', () => {
       expect(result.text).not.toContain('run-secret-2');
     });
   });
+
+  describe('status-less payloads (reconstructed steps, e.g. triggers)', () => {
+    it('does not infer failure from a bare top-level `error` field when status is absent', () => {
+      // Trigger/webhook payloads can be reconstructed without a persisted
+      // `status` while still carrying arbitrary user data — a field that
+      // happens to be named "error" here is just payload content, not a
+      // failure signal.
+      const items = normalizeItems([{ json: { event: 'x', error: 'user typo field' } }]);
+      const result = summarizeStep({}, items, t);
+      expect(result.outcome).not.toBe('error');
+    });
+
+    it('still treats a known Composio `successful: false` envelope as failed even without status', () => {
+      const items = normalizeItems([
+        { json: { data: null, successful: false, error: 'invalid recipient' } },
+      ]);
+      expect(summarizeStep({}, items, t)).toEqual({
+        outcome: 'error',
+        text: "Couldn't complete: invalid recipient",
+      });
+    });
+  });
 });

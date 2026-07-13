@@ -99,10 +99,16 @@ export function summarizeStep(
   t: (key: string) => string
 ): StepSummary {
   const payload = primaryPayload(items);
+  // Failure is only ever inferred from an explicit step status or a *known*
+  // failure envelope (Composio-style `successful: false`) — never from a bare
+  // top-level `error`/`error_message` field on a status-less payload.
+  // Reconstructed steps (e.g. triggers) can omit `status` entirely while
+  // still carrying arbitrary user payloads, and a successful webhook/trigger
+  // payload that happens to include an `error` field must not render as a
+  // failure.
   const errorMessage = extractErrorMessage(payload);
   const unsuccessful = isMarkedUnsuccessful(payload);
-  const failed =
-    step.status === 'error' || unsuccessful || (step.status === undefined && !!errorMessage);
+  const failed = step.status === 'error' || unsuccessful;
 
   if (failed) {
     const reason = errorMessage ?? t('flowRuns.inspector.summary.unknownError');

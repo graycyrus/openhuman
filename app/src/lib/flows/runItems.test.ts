@@ -70,11 +70,26 @@ describe('normalizeItems', () => {
       expect(items[0].json).not.toHaveProperty('text');
     });
 
-    it('still collapses to `json` when `raw` differs (json wins, no silent data loss risk from raw)', () => {
+    it('does not collapse when `raw` is a genuinely distinct, non-null sibling (no silent data loss)', () => {
+      const distinctRaw = { kept: false, extra: 'stripped' };
       const items = normalizeItems([
-        { json: { json: { kept: true }, raw: { kept: false, extra: 'stripped' }, text: null } },
+        { json: { json: { kept: true }, raw: distinctRaw, text: null } },
       ]);
-      expect(items[0].json).toEqual({ kept: true });
+      expect(items[0].json).toEqual({ json: { kept: true }, raw: distinctRaw, text: null });
+    });
+
+    it('does not collapse a real payload shaped like the envelope where `raw`/`text` carry distinct data', () => {
+      // e.g. parsed content plus the original raw body + a plain-text fallback —
+      // all three fields are meaningful and none may be silently dropped.
+      const items = normalizeItems([{ json: { json: { a: 1 }, raw: { b: 2 }, text: 'hi' } }]);
+      expect(items[0].json).toEqual({ json: { a: 1 }, raw: { b: 2 }, text: 'hi' });
+    });
+
+    it('still collapses to `json` when `raw`/`text` are proven duplicates (deep-equal, not just absent)', () => {
+      const payload = { a: 1 };
+      const items = normalizeItems([{ json: { json: payload, raw: { a: 1 }, text: null } }]);
+      expect(items[0].json).toEqual(payload);
+      expect(items[0].json).not.toHaveProperty('raw');
     });
 
     it('does not collapse a real payload that merely has both "json" and "raw" data fields plus extra keys', () => {

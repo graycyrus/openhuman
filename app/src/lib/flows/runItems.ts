@@ -99,11 +99,49 @@ function parseBinary(raw: unknown): FlowBinaryRef[] {
 const PAYLOAD_ENVELOPE_KEYS = new Set(['json', 'raw', 'text']);
 
 /**
+ * Structural equality for JSON-like values (objects/arrays/primitives). Used
+ * to prove a sibling envelope field (`raw`/`text`) is actually a duplicate of
+ * the selected value before we discard it — see {@link unwrapPayloadEnvelope}.
+ */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, index) => deepEqual(item, b[index]));
+  }
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every(
+      key => Object.prototype.hasOwnProperty.call(b, key) && deepEqual(a[key], b[key])
+    );
+  }
+  return false;
+}
+
+/**
+ * A sibling envelope field is safe to discard when it's absent/null, or when
+ * it's a proven structural duplicate of the value we're keeping. Anything
+ * else means the sibling carries distinct, meaningful data.
+ */
+function isDuplicateOrEmpty(sibling: unknown, kept: unknown): boolean {
+  return sibling === undefined || sibling === null || deepEqual(sibling, kept);
+}
+
+/**
  * Collapse the internal `{ json, raw, text }` payload envelope (see
  * {@link PAYLOAD_ENVELOPE_KEYS}) down to a single canonical value, so the
  * inspector renders one copy of the data instead of the same payload twice
  * under sibling `json`/`raw` keys. Anything that doesn't match the envelope
  * shape passes through unchanged.
+ *
+ * A node can intentionally return a payload shaped exactly like this envelope
+ * (e.g. parsed content plus a genuinely different raw body) — collapsing
+ * unconditionally would silently drop that data. So we only ever discard a
+ * sibling field when it's absent/null or a proven duplicate of the value
+ * we're keeping ({@link isDuplicateOrEmpty}); otherwise the object is left
+ * intact.
  */
 function unwrapPayloadEnvelope(value: unknown): unknown {
   if (!isPlainObject(value)) {
@@ -120,12 +158,26 @@ function unwrapPayloadEnvelope(value: unknown): unknown {
     return value;
   }
   if (value.json !== undefined && value.json !== null) {
-    log('unwrapPayloadEnvelope: envelope keys=%o — selected `json` branch', keys);
-    return value.json;
+    if (isDuplicateOrEmpty(value.raw, value.json) && isDuplicateOrEmpty(value.text, value.json)) {
+      log('unwrapPayloadEnvelope: envelope keys=%o — selected `json` branch', keys);
+      return value.json;
+    }
+    log(
+      'unwrapPayloadEnvelope: envelope keys=%o — `raw`/`text` carry distinct data, not collapsing',
+      keys
+    );
+    return value;
   }
   if (value.raw !== undefined && value.raw !== null) {
-    log('unwrapPayloadEnvelope: envelope keys=%o — `json` empty, selected `raw` branch', keys);
-    return value.raw;
+    if (isDuplicateOrEmpty(value.text, value.raw)) {
+      log('unwrapPayloadEnvelope: envelope keys=%o — `json` empty, selected `raw` branch', keys);
+      return value.raw;
+    }
+    log(
+      'unwrapPayloadEnvelope: envelope keys=%o — `json` empty but `text` carries distinct data, not collapsing',
+      keys
+    );
+    return value;
   }
   if (value.text !== undefined && value.text !== null) {
     log(
