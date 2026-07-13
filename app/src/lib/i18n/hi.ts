@@ -3820,7 +3820,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': 'पूरा नहीं हो सका:',
   'flowRuns.inspector.summary.unknownError': 'कुछ गड़बड़ हो गई',
   'flowRuns.inspector.summary.itemsFetched': '{count} आइटम प्राप्त हुए',
-  'flowRuns.inspector.summary.itemsProduced': '{count} आइटम बनाए गए',
   'flowRuns.inspector.summary.completed': 'चरण पूरा हुआ',
   'flowRuns.inspector.summary.noOutput': 'कोई आउटपुट नहीं बना',
   'flowRuns.inspector.port': 'पोर्ट',

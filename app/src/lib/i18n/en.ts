@@ -4472,7 +4472,6 @@ const en: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': "Couldn't complete:",
   'flowRuns.inspector.summary.unknownError': 'something went wrong',
   'flowRuns.inspector.summary.itemsFetched': 'Fetched {count} item(s)',
-  'flowRuns.inspector.summary.itemsProduced': 'Produced {count} item(s)',
   'flowRuns.inspector.summary.completed': 'Step completed',
   'flowRuns.inspector.summary.noOutput': 'No output produced',
   // Null-resolution diagnostics: `=`-expressions in a step's config that

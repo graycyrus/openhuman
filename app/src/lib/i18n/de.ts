@@ -3916,7 +3916,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': 'Konnte nicht abgeschlossen werden:',
   'flowRuns.inspector.summary.unknownError': 'etwas ist schiefgelaufen',
   'flowRuns.inspector.summary.itemsFetched': '{count} Element(e) abgerufen',
-  'flowRuns.inspector.summary.itemsProduced': '{count} Element(e) erzeugt',
   'flowRuns.inspector.summary.completed': 'Schritt abgeschlossen',
   'flowRuns.inspector.summary.noOutput': 'Keine Ausgabe erzeugt',
   'flowRuns.inspector.port': 'Port',

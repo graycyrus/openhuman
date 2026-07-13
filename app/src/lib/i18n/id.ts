@@ -3831,7 +3831,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': 'Tidak dapat menyelesaikan:',
   'flowRuns.inspector.summary.unknownError': 'terjadi kesalahan',
   'flowRuns.inspector.summary.itemsFetched': 'Berhasil mengambil {count} item',
-  'flowRuns.inspector.summary.itemsProduced': 'Menghasilkan {count} item',
   'flowRuns.inspector.summary.completed': 'Langkah selesai',
   'flowRuns.inspector.summary.noOutput': 'Tidak ada output yang dihasilkan',
   'flowRuns.inspector.port': 'Port',

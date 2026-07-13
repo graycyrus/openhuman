@@ -3855,7 +3855,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': 'Не удалось завершить:',
   'flowRuns.inspector.summary.unknownError': 'что-то пошло не так',
   'flowRuns.inspector.summary.itemsFetched': 'Получено элементов: {count}',
-  'flowRuns.inspector.summary.itemsProduced': 'Создано элементов: {count}',
   'flowRuns.inspector.summary.completed': 'Шаг завершён',
   'flowRuns.inspector.summary.noOutput': 'Вывод не создан',
   'flowRuns.inspector.port': 'Порт',

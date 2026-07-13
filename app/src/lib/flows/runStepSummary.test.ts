@@ -14,7 +14,6 @@ const STRINGS: Record<string, string> = {
   'flowRuns.inspector.summary.failedPrefix': "Couldn't complete:",
   'flowRuns.inspector.summary.unknownError': 'something went wrong',
   'flowRuns.inspector.summary.itemsFetched': 'Fetched {count} item(s)',
-  'flowRuns.inspector.summary.itemsProduced': 'Produced {count} item(s)',
   'flowRuns.inspector.summary.completed': 'Step completed',
   'flowRuns.inspector.summary.noOutput': 'No output produced',
 };
@@ -50,6 +49,14 @@ describe('summarizeStep', () => {
       const items = normalizeItems([
         { json: { data: [{ id: 1 }, { id: 2 }, { id: 3 }], successful: true, costUsd: 0.001 } },
       ]);
+      expect(summarizeStep({ status: 'success' }, items, t)).toEqual({
+        outcome: 'success',
+        text: 'Fetched 3 item(s)',
+      });
+    });
+
+    it('reports an item count via itemsFetched for multiple items (no separate itemsProduced branch — primaryPayload always turns >1 items into an array, so arrayLength always wins)', () => {
+      const items = normalizeItems([{ json: { id: 1 } }, { json: { id: 2 } }, { json: { id: 3 } }]);
       expect(summarizeStep({ status: 'success' }, items, t)).toEqual({
         outcome: 'success',
         text: 'Fetched 3 item(s)',

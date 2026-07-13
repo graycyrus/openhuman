@@ -3735,7 +3735,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': 'تعذر الإكمال:',
   'flowRuns.inspector.summary.unknownError': 'حدث خطأ ما',
   'flowRuns.inspector.summary.itemsFetched': 'تم جلب {count} عنصر (عناصر)',
-  'flowRuns.inspector.summary.itemsProduced': 'تم إنتاج {count} عنصر (عناصر)',
   'flowRuns.inspector.summary.completed': 'اكتملت الخطوة',
   'flowRuns.inspector.summary.noOutput': 'لم يتم إنتاج أي مخرجات',
   'flowRuns.inspector.port': 'المنفذ',

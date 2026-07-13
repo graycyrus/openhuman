@@ -127,15 +127,6 @@ export function summarizeStep(
     };
   }
 
-  if (items.length > 1) {
-    return {
-      outcome: 'success',
-      text: truncate(
-        t('flowRuns.inspector.summary.itemsProduced').replace('{count}', String(items.length))
-      ),
-    };
-  }
-
   if (typeof payload === 'string' && payload.trim()) {
     return { outcome: 'success', text: truncate(payload) };
   }

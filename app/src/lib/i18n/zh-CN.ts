@@ -3622,7 +3622,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': '无法完成：',
   'flowRuns.inspector.summary.unknownError': '出了点问题',
   'flowRuns.inspector.summary.itemsFetched': '已获取 {count} 项',
-  'flowRuns.inspector.summary.itemsProduced': '已生成 {count} 项',
   'flowRuns.inspector.summary.completed': '步骤已完成',
   'flowRuns.inspector.summary.noOutput': '未生成任何输出',
   'flowRuns.inspector.port': '端口',

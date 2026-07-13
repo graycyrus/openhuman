@@ -3782,7 +3782,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': '완료하지 못했습니다:',
   'flowRuns.inspector.summary.unknownError': '문제가 발생했습니다',
   'flowRuns.inspector.summary.itemsFetched': '{count}개 항목을 가져왔습니다',
-  'flowRuns.inspector.summary.itemsProduced': '{count}개 항목을 생성했습니다',
   'flowRuns.inspector.summary.completed': '단계 완료',
   'flowRuns.inspector.summary.noOutput': '출력이 생성되지 않았습니다',
   'flowRuns.inspector.port': '포트',

@@ -3867,7 +3867,6 @@ const messages: TranslationMap = {
   'flowRuns.inspector.summary.failedPrefix': 'Nie udało się ukończyć:',
   'flowRuns.inspector.summary.unknownError': 'coś poszło nie tak',
   'flowRuns.inspector.summary.itemsFetched': 'Pobrano {count} element(y)',
-  'flowRuns.inspector.summary.itemsProduced': 'Wygenerowano {count} element(y)',
   'flowRuns.inspector.summary.completed': 'Krok zakończony',
   'flowRuns.inspector.summary.noOutput': 'Nie wygenerowano żadnych danych wyjściowych',
   'flowRuns.inspector.port': 'Port',
