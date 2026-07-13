@@ -28,7 +28,11 @@
  * Internal `flow:`/`run:` ids are never surfaced here — this module only ever
  * sees a step's already-normalized output items, never the `FlowRun` record.
  */
+import createDebug from 'debug';
+
 import { type FlowRunItem, isPlainObject } from './runItems';
+
+const log = createDebug('app:flows:step-summary');
 
 export type StepOutcome = 'success' | 'error' | 'neutral';
 
@@ -110,39 +114,62 @@ export function summarizeStep(
   const unsuccessful = isMarkedUnsuccessful(payload);
   const failed = step.status === 'error' || unsuccessful;
 
+  // Diagnostics: classification inputs only — status presence/value, item
+  // count, whether the `successful: false` marker was recognized, and whether
+  // an error reason was present. Never the payload contents or error text.
+  log(
+    'classify: status=%s items=%d successfulFalse=%s hasErrorReason=%s failed=%s',
+    step.status ?? 'absent',
+    items.length,
+    unsuccessful,
+    errorMessage !== null,
+    failed
+  );
+  // Tag the selected outcome branch (metadata only) on the way out.
+  const decide = (branch: string, summary: StepSummary): StepSummary => {
+    log('branch=%s outcome=%s', branch, summary.outcome);
+    return summary;
+  };
+
   if (failed) {
     const reason = errorMessage ?? t('flowRuns.inspector.summary.unknownError');
-    return {
+    return decide('failed', {
       outcome: 'error',
       text: truncate(`${t('flowRuns.inspector.summary.failedPrefix')} ${reason}`),
-    };
+    });
   }
 
   if (isPlainObject(payload)) {
     const summary = stringField(payload, 'summary') ?? stringField(payload, 'message');
-    if (summary) return { outcome: 'success', text: truncate(summary) };
+    if (summary) return decide('summary-field', { outcome: 'success', text: truncate(summary) });
   }
 
   const count = arrayLength(payload);
   if (count !== null) {
-    return {
+    return decide('items-count', {
       outcome: 'success',
       text: truncate(
         t('flowRuns.inspector.summary.itemsFetched').replace('{count}', String(count))
       ),
-    };
+    });
   }
 
   if (typeof payload === 'string' && payload.trim()) {
-    return { outcome: 'success', text: truncate(payload) };
+    return decide('string-payload', { outcome: 'success', text: truncate(payload) });
   }
   if (typeof payload === 'number' || typeof payload === 'boolean') {
-    return { outcome: 'success', text: truncate(String(payload)) };
+    return decide('scalar-payload', { outcome: 'success', text: truncate(String(payload)) });
   }
 
   if (items.length === 0) {
-    return { outcome: 'neutral', text: t('flowRuns.inspector.summary.noOutput') };
+    return decide('no-output', {
+      outcome: 'neutral',
+      text: t('flowRuns.inspector.summary.noOutput'),
+    });
   }
 
-  return { outcome: 'success', text: t('flowRuns.inspector.summary.completed') };
+  return decide('completed', {
+    outcome: 'success',
+    text: t('flowRuns.inspector.summary.completed'),
+  });
 }
