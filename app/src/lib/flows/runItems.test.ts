@@ -55,6 +55,40 @@ describe('normalizeItems', () => {
     expect(normalizeItems([{ json: {}, paired_item: 'nope' }])[0].pairedIndex).toBeNull();
     expect(normalizeItems([{ json: {} }])[0].pairedIndex).toBeNull();
   });
+
+  // Issue B19 — the persisted `{ json: { json, raw, text } }` double envelope
+  // (Composio/tinyflows tool-call output) rendered the same payload twice,
+  // once as `json` and once as the identical `raw` copy.
+  describe('double-wrapped json/raw payload envelope (issue B19)', () => {
+    it('collapses an identical json/raw/text envelope to a single canonical payload', () => {
+      const payload = { has_important: false, summary: 'No new emails today.' };
+      const items = normalizeItems([{ json: { json: payload, raw: payload, text: null } }]);
+      expect(items).toHaveLength(1);
+      expect(items[0].json).toEqual(payload);
+      // Neither sibling wrapper key survives — the data appears exactly once.
+      expect(items[0].json).not.toHaveProperty('raw');
+      expect(items[0].json).not.toHaveProperty('text');
+    });
+
+    it('still collapses to `json` when `raw` differs (json wins, no silent data loss risk from raw)', () => {
+      const items = normalizeItems([
+        { json: { json: { kept: true }, raw: { kept: false, extra: 'stripped' }, text: null } },
+      ]);
+      expect(items[0].json).toEqual({ kept: true });
+    });
+
+    it('does not collapse a real payload that merely has both "json" and "raw" data fields plus extra keys', () => {
+      // Not the known 3-key envelope shape (has an unrelated 4th key), so it's
+      // left untouched rather than risking silently dropping real data.
+      const items = normalizeItems([{ json: { json: 'a', raw: 'b', text: null, other: 'c' } }]);
+      expect(items[0].json).toEqual({ json: 'a', raw: 'b', text: null, other: 'c' });
+    });
+
+    it('leaves a bare item json payload untouched when it has no json/raw envelope shape', () => {
+      const items = normalizeItems([{ json: { summary: 'ok' } }]);
+      expect(items[0].json).toEqual({ summary: 'ok' });
+    });
+  });
 });
 
 describe('collectColumns / hasObjectRows', () => {

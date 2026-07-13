@@ -42,7 +42,7 @@ export interface FlowRunItem {
   pairedIndex: number | null;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -82,6 +82,37 @@ function parseBinary(raw: unknown): FlowBinaryRef[] {
   });
 }
 
+/**
+ * Known keys of the internal `{ json, raw, text }` payload envelope some nodes
+ * (Composio tool calls in particular) persist alongside the n8n item shape —
+ * `json` is the parsed payload, `raw` is the same payload pre-parse (always a
+ * verbatim duplicate in practice), `text` an optional plain-text fallback
+ * (usually `null`). Rendered naked, `json` and `raw` show the identical data
+ * twice side by side (issue B19). An object is only treated as this envelope
+ * when its keys are a subset of these three AND it actually carries `json` —
+ * a real payload that merely happens to have a field called "raw" but no
+ * "json" is left untouched.
+ */
+const PAYLOAD_ENVELOPE_KEYS = new Set(['json', 'raw', 'text']);
+
+/**
+ * Collapse the internal `{ json, raw, text }` payload envelope (see
+ * {@link PAYLOAD_ENVELOPE_KEYS}) down to a single canonical value, so the
+ * inspector renders one copy of the data instead of the same payload twice
+ * under sibling `json`/`raw` keys. Anything that doesn't match the envelope
+ * shape passes through unchanged.
+ */
+function unwrapPayloadEnvelope(value: unknown): unknown {
+  if (!isPlainObject(value)) return value;
+  const keys = Object.keys(value);
+  if (keys.length === 0 || !keys.every(key => PAYLOAD_ENVELOPE_KEYS.has(key))) return value;
+  if (!('json' in value)) return value;
+  if (value.json !== undefined && value.json !== null) return value.json;
+  if (value.raw !== undefined && value.raw !== null) return value.raw;
+  if (value.text !== undefined && value.text !== null) return value.text;
+  return value.json;
+}
+
 /** Normalize one raw element into a {@link FlowRunItem}. */
 function toItem(raw: unknown): FlowRunItem {
   // Item-shaped: `{ json, binary?, paired_item? }`. `json` present as an own key
@@ -89,12 +120,12 @@ function toItem(raw: unknown): FlowRunItem {
   // payload itself (see below).
   if (isPlainObject(raw) && 'json' in raw) {
     return {
-      json: raw.json,
+      json: unwrapPayloadEnvelope(raw.json),
       binary: parseBinary(raw.binary),
       pairedIndex: resolvePairedIndex(raw.paired_item),
     };
   }
-  return { json: raw, binary: [], pairedIndex: null };
+  return { json: unwrapPayloadEnvelope(raw), binary: [], pairedIndex: null };
 }
 
 /**
