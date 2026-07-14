@@ -9,12 +9,22 @@
  * actions:
  *
  *   - "Build this" creates a new blank flow (named from the suggestion's
- *     title, mirroring {@link WorkflowPromptBar}'s instant-create path), marks
- *     the suggestion `built` (drops it from the active list so Scout doesn't
- *     immediately re-suggest it), then navigates into the new flow's canvas
- *     with the suggestion's `build_prompt` PRE-FILLED into the copilot's
- *     input (`location.state.copilotPrefill`) — never auto-sent. The user
- *     reviews/edits the brief and presses Send themselves.
+ *     title, mirroring {@link WorkflowPromptBar}'s instant-create path), then
+ *     navigates into the new flow's canvas with the suggestion's
+ *     `build_prompt` PRE-FILLED into the copilot's input
+ *     (`location.state.copilotPrefill`, carrying `mode: 'build'` so the
+ *     first Send drives a full build → dry-run → propose turn against the
+ *     just-created flow) — never auto-sent. The user reviews/edits the brief
+ *     and presses Send themselves. The card is dropped from THIS session's
+ *     local list right away (`removeSuggestion`), but `markSuggestionBuilt`
+ *     is deliberately NOT called here: that RPC's contract is "the user
+ *     SAVED a flow authored from this suggestion", and this path only
+ *     creates a blank flow + an unsent prompt — the user may close the
+ *     canvas, never press Send, reject the proposal, or navigate away
+ *     without saving. There's no clean hook back from the canvas's Save to
+ *     this suggestion id yet, so we leave it un-built server-side rather
+ *     than risk permanently hiding an abandoned build from Flow Scout; it
+ *     can simply resurface on a later discovery run.
  *   - "Dismiss" marks the suggestion `dismissed` (kept server-side so a later
  *     discovery run won't re-surface it).
  *
@@ -34,7 +44,6 @@ import {
   dismissSuggestion,
   type FlowSuggestion,
   listSuggestions,
-  markSuggestionBuilt,
 } from '../../services/api/flowsApi';
 import Button from '../ui/Button';
 
@@ -56,13 +65,27 @@ function triggerLabelKey(hint?: string | null): string | null {
 
 interface SuggestionCardProps {
   suggestion: FlowSuggestion;
-  /** True while this suggestion's blank flow is being created + navigated to. */
+  /** True while THIS suggestion's blank flow is being created + navigated to. */
   opening: boolean;
+  /**
+   * True while ANY suggestion's blank flow is being created + navigated to —
+   * disables every card's "Build this" (not just the active one) so a click
+   * on a different card can't silently no-op against `onBuild`'s
+   * `if (openingId) return` re-entry guard while a build is already in
+   * flight.
+   */
+  buildInProgress: boolean;
   onBuild: () => void;
   onDismiss: () => void;
 }
 
-function SuggestionCard({ suggestion, opening, onBuild, onDismiss }: SuggestionCardProps) {
+function SuggestionCard({
+  suggestion,
+  opening,
+  buildInProgress,
+  onBuild,
+  onDismiss,
+}: SuggestionCardProps) {
   const { t } = useT();
   const triggerKey = triggerLabelKey(suggestion.trigger_hint);
 
@@ -95,7 +118,7 @@ function SuggestionCard({ suggestion, opening, onBuild, onDismiss }: SuggestionC
           variant="primary"
           size="sm"
           data-testid="flow-suggestion-build"
-          disabled={opening}
+          disabled={buildInProgress}
           onClick={onBuild}>
           {opening ? t('flows.suggest.opening') : t('flows.suggest.build')}
         </Button>
@@ -155,9 +178,25 @@ export default function SuggestedWorkflows() {
 
   // Mirrors `WorkflowPromptBar`'s instant-create path: creates a blank flow
   // named from the suggestion, then opens its canvas with the copilot's input
-  // PRE-FILLED (never auto-sent) with the suggestion's `build_prompt`. The
-  // suggestion is marked `built` at navigate time (same as the old inline
-  // "Save & enable" path did) so Flow Scout doesn't immediately re-suggest it.
+  // PRE-FILLED (never auto-sent) with the suggestion's `build_prompt`, tagged
+  // `mode: 'build'` so the panel's first Send runs a full build → dry-run →
+  // propose turn against this already-created (blank) flow — matching the
+  // server's `BuildMode::Build` contract — rather than treating it as a
+  // draft to merely `revise` (see `WorkflowCopilotPanel.submit`).
+  //
+  // Deliberately does NOT call `markSuggestionBuilt`: that RPC's contract is
+  // "the user SAVED a flow authored from this suggestion" (the old inline
+  // path only called it from the proposal card's "Save & enable" `onSaved`
+  // callback). This path only creates a blank flow and pre-fills an unsent
+  // prompt — the user may close the canvas, never press Send, reject the
+  // copilot's proposal, or navigate away without saving, and marking built
+  // here would permanently hide/dedupe a suggestion nothing was ever built
+  // from. There's no clean hook yet from the canvas's Save back to the
+  // originating suggestion id, so — per the safer option — we leave it
+  // un-built server-side; it can simply reappear on a later discovery run.
+  // We still drop it from THIS session's local list (`removeSuggestion`) so
+  // it doesn't linger in the UI right after the user has already acted on
+  // it once.
   const onBuild = useCallback(
     async (suggestion: FlowSuggestion) => {
       if (openingId) return;
@@ -175,11 +214,8 @@ export default function SuggestedWorkflows() {
         );
         log('onBuild: created id=%s — opening canvas with prefill seed', flow.id);
         removeSuggestion(suggestion.id);
-        void markSuggestionBuilt(suggestion.id).catch(e =>
-          log('markSuggestionBuilt failed: %o', e)
-        );
         navigate(`/flows/${flow.id}`, {
-          state: { copilotPrefill: { text: suggestion.build_prompt } },
+          state: { copilotPrefill: { text: suggestion.build_prompt, mode: 'build' } },
         });
       } catch (e) {
         log('onBuild: createFlow failed err=%o', e);
@@ -255,6 +291,7 @@ export default function SuggestedWorkflows() {
               key={suggestion.id}
               suggestion={suggestion}
               opening={openingId === suggestion.id}
+              buildInProgress={openingId !== null}
               onBuild={() => void onBuild(suggestion)}
               onDismiss={() => void onDismiss(suggestion.id)}
             />

@@ -673,4 +673,89 @@ describe('WorkflowCopilotPanel', () => {
     expect(onPrefillSeedConsumed).toHaveBeenCalledTimes(1);
     expect(hookState.send).not.toHaveBeenCalled();
   });
+
+  it("sends the FIRST Send after a prefill seed with the seed's builder mode, not revise", async () => {
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        flowId="flow-1"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        prefillSeed={{ text: 'Build a workflow that files receipts.', mode: 'build' }}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('send-message-button'));
+
+    expect(hookState.send).toHaveBeenCalledTimes(1);
+    const arg = hookState.send.mock.calls[0][0];
+    // First Send after a Suggested Workflows prefill must run the seed's
+    // `build` mode (build → dry-run → propose against the just-created blank
+    // flow) — NOT the panel's usual `revise` turn.
+    expect(arg.request.mode).toBe('build');
+    expect(arg.request.instruction).toBe('Build a workflow that files receipts.');
+    expect(arg.request.flowId).toBe('flow-1');
+  });
+
+  it('falls back to revise for subsequent Sends after the prefill-seeded first one', async () => {
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        flowId="flow-1"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        prefillSeed={{ text: 'Build a workflow that files receipts.', mode: 'build' }}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('send-message-button'));
+    expect(hookState.send.mock.calls[0][0].request.mode).toBe('build');
+
+    fireEvent.change(screen.getByPlaceholderText('flows.copilot.placeholder'), {
+      target: { value: 'also add a retry' },
+    });
+    fireEvent.click(screen.getByTestId('send-message-button'));
+
+    expect(hookState.send).toHaveBeenCalledTimes(2);
+    expect(hookState.send.mock.calls[1][0].request.mode).toBe('revise');
+  });
+
+  it('defaults an omitted prefill seed mode to build on the first Send', async () => {
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        flowId="flow-1"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        prefillSeed={{ text: 'Build a workflow that files receipts.' }}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('send-message-button'));
+
+    expect(hookState.send.mock.calls[0][0].request.mode).toBe('build');
+  });
+
+  it('falls back to revise on the first Send when there is no flow id to build against', async () => {
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        prefillSeed={{ text: 'Build a workflow that files receipts.', mode: 'build' }}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('send-message-button'));
+
+    expect(hookState.send.mock.calls[0][0].request.mode).toBe('revise');
+  });
 });

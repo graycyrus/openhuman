@@ -86,6 +86,18 @@ export function asCopilotBuildSeed(state: unknown): CopilotBuildSeed | null {
 export interface CopilotPrefillSeed {
   /** The text to populate the copilot's composer with, unsent. */
   text: string;
+  /**
+   * The builder mode the FIRST Send after this prefill should use (mirrors
+   * `CopilotBuildSeed`'s auto-sent `mode: 'build'` turn). Suggested
+   * Workflows' "Build this" always seeds `'build'` — the flow this prefill
+   * targets was JUST created blank, matching the server's `BuildMode::Build`
+   * contract ("the flow already exists ... design the graph and verify it
+   * with dry_run_workflow") — rather than the panel's default `revise` turn,
+   * which would treat the blank graph as an existing draft to merely tweak.
+   * Defaults to `'build'` if omitted (the only seed producer today), so an
+   * older/partial route state still gets the correct first-send mode.
+   */
+  mode?: 'build' | 'create';
 }
 
 /** Narrow an opaque `location.state` to a {@link CopilotPrefillSeed}. */
@@ -95,7 +107,9 @@ export function asCopilotPrefillSeed(state: unknown): CopilotPrefillSeed | null 
   if (!seed || typeof seed !== 'object') return null;
   const text = (seed as Record<string, unknown>).text;
   if (typeof text !== 'string' || text.trim().length === 0) return null;
-  return { text };
+  const rawMode = (seed as Record<string, unknown>).mode;
+  const mode = rawMode === 'build' || rawMode === 'create' ? rawMode : 'build';
+  return { text, mode };
 }
 
 /** Narrow an opaque `location.state` to a {@link CopilotRepairSeed}. */

@@ -108,23 +108,57 @@ describe('SuggestedWorkflows', () => {
     expect(graph.nodes[0].kind).toBe('trigger');
     // Suggestion-authored flows require approval by default, same as prompt-bar.
     expect(requireApproval).toBe(true);
-    // Navigates with the suggestion's build_prompt as an UNSENT prefill seed —
-    // never a `send()`/inline builder turn.
+    // Navigates with the suggestion's build_prompt as an UNSENT prefill seed,
+    // tagged `mode: 'build'` so the copilot's first Send runs a full build
+    // turn against the just-created blank flow (not a `revise`) — never a
+    // `send()`/inline builder turn here.
     expect(navigateMock).toHaveBeenCalledWith('/flows/flow-1', {
-      state: { copilotPrefill: { text: 'Build a workflow that files receipts.' } },
+      state: { copilotPrefill: { text: 'Build a workflow that files receipts.', mode: 'build' } },
     });
   });
 
-  it('marks the suggestion built and drops it from the list once the flow is created', async () => {
+  it('drops the suggestion from the local list once the flow is created, WITHOUT marking it built server-side', async () => {
     api.listSuggestions = vi.fn().mockResolvedValue([suggestion()]);
     render(<SuggestedWorkflows />);
     await waitFor(() => expect(screen.getByTestId('flow-suggestion-card')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('flow-suggestion-build'));
 
-    await waitFor(() => expect(api.markSuggestionBuilt).toHaveBeenCalledWith('sug_1'));
-    // Card dropped from the active list so Scout doesn't immediately re-suggest.
-    expect(screen.queryByTestId('flow-suggestion-card')).not.toBeInTheDocument();
+    // Card dropped from THIS session's active list so it doesn't linger...
+    await waitFor(() =>
+      expect(screen.queryByTestId('flow-suggestion-card')).not.toBeInTheDocument()
+    );
+    // ...but `markSuggestionBuilt` must NOT be called at navigate time: this
+    // path only creates a blank flow + an unsent prompt, and the suggestion
+    // must only be marked built once the user actually SAVES a flow authored
+    // from it (which this component can't observe) — see the `onBuild` doc
+    // comment. Prematurely marking it built would permanently hide/dedupe an
+    // abandoned build from Flow Scout.
+    expect(api.markSuggestionBuilt).not.toHaveBeenCalled();
+  });
+
+  it('disables every suggestion card\'s "Build this" while any one build is in flight', async () => {
+    api.listSuggestions = vi
+      .fn()
+      .mockResolvedValue([
+        suggestion({ id: 'sug_1' }),
+        suggestion({ id: 'sug_2', title: 'Other' }),
+      ]);
+    // Never resolves within the test, so `openingId` stays set and we can
+    // observe the disabled state on the OTHER card.
+    api.createFlow = vi.fn().mockReturnValue(new Promise(() => {}));
+    render(<SuggestedWorkflows />);
+    await waitFor(() => expect(screen.getAllByTestId('flow-suggestion-card')).toHaveLength(2));
+
+    const buildButtons = screen.getAllByTestId('flow-suggestion-build');
+    expect(buildButtons).toHaveLength(2);
+    fireEvent.click(buildButtons[0]);
+
+    // Both the active card AND the other (untouched) card must be disabled —
+    // clicking the other one must not silently no-op against `onBuild`'s
+    // `if (openingId) return` guard.
+    await waitFor(() => expect(buildButtons[0]).toBeDisabled());
+    expect(buildButtons[1]).toBeDisabled();
   });
 
   it('surfaces an error and re-enables Build this when createFlow fails', async () => {

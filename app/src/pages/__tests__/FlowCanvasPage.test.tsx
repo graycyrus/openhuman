@@ -458,10 +458,23 @@ describe('FlowCanvasPage copilot build seed (prompt-bar instant create)', () => 
 });
 
 describe('asCopilotPrefillSeed', () => {
-  it('accepts a copilotPrefill state with non-empty text', () => {
+  it('accepts a copilotPrefill state with non-empty text, defaulting mode to build', () => {
     expect(asCopilotPrefillSeed({ copilotPrefill: { text: 'digest my Slack' } })).toEqual({
       text: 'digest my Slack',
+      mode: 'build',
     });
+  });
+
+  it('carries an explicit mode through unchanged', () => {
+    expect(
+      asCopilotPrefillSeed({ copilotPrefill: { text: 'digest my Slack', mode: 'create' } })
+    ).toEqual({ text: 'digest my Slack', mode: 'create' });
+  });
+
+  it('falls back to build for an unrecognized mode value', () => {
+    expect(
+      asCopilotPrefillSeed({ copilotPrefill: { text: 'digest my Slack', mode: 'revise' } })
+    ).toEqual({ text: 'digest my Slack', mode: 'build' });
   });
 
   it('rejects missing, malformed, or blank seeds', () => {
@@ -493,7 +506,8 @@ describe('FlowCanvasPage copilot prefill seed (Suggested Workflows "Build this")
     );
 
     await waitFor(() => expect(screen.getByTestId('stub-copilot-panel')).toBeInTheDocument());
-    expect(copilotPanelProps.current?.prefillSeed).toEqual({ text: 'digest it' });
+    // `mode` defaults to `build` when the route state omits it.
+    expect(copilotPanelProps.current?.prefillSeed).toEqual({ text: 'digest it', mode: 'build' });
     expect(copilotPanelProps.current?.flowId).toBe('test-id');
   });
 
@@ -518,7 +532,7 @@ describe('FlowCanvasPage copilot prefill seed (Suggested Workflows "Build this")
     );
 
     await waitFor(() =>
-      expect(copilotPanelProps.current?.prefillSeed).toEqual({ text: 'digest it' })
+      expect(copilotPanelProps.current?.prefillSeed).toEqual({ text: 'digest it', mode: 'build' })
     );
     expect(copilotPanelProps.current?.repairSeed).toMatchObject({ runId: 'run-1' });
 

@@ -95,8 +95,15 @@ interface Props {
    * — populates the composer's input with the suggestion's `build_prompt`
    * once on mount WITHOUT sending it; the user reviews/edits the text and
    * presses Send themselves. Distinct from `buildSeed`, which auto-sends.
+   *
+   * `mode` carries the builder mode the FIRST Send after this prefill must
+   * use — `'build'` for a Suggested Workflows seed, matching the
+   * already-created blank flow's `BuildMode::Build` contract — instead of
+   * `submit`'s normal `'revise'` turn. Consumed (and reset to `'revise'`) as
+   * soon as that first Send fires; later Sends on the same mount are plain
+   * revise turns.
    */
-  prefillSeed?: { text: string } | null;
+  prefillSeed?: { text: string; mode?: 'build' | 'create' } | null;
   /**
    * Fires once the prefill seed has populated the input, so the host can
    * clear the ephemeral route seed (`location.state.copilotPrefill`) — same
@@ -270,10 +277,15 @@ export default function WorkflowCopilotPanel({
   // way as `buildSentRef`/`repairSentRef` (once per mount) so a re-render
   // doesn't re-fill (and clobber) text the user has already started editing.
   const prefillSentRef = useRef(false);
+  // The builder mode the FIRST manual Send after this prefill must use (see
+  // `prefillSeed`'s doc comment) — read and cleared by `submit` below once
+  // that first Send actually fires, so later Sends fall back to `revise`.
+  const pendingPrefillModeRef = useRef<'build' | 'create' | null>(null);
   useEffect(() => {
     if (!prefillSeed || prefillSentRef.current) return;
     prefillSentRef.current = true;
-    log('prefill seed: populating composer input (unsent)');
+    pendingPrefillModeRef.current = prefillSeed.mode ?? 'build';
+    log('prefill seed: populating composer input (unsent), pending mode=%s', prefillSeed.mode);
     setText(prefillSeed.text);
     textInputRef.current?.focus();
     // Consumed synchronously (no async dispatch to await, unlike build/repair)
@@ -297,10 +309,22 @@ export default function WorkflowCopilotPanel({
       const instruction = priorAsk
         ? `${priorAsk}\n\n(This is my answer to your question above: ${trimmed})`
         : trimmed;
-      const { proposed } = await send({
-        displayText: trimmed,
-        request: { mode: 'revise', instruction, graph, flowId },
-      });
+      // The FIRST Send after a Suggested Workflows prefill seed must run the
+      // seed's builder mode (default `build`), not the usual `revise` — the
+      // seed's flow was just created blank, so this turn needs the `build`
+      // brief (build → dry-run → propose) rather than being treated as a
+      // revise of an existing draft. Consumed once: later Sends on this same
+      // mount fall back to plain `revise`. Requires a real `flowId` (always
+      // true for a prefill seed, which only ever seeds an existing flow's
+      // canvas) — falls back to `revise` defensively if it's somehow absent,
+      // mirroring `buildSeed`'s own fallback above.
+      const prefillMode = pendingPrefillModeRef.current;
+      pendingPrefillModeRef.current = null;
+      const request =
+        prefillMode && flowId
+          ? { mode: prefillMode, instruction, graph, flowId }
+          : { mode: 'revise' as const, instruction, graph, flowId };
+      const { proposed } = await send({ displayText: trimmed, request });
       updatePendingAsk(proposed, instruction);
     },
     [text, sending, send, graph, flowId, updatePendingAsk]
