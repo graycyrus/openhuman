@@ -4787,6 +4787,9 @@ const en: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Dry-running workflow…',
   'flows.copilot.tool.saving': 'Saving workflow…',
   'flows.copilot.tool.usingTools': 'Using tools…',
+  'flows.copilot.cappedNotice':
+    'The builder ran out of steps before finishing this workflow. It can pick up right where it left off.',
+  'flows.copilot.continueBuilding': 'Continue building',
 
   // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved
   // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node

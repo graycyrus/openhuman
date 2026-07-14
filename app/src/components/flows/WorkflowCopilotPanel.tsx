@@ -140,6 +140,7 @@ export default function WorkflowCopilotPanel({
     threadId,
     sending,
     proposal,
+    capped,
     displayMessages,
     toolTimeline,
     liveResponse,
@@ -330,6 +331,17 @@ export default function WorkflowCopilotPanel({
     [text, sending, send, graph, flowId, updatePendingAsk]
   );
 
+  // (B34) One-click resume for a turn that hit the agent's tool-call budget
+  // (`capped`, see `useWorkflowBuilderChat`'s doc) with no proposal yet.
+  // Routes through the SAME `submit` path a typed follow-up would — the
+  // `pendingAskRef` mechanism (set above, since a capped turn also has
+  // `proposed === false`) automatically carries the original ask forward, so
+  // the agent picks the build back up with full context, not just "continue"
+  // in isolation.
+  const continueBuilding = useCallback(() => {
+    void submit(t('flows.copilot.continueBuilding'));
+  }, [submit, t]);
+
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (event.key === 'Enter' && !event.shiftKey && !isComposingTextRef.current) {
@@ -509,6 +521,30 @@ export default function WorkflowCopilotPanel({
                 data-testid="workflow-copilot-reject"
                 onClick={reject}>
                 {t('flows.copilot.reject')}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* (B34) The turn hit the agent's tool-call budget with no proposal
+            yet — distinguish this from a voluntary clarifying question (which
+            renders as a plain agent bubble above, no card) with an explicit
+            "ran out of steps" signal and a one-click resume. Never shown
+            alongside `sending` (a fresh turn already cleared `capped`) or a
+            proposal (mutually exclusive server-side — see `ops.rs`). */}
+        {capped && !sending && !proposal && (
+          <div
+            data-testid="workflow-copilot-capped"
+            className="rounded-xl border border-amber-300 bg-surface p-3 dark:border-amber-700">
+            <p className="text-xs text-content-secondary">{t('flows.copilot.cappedNotice')}</p>
+            <div className="mt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-testid="workflow-copilot-continue"
+                onClick={continueBuilding}>
+                {t('flows.copilot.continueBuilding')}
               </Button>
             </div>
           </div>

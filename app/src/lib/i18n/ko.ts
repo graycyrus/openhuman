@@ -4055,6 +4055,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': '워크플로 시험 실행 중…',
   'flows.copilot.tool.saving': '워크플로 저장 중…',
   'flows.copilot.tool.usingTools': '도구 사용 중…',
+  'flows.copilot.cappedNotice':
+    '빌더가 이 워크플로를 완료하기 전에 단계가 소진되었습니다. 중단된 지점부터 바로 이어서 진행할 수 있습니다.',
+  'flows.copilot.continueBuilding': '계속 빌드하기',
   'flows.list.view': '워크플로 보기',
   'flows.list.export': '내보내기',
   'flows.list.exported': '워크플로를 내보냈습니다',

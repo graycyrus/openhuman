@@ -4098,6 +4098,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'वर्कफ़्लो का ड्राई-रन किया जा रहा है…',
   'flows.copilot.tool.saving': 'वर्कफ़्लो सहेजा जा रहा है…',
   'flows.copilot.tool.usingTools': 'टूल का उपयोग किया जा रहा है…',
+  'flows.copilot.cappedNotice':
+    'इस वर्कफ़्लो को पूरा करने से पहले बिल्डर के चरण समाप्त हो गए। यह वहीं से आगे जारी रख सकता है जहाँ इसने छोड़ा था।',
+  'flows.copilot.continueBuilding': 'निर्माण जारी रखें',
   'flows.list.view': 'वर्कफ़्लो देखें',
   'flows.list.export': 'निर्यात',
   'flows.list.exported': 'वर्कफ़्लो निर्यात किया गया',

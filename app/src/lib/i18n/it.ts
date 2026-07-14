@@ -4169,6 +4169,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Esecuzione di prova del flusso di lavoro…',
   'flows.copilot.tool.saving': 'Salvataggio del flusso di lavoro…',
   'flows.copilot.tool.usingTools': 'Utilizzo degli strumenti…',
+  'flows.copilot.cappedNotice':
+    'Il builder ha esaurito i passaggi prima di completare questo flusso di lavoro. Può riprendere esattamente da dove si era interrotto.',
+  'flows.copilot.continueBuilding': 'Continua a costruire',
   'flows.list.view': 'Visualizza flusso di lavoro',
   'flows.list.export': 'Esporta',
   'flows.list.exported': 'Flusso di lavoro esportato',

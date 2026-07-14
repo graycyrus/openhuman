@@ -3494,9 +3494,24 @@ pub async fn flows_build(
         }
     }
 
+    // (B34) Whether this turn paused because it hit `max_tool_iterations`
+    // rather than finishing naturally (asking a question, or proposing). A
+    // capped turn with no proposal renders a raw checkpoint ("Done so far /
+    // Next steps") that's indistinguishable, in the response shape alone,
+    // from the agent voluntarily asking a clarifying question — `capped`
+    // gives the frontend the explicit signal to render a "Continue building"
+    // card instead. Scoped to `proposal.is_none()`: a turn that hit the cap
+    // but still squeezed out a proposal (the checkpoint fires before the
+    // final `propose_workflow` call in that ordering) has nothing left to
+    // continue.
+    let hit_cap = agent.last_turn_hit_cap();
+    let capped = hit_cap && proposal.is_none();
+
     tracing::info!(
         target: "flows",
         has_proposal = proposal.is_some(),
+        hit_cap,
+        capped,
         "[flows] flows_build: workflow_builder turn complete"
     );
     Ok(RpcOutcome::single_log(
@@ -3504,6 +3519,7 @@ pub async fn flows_build(
             "proposal": proposal,
             "assistant_text": assistant_text,
             "error": run_error,
+            "capped": capped,
         }),
         "workflow builder turn complete",
     ))

@@ -4100,6 +4100,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'ওয়ার্কফ্লো ড্রাই-রান করা হচ্ছে…',
   'flows.copilot.tool.saving': 'ওয়ার্কফ্লো সংরক্ষণ করা হচ্ছে…',
   'flows.copilot.tool.usingTools': 'টুল ব্যবহার করা হচ্ছে…',
+  'flows.copilot.cappedNotice':
+    'এই ওয়ার্কফ্লো শেষ করার আগেই বিল্ডারের ধাপ ফুরিয়ে গেছে। এটি যেখানে থেমেছিল সেখান থেকেই আবার চালিয়ে যেতে পারে।',
+  'flows.copilot.continueBuilding': 'নির্মাণ চালিয়ে যান',
   'flows.list.view': 'ওয়ার্কফ্লো দেখুন',
   'flows.list.export': 'রপ্তানি',
   'flows.list.exported': 'ওয়ার্কফ্লো রপ্তানি হয়েছে',

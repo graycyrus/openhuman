@@ -4002,6 +4002,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'تجربة تشغيل سير العمل…',
   'flows.copilot.tool.saving': 'حفظ سير العمل…',
   'flows.copilot.tool.usingTools': 'استخدام الأدوات…',
+  'flows.copilot.cappedNotice':
+    'نفد عدد الخطوات المتاحة للمنشئ قبل الانتهاء من إعداد سير العمل هذا. يمكنه المتابعة من حيث توقف تمامًا.',
+  'flows.copilot.continueBuilding': 'متابعة الإنشاء',
   'flows.list.view': 'عرض سير العمل',
   'flows.list.export': 'تصدير',
   'flows.list.exported': 'تم تصدير سير العمل',

@@ -3884,6 +3884,8 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': '正在试运行工作流…',
   'flows.copilot.tool.saving': '正在保存工作流…',
   'flows.copilot.tool.usingTools': '正在使用工具…',
+  'flows.copilot.cappedNotice': '构建器在完成此工作流之前用完了步骤，可以从中断的地方继续。',
+  'flows.copilot.continueBuilding': '继续构建',
   'flows.list.view': '查看工作流',
   'flows.list.export': '导出',
   'flows.list.exported': '工作流已导出',

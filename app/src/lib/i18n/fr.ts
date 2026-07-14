@@ -4200,6 +4200,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Exécution d’essai du workflow…',
   'flows.copilot.tool.saving': 'Enregistrement du workflow…',
   'flows.copilot.tool.usingTools': 'Utilisation d’outils…',
+  'flows.copilot.cappedNotice':
+    'Le générateur a épuisé ses étapes avant de terminer ce workflow. Il peut reprendre exactement là où il s’est arrêté.',
+  'flows.copilot.continueBuilding': 'Continuer la création',
   'flows.list.view': 'Voir le workflow',
   'flows.list.export': 'Exporter',
   'flows.list.exported': 'Workflow exporté',

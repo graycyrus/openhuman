@@ -4153,6 +4153,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Testowe uruchamianie przepływu pracy…',
   'flows.copilot.tool.saving': 'Zapisywanie przepływu pracy…',
   'flows.copilot.tool.usingTools': 'Używanie narzędzi…',
+  'flows.copilot.cappedNotice':
+    'Kreatorowi zabrakło kroków przed ukończeniem tego przepływu pracy. Może kontynuować dokładnie od miejsca, w którym skończył.',
+  'flows.copilot.continueBuilding': 'Kontynuuj tworzenie',
   'flows.list.view': 'Wyświetl przepływ pracy',
   'flows.list.export': 'Eksportuj',
   'flows.list.exported': 'Wyeksportowano przepływ pracy',
