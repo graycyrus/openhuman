@@ -326,6 +326,15 @@ mod tests {
             STANDING_PROMPT.contains("memory_recall"),
             "standing prompt must teach the builder to ground itself with memory_recall"
         );
+
+        // Positive: the prompt must state the read-only contract explicitly —
+        // not just mention the tool name — so a future edit can't silently
+        // drop the "can't change their memory" guarantee this agent's tool
+        // scope depends on (no `memory_store` in agent.toml).
+        assert!(
+            STANDING_PROMPT.contains("Read-only — you can't change their memory"),
+            "standing prompt must state the memory read-only guarantee, not just mention memory_recall"
+        );
     }
 
     #[test]

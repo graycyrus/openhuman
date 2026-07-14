@@ -1018,8 +1018,11 @@ mod tests {
         // against an already-connected toolkit — see `builder_tools.rs`'s
         // module doc. This pins the invariant in the agent definition itself,
         // not just the tool implementations. It also has read-only grounding
-        // in the user's memory via `memory_recall` — no `memory_store`, so it
-        // can look up context but never write it.
+        // in the user's memory via `memory_recall` (direct lookups) and
+        // `memory_hybrid_search` (keyword/lexical lookups — pairs with
+        // `memory_recall` the same way the sibling `flow_discovery` agent
+        // does) — no `memory_store`, so it can look up context but never
+        // write it.
         let def = find("workflow_builder");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.delegate_name.as_deref(), Some("build_workflow"));
@@ -1054,6 +1057,7 @@ mod tests {
                     "composio_list_connections",
                     "composio_connect",
                     "memory_recall",
+                    "memory_hybrid_search",
                 ];
                 for required in expected {
                     assert!(
