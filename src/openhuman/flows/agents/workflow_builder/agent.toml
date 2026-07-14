@@ -46,6 +46,13 @@ hint = "reasoning"
 # listing publishes no output schema at all (verified for every GitHub
 # action), so a downstream split_out.path is never guessed. See
 # `builder_tools.rs`'s module doc.
+# `memory_recall` is the raw (un-delegated) memory read tool — READ-ONLY, no
+# write counterpart (`memory_store` is deliberately absent). This agent is a
+# Named-scope agent, so the orchestrator's `retrieve_memory` delegate would
+# not synthesize context for it; the raw tool is the correct mechanism here.
+# `omit_memory_context = true` stays set above, so nothing is injected
+# automatically — the agent must call `memory_recall` explicitly when it
+# needs the user's context.
 named = [
     "propose_workflow",
     "revise_workflow",
@@ -63,4 +70,5 @@ named = [
     "composio_list_toolkits",
     "composio_list_connections",
     "composio_connect",
+    "memory_recall",
 ]

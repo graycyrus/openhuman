@@ -1017,7 +1017,9 @@ mod tests {
         // (hard-refused otherwise, regardless of the user's scope preference)
         // against an already-connected toolkit — see `builder_tools.rs`'s
         // module doc. This pins the invariant in the agent definition itself,
-        // not just the tool implementations.
+        // not just the tool implementations. It also has read-only grounding
+        // in the user's memory via `memory_recall` — no `memory_store`, so it
+        // can look up context but never write it.
         let def = find("workflow_builder");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.delegate_name.as_deref(), Some("build_workflow"));
@@ -1051,6 +1053,7 @@ mod tests {
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",
+                    "memory_recall",
                 ];
                 for required in expected {
                     assert!(
@@ -1078,6 +1081,8 @@ mod tests {
                     "apply_patch",
                     "composio_execute",
                     "spawn_subagent",
+                    // Memory access must stay read-only: no write tool.
+                    "memory_store",
                 ] {
                     assert!(
                         !names.iter().any(|n| n == forbidden),
