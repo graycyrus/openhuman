@@ -4003,7 +4003,7 @@ const messages: TranslationMap = {
   'flows.copilot.tool.saving': 'حفظ سير العمل…',
   'flows.copilot.tool.usingTools': 'استخدام الأدوات…',
   'flows.copilot.cappedNotice':
-    'نفد عدد الخطوات المتاحة للمنشئ قبل الانتهاء من إعداد سير العمل هذا. يمكنه المتابعة من حيث توقف تمامًا.',
+    'بلغ المُنشئ الحد الأقصى لعدد التكرارات قبل الانتهاء من سير العمل هذا. عند المتابعة، سيستمر البناء انطلاقًا من المسودة الحالية.',
   'flows.copilot.continueBuilding': 'متابعة الإنشاء',
   'flows.list.view': 'عرض سير العمل',
   'flows.list.export': 'تصدير',

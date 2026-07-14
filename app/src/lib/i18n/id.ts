@@ -4116,7 +4116,7 @@ const messages: TranslationMap = {
   'flows.copilot.tool.saving': 'Menyimpan alur kerja…',
   'flows.copilot.tool.usingTools': 'Menggunakan alat…',
   'flows.copilot.cappedNotice':
-    'Builder kehabisan langkah sebelum menyelesaikan alur kerja ini. Builder dapat melanjutkan tepat dari titik terakhir.',
+    'Builder mencapai batas iterasinya sebelum menyelesaikan alur kerja ini. Jika dilanjutkan, builder akan terus membangun dari draf saat ini.',
   'flows.copilot.continueBuilding': 'Lanjutkan membangun',
   'flows.list.view': 'Lihat alur kerja',
   'flows.list.export': 'Ekspor',

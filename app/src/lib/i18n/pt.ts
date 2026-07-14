@@ -4165,7 +4165,7 @@ const messages: TranslationMap = {
   'flows.copilot.tool.saving': 'Salvando fluxo de trabalho…',
   'flows.copilot.tool.usingTools': 'Usando ferramentas…',
   'flows.copilot.cappedNotice':
-    'O construtor atingiu o seu limite antes de concluir este fluxo de trabalho. Ele pode continuar exatamente de onde parou.',
+    'O construtor atingiu o limite de iterações antes de concluir este fluxo de trabalho. Ao continuar, a construção prosseguirá a partir do rascunho atual.',
   'flows.copilot.continueBuilding': 'Continuar a construir',
   'flows.list.view': 'Ver fluxo de trabalho',
   'flows.list.export': 'Exportar',

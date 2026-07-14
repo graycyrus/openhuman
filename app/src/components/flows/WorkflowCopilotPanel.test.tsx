@@ -403,6 +403,32 @@ describe('WorkflowCopilotPanel', () => {
     expect(arg.request.graph).toEqual(baseGraph);
   });
 
+  // Codex review on #4865: "Continue building" must resume ON the current
+  // draft — a `revise` turn over the EXISTING `flowId`, never a blank/`create`
+  // restart — since `flows_build` spins up a fresh `workflow_builder` agent
+  // per RPC with no server-side session/checkpoint to resume. Carrying the
+  // live `graph` + `flowId` is what makes "Continue" a correct, working
+  // continuation instead of an empty restart.
+  it('B34: "Continue building" carries the current flowId, not a blank restart', async () => {
+    hookState.capped = true;
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        flowId="flow-123"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId('workflow-copilot-continue'));
+    await waitFor(() => expect(hookState.send).toHaveBeenCalledTimes(1));
+    const arg = hookState.send.mock.calls[0][0];
+    expect(arg.request.mode).toBe('revise');
+    expect(arg.request.flowId).toBe('flow-123');
+    expect(arg.request.graph).toEqual(baseGraph);
+  });
+
   it('auto-sends a repair turn once when opened with a repair seed', () => {
     render(
       <WorkflowCopilotPanel

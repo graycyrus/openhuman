@@ -4788,7 +4788,7 @@ const en: TranslationMap = {
   'flows.copilot.tool.saving': 'Saving workflow…',
   'flows.copilot.tool.usingTools': 'Using tools…',
   'flows.copilot.cappedNotice':
-    'The builder ran out of steps before finishing this workflow. It can pick up right where it left off.',
+    'The builder reached its iteration limit before finishing this workflow. Continuing will keep building from the current draft.',
   'flows.copilot.continueBuilding': 'Continue building',
 
   // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved

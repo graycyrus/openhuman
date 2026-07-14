@@ -4099,7 +4099,7 @@ const messages: TranslationMap = {
   'flows.copilot.tool.saving': 'वर्कफ़्लो सहेजा जा रहा है…',
   'flows.copilot.tool.usingTools': 'टूल का उपयोग किया जा रहा है…',
   'flows.copilot.cappedNotice':
-    'इस वर्कफ़्लो को पूरा करने से पहले बिल्डर के चरण समाप्त हो गए। यह वहीं से आगे जारी रख सकता है जहाँ इसने छोड़ा था।',
+    'यह वर्कफ़्लो पूरा होने से पहले बिल्डर अपनी पुनरावृत्ति सीमा तक पहुँच गया। जारी रखने पर यह मौजूदा ड्राफ़्ट से आगे निर्माण करेगा।',
   'flows.copilot.continueBuilding': 'निर्माण जारी रखें',
   'flows.list.view': 'वर्कफ़्लो देखें',
   'flows.list.export': 'निर्यात',

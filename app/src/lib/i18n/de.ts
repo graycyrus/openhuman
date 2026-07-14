@@ -4219,7 +4219,7 @@ const messages: TranslationMap = {
   'flows.copilot.tool.saving': 'Workflow wird gespeichert…',
   'flows.copilot.tool.usingTools': 'Werkzeuge werden verwendet…',
   'flows.copilot.cappedNotice':
-    'Der Builder hat sein Limit erreicht, bevor dieser Workflow fertig war. Er kann genau dort weitermachen, wo er aufgehört hat.',
+    'Der Builder hat sein Iterationslimit erreicht, bevor dieser Workflow fertiggestellt wurde. Beim Fortsetzen wird auf Basis des aktuellen Entwurfs weitergebaut.',
   'flows.copilot.continueBuilding': 'Weiter erstellen',
   'flows.list.view': 'Workflow anzeigen',
   'flows.list.export': 'Exportieren',
