@@ -10,7 +10,11 @@ import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Flow } from '../../services/api/flowsApi';
-import FlowCanvasPage, { asCopilotBuildSeed, FlowCanvasDraftPage } from '../FlowCanvasPage';
+import FlowCanvasPage, {
+  asCopilotBuildSeed,
+  asCopilotPrefillSeed,
+  FlowCanvasDraftPage,
+} from '../FlowCanvasPage';
 
 const getFlow = vi.hoisted(() => vi.fn());
 const updateFlow = vi.hoisted(() => vi.fn());
@@ -450,5 +454,82 @@ describe('FlowCanvasPage copilot build seed (prompt-bar instant create)', () => 
 
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
     expect(screen.queryByTestId('stub-copilot-panel')).not.toBeInTheDocument();
+  });
+});
+
+describe('asCopilotPrefillSeed', () => {
+  it('accepts a copilotPrefill state with non-empty text', () => {
+    expect(asCopilotPrefillSeed({ copilotPrefill: { text: 'digest my Slack' } })).toEqual({
+      text: 'digest my Slack',
+    });
+  });
+
+  it('rejects missing, malformed, or blank seeds', () => {
+    expect(asCopilotPrefillSeed(null)).toBeNull();
+    expect(asCopilotPrefillSeed({})).toBeNull();
+    expect(asCopilotPrefillSeed({ copilotPrefill: 'digest' })).toBeNull();
+    expect(asCopilotPrefillSeed({ copilotPrefill: { text: 42 } })).toBeNull();
+    expect(asCopilotPrefillSeed({ copilotPrefill: { text: '   ' } })).toBeNull();
+  });
+});
+
+describe('FlowCanvasPage copilot prefill seed (Suggested Workflows "Build this")', () => {
+  beforeEach(() => {
+    copilotPanelProps.current = null;
+    getFlow.mockReset();
+    getFlow.mockResolvedValue(makeFlow());
+  });
+
+  it('opens the copilot preloaded with the prefill seed from location.state', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/flows/test-id', state: { copilotPrefill: { text: 'digest it' } } },
+        ]}>
+        <Routes>
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('stub-copilot-panel')).toBeInTheDocument());
+    expect(copilotPanelProps.current?.prefillSeed).toEqual({ text: 'digest it' });
+    expect(copilotPanelProps.current?.flowId).toBe('test-id');
+  });
+
+  it('clears only the prefill seed on consume, preserving sibling route state', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/flows/test-id',
+            state: {
+              copilotPrefill: { text: 'digest it' },
+              // A sibling seed must survive the strip — the host clones state
+              // and deletes ONLY `copilotPrefill`.
+              copilotRepair: { runId: 'run-1' },
+            },
+          },
+        ]}>
+        <Routes>
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() =>
+      expect(copilotPanelProps.current?.prefillSeed).toEqual({ text: 'digest it' })
+    );
+    expect(copilotPanelProps.current?.repairSeed).toMatchObject({ runId: 'run-1' });
+
+    // The panel consumed the prefill seed; the host must strip `copilotPrefill`
+    // from `location.state` so a later remount (close + reopen) has no seed
+    // left to re-apply.
+    act(() => {
+      (copilotPanelProps.current?.onPrefillSeedConsumed as () => void)();
+    });
+
+    await waitFor(() => expect(copilotPanelProps.current?.prefillSeed).toBeNull());
+    expect(copilotPanelProps.current?.repairSeed).toMatchObject({ runId: 'run-1' });
   });
 });

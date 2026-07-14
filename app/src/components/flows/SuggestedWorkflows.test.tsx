@@ -2,41 +2,23 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FlowSuggestion } from '../../services/api/flowsApi';
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import SuggestedWorkflows from './SuggestedWorkflows';
 
 // Echo i18n keys so assertions can target them directly.
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
-// Stub the proposal card — we only assert it renders with the right props.
-vi.mock('../chat/WorkflowProposalCard', () => ({
-  default: ({ proposal, onSaved }: { proposal: WorkflowProposal; onSaved?: () => void }) => (
-    <div data-testid="stub-proposal-card">
-      {proposal.name}
-      <button data-testid="stub-save" onClick={() => onSaved?.()}>
-        save
-      </button>
-    </div>
-  ),
-}));
-
-const hookState = vi.hoisted(() => ({
-  threadId: null as string | null,
-  sending: false,
-  proposal: null as WorkflowProposal | null,
-  error: null as string | null,
-  send: vi.fn(),
-  clearProposal: vi.fn(),
-}));
-vi.mock('../../hooks/useWorkflowBuilderChat', () => ({ useWorkflowBuilderChat: () => hookState }));
+const navigateMock = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigateMock }));
 
 const api = vi.hoisted(() => ({
+  createFlow: vi.fn(),
   discoverWorkflows: vi.fn(),
   listSuggestions: vi.fn(),
   dismissSuggestion: vi.fn(),
   markSuggestionBuilt: vi.fn(),
 }));
 vi.mock('../../services/api/flowsApi', () => ({
+  createFlow: (...a: unknown[]) => api.createFlow(...a),
   discoverWorkflows: (...a: unknown[]) => api.discoverWorkflows(...a),
   listSuggestions: (...a: unknown[]) => api.listSuggestions(...a),
   dismissSuggestion: (...a: unknown[]) => api.dismissSuggestion(...a),
@@ -64,10 +46,8 @@ function suggestion(overrides: Partial<FlowSuggestion> = {}): FlowSuggestion {
 
 describe('SuggestedWorkflows', () => {
   beforeEach(() => {
-    hookState.threadId = null;
-    hookState.sending = false;
-    hookState.proposal = null;
-    hookState.send = vi.fn().mockResolvedValue(undefined);
+    navigateMock.mockReset();
+    api.createFlow = vi.fn().mockResolvedValue({ id: 'flow-1', name: 'Auto-file receipts' });
     api.discoverWorkflows = vi.fn().mockResolvedValue([]);
     api.listSuggestions = vi.fn().mockResolvedValue([]);
     api.dismissSuggestion = vi.fn().mockResolvedValue(true);
@@ -111,43 +91,55 @@ describe('SuggestedWorkflows', () => {
     expect(api.dismissSuggestion).toHaveBeenCalledWith('sug_1');
   });
 
-  it('sends a builder turn with the build_prompt on Build this', async () => {
+  it('creates a blank flow and navigates to its canvas with a prefill seed on Build this', async () => {
     api.listSuggestions = vi.fn().mockResolvedValue([suggestion()]);
     render(<SuggestedWorkflows />);
     await waitFor(() => expect(screen.getByTestId('flow-suggestion-card')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('flow-suggestion-build'));
 
-    await waitFor(() => expect(hookState.send).toHaveBeenCalledTimes(1));
-    const arg = hookState.send.mock.calls[0][0];
-    expect(arg.displayText).toBe('Auto-file receipts');
-    // The build_prompt is now the instruction of a structured create request;
-    // the server renders the agent brief from it.
-    expect(arg.request.mode).toBe('create');
-    expect(arg.request.instruction).toBe('Build a workflow that files receipts.');
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1));
+    expect(api.createFlow).toHaveBeenCalledTimes(1);
+    const [name, graph, requireApproval] = api.createFlow.mock.calls[0];
+    // Named from the suggestion's title, matching WorkflowPromptBar's naming.
+    expect(name).toBe('Auto-file receipts');
+    // The standard blank graph (single manual trigger) — same as instant-create.
+    expect(graph.nodes).toHaveLength(1);
+    expect(graph.nodes[0].kind).toBe('trigger');
+    // Suggestion-authored flows require approval by default, same as prompt-bar.
+    expect(requireApproval).toBe(true);
+    // Navigates with the suggestion's build_prompt as an UNSENT prefill seed —
+    // never a `send()`/inline builder turn.
+    expect(navigateMock).toHaveBeenCalledWith('/flows/flow-1', {
+      state: { copilotPrefill: { text: 'Build a workflow that files receipts.' } },
+    });
   });
 
-  it('marks the suggestion built when the inline proposal is saved', async () => {
+  it('marks the suggestion built and drops it from the list once the flow is created', async () => {
     api.listSuggestions = vi.fn().mockResolvedValue([suggestion()]);
-    // Simulate the builder having returned a proposal on a thread.
-    hookState.threadId = 'thread-1';
-    hookState.proposal = {
-      name: 'Auto-file receipts',
-      graph: { nodes: [], edges: [] },
-      requireApproval: true,
-      summary: { trigger: 'app_event', steps: [] },
-    } as unknown as WorkflowProposal;
-
     render(<SuggestedWorkflows />);
     await waitFor(() => expect(screen.getByTestId('flow-suggestion-card')).toBeInTheDocument());
 
-    // Start building so buildingId is set, then save via the stubbed card.
     fireEvent.click(screen.getByTestId('flow-suggestion-build'));
-    await waitFor(() => expect(screen.getByTestId('stub-proposal-card')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('stub-save'));
 
     await waitFor(() => expect(api.markSuggestionBuilt).toHaveBeenCalledWith('sug_1'));
-    // Card dropped from the active list.
+    // Card dropped from the active list so Scout doesn't immediately re-suggest.
     expect(screen.queryByTestId('flow-suggestion-card')).not.toBeInTheDocument();
+  });
+
+  it('surfaces an error and re-enables Build this when createFlow fails', async () => {
+    api.listSuggestions = vi.fn().mockResolvedValue([suggestion()]);
+    api.createFlow = vi.fn().mockRejectedValue(new Error('boom'));
+    render(<SuggestedWorkflows />);
+    await waitFor(() => expect(screen.getByTestId('flow-suggestion-card')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('flow-suggestion-build'));
+
+    const error = await screen.findByTestId('flow-suggestions-error');
+    expect(error).toHaveTextContent('flows.suggest.error');
+    expect(navigateMock).not.toHaveBeenCalled();
+    // The suggestion stays put — nothing was built, so it's not marked/removed.
+    expect(screen.getByTestId('flow-suggestion-card')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-suggestion-build')).not.toBeDisabled();
   });
 });

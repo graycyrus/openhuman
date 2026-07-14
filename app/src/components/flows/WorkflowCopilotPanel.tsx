@@ -91,6 +91,20 @@ interface Props {
    */
   onBuildSeedConsumed?: () => void;
   /**
+   * Optional prefill seed (from the Suggested Workflows "Build this" action)
+   * — populates the composer's input with the suggestion's `build_prompt`
+   * once on mount WITHOUT sending it; the user reviews/edits the text and
+   * presses Send themselves. Distinct from `buildSeed`, which auto-sends.
+   */
+  prefillSeed?: { text: string } | null;
+  /**
+   * Fires once the prefill seed has populated the input, so the host can
+   * clear the ephemeral route seed (`location.state.copilotPrefill`) — same
+   * rationale as `onBuildSeedConsumed`: a remount (close/reopen) must not
+   * re-populate the input a second time against a still-present route seed.
+   */
+  onPrefillSeedConsumed?: () => void;
+  /**
    * The workflow's persisted copilot thread id (from the per-flow cache), so
    * reopening the panel resumes the same conversation instead of starting fresh.
    */
@@ -109,6 +123,8 @@ export default function WorkflowCopilotPanel({
   repairSeed = null,
   buildSeed = null,
   onBuildSeedConsumed,
+  prefillSeed = null,
+  onPrefillSeedConsumed,
   seedThreadId = null,
   onThreadIdChange,
 }: Props) {
@@ -247,6 +263,24 @@ export default function WorkflowCopilotPanel({
     // re-fire it (guarded by the ref regardless).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildSeed, send, updatePendingAsk]);
+
+  // Populate the composer's input once when opened with a Suggested Workflows
+  // prefill seed — deliberately NEVER calls `send`: the user reviews/edits the
+  // pre-filled `build_prompt` and presses Send themselves. Guarded the same
+  // way as `buildSentRef`/`repairSentRef` (once per mount) so a re-render
+  // doesn't re-fill (and clobber) text the user has already started editing.
+  const prefillSentRef = useRef(false);
+  useEffect(() => {
+    if (!prefillSeed || prefillSentRef.current) return;
+    prefillSentRef.current = true;
+    log('prefill seed: populating composer input (unsent)');
+    setText(prefillSeed.text);
+    textInputRef.current?.focus();
+    // Consumed synchronously (no async dispatch to await, unlike build/repair)
+    // so the host can strip the ephemeral route seed right away — a later
+    // remount (close/reopen the copilot) then has no seed left to re-apply.
+    onPrefillSeedConsumed?.();
+  }, [prefillSeed, onPrefillSeedConsumed]);
 
   // Keep the transcript pinned to the newest message / streamed activity.
   // `scrollTo` is optional-chained: jsdom (tests) doesn't implement it.
