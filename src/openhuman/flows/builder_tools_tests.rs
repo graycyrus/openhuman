@@ -1815,6 +1815,14 @@ async fn save_workflow_surfaces_auto_disarm_warning_on_manual_to_automatic_trans
             .any(|w| w.as_str().unwrap_or("").contains("auto-disabled")),
         "save_workflow must surface flows_update's disarm log as a warning, got: {parsed}"
     );
+    let flow_updated_boilerplate = format!("flow updated: {flow_id}");
+    assert!(
+        warnings
+            .iter()
+            .all(|w| w.as_str().unwrap_or("") != flow_updated_boilerplate),
+        "save_workflow must exclude the redundant \"flow updated: <id>\" boilerplate \
+         from warnings, got: {parsed}"
+    );
 
     // Persisted, not just returned in-memory.
     let reloaded = ops::flows_get(&config, &flow_id).await.unwrap().value;
