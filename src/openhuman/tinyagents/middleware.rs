@@ -718,6 +718,19 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
     }
 }
 
+/// Tools whose results are self-describing JSON payloads that downstream
+/// extractors and the frontend canvas parse structurally (the `type` marker
+/// must survive). Compacting/summarizing them destroys the contract and
+/// serves no purpose — the model doesn't benefit from a tabulated graph and
+/// the payload is the turn's final output, not intermediate context.
+const COMPACTION_EXEMPT_TOOLS: &[&str] = &[
+    "propose_workflow",
+    "revise_workflow",
+    "edit_workflow",
+    "save_workflow",
+    "create_workflow",
+];
+
 /// `after_tool`: apply the semantic payload summarizer (when configured) and
 /// then the hard per-tool-result byte cap to each tool result's model-facing
 /// content, before it enters the transcript. The graph analogue of the byte cap
@@ -758,46 +771,66 @@ impl Middleware<()> for ToolOutputMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        // Proposal-/persistence-emitting workflow tools return a self-describing
+        // `{ "type": "workflow_proposal", … }` JSON payload that `flows::ops`'
+        // `extract_workflow_proposal` (and the frontend's content-based
+        // recognition) parse structurally. Both the payload summarizer and
+        // tokenjuice compaction below are content-*rewriting* stages — tokenjuice
+        // in particular tabulates any uniform object-array of ≥3 rows over
+        // ~512 bytes into a `[json table: …]` marker, which strips the `"type"`
+        // field on graphs with enough nodes. Skip both stages entirely for these
+        // tools so `result.content` reaches `agent.history()` byte-for-byte.
+        let compaction_exempt = COMPACTION_EXEMPT_TOOLS.contains(&result.name.as_str());
+        if compaction_exempt {
+            tracing::debug!(
+                tool = %result.name,
+                bytes = result.content.len(),
+                "[tinyagents::mw] proposal-exempt: skipping tokenjuice compaction"
+            );
+        }
+
         // 1. Semantic summarization (progressive disclosure) — swap the raw
         //    payload for a compressed summary when the summarizer opts in.
         //    Failures never break the tool call (the trait swallows them).
-        if let Some(ps) = &self.payload_summarizer {
-            if let Ok(Some(payload)) = ps
-                .maybe_summarize_in_parent(ctx, &result.name, None, &result.content)
-                .await
-            {
-                tracing::info!(
-                    tool = %result.name,
-                    from_bytes = payload.original_bytes,
-                    to_bytes = payload.summary_bytes,
-                    "[tinyagents::mw] payload_summarizer compressed tool output"
-                );
-                ctx.emit(AgentEvent::Compressed {
-                    from_tokens: estimate_output_tokens(payload.original_bytes),
-                    to_tokens: estimate_output_tokens(payload.summary_bytes),
-                });
-                result.content = payload.summary;
+        if !compaction_exempt {
+            if let Some(ps) = &self.payload_summarizer {
+                if let Ok(Some(payload)) = ps
+                    .maybe_summarize_in_parent(ctx, &result.name, None, &result.content)
+                    .await
+                {
+                    tracing::info!(
+                        tool = %result.name,
+                        from_bytes = payload.original_bytes,
+                        to_bytes = payload.summary_bytes,
+                        "[tinyagents::mw] payload_summarizer compressed tool output"
+                    );
+                    ctx.emit(AgentEvent::Compressed {
+                        from_tokens: estimate_output_tokens(payload.original_bytes),
+                        to_tokens: estimate_output_tokens(payload.summary_bytes),
+                    });
+                    result.content = payload.summary;
+                }
             }
-        }
 
-        // 2. TokenJuice content-aware compaction. This mirrors the legacy
-        //    `agent_tool_exec` stage that ran after semantic summarization and
-        //    before the hard output caps.
-        let before_tokenjuice_bytes = result.content.len();
-        let compacted = crate::openhuman::tokenjuice::compact_output_with_policy(
-            std::mem::take(&mut result.content),
-            &result.name,
-            self.tokenjuice_compaction_enabled,
-            self.tokenjuice_compression,
-        )
-        .await;
-        result.content = compacted;
-        let after_tokenjuice_bytes = result.content.len();
-        if after_tokenjuice_bytes < before_tokenjuice_bytes {
-            ctx.emit(AgentEvent::Compressed {
-                from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
-                to_tokens: estimate_output_tokens(after_tokenjuice_bytes),
-            });
+            // 2. TokenJuice content-aware compaction. This mirrors the legacy
+            //    `agent_tool_exec` stage that ran after semantic summarization and
+            //    before the hard output caps.
+            let before_tokenjuice_bytes = result.content.len();
+            let compacted = crate::openhuman::tokenjuice::compact_output_with_policy(
+                std::mem::take(&mut result.content),
+                &result.name,
+                self.tokenjuice_compaction_enabled,
+                self.tokenjuice_compression,
+            )
+            .await;
+            result.content = compacted;
+            let after_tokenjuice_bytes = result.content.len();
+            if after_tokenjuice_bytes < before_tokenjuice_bytes {
+                ctx.emit(AgentEvent::Compressed {
+                    from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
+                    to_tokens: estimate_output_tokens(after_tokenjuice_bytes),
+                });
+            }
         }
 
         // 3. Per-tool **char** cap — a tool that declares `max_result_size_chars`
@@ -3597,6 +3630,114 @@ mod tests {
             "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
             result.content
         );
+    }
+
+    // ── ToolOutputMiddleware: COMPACTION_EXEMPT_TOOLS (workflow proposals) ───
+
+    /// A `workflow_proposal` payload with enough uniform-object rows to clear
+    /// tinyjuice's `MIN_ROWS` (3) and default ~512-byte tabulation floor —
+    /// i.e. exactly the shape that used to get its `"type"` marker stripped by
+    /// the `[json table: …]` rewrite before the middleware exemption existed.
+    fn large_workflow_proposal_json() -> String {
+        let nodes: Vec<serde_json::Value> = (0..6)
+            .map(|i| {
+                json!({
+                    "id": format!("node-{i}"),
+                    "kind": if i == 0 { "trigger" } else { "tool_call" },
+                    "name": format!("Step {i}"),
+                    "config": {
+                        "slug": format!("oh:placeholder_action_{i}"),
+                        "args": { "input": format!("value-{i}"), "note": "generic placeholder payload for size padding" }
+                    }
+                })
+            })
+            .collect();
+        serde_json::to_string(&json!({
+            "type": "workflow_proposal",
+            "flow_id": "flow-large-graph",
+            "graph": { "nodes": nodes, "edges": [] },
+        }))
+        .unwrap()
+    }
+
+    fn compaction_enabled_mw() -> ToolOutputMiddleware {
+        ToolOutputMiddleware {
+            budget_bytes: 1_000_000,
+            payload_summarizer: None,
+            artifact_store: None,
+            tokenjuice_compaction_enabled: true,
+            tokenjuice_compression: AgentTokenjuiceCompression::Full,
+            tool_policies: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn compaction_exempt_tools_contains_every_proposal_tool() {
+        for tool in [
+            "propose_workflow",
+            "revise_workflow",
+            "edit_workflow",
+            "save_workflow",
+            "create_workflow",
+        ] {
+            assert!(
+                COMPACTION_EXEMPT_TOOLS.contains(&tool),
+                "{tool} must be exempt from tokenjuice/summarizer compaction"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn tool_output_tabulates_a_large_graph_for_a_non_exempt_tool() {
+        // Sanity baseline proving this test's payload actually exercises real
+        // tinyjuice tabulation (and isn't just below-threshold): a tool name
+        // NOT in COMPACTION_EXEMPT_TOOLS loses the `"type"` marker.
+        let mw = compaction_enabled_mw();
+        let payload = large_workflow_proposal_json();
+        let mut result = tool_result("some_other_tool", &payload);
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_ne!(
+            result.content, payload,
+            "a non-exempt tool's large uniform-array payload should be rewritten by tokenjuice"
+        );
+        let reparsed: Result<serde_json::Value, _> = serde_json::from_str(&result.content);
+        let marker_survived = reparsed
+            .ok()
+            .and_then(|v| v.get("type").and_then(|t| t.as_str().map(str::to_string)))
+            == Some("workflow_proposal".to_string());
+        assert!(
+            !marker_survived,
+            "baseline expectation: tabulation strips the type marker for non-exempt tools"
+        );
+    }
+
+    #[tokio::test]
+    async fn tool_output_leaves_propose_workflow_byte_for_byte_intact() {
+        let mw = compaction_enabled_mw();
+        let payload = large_workflow_proposal_json();
+        let mut result = tool_result("propose_workflow", &payload);
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_eq!(
+            result.content, payload,
+            "propose_workflow results must pass through compaction untouched"
+        );
+        let reparsed: serde_json::Value = serde_json::from_str(&result.content).unwrap();
+        assert_eq!(reparsed["type"], "workflow_proposal");
+        assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 6);
+    }
+
+    #[tokio::test]
+    async fn tool_output_leaves_every_exempt_tool_name_intact() {
+        let mw = compaction_enabled_mw();
+        let payload = large_workflow_proposal_json();
+        for tool in COMPACTION_EXEMPT_TOOLS {
+            let mut result = tool_result(tool, &payload);
+            mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+            assert_eq!(
+                result.content, payload,
+                "{tool}'s result must pass through compaction untouched"
+            );
+        }
     }
 
     // ── CostBudgetMiddleware ────────────────────────────────────────────────
