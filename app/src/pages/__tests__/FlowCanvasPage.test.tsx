@@ -737,9 +737,17 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     // with the header Save button enabled as the manual retry — matching
     // what `WorkflowCopilotPanel`'s own catch branch (which skips
     // `clearProposal()` on rejection) relies on to keep the card visible.
-    expect(screen.getAllByTestId('flow-node')).toHaveLength(2);
-    expect(screen.getByTestId('flow-editor-dirty')).toBeInTheDocument();
-    expect(screen.getByTestId('flow-editor-save')).not.toBeDisabled();
+    //
+    // These three assertions land on state derived from the REMOUNTED canvas
+    // (`handleAcceptProposal` bumps `canvasVersion`, which changes the
+    // `<FlowCanvas key=...>` and forces a fresh child mount) — its own
+    // mount-time effects (`onDirtyChange`/`onSaveMetaChange`) can settle on a
+    // later microtask/effect flush than the outer `act()` above guarantees,
+    // so poll via `waitFor` instead of asserting immediately (this was
+    // observed to occasionally race in CI).
+    await waitFor(() => expect(screen.getAllByTestId('flow-node')).toHaveLength(2));
+    await waitFor(() => expect(screen.getByTestId('flow-editor-dirty')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('flow-editor-save')).not.toBeDisabled());
   });
 });
 
