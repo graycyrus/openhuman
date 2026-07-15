@@ -456,8 +456,21 @@ function FlowEditor({
       // or description-derived meaningful name. This does not persist by
       // itself (matching the "accept doesn't persist" invariant below) — it
       // rides into the next Save via `name`/`handleSave`.
+      //
+      // Check the VISIBLE `titleDraft`, not the committed `name` — `name`
+      // only updates on blur/Enter via `commitRename`, so if the user is
+      // mid-typing a custom title (or a rename is still in flight) when a
+      // proposal is accepted, `name` can still read as the stale placeholder
+      // while `titleDraft` already holds the user's real input. Deciding off
+      // `name` would silently clobber that in-progress input. Also skip
+      // entirely while `renaming` is true — an in-flight `commitRename`
+      // persist must not race with a local proposal-driven rename.
       const proposedName = proposal.name?.trim();
-      if (proposedName && isPlaceholderTitle(name, t('flows.page.newWorkflow'))) {
+      if (
+        proposedName &&
+        !renaming &&
+        isPlaceholderTitle(titleDraft, t('flows.page.newWorkflow'))
+      ) {
         // Log shape, not the user-authored name (no PII in logs).
         log(
           'copilot proposal accepted: adopting proposed name into placeholder title, isDraft=%s',
@@ -467,7 +480,7 @@ function FlowEditor({
         setTitleDraft(proposedName);
       }
     },
-    [name, t, isDraft]
+    [titleDraft, renaming, t, isDraft]
   );
 
   const handleRejectProposal = useCallback(() => {
@@ -494,9 +507,15 @@ function FlowEditor({
     () => ({ schema_version: graph.schema_version, id: flowId ?? undefined, name }),
     [graph.schema_version, flowId, name]
   );
+  // Also dirty when a copilot-adopted proposal name has changed the flow's
+  // `name` without yet persisting it (`persistedNameRef` only advances on a
+  // real Save/rename) — a name-only proposal (same graph, new name) must
+  // still enable Save, or the adopted title can never be persisted.
   const initialDirty = useMemo(
-    () => JSON.stringify(editorGraph) !== JSON.stringify(persistedGraphRef.current),
-    [editorGraph]
+    () =>
+      JSON.stringify(editorGraph) !== JSON.stringify(persistedGraphRef.current) ||
+      name !== persistedNameRef.current,
+    [editorGraph, name]
   );
 
   // Repair seed for the copilot: bind the run context to the CURRENT draft.
@@ -561,7 +580,13 @@ function FlowEditor({
       persistedGraphRef.current = persisted;
       persistedNameRef.current = updated.name;
       setDraftGraph(persisted);
-      if (updated.name !== name) setName(updated.name);
+      if (updated.name !== name) {
+        // Re-sync BOTH title states from the response — leaving `titleDraft`
+        // stale would show the pre-save value in the input and could
+        // resubmit it verbatim on a later blur.
+        setName(updated.name);
+        setTitleDraft(updated.name);
+      }
       setCanvasVersion(v => v + 1);
       log(
         'save: flow id=%s persisted — canvas re-synced from response nodes=%d edges=%d',

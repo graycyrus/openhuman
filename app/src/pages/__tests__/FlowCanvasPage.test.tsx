@@ -511,6 +511,30 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     expect(screen.getByTestId('flow-canvas-title')).toHaveValue('My flow');
   });
 
+  // Regression (CodeRabbit on #4886): the committed `name` only updates on
+  // blur/Enter (`commitRename`), so while the user is still typing a custom
+  // title the committed `name` can read as the stale placeholder even though
+  // the visible input already holds real user input. Adoption must check the
+  // VISIBLE `titleDraft`, or it clobbers in-progress typing.
+  it('does not clobber an in-progress (uncommitted) title edit when accepting a proposal', async () => {
+    getFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    // User is mid-typing a custom title — not yet committed via blur/Enter.
+    fireEvent.change(screen.getByTestId('flow-canvas-title'), {
+      target: { value: 'My in-progress title' },
+    });
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('My in-progress title');
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+
+    await Promise.resolve();
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('My in-progress title');
+  });
+
   it('includes the adopted name in the flows_update payload on Save (persisted flow)', async () => {
     getFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
     updateFlow.mockResolvedValue(makeFlow({ name: 'Standup reminder' }));
@@ -532,6 +556,66 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     expect(calledId).toBe('test-id');
     expect(update.name).toBe('Standup reminder');
     expect(update.graph).toBeDefined();
+  });
+
+  // Regression (CodeRabbit on #4886): accepting a proposal that changes only
+  // the top-level `name` (graph unchanged) previously left the editor's dirty
+  // state false — since the graph-only diff saw no change — so Save stayed
+  // disabled and the adopted title could never be persisted.
+  it('marks the editor dirty when an accepted proposal changes only the name', async () => {
+    const flow = makeFlow({ name: 'New workflow' });
+    getFlow.mockResolvedValue(flow);
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    // Clean on load.
+    expect(screen.queryByTestId('flow-editor-dirty')).not.toBeInTheDocument();
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(
+        makeProposal({ name: 'Standup reminder', graph: flow.graph })
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup reminder')
+    );
+    // Graph is byte-identical to the persisted baseline — only the name
+    // changed — but the editor must still report dirty so Save is enabled.
+    await waitFor(() => expect(screen.getByTestId('flow-editor-dirty')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
+
+    await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
+    const [, update] = updateFlow.mock.calls[0];
+    expect(update.name).toBe('Standup reminder');
+  });
+
+  // Regression (CodeRabbit on #4886): when the backend returns a name that
+  // differs from what was submitted (server-side normalization), the title
+  // input must re-sync to the persisted value too — not just the committed
+  // `name` — or the stale draft can be resubmitted verbatim on a later blur.
+  it('re-syncs titleDraft from the persisted response name on Save', async () => {
+    getFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
+    updateFlow.mockResolvedValue(makeFlow({ name: 'Standup Reminder (normalized)' }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup reminder')
+    );
+
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
+
+    await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup Reminder (normalized)')
+    );
   });
 
   it('passes the adopted name to createFlow on Save (draft flow)', async () => {
