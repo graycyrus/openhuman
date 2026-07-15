@@ -10,10 +10,12 @@ import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Flow } from '../../services/api/flowsApi';
+import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import FlowCanvasPage, {
   asCopilotBuildSeed,
   asCopilotPrefillSeed,
   FlowCanvasDraftPage,
+  isPlaceholderTitle,
 } from '../FlowCanvasPage';
 
 const getFlow = vi.hoisted(() => vi.fn());
@@ -385,6 +387,204 @@ describe('FlowCanvasPage', () => {
     renderDraft(null);
     expect(screen.getByTestId('flow-canvas-draft-missing')).toBeInTheDocument();
     expect(screen.queryByTestId('flow-canvas')).not.toBeInTheDocument();
+  });
+});
+
+describe('isPlaceholderTitle', () => {
+  it('treats an empty or whitespace-only title as a placeholder', () => {
+    expect(isPlaceholderTitle('', 'New workflow')).toBe(true);
+    expect(isPlaceholderTitle('   ', 'New workflow')).toBe(true);
+  });
+
+  it('treats the localized generic placeholder as a placeholder', () => {
+    expect(isPlaceholderTitle('New workflow', 'New workflow')).toBe(true);
+    expect(isPlaceholderTitle('  New workflow  ', 'New workflow')).toBe(true);
+  });
+
+  it('does not treat a user-chosen or description-derived name as a placeholder', () => {
+    expect(isPlaceholderTitle('My flow', 'New workflow')).toBe(false);
+    expect(isPlaceholderTitle('Standup reminder', 'New workflow')).toBe(false);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Copilot proposal name adoption — accepting a `propose_workflow` proposal
+// carries a top-level `name` the canvas previously dropped, leaving the flow
+// titled the generic placeholder even when the agent proposed a real name.
+// -----------------------------------------------------------------------------
+function makeProposal(overrides: Partial<WorkflowProposal> = {}): WorkflowProposal {
+  return {
+    name: 'Standup reminder',
+    graph: {
+      schema_version: 1,
+      name: 'Standup reminder',
+      nodes: [
+        {
+          id: 't',
+          kind: 'trigger',
+          name: 'Start',
+          config: {},
+          ports: [],
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: 'a',
+          kind: 'agent',
+          name: 'Send reminder',
+          config: {},
+          ports: [],
+          position: { x: 80, y: 80 },
+        },
+      ],
+      edges: [],
+    },
+    requireApproval: false,
+    summary: { trigger: 'manual', steps: [] },
+    ...overrides,
+  };
+}
+
+describe('FlowCanvasPage copilot proposal name adoption', () => {
+  beforeEach(() => {
+    copilotPanelProps.current = null;
+    getFlow.mockReset();
+    updateFlow.mockReset();
+    createFlow.mockReset();
+    validateFlow.mockReset();
+    listFlowConnections.mockReset();
+    validateFlow.mockResolvedValue({ valid: true, errors: [], warnings: [] });
+    listFlowConnections.mockResolvedValue([]);
+  });
+
+  function renderEditor(id = 'test-id') {
+    return render(
+      <MemoryRouter initialEntries={[`/flows/${id}`]}>
+        <Routes>
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+          <Route path="/flows" element={<div data-testid="flows-list">Flows list</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  it('adopts the proposal name when the title is the generic placeholder', async () => {
+    getFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('New workflow');
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup reminder')
+    );
+  });
+
+  it('adopts the proposal name when the title is blank', async () => {
+    getFlow.mockResolvedValue(makeFlow({ name: '' }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup reminder')
+    );
+  });
+
+  it('does not clobber a user-set title when accepting a proposal', async () => {
+    getFlow.mockResolvedValue(makeFlow({ name: 'My flow' }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+
+    // Give any (incorrect) state update a chance to flush, then assert the
+    // title is unchanged.
+    await Promise.resolve();
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('My flow');
+  });
+
+  it('includes the adopted name in the flows_update payload on Save (persisted flow)', async () => {
+    getFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
+    updateFlow.mockResolvedValue(makeFlow({ name: 'Standup reminder' }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup reminder')
+    );
+
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
+
+    await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
+    const [calledId, update] = updateFlow.mock.calls[0];
+    expect(calledId).toBe('test-id');
+    expect(update.name).toBe('Standup reminder');
+    expect(update.graph).toBeDefined();
+  });
+
+  it('passes the adopted name to createFlow on Save (draft flow)', async () => {
+    createFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Standup reminder' }));
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/flows/draft',
+            state: {
+              name: 'New workflow',
+              graph: {
+                schema_version: 1,
+                name: 'New workflow',
+                nodes: [
+                  {
+                    id: 't',
+                    kind: 'trigger',
+                    name: 'Start',
+                    config: {},
+                    ports: [],
+                    position: { x: 0, y: 0 },
+                  },
+                ],
+                edges: [],
+              },
+              requireApproval: false,
+            },
+          },
+        ]}>
+        <Routes>
+          <Route path="/flows/draft" element={<FlowCanvasDraftPage />} />
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('New workflow');
+
+    act(() => {
+      (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => void)(makeProposal());
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Standup reminder')
+    );
+
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
+
+    await waitFor(() => expect(createFlow).toHaveBeenCalledTimes(1));
+    const [name] = createFlow.mock.calls[0];
+    expect(name).toBe('Standup reminder');
+    expect(updateFlow).not.toHaveBeenCalled();
   });
 });
 
