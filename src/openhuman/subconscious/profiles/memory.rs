@@ -173,6 +173,12 @@ impl MemoryProfile {
         // 30-iteration budget set above to 15. Re-apply the mode-specific
         // cap post-construction so this tick keeps its previous behavior.
         agent.set_max_tool_iterations(mode_iteration_cap);
+        debug!(
+            "[subconscious:memory] pinned mode-specific iteration budget post-construction: \
+             mode={:?} max_tool_iterations={} (overrides the session builder's orchestrator \
+             definition cap)",
+            self.mode, mode_iteration_cap
+        );
 
         agent.set_event_context(
             format!("subconscious:tick:{}", now_secs() as u64),
