@@ -614,7 +614,14 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     expect(updateFlow).toHaveBeenCalledTimes(1);
   });
 
-  it('Accept on a draft canvas fires createFlow(name, graph, requireApproval) and navigates to /flows/<id>', async () => {
+  // Regression for the CodeRabbit finding: the accepted PROPOSAL's own
+  // `requireApproval` policy must reach `createFlow`, not the draft route's
+  // pre-existing value — otherwise Accept would silently keep the old canvas
+  // policy instead of the one the agent proposed. Route state deliberately
+  // uses the OPPOSITE value from the proposal so a test that reads the
+  // route's value (the pre-fix bug) fails loudly instead of passing by
+  // coincidence.
+  it('Accept on a draft canvas fires createFlow(name, graph, requireApproval) using the PROPOSAL policy and navigates to /flows/<id>', async () => {
     createFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Standup reminder' }));
     getFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Standup reminder' }));
     render(
@@ -639,7 +646,10 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
                 ],
                 edges: [],
               },
-              requireApproval: true,
+              // Route (pre-existing draft) policy is FALSE — the opposite of
+              // the proposal below — so the assertion can't pass by both
+              // values coincidentally matching.
+              requireApproval: false,
             },
           },
         ]}>
@@ -652,7 +662,8 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
     expect(screen.getByTestId('flow-canvas-title')).toHaveValue('New workflow');
 
-    await acceptProposal();
+    // Proposal policy is TRUE — must be what reaches `createFlow`.
+    await acceptProposal(makeProposal({ requireApproval: true }));
 
     expect(createFlow).toHaveBeenCalledTimes(1);
     const [name, graph, requireApproval] = createFlow.mock.calls[0];
@@ -665,6 +676,24 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     // route — Accept alone drives that navigation, matching what a manual
     // Save click right after Accept used to require.
     await waitFor(() => expect(getFlow).toHaveBeenCalledWith('created-id'));
+  });
+
+  it('Accept on a saved flow fires updateFlow with the PROPOSAL requireApproval policy', async () => {
+    // The loaded flow's persisted policy is FALSE; the accepted proposal's
+    // is TRUE — the update payload must carry the proposal's value, not
+    // silently keep the flow's current one.
+    getFlow.mockResolvedValue(makeFlow({ require_approval: false }));
+    updateFlow.mockResolvedValue(makeFlow({ require_approval: true }));
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    await acceptProposal(makeProposal({ requireApproval: true }));
+
+    expect(updateFlow).toHaveBeenCalledTimes(1);
+    expect(updateFlow).toHaveBeenCalledWith(
+      'test-id',
+      expect.objectContaining({ requireApproval: true })
+    );
   });
 
   // Regression test for the review finding (F1, HIGH): `handleAcceptProposal`

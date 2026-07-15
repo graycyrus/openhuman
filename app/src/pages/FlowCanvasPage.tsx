@@ -436,7 +436,7 @@ function FlowEditor({
   // Declared ahead of `handleAcceptProposal` (below), which calls it directly
   // to persist an accepted proposal immediately.
   const handleSave = useCallback(
-    async (next: WorkflowGraph, overrideName?: string) => {
+    async (next: WorkflowGraph, overrideName?: string, overrideRequireApproval?: boolean) => {
       // `overrideName` covers the copilot-Accept call site: it calls
       // `setName(proposal.name)` and `handleSave(...)` in the same handler,
       // but `name` in THIS closure is still the pre-update value — React
@@ -444,33 +444,46 @@ function FlowEditor({
       // (possibly stale) `name` keeps the normal manual-Save call site
       // (which never passes an override) unaffected.
       const effectiveName = overrideName ?? name;
+      // Same stale-closure concern for `requireApproval`: an accepted
+      // proposal carries its own approval policy (`WorkflowProposal.
+      // requireApproval`), which must win over the currently-loaded canvas
+      // policy — otherwise Accept would silently keep the old flow's policy
+      // instead of the one the agent proposed. A plain manual Save never
+      // passes an override, so `requireApproval` (the loaded flow's current
+      // policy) is unaffected.
+      const effectiveRequireApproval = overrideRequireApproval ?? requireApproval;
       if (isDraft) {
         log(
-          'save: creating draft name=%s nodes=%d edges=%d',
+          'save: creating draft name=%s nodes=%d edges=%d requireApproval=%s',
           effectiveName,
           next.nodes.length,
-          next.edges.length
+          next.edges.length,
+          effectiveRequireApproval
         );
-        const created = await createFlow(effectiveName, next, requireApproval);
+        const created = await createFlow(effectiveName, next, effectiveRequireApproval);
         log('save: draft persisted as flow id=%s', created.id);
         navigate(`/flows/${created.id}`, { replace: true });
         return;
       }
-      // Only include `name` in the update payload when it actually diverges
-      // from the last-known-persisted baseline (a manual rename already
-      // persisted it via `commitRename`; a copilot-adopted placeholder name
-      // has not) — keeps the update metadata-safe and avoids needless renames.
+      // Only include `name` / `requireApproval` in the update payload when
+      // they actually diverge from what's already persisted (a manual
+      // rename already persisted `name` via `commitRename`; a copilot-
+      // adopted placeholder name or proposal-driven policy has not) — keeps
+      // the update metadata-safe and avoids needless writes.
       const nameChanged = effectiveName !== persistedNameRef.current;
+      const requireApprovalChanged = overrideRequireApproval !== undefined;
       log(
-        'save: flow id=%s nodes=%d edges=%d nameChanged=%s',
+        'save: flow id=%s nodes=%d edges=%d nameChanged=%s requireApprovalChanged=%s',
         flowId,
         next.nodes.length,
         next.edges.length,
-        nameChanged
+        nameChanged,
+        requireApprovalChanged
       );
       const updated = await updateFlow(flowId, {
         graph: next,
         ...(nameChanged ? { name: effectiveName } : {}),
+        ...(requireApprovalChanged ? { requireApproval: effectiveRequireApproval } : {}),
       });
       const persisted = updated.graph as WorkflowGraph;
       persistedGraphRef.current = persisted;
@@ -577,7 +590,7 @@ function FlowEditor({
       // `canvasVersion` bump above) so the ref's imperative handle is stale;
       // call `handleSave` directly with the known-good proposed graph.
       try {
-        await handleSave(proposedGraph, overrideName);
+        await handleSave(proposedGraph, overrideName, proposal.requireApproval);
         log('copilot proposal accepted: persisted');
       } catch (err) {
         log('copilot proposal accepted: save failed err=%o', err);
