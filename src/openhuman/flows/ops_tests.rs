@@ -228,6 +228,79 @@ async fn flows_run_completes_trigger_only_graph() {
     assert!(reloaded.value.last_run_at.is_some());
 }
 
+/// Live finding: a trigger-only graph (no downstream action nodes at all)
+/// used to report `status="completed" pending_approvals=0` from `flows_run`
+/// completely indistinguishably from a run that actually did something —
+/// "triggered but nothing happened" read as a plain success. This asserts
+/// the run still completes (running an empty flow isn't an error), but now
+/// carries a human-readable `note` in the result so the UI can show
+/// "nothing to run" instead of a bare "completed".
+#[tokio::test]
+async fn flows_run_on_trigger_only_graph_surfaces_no_actionable_nodes_note() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "empty".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+
+    let note = outcome.value["note"]
+        .as_str()
+        .expect("trigger-only run must carry a human-readable 'note' field");
+    assert!(
+        note.contains("no actionable nodes") || note.to_lowercase().contains("nothing"),
+        "note should explain that nothing ran, got: {note}"
+    );
+    assert!(
+        outcome.logs.iter().any(|l| l.contains("no actionable")),
+        "the note should also surface via the RpcOutcome logs, got: {:?}",
+        outcome.logs
+    );
+
+    // Still a completed run, not an error — an empty flow isn't a failure,
+    // just a no-op that must not masquerade as having done real work.
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status.as_deref(), Some("completed"));
+}
+
+/// A graph with a real downstream node, wired up by an edge, must NOT carry
+/// the "nothing to run" note — only a graph with no actionable nodes at all.
+/// Uses `output_parser` nodes (like the approval-gated fixture above) rather
+/// than an `agent`/`tool_call` node so the run completes deterministically
+/// without needing a configured LLM provider or network access.
+#[tokio::test]
+async fn flows_run_on_graph_with_actionable_nodes_has_no_empty_flow_note() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let graph = json!({
+        "name": "has-work",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "downstream", "kind": "output_parser", "name": "Downstream" }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "downstream" }
+        ]
+    });
+    let created = flows_create(&config, "has-work".to_string(), graph, false)
+        .await
+        .unwrap();
+
+    let outcome = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+
+    assert!(
+        outcome.value.get("note").is_none(),
+        "a graph with real downstream nodes must not get the empty-flow note, got: {:?}",
+        outcome.value.get("note")
+    );
+}
+
 #[tokio::test]
 async fn flows_run_reports_pending_approval_and_blocks_downstream() {
     let tmp = TempDir::new().unwrap();
@@ -557,6 +630,141 @@ async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
         .expect("cron job still bound");
     assert_eq!(job.id, old_job.id);
     assert_eq!(job.expression, old_job.expression);
+}
+
+// ── flows_update B29 Rule 1 analogue (save/enable safety on update) ───────
+//
+// `flows_create` already refuses to persist an automatic-trigger graph as
+// `enabled` (Rule 1, above). Live finding: `flows_update` had no equivalent
+// — a flow created `enabled: true` with a manual trigger could later have an
+// automatic-trigger graph (schedule / app_event / webhook) saved onto it via
+// `flows_update` and go LIVE immediately with no user review. These tests
+// cover the manual→automatic transition (must disarm), automatic→automatic
+// re-edit (must NOT disarm — the user already opted in), and manual→manual
+// (never touched).
+
+#[tokio::test]
+async fn flows_update_disables_on_manual_to_automatic_trigger_transition_when_enabled() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // A manual-trigger flow persists enabled straight from create (Rule 1
+    // only gates automatic triggers).
+    let created = flows_create(
+        &config,
+        "manual-then-scheduled".to_string(),
+        manual_trigger_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(created.value.enabled, "manual-trigger flows create enabled");
+
+    // Saving an automatic-trigger graph onto that enabled flow must disarm
+    // it — not go live unattended.
+    let updated = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        Some(schedule_trigger_graph("0 8 * * *")),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+        !updated.value.enabled,
+        "an enabled flow whose trigger just changed from manual to automatic must be \
+         auto-disabled, not armed live"
+    );
+    assert!(
+        updated.logs.iter().any(|l| l.contains("auto-disabled")),
+        "the disarm must be surfaced in the outcome logs, got: {:?}",
+        updated.logs
+    );
+
+    // Persisted, not just returned in-memory.
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert!(!reloaded.value.enabled);
+
+    // And no cron job was left bound — the flow never actually went live.
+    assert!(
+        crate::openhuman::cron::find_flow_schedule_job(&config, &created.value.id)
+            .unwrap()
+            .is_none(),
+        "an auto-disabled flow must not have its schedule cron job bound"
+    );
+}
+
+#[tokio::test]
+async fn flows_update_preserves_enabled_when_already_automatic() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // Rule 1 creates an automatic-trigger flow disabled; the user arms it
+    // explicitly — this IS the "already reviewed and opted in" state.
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(!created.value.enabled);
+    flows_set_enabled(&config, &created.value.id, true)
+        .await
+        .unwrap();
+
+    // A legitimate re-edit (still an automatic trigger, just a new cron
+    // expression) must NOT be treated as a fresh unattended arm.
+    let updated = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        Some(schedule_trigger_graph("30 8 * * *")),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+        updated.value.enabled,
+        "re-editing an already-enabled automatic-trigger flow must not disarm it — the \
+         user already opted in once"
+    );
+    assert!(!updated.logs.iter().any(|l| l.contains("auto-disabled")));
+}
+
+#[tokio::test]
+async fn flows_update_preserves_enabled_for_manual_target() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(&config, "manual".to_string(), manual_trigger_graph(), false)
+        .await
+        .unwrap();
+    assert!(created.value.enabled);
+
+    // manual → manual: no automatic trigger ever enters the picture, so
+    // `enabled` must be left completely untouched.
+    let mut new_graph = manual_trigger_graph();
+    new_graph["name"] = json!("manual-renamed");
+    let updated = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        Some(new_graph),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(updated.value.enabled);
+    assert!(!updated.logs.iter().any(|l| l.contains("auto-disabled")));
 }
 
 // ── flows_resume (issue B2) ───────────────────────────────────────────────
