@@ -509,6 +509,10 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
 
   it('does not clobber a user-set title when accepting a proposal', async () => {
     getFlow.mockResolvedValue(makeFlow({ name: 'My flow' }));
+    // The name is unchanged by this accept, so the accept-triggered save's
+    // response echoes it back unchanged too — matching a real server, which
+    // only touches `name` when it's part of the update payload.
+    updateFlow.mockResolvedValue(makeFlow({ name: 'My flow' }));
     renderEditor();
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
@@ -524,6 +528,9 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
   // VISIBLE `titleDraft`, or it clobbers in-progress typing.
   it('does not clobber an in-progress (uncommitted) title edit when accepting a proposal', async () => {
     getFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
+    // The uncommitted edit never reaches `name`, so the accept-triggered
+    // save's payload/response name is unchanged from the loaded flow.
+    updateFlow.mockResolvedValue(makeFlow({ name: 'New workflow' }));
     renderEditor();
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
@@ -674,7 +681,26 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
     expect(screen.queryByTestId('flow-editor-dirty')).not.toBeInTheDocument();
 
-    await expect(acceptProposal()).rejects.toThrow('network unreachable');
+    // Catch INSIDE `act()` (rather than via `expect(...).rejects`, which lets
+    // the rejection escape the `act()` scope unhandled) so React still
+    // flushes the synchronous draft/preview updates `handleAcceptProposal`
+    // makes before the failed `await handleSave(...)` — otherwise the
+    // assertions below would race an incomplete render.
+    let caughtErr: unknown;
+    await act(async () => {
+      try {
+        await (copilotPanelProps.current?.onAccept as (p: WorkflowProposal) => Promise<void>)(
+          makeProposal()
+        );
+      } catch (err) {
+        caughtErr = err;
+      }
+    });
+
+    // This is the fix under test: without the rethrow, `caughtErr` stays
+    // `undefined` and this assertion fails.
+    expect(caughtErr).toBeInstanceOf(Error);
+    expect((caughtErr as Error).message).toBe('network unreachable');
 
     // The draft is already applied before `handleSave` is even attempted, so
     // rethrowing loses no data: the proposal's graph is still on the canvas
