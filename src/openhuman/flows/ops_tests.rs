@@ -3662,27 +3662,39 @@ fn finalize_terminal_status_no_error_when_clean() {
     assert_eq!(error, None);
 }
 
-/// Regression for issue #4593: the `flows_build` builder turn runs under
-/// `AgentTurnOrigin::Cli`, which makes the `ApprovalGate` auto-allow every
-/// `external_effect` tool. The flows live-runner executes a *live* saved flow,
-/// so it must be unreachable on this path — `restrict_builder_toolset` drops it
-/// from the builder's callable belt while leaving the authoring tools in place
-/// so the turn still functions (never fail-closes).
+/// Regression for issue #4593 (widened for #4881's `resume_flow_run`/
+/// `cancel_flow_run` addition to the belt): the `flows_build` builder turn
+/// runs under `AgentTurnOrigin::Cli`, which makes the `ApprovalGate`
+/// auto-allow every `external_effect` tool. The flows live-runner (`run_flow`)
+/// and the run-resume tool (`resume_flow_run`) both execute/advance a *live*
+/// saved flow's real outbound effects, so both must be unreachable on this
+/// path — `restrict_builder_toolset` drops them (plus `cancel_flow_run`, out
+/// of caution) from the builder's callable belt while leaving the authoring
+/// tools in place so the turn still functions (never fail-closes).
 #[tokio::test]
 async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    // Document WHY the live-runner must be hidden: running a saved flow fires
-    // real Slack/Gmail/HTTP/code effects, so it is an external-effect tool. This
-    // pins that invariant independently of belt name-resolution so the
-    // hide-list can't silently stop covering a live-run tool.
+    // Document WHY each run-advancing tool must be hidden: running or
+    // resuming a saved flow fires real Slack/Gmail/HTTP/code effects, so both
+    // are external-effect tools. This pins that invariant independently of
+    // belt name-resolution so the hide-list can't silently stop covering a
+    // live-run/resume tool.
     use crate::openhuman::tools::Tool as _;
     let live_runner =
         crate::openhuman::flows::tools::RunFlowTool::new(std::sync::Arc::new(config.clone()));
     assert!(
         live_runner.external_effect(),
         "the flows live-runner must be external-effect for the #4593 concern to apply"
+    );
+    let resumer = crate::openhuman::flows::builder_tools::ResumeFlowRunTool::new(
+        std::sync::Arc::new(config.clone()),
+    );
+    assert!(
+        resumer.external_effect(),
+        "resume_flow_run advances a real run's outbound effects, so it must be \
+         external-effect for the same #4593/#4881 concern to apply"
     );
 
     crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
@@ -3692,27 +3704,36 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
             .expect("build workflow_builder agent");
     agent.set_agent_definition_name("workflow_builder".to_string());
 
-    // Precondition: the builder advertises the live-run tool (`run_flow`) on its
-    // belt before restriction — the exact tool #4593 is about.
-    assert!(
-        agent.visible_tool_names_for_test().contains("run_flow"),
-        "precondition: workflow_builder belt should advertise the live-run tool `run_flow`; \
-         visible = {:?}",
-        agent.visible_tool_names_for_test()
-    );
+    // Precondition: the builder advertises all four run-advancing tools on its
+    // belt before restriction — the exact set #4593/#4881 are about.
+    let visible_before = agent.visible_tool_names_for_test();
+    for present in ["run_flow", "resume_flow_run", "cancel_flow_run"] {
+        assert!(
+            visible_before.contains(present),
+            "precondition: workflow_builder belt should advertise `{present}`; visible = \
+             {visible_before:?}"
+        );
+    }
 
     restrict_builder_toolset(&mut agent);
 
-    // After restriction neither the current name nor the post-rename name is
-    // callable on the flows_build path — the hide-list covers both (#4593).
+    // After restriction none of the run-advancing tools are callable on the
+    // flows_build path — the hide-list covers all of them (#4593 + #4881).
     let visible = agent.visible_tool_names_for_test();
-    for hidden in ["run_workflow", "run_flow"] {
+    for hidden in [
+        "run_workflow",
+        "run_flow",
+        "resume_flow_run",
+        "cancel_flow_run",
+    ] {
         assert!(
             !visible.contains(hidden),
-            "live-run tool `{hidden}` must be hidden on the flows_build path; visible = {visible:?}"
+            "run-advancing tool `{hidden}` must be hidden on the flows_build path; visible = \
+             {visible:?}"
         );
     }
-    // Authoring / read tools stay reachable so the builder turn still works
+    // Authoring / read tools — including the born-disabled `create_workflow`
+    // and `duplicate_flow` — stay reachable so the builder turn still works
     // headlessly under the CLI origin (no fail-close).
     for keep in [
         "propose_workflow",
@@ -3720,6 +3741,8 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
         "save_workflow",
         "dry_run_workflow",
         "list_flows",
+        "create_workflow",
+        "duplicate_flow",
     ] {
         assert!(
             visible.contains(keep),

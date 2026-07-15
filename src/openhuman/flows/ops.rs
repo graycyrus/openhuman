@@ -4050,7 +4050,9 @@ pub async fn flows_discover(
 const FLOW_BUILD_TIMEOUT_SECS: u64 = 600;
 
 /// Tools stripped from the `workflow_builder` belt on the direct `flows_build`
-/// RPC path (issue #4593).
+/// RPC path (issue #4593; widened for `resume_flow_run`/`cancel_flow_run`
+/// alongside issue #4881, which added both to the belt without extending
+/// this list).
 ///
 /// `flows_build` runs the builder under [`AgentTurnOrigin::Cli`] so the approval
 /// gate does not fail-closed in a headless/streamed run — but that same origin
@@ -4070,22 +4072,46 @@ const FLOW_BUILD_TIMEOUT_SECS: u64 = 600;
 /// name (now the unrelated harness spawn tool) is listed too as belt-and-braces
 /// against a re-rename or the name ever leaking back onto this belt;
 /// `hide_tools` no-ops on a name that isn't present.
-const FLOWS_BUILD_HIDDEN_TOOLS: &[&str] = &["run_workflow", "run_flow"];
+///
+/// `resume_flow_run` ([`builder_tools::ResumeFlowRunTool`]) is the exact same
+/// concern as `run_flow`, one hop later: it is `external_effect() == true`
+/// (its own description says "This ADVANCES A REAL RUN — approved outbound
+/// nodes will fire") and would be auto-allowed by the same `Cli`-origin gate
+/// bypass, letting an authoring turn (or a confused/prompt-injected model)
+/// approve a live run's parked Slack/Gmail/HTTP node with zero human
+/// confirmation — the exact HITL hole #4593 closed, reopened by #4881
+/// widening the belt.
+///
+/// `cancel_flow_run` fires no new outbound effect
+/// (`external_effect() == false`), so it isn't a gate-bypass concern the same
+/// way — but an authoring turn still has no business tearing down a run the
+/// *user* started, so it is hidden alongside the two above out of caution.
+///
+/// `create_workflow` / `duplicate_flow` are deliberately **left visible**:
+/// both are hard-forced **born disabled** (see [`builder_tools::CreateWorkflowTool`]
+/// / [`builder_tools::DuplicateFlowTool`]), so even an unattended call can't
+/// leave anything live — lower risk than the run/resume/cancel trio above.
+const FLOWS_BUILD_HIDDEN_TOOLS: &[&str] = &[
+    "run_workflow",
+    "run_flow",
+    "resume_flow_run",
+    "cancel_flow_run",
+];
 
-/// Strip the live-run tool(s) in [`FLOWS_BUILD_HIDDEN_TOOLS`] from `agent`'s
-/// callable set for the direct `flows_build` RPC path.
+/// Strip the live-run / resume / cancel tool(s) in [`FLOWS_BUILD_HIDDEN_TOOLS`]
+/// from `agent`'s callable set for the direct `flows_build` RPC path.
 ///
 /// Delegates to [`crate::openhuman::agent::Agent::hide_tools`], which removes
 /// the names from the builder's (already narrow) visible belt and rebuilds the
 /// session's `ToolPolicySession` so they resolve to `Deny` at the tool-call
 /// boundary — a hard execution guarantee even if the model requests the tool.
-/// The authoring tools (`propose`/`revise`/`save`/`dry_run`/reads) are all
-/// `external_effect() == false` and untouched, so the turn never fail-closes.
+/// The authoring tools (`propose`/`revise`/`save`/`dry_run`/reads/`create_workflow`/
+/// `duplicate_flow`) stay visible and untouched, so the turn never fail-closes.
 fn restrict_builder_toolset(agent: &mut crate::openhuman::agent::Agent) {
     tracing::debug!(
         target: "flows",
         hidden = ?FLOWS_BUILD_HIDDEN_TOOLS,
-        "[flows] flows_build: hiding live-run tools from builder belt"
+        "[flows] flows_build: hiding live-run/resume/cancel tools from builder belt"
     );
     agent.hide_tools(FLOWS_BUILD_HIDDEN_TOOLS);
 }
