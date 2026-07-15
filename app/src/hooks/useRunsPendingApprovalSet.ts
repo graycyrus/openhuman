@@ -54,7 +54,11 @@ export function useRunsPendingApprovalSet(runs: FlowRun[]): Set<string> {
   const hasRunning = runs.some(run => run.status === 'running');
 
   useEffect(() => {
-    if (!hasRunning) return;
+    if (!hasRunning) {
+      log('approval polling skipped: no-running-runs');
+      return;
+    }
+    log('approval polling started');
 
     let cancelled = false;
     let pollHandle: number | undefined;
@@ -62,6 +66,7 @@ export function useRunsPendingApprovalSet(runs: FlowRun[]): Set<string> {
     const tick = async () => {
       if (cancelled) return;
       try {
+        log('approval poll: calling fetchPendingApprovals');
         const all = await fetchPendingApprovals();
         if (cancelled) return;
         const next = new Set<string>();
@@ -70,13 +75,15 @@ export function useRunsPendingApprovalSet(runs: FlowRun[]): Set<string> {
             next.add(approval.source_context.run_id);
           }
         }
-        log('tick: total=%d flow-scoped=%d', all.length, next.size);
+        log('approval poll: succeeded total=%d flow-scoped=%d', all.length, next.size);
         setPendingRunIds(next);
       } catch (err) {
-        log('tick: poll failed, keeping last-known set: %o', err);
+        const errorType = err instanceof Error ? err.name : typeof err;
+        log('approval poll: failed error_type=%s; preserving-last-known-set', errorType);
         // Best-effort — leave `pendingRunIds` as-is and retry next tick.
       } finally {
         if (!cancelled) {
+          log('approval poll: scheduling retry delay_ms=%d', POLL_INTERVAL_MS);
           pollHandle = window.setTimeout(() => void tick(), POLL_INTERVAL_MS);
         }
       }
@@ -86,6 +93,7 @@ export function useRunsPendingApprovalSet(runs: FlowRun[]): Set<string> {
     return () => {
       cancelled = true;
       if (pollHandle !== undefined) window.clearTimeout(pollHandle);
+      log('approval polling stopped');
     };
   }, [hasRunning]);
 
