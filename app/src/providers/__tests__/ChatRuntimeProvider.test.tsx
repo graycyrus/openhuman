@@ -1532,10 +1532,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       });
 
       const proposal = store.getState().chatRuntime.pendingWorkflowProposalsByThread[threadId];
-      expect(proposal).toMatchObject({
-        name: 'Digest patch',
-        requireApproval: true,
-      });
+      expect(proposal).toMatchObject({ name: 'Digest patch', requireApproval: true });
     });
 
     // Any future tool that returns `{ type: "workflow_proposal" }` must be

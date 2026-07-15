@@ -732,7 +732,9 @@ describe('hydrateRuntimeFromSnapshot — workflow proposal race guard', () => {
       setWorkflowProposalForThread({ threadId: 't-crashed', proposal: makeProposal('Stale') })
     );
 
-    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot: makeSnapshot('t-crashed', 'interrupted') }));
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({ snapshot: makeSnapshot('t-crashed', 'interrupted') })
+    );
 
     expect(
       store.getState().chatRuntime.pendingWorkflowProposalsByThread['t-crashed']
@@ -747,7 +749,9 @@ describe('hydrateRuntimeFromSnapshot — workflow proposal race guard', () => {
       setWorkflowProposalForThread({ threadId: 't-settled', proposal: makeProposal('Fresh') })
     );
 
-    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot: makeSnapshot('t-settled', 'completed') }));
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({ snapshot: makeSnapshot('t-settled', 'completed') })
+    );
 
     expect(store.getState().chatRuntime.pendingWorkflowProposalsByThread['t-settled']).toEqual(
       makeProposal('Fresh')
