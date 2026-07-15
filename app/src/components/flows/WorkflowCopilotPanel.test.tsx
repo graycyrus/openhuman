@@ -371,6 +371,40 @@ describe('WorkflowCopilotPanel', () => {
     expect(hookState.clearProposal).not.toHaveBeenCalled();
   });
 
+  it('disables Reject while an Accept save is in flight, so it cannot race the persisted save', async () => {
+    // Regression for the CodeRabbit finding: Reject must not stay clickable
+    // while `onAccept`'s save is still pending, otherwise the user's cancel
+    // can be silently overridden by the earlier Accept's save landing after.
+    let resolveSave!: () => void;
+    const savePromise = new Promise<void>(resolve => {
+      resolveSave = resolve;
+    });
+    const onAccept = vi.fn().mockReturnValue(savePromise);
+    const onReject = vi.fn();
+    hookState.proposal = proposalWith(['a', 'c']);
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={onAccept}
+        onReject={onReject}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-copilot-accept'));
+    await waitFor(() => expect(screen.getByTestId('workflow-copilot-reject')).toBeDisabled());
+
+    // A click while disabled is a no-op in jsdom/RTL — Reject must not fire.
+    fireEvent.click(screen.getByTestId('workflow-copilot-reject'));
+    expect(onReject).not.toHaveBeenCalled();
+    expect(hookState.clearProposal).not.toHaveBeenCalled();
+
+    resolveSave();
+    await waitFor(() => expect(hookState.clearProposal).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('workflow-copilot-reject')).not.toBeDisabled();
+  });
+
   it('Reject discards the proposal without applying it', () => {
     const onReject = vi.fn();
     const onAccept = vi.fn();

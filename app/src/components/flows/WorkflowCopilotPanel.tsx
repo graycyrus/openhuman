@@ -396,10 +396,17 @@ export default function WorkflowCopilotPanel({
   // but this keeps the copilot's own flow self-contained).
   const [acceptSaving, setAcceptSaving] = useState(false);
   const accept = useCallback(async () => {
-    if (!proposal) return;
+    // Self-guard against re-entrance: the JSX `disabled={acceptSaving}` on
+    // the Accept button prevents a normal double-click, but `acceptSaving`
+    // only flips after the FIRST call's `setAcceptSaving(true)` commits — a
+    // second invocation racing ahead of that render (e.g. programmatic
+    // re-fire) must not start a second concurrent save.
+    if (!proposal || acceptSaving) return;
     setAcceptSaving(true);
+    log('accept: saving proposal via host onAccept');
     try {
       await onAccept(proposal);
+      log('accept: save succeeded, clearing proposal');
       clearProposal();
       lastSurfacedRef.current = null;
     } catch (err) {
@@ -407,7 +414,7 @@ export default function WorkflowCopilotPanel({
     } finally {
       setAcceptSaving(false);
     }
-  }, [proposal, onAccept, clearProposal]);
+  }, [proposal, acceptSaving, onAccept, clearProposal]);
 
   const reject = useCallback(() => {
     onReject();
@@ -568,6 +575,7 @@ export default function WorkflowCopilotPanel({
                 type="button"
                 variant="secondary"
                 size="sm"
+                disabled={acceptSaving}
                 data-testid="workflow-copilot-reject"
                 onClick={reject}>
                 {t('flows.copilot.reject')}
