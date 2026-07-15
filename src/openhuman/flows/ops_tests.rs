@@ -4159,3 +4159,25 @@ fn build_trail_off_fallback_picks_the_most_recent_blocker() {
     assert!(fallback.contains("second issue"));
     assert!(!fallback.contains("first issue"));
 }
+
+/// Regression for review feedback (chatgpt-codex-connector, PR #4887): a
+/// dry-run failure that the agent goes on to FIX later in the same turn
+/// (a later `{"ok": true}` from the same authoring belt) must not be
+/// resurfaced as "here's where I got stuck" — that failure is already
+/// resolved. The scan must stop at the most recent authoring-belt result,
+/// not keep walking backward past a success to an older, stale blocker.
+#[test]
+fn build_trail_off_fallback_does_not_resurface_a_resolved_blocker() {
+    let history = vec![
+        builder_tool_call("call_1", "dry_run_workflow"),
+        builder_tool_result("call_1", r#"{"ok": false, "errors": ["first issue"]}"#),
+        builder_tool_call("call_2", "dry_run_workflow"),
+        builder_tool_result("call_2", r#"{"ok": true, "warnings": []}"#),
+    ];
+    let fallback = build_trail_off_fallback(&history);
+    assert!(
+        !fallback.contains("first issue"),
+        "must not surface an already-resolved blocker: {fallback}"
+    );
+    assert!(text_looks_like_question(&fallback));
+}

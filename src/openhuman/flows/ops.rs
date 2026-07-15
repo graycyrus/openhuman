@@ -3761,6 +3761,7 @@ pub async fn flows_build(
         let fallback = build_trail_off_fallback(agent.history());
         tracing::warn!(
             target: "flows",
+            flow_id = req.flow_id.as_deref().unwrap_or("<none>"),
             original_len = assistant_text.len(),
             fallback_len = fallback.len(),
             "[flows] flows_build: trail-off detected (no proposal, no cap, no question) — \
@@ -3786,6 +3787,7 @@ pub async fn flows_build(
 
     tracing::info!(
         target: "flows",
+        flow_id = req.flow_id.as_deref().unwrap_or("<none>"),
         has_proposal = proposal.is_some(),
         hit_cap,
         capped,
@@ -3905,9 +3907,15 @@ fn last_builder_tool_blocker(
             if !TRAIL_OFF_BLOCKER_TOOLS.contains(&name.as_str()) {
                 continue;
             }
-            if let Some(desc) = describe_tool_result_blocker(&result.content) {
-                return Some(crate::openhuman::util::truncate_with_ellipsis(&desc, 500));
-            }
+            // This is the MOST RECENT authoring-belt tool result in the
+            // turn (results are scanned newest-first). Whatever it reads as
+            // is authoritative: a success/progress result here means any
+            // earlier failure from the same tool was already resolved
+            // within this turn, so we must stop at this result rather than
+            // keep walking backward and surfacing a stale, already-fixed
+            // blocker (see review discussion on this PR).
+            return describe_tool_result_blocker(&result.content)
+                .map(|desc| crate::openhuman::util::truncate_with_ellipsis(&desc, 500));
         }
     }
     None
