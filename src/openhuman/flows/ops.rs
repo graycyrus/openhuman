@@ -4461,24 +4461,64 @@ fn text_looks_like_question(text: &str) -> bool {
     // Final-paragraph scan: a question can sit mid-paragraph, followed by a
     // further trailing sentence on the SAME line/paragraph ("...ID? You can
     // find it under Profile > Copy member ID."). Take the last non-blank
-    // paragraph (split on a blank line) and accept it if it contains a `?`
-    // that isn't inside inline code / a code fence.
-    trimmed
-        .rsplit("\n\n")
-        .map(str::trim)
-        .find(|para| !para.is_empty())
+    // paragraph and accept it if it contains a `?` that isn't inside inline
+    // code / a code fence.
+    last_paragraph(trimmed)
+        .as_deref()
         .is_some_and(question_mark_outside_code)
+}
+
+/// Returns the last non-blank paragraph of `text` — a maximal run of
+/// consecutive non-blank lines, working backward from the end and skipping
+/// any trailing blank lines first. `None` if `text` has no non-blank lines.
+///
+/// CodeRabbit review follow-up: this used to split on the literal `"\n\n"`
+/// byte sequence, which mishandles two real shapes:
+/// - **CRLF input** (`"question?\r\n\r\nstatus"`): the separator is
+///   `"\r\n\r\n"`, not `"\n\n"`, so the whole text was treated as ONE
+///   paragraph — an earlier question could then suppress the fallback for a
+///   trailing non-question status paragraph.
+/// - **Whitespace-only separator lines** (`"question?\n \nstatus"` — a blank
+///   line that isn't perfectly empty): same failure, same reason.
+///
+/// Working line-by-line via [`str::lines`] (which normalizes CRLF) and
+/// treating any all-whitespace line as blank fixes both.
+fn last_paragraph(text: &str) -> Option<String> {
+    let mut collected: Vec<&str> = Vec::new();
+    for line in text.lines().rev() {
+        if line.trim().is_empty() {
+            if collected.is_empty() {
+                continue; // still skipping trailing blank lines
+            }
+            break; // blank line marks the start of the paragraph above
+        }
+        collected.push(line);
+    }
+    if collected.is_empty() {
+        return None;
+    }
+    collected.reverse();
+    Some(collected.join("\n"))
 }
 
 /// Does `text` contain at least one *sentence-terminal* `?` that isn't
 /// inside a backtick-delimited code span (inline code like `` `U...` `` or a
-/// fenced block like `` ``` ``)? Tracks a running count of backtick
-/// characters and treats a `?` as "outside code" when that count is even so
-/// far — an odd count means an odd number of backtick delimiters have opened
-/// before this point, i.e. the scan is currently inside a span (this holds
-/// for both single-backtick inline spans and triple-backtick fences, since
-/// either one flips the cumulative parity by an odd amount at open and again
-/// at close).
+/// fenced block like `` ``` ``)? Follows the CommonMark code-span rule: a
+/// *run* of one or more consecutive backticks opens a span, and that span is
+/// closed only by the next run of the SAME length — a shorter or longer run
+/// of backticks encountered while inside a span is just literal backtick
+/// characters, not a delimiter.
+///
+/// CodeRabbit review follow-up: an earlier version tracked a running
+/// per-character backtick COUNT and used its parity (even = outside code).
+/// That misclassifies any multi-backtick span whose delimiter is more than
+/// one backtick — e.g. ``` ``SELECT ? FROM t`` ``` opens with a 2-backtick
+/// run (count 0→2, even → looks "outside" again immediately), so the `?`
+/// inside a valid double-backtick span was wrongly treated as outside code.
+/// Tracking delimiter run LENGTH (not raw backtick count) fixes this while
+/// still handling the common single-backtick and triple-backtick-fence
+/// cases, since those are just the run-length-1 and run-length-3 instances
+/// of the same rule.
 ///
 /// Codex review follow-up: a bare `?` outside code isn't necessarily a real
 /// question — a status line like "Checked https://api.example/search?q=foo
@@ -4490,17 +4530,31 @@ fn text_looks_like_question(text: &str) -> bool {
 /// sentence-terminal via [`is_sentence_terminal_question_mark`].
 fn question_mark_outside_code(text: &str) -> bool {
     let chars: Vec<char> = text.chars().collect();
-    let mut backtick_count = 0usize;
-    for (i, &ch) in chars.iter().enumerate() {
-        match ch {
-            '`' => backtick_count += 1,
-            '?' if backtick_count.is_multiple_of(2)
-                && is_sentence_terminal_question_mark(&chars, i) =>
-            {
-                return true;
+    // `Some(n)` while scanning is inside a code span opened by a run of `n`
+    // backticks; that span closes only on the next run of exactly `n`.
+    let mut open_run_len: Option<usize> = None;
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '`' {
+            let start = i;
+            while i < chars.len() && chars[i] == '`' {
+                i += 1;
             }
-            _ => {}
+            let run_len = i - start;
+            open_run_len = match open_run_len {
+                None => Some(run_len),
+                Some(n) if n == run_len => None,
+                Some(n) => Some(n), // mismatched run length: still inside the span
+            };
+            continue;
         }
+        if chars[i] == '?'
+            && open_run_len.is_none()
+            && is_sentence_terminal_question_mark(&chars, i)
+        {
+            return true;
+        }
+        i += 1;
     }
     false
 }
