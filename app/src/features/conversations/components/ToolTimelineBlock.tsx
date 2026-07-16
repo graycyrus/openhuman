@@ -476,10 +476,21 @@ export function ToolTimelineBlock({
   liveResponse?: string;
 }) {
   const { t } = useT();
-  const latestRunningEntryId = [...entries].reverse().find(entry => entry.status === 'running')?.id;
 
   if (entries.length === 0) return null;
 
+  // The rows + the parent's streaming response — shared by both the collapsible
+  // (in-flight) and static (settled) header layouts below.
+  // Sort by issue order (`seq`), not arrival order: a `tool_args_delta` for a
+  // later parallel call can reach the store before an earlier call's own
+  // event, which would otherwise create rows in the wrong order.
+  // Sort a copy — `entries` may be a state slice other callers still rely on.
+  const ordered = [...entries].sort((a, b) => a.seq - b.seq);
+  // "Latest running" must be derived from the same seq-ordered list the rows
+  // render from — not raw arrival order — or a running row that arrived late
+  // but sorts earlier (e.g. seq [2, 0, 1]) gets treated as "latest" and the
+  // wrong step stays expanded/linked in compact chat mode.
+  const latestRunningEntryId = [...ordered].reverse().find(entry => entry.status === 'running')?.id;
   const isRunning = latestRunningEntryId != null;
 
   const titleLabel = (
@@ -505,13 +516,6 @@ export function ToolTimelineBlock({
     </button>
   ) : null;
 
-  // The rows + the parent's streaming response — shared by both the collapsible
-  // (in-flight) and static (settled) header layouts below.
-  // Sort by issue order (`seq`), not arrival order: a `tool_args_delta` for a
-  // later parallel call can reach the store before an earlier call's own
-  // event, which would otherwise create rows in the wrong order.
-  // Sort a copy — `entries` may be a state slice other callers still rely on.
-  const ordered = [...entries].sort((a, b) => a.seq - b.seq);
   // Coalesce runs of identical, body-less rows (e.g. a retry loop that spawns
   // the same integrations step 25×) into single `×N` rows before rendering.
   const rows = coalesceTimelineEntries(ordered);
