@@ -4367,15 +4367,17 @@ pub async fn flows_build(
     let trail_off = !capped && proposal.is_none() && run_error.is_none();
     let assistant_text = if trail_off && !text_looks_like_question(&assistant_text) {
         let fallback = build_trail_off_fallback(agent.history());
+        let combined = combine_trail_off_fallback(&fallback, &assistant_text);
         tracing::warn!(
             target: "flows",
             flow_id = req.flow_id.as_deref().unwrap_or("<none>"),
             original_len = assistant_text.len(),
             fallback_len = fallback.len(),
+            combined_len = combined.len(),
             "[flows] flows_build: trail-off detected (no proposal, no cap, no question) — \
-             guaranteeing a fallback question instead of silence"
+             guaranteeing a fallback question while preserving the model's original text"
         );
-        fallback
+        combined
     } else {
         assistant_text
     };
@@ -4414,15 +4416,31 @@ pub async fn flows_build(
     ))
 }
 
-/// Heuristic: does `text` already end with a clear, answerable question?
-/// Conservative by design (issue: builder convergence) — a false negative (an
-/// actual question this misses) just wraps it in the trail-off fallback,
-/// which still includes the blocker context, so the safe failure mode is
-/// "over-wrap", never "under-detect and stay silent".
+/// Heuristic: does `text` already contain a clear, answerable question in its
+/// final paragraph? Conservative by design (issue: builder convergence) — a
+/// false negative (an actual question this misses) no longer discards the
+/// model's text (see `combine_trail_off_fallback`), so the safe failure mode
+/// stays "add a guaranteed question on top", never "under-detect and stay
+/// silent".
+///
+/// Regression (#4887 follow-up): the original version only checked for a `?`
+/// at the very end of the text / last line, which false-negatived on the
+/// extremely common LLM pattern "What's X? You can find it at Y." — a real
+/// question immediately followed by a trailing instructional sentence. The
+/// backstop then clobbered a specific, answerable question with a generic
+/// fallback. To catch that shape, this now also scans the LAST non-empty
+/// paragraph for a `?` that isn't inside inline code or a fenced code block
+/// (so a literal `?` in a code sample, e.g. `WHERE id = ?`, doesn't count).
+///
+/// Note: the trailing-noise strip below deliberately does NOT include the
+/// backtick. Stripping a trailing backtick would peel off the CLOSING
+/// delimiter of a code span whose last character is `?` (e.g. `` `id = ?` ``
+/// at the very end of the text), exposing that `?` as if it were a bare
+/// trailing question mark and defeating the code guard entirely.
 fn text_looks_like_question(text: &str) -> bool {
     let trimmed = text
         .trim()
-        .trim_end_matches(['"', '\'', ')', ']', '*', '_', '`', '.'])
+        .trim_end_matches(['"', '\'', ')', ']', '*', '_', '.'])
         .trim_end();
     if trimmed.is_empty() {
         return false;
@@ -4432,15 +4450,44 @@ fn text_looks_like_question(text: &str) -> bool {
     }
     // The question may not be the literal last character (trailing markdown
     // like a closing code fence or list marker on its own line) — fall back
-    // to the last non-blank line. This does NOT catch a question followed by
-    // a further trailing sentence ("...channel?\n\nLet me know!") — that's
-    // an accepted false negative: the turn still ends in a real (if
-    // over-eagerly replaced) question, never in silence, which is the
-    // invariant this function exists to protect.
-    trimmed
+    // to the last non-blank line.
+    if trimmed
         .lines()
         .rfind(|line| !line.trim().is_empty())
         .is_some_and(|last_line| last_line.trim_end().ends_with('?'))
+    {
+        return true;
+    }
+    // Final-paragraph scan: a question can sit mid-paragraph, followed by a
+    // further trailing sentence on the SAME line/paragraph ("...ID? You can
+    // find it under Profile > Copy member ID."). Take the last non-blank
+    // paragraph (split on a blank line) and accept it if it contains a `?`
+    // that isn't inside inline code / a code fence.
+    trimmed
+        .rsplit("\n\n")
+        .map(str::trim)
+        .find(|para| !para.is_empty())
+        .is_some_and(question_mark_outside_code)
+}
+
+/// Does `text` contain at least one `?` that isn't inside a backtick-delimited
+/// code span (inline code like `` `U...` `` or a fenced block like
+/// `` ``` ``)? Tracks a running count of backtick characters and treats a `?`
+/// as "outside code" when that count is even so far — an odd count means an
+/// odd number of backtick delimiters have opened before this point, i.e. the
+/// scan is currently inside a span (this holds for both single-backtick
+/// inline spans and triple-backtick fences, since either one flips the
+/// cumulative parity by an odd amount at open and again at close).
+fn question_mark_outside_code(text: &str) -> bool {
+    let mut backtick_count = 0usize;
+    for ch in text.chars() {
+        match ch {
+            '`' => backtick_count += 1,
+            '?' if backtick_count % 2 == 0 => return true,
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Builder-authoring tools whose result body can explain a trail-off — the
@@ -4477,6 +4524,24 @@ fn build_trail_off_fallback(
         None => "I wasn't able to finish building this workflow in this turn. Could you describe \
                   what you'd like in more detail, or tell me which part to focus on?"
             .to_string(),
+    }
+}
+
+/// Combines the guaranteed trail-off `fallback` question with the model's own
+/// `original` text instead of discarding it (#4887 follow-up, Change 2). Even
+/// after loosening `text_looks_like_question`, a future false negative must
+/// never destroy the model's words — it should only ever ADD the guaranteed
+/// question on top. The `fallback` is prepended (so the user sees the
+/// actionable question first) and the original is kept below a divider for
+/// context. When `original` is empty/whitespace-only (a genuine silent
+/// turn — there's nothing to preserve), returns the fallback alone rather
+/// than prepending an empty divider.
+fn combine_trail_off_fallback(fallback: &str, original: &str) -> String {
+    let trimmed_original = original.trim();
+    if trimmed_original.is_empty() {
+        fallback.to_string()
+    } else {
+        format!("{fallback}\n\n---\n\n{trimmed_original}")
     }
 }
 

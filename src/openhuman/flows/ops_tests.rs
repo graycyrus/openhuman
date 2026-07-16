@@ -4751,15 +4751,47 @@ fn text_looks_like_question_detects_trailing_question_mark() {
     ));
 }
 
-/// A question followed by a further trailing sentence on its own line
-/// ("...channel?\n\nLet me know!") is an accepted false negative — the
-/// heuristic is deliberately conservative (see the function doc). Pin that
-/// this case is NOT detected so a future "improvement" doesn't silently
-/// change the accepted trade-off without a matching design review.
+/// Regression (#4887 follow-up): a question immediately followed by a
+/// trailing pleasantry/instruction in the SAME paragraph ("...to? Let me
+/// know!") used to be an accepted false negative. That false negative let the
+/// trail-off backstop clobber real, specific questions with a generic
+/// fallback — this is now DETECTED via the final-paragraph scan in
+/// `text_looks_like_question`.
+///
+/// Note: a question mark separated from the trailing sentence by a full
+/// blank-line paragraph break (`"...to?\n\nLet me know!"`) is a DIFFERENT
+/// shape — the `?` there sits in an earlier paragraph, not the last one — and
+/// remains an intentional false negative: the final-paragraph scan only
+/// looks at the LAST non-blank paragraph, by design (see the function doc).
 #[test]
 fn text_looks_like_question_accepts_false_negative_on_trailing_pleasantry() {
+    assert!(text_looks_like_question(
+        "Which channel should I post to? Let me know!"
+    ));
+}
+
+/// The exact shape a live tester hit (#4887 regression): a clear, specific
+/// question mid-sentence, immediately followed by a trailing instructional
+/// sentence on the SAME paragraph/line. The old last-line-only check missed
+/// this entirely; the final-paragraph scan must catch it.
+#[test]
+fn text_looks_like_question_detects_mid_sentence_question_with_trailing_instruction() {
+    assert!(text_looks_like_question(
+        "Alan — what's your **Slack user ID** (the `U...` code) so I can DM you the daily \
+         update? You can find it in Slack under Profile > Copy member ID."
+    ));
+}
+
+/// A `?` that only appears inside inline code or a fenced code block must
+/// NOT be treated as a question — the guard on `question_mark_outside_code`
+/// has to hold, or a code sample like `WHERE id = ?` would false-positive.
+#[test]
+fn text_looks_like_question_ignores_question_mark_inside_code() {
     assert!(!text_looks_like_question(
-        "Which channel should I post to?\n\nLet me know!"
+        "Run the query below to check the row.\n\n`SELECT * FROM t WHERE id = ?`"
+    ));
+    assert!(!text_looks_like_question(
+        "Here's the query:\n\n```sql\nSELECT * FROM t WHERE id = ?\n```"
     ));
 }
 
@@ -4886,4 +4918,37 @@ fn build_trail_off_fallback_does_not_resurface_a_resolved_blocker() {
         "must not surface an already-resolved blocker: {fallback}"
     );
     assert!(text_looks_like_question(&fallback));
+}
+
+/// Change 2 of the #4887 regression fix: when the trail-off backstop fires on
+/// a genuine non-question (a status dump), the model's original words must
+/// still be present in the combined output — the fallback question is added
+/// on top, never a replacement.
+#[test]
+fn combine_trail_off_fallback_preserves_original_text_on_genuine_non_question() {
+    let original = "## Done so far\n- Checked connections\n- Verified contracts";
+    let fallback = build_trail_off_fallback(&[]);
+    let combined = combine_trail_off_fallback(&fallback, original);
+    assert!(
+        combined.contains(original),
+        "original status dump must survive in the combined output: {combined}"
+    );
+    assert!(
+        combined.contains(&fallback),
+        "combined output must still include the guaranteed fallback question: {combined}"
+    );
+    // The combined text still ends in the model's original (non-question)
+    // words, so the "is this a question" invariant applies to the
+    // fallback alone, not the full combined string.
+    assert!(text_looks_like_question(&fallback));
+}
+
+/// Guards against prepending an empty divider when the original text is a
+/// genuine silent turn (empty/whitespace-only) — there is nothing to
+/// preserve, so the combined output should just be the fallback.
+#[test]
+fn combine_trail_off_fallback_returns_fallback_alone_for_genuine_silence() {
+    let fallback = build_trail_off_fallback(&[]);
+    assert_eq!(combine_trail_off_fallback(&fallback, ""), fallback);
+    assert_eq!(combine_trail_off_fallback(&fallback, "   \n\n  "), fallback);
 }
