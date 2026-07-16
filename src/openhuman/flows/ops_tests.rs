@@ -4827,6 +4827,44 @@ fn text_looks_like_question_ignores_question_mark_in_url_query_string() {
     ));
 }
 
+/// CodeRabbit review follow-up: paragraph boundaries must be recognized for
+/// CRLF line endings and whitespace-only blank lines, not just a literal
+/// `"\n\n"` byte sequence — otherwise an earlier question survives into what
+/// should be treated as a separate, later, non-question status paragraph,
+/// and the fallback gets wrongly suppressed for that trailing paragraph.
+#[test]
+fn text_looks_like_question_treats_crlf_and_whitespace_lines_as_paragraph_breaks() {
+    // CRLF paragraph break: the earlier "?" must not leak into the final
+    // paragraph, which is a plain status line with no question of its own.
+    assert!(!text_looks_like_question(
+        "Which channel should I post to?\r\n\r\nPosted the update just now."
+    ));
+    // Whitespace-only blank line (not perfectly empty) must also count as a
+    // paragraph break.
+    assert!(!text_looks_like_question(
+        "Which channel should I post to?\n   \nPosted the update just now."
+    ));
+}
+
+/// CodeRabbit review follow-up: a multi-backtick Markdown code span (e.g.
+/// double backtick, used so the span can itself contain a literal single
+/// backtick) must still be recognized as code — a naive backtick-count
+/// parity check misclassifies it because two backticks flip parity back to
+/// "even" immediately. The span must only close on a run of the SAME length
+/// that opened it.
+#[test]
+fn text_looks_like_question_ignores_question_mark_inside_double_backtick_span() {
+    assert!(!text_looks_like_question(
+        "Run the query below to check the row.\n\n``SELECT * FROM t WHERE id = ?``"
+    ));
+    // A single backtick embedded inside a double-backtick span (the classic
+    // reason to use a longer delimiter) must not be mistaken for the span's
+    // closing delimiter.
+    assert!(!text_looks_like_question(
+        "Use ``SELECT `id` FROM t WHERE id = ?`` before retrying."
+    ));
+}
+
 #[test]
 fn text_looks_like_question_rejects_status_dumps_and_silence() {
     assert!(!text_looks_like_question(
@@ -4961,14 +4999,11 @@ fn combine_trail_off_fallback_preserves_original_text_on_genuine_non_question() 
     let original = "## Done so far\n- Checked connections\n- Verified contracts";
     let fallback = build_trail_off_fallback(&[]);
     let combined = combine_trail_off_fallback(&fallback, original);
-    assert!(
-        combined.contains(original),
-        "original status dump must survive in the combined output: {combined}"
-    );
-    assert!(
-        combined.contains(&fallback),
-        "combined output must still include the guaranteed fallback question: {combined}"
-    );
+    // Assert the exact combined string, not just that both pieces appear
+    // somewhere — this pins the documented fallback-first ordering and the
+    // `---` divider, which a looser `contains`-based check wouldn't catch a
+    // regression in (e.g. original-first ordering, or a missing divider).
+    assert_eq!(combined, format!("{fallback}\n\n---\n\n{original}"));
     // The combined text still ends in the model's original (non-question)
     // words, so the "is this a question" invariant applies to the
     // fallback alone, not the full combined string.
