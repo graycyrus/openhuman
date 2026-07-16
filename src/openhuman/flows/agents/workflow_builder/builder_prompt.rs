@@ -444,6 +444,26 @@ mod tests {
              for a required open-conversation step, handled generally via the \
              contract rather than a single-platform special case"
         );
+        assert!(
+            STANDING_PROMPT.contains("Prefer an **email / exact lookup"),
+            "standing prompt must prefer an unambiguous email/exact lookup \
+             over a name search when the toolkit offers one"
+        );
+        assert!(
+            STANDING_PROMPT.contains("fall back to its \"list users\" style action"),
+            "standing prompt must preserve the fallback path: list users plus \
+             a downstream filter when the toolkit has no direct lookup action"
+        );
+        assert!(
+            STANDING_PROMPT.contains("dry_run_workflow"),
+            "standing prompt must teach confirming the resolved-id binding \
+             with dry_run_workflow rather than guessing"
+        );
+        assert!(
+            STANDING_PROMPT.contains("=nodes.find_alan.item.json.data.<id_field>"),
+            "standing prompt's worked example must show the exact tool_call \
+             envelope binding the send node's recipient off the lookup node"
+        );
 
         // Negative: none of the non-owner DM guidance may hardcode a
         // toolkit-specific action slug or arg name — the reviewer flagged an
