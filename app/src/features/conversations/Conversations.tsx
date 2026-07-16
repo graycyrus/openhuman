@@ -2700,8 +2700,21 @@ const Conversations = ({
                 thread) so the recorded steps are never unreachable. The cancel
                 control + view-process-source opener now live in `agentInsights`
                 and the floating footer respectively (upstream relocated the
-                in-flow cancel button below the composer). */}
-            {!lastUserMessageId && agentInsights}
+                in-flow cancel button below the composer).
+
+                Keyed by `selectedThreadId`: this slot sits at a fixed JSX
+                position with no per-thread key of its own, so switching
+                directly between two threads that both hit this fallback (e.g.
+                two proactive-only threads) would otherwise reuse the same
+                `ToolTimelineBlock` instance instead of remounting it — leaking
+                its sticky `userOverrideOpen` disclosure state from the old
+                thread into the new one (flagged in review on #4942). Keying
+                on thread id forces a clean remount on every thread switch,
+                matching the `key={msg.id}` pattern used for the in-flow
+                timeline above. */}
+            {!lastUserMessageId && (
+              <Fragment key={selectedThreadId ?? 'none'}>{agentInsights}</Fragment>
+            )}
             <div ref={messagesEndRef} />
           </div>
         ) : isNewWindow ? (
