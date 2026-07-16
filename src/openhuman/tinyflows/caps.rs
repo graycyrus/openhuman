@@ -2647,6 +2647,12 @@ impl ToolInvoker for OpenHumanTools {
         let redacted = crate::openhuman::approval::redact_args(&args);
         let (outcome, audit_id) = gate_call_for_tier(tier_decision, slug, &summary, redacted).await;
         if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+            tracing::warn!(
+                target: "flows",
+                %slug,
+                ?tier_decision,
+                "[flows] tool_call: approval gate denied before Composio dispatch"
+            );
             return Err(EngineError::Capability(reason));
         }
 
