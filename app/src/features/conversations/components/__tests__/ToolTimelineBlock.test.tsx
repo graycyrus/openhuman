@@ -398,7 +398,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
   describe('agentic task insights — sticky user expand/collapse across turns', () => {
     it('keeps an explicit user expand across a new turn that starts and settles', () => {
       const turn1Settled: ToolTimelineEntry[] = [
-        { id: 't1', name: 'web_search', round: 1, status: 'success' },
+        { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'success' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Settled} />);
       // Default: settled and collapsed (unchanged behaviour).
@@ -411,7 +411,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       // A new turn/feedback starts streaming onto the SAME mounted block.
       const turn2Running: ToolTimelineEntry[] = [
         ...turn1Settled,
-        { id: 't2', name: 'file_read', round: 2, status: 'running' },
+        { id: 't2', name: 'file_read', round: 2, seq: 1, status: 'running' },
       ];
       rerender(
         <Provider store={store}>
@@ -424,7 +424,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       // involuntarily re-collapse, wiping out the user's choice.
       const turn2Settled: ToolTimelineEntry[] = [
         ...turn1Settled,
-        { id: 't2', name: 'file_read', round: 2, status: 'success' },
+        { id: 't2', name: 'file_read', round: 2, seq: 1, status: 'success' },
       ];
       rerender(
         <Provider store={store}>
@@ -436,13 +436,13 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
 
     it('leaves the default open-while-running/collapsed-when-settled behaviour unchanged absent any user interaction', () => {
       const running: ToolTimelineEntry[] = [
-        { id: 'r', name: 'web_search', round: 1, status: 'running' },
+        { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={running} />);
       expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
 
       const settled: ToolTimelineEntry[] = [
-        { id: 'r', name: 'web_search', round: 1, status: 'success' },
+        { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'success' },
       ];
       rerender(
         <Provider store={store}>
@@ -454,7 +454,7 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
 
     it('also persists an explicit user collapse across a new turn (does not force it back open)', () => {
       const turn1Running: ToolTimelineEntry[] = [
-        { id: 't1', name: 'web_search', round: 1, status: 'running' },
+        { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'running' },
       ];
       const { rerender } = renderInStore(<ToolTimelineBlock entries={turn1Running} />);
       expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
@@ -466,8 +466,8 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
       // A new turn starts running — the auto rule alone would force it back
       // open, but the user's explicit collapse must win.
       const turn2Running: ToolTimelineEntry[] = [
-        { id: 't1', name: 'web_search', round: 1, status: 'success' },
-        { id: 't2', name: 'file_read', round: 2, status: 'running' },
+        { id: 't1', name: 'web_search', round: 1, seq: 0, status: 'success' },
+        { id: 't2', name: 'file_read', round: 2, seq: 1, status: 'running' },
       ];
       rerender(
         <Provider store={store}>
