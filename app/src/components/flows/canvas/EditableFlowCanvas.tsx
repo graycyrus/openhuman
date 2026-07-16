@@ -29,6 +29,7 @@ import {
   type ReactFlowInstance,
   useEdgesState,
   useNodesState,
+  type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import createDebug from 'debug';
@@ -186,6 +187,20 @@ export interface EditableFlowCanvasProps {
    * header (the canvas keeps only undo/redo). Fires whenever any field changes.
    */
   onSaveMetaChange?: (meta: EditorSaveMeta) => void;
+  /**
+   * The viewport (pan/zoom) to restore on mount, captured from a previous
+   * mount of this same logical canvas via `onViewportChange` (F4/F5 fix). The
+   * host (`FlowCanvasPage`) keeps this in a ref that survives the `canvasVersion`
+   * remounts Save/Accept/Reject trigger, so a remount can restore the user's
+   * pan/zoom instead of `fitView` silently resetting it. `null`/absent means no
+   * prior viewport is known (first-ever mount) — `fitView` runs normally.
+   */
+  savedViewport?: Viewport | null;
+  /**
+   * Fired on every viewport change (pan/zoom) so the host can capture the
+   * latest value for `savedViewport` on the next remount (F4/F5 fix).
+   */
+  onViewportChange?: (viewport: Viewport) => void;
 }
 
 /** Save/Discard state the host header needs to render + gate its own buttons. */
@@ -219,6 +234,8 @@ function EditableFlowCanvas(
     initialDirty = false,
     showPalette = true,
     onSaveMetaChange,
+    savedViewport = null,
+    onViewportChange,
   }: EditableFlowCanvasProps,
   ref: ForwardedRef<EditableFlowCanvasHandle>
 ) {
@@ -712,6 +729,7 @@ function EditableFlowCanvas(
         className="flow-canvas relative h-full w-full"
         data-testid="flow-canvas"
         data-editable="true"
+        data-viewport-restored={savedViewport ? 'true' : 'false'}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onKeyDown={handleCanvasKeyDown}>
@@ -790,7 +808,9 @@ function EditableFlowCanvas(
           nodesDraggable
           nodesConnectable
           elementsSelectable
-          fitView
+          fitView={!savedViewport}
+          defaultViewport={savedViewport ?? undefined}
+          onViewportChange={onViewportChange}
           panOnScroll
           zoomOnScroll>
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />

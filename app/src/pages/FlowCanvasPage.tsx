@@ -17,6 +17,7 @@
  *    mounts a `HashRouter`, so full `useBlocker` interception isn't available —
  *    the Back button is this page's only in-app navigation affordance.)
  */
+import type { Viewport } from '@xyflow/react';
 import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -277,6 +278,19 @@ function FlowEditor({
   // Save/Discard now live in the page header; the canvas reports its Save state
   // up and exposes save()/discard() via this handle.
   const canvasRef = useRef<EditableFlowCanvasHandle>(null);
+  // F4/F5 fix: the editable canvas is remounted on every Save/Accept/Reject
+  // (keyed on `canvasVersion` below), which previously wiped BOTH the
+  // pan/zoom viewport (React Flow's `fitView` refits on every mount) and the
+  // undo history. This ref lives on `FlowEditor` — keyed on `flow.id`, not
+  // `canvasVersion` — so it survives those remounts and can seed the fresh
+  // canvas's `defaultViewport`, skipping `fitView` and preserving pan/zoom
+  // across a Save. (The undo-history wipe is a known, accepted limitation —
+  // Save/Accept are commit points, so resetting undo there is semantically
+  // fine; see the PR description.)
+  const viewportRef = useRef<Viewport | null>(null);
+  const handleViewportChange = useCallback((vp: Viewport) => {
+    viewportRef.current = vp;
+  }, []);
   const [saveMeta, setSaveMeta] = useState<EditorSaveMeta>({
     dirty: false,
     hasErrors: false,
@@ -429,9 +443,12 @@ function FlowEditor({
   // (schema migration, id defaults, port normalization, etc.) before
   // persisting, so the canonical saved shape can differ from what the client
   // sent. Re-sync the canvas draft from the RESPONSE (not just the just-sent
-  // `next`) and bump `canvasVersion` so the editable canvas re-seeds from the
-  // canonical persisted graph immediately — matching what a navigate-away-
-  // and-back remount would show, without requiring one.
+  // `next`) always; only bump `canvasVersion` — remounting the editable canvas
+  // to re-seed from the canonical persisted graph — when that response
+  // actually DIFFERS from what was sent (F4/F5 fix: an unconditional bump
+  // here wiped the canvas's undo history and viewport on every Save even when
+  // the server echoed the graph back unchanged, and double-remounted on
+  // Accept, which already bumps once for its own preview→draft transition).
   //
   // Declared ahead of `handleAcceptProposal` (below), which calls it directly
   // to persist an accepted proposal immediately.
@@ -486,6 +503,10 @@ function FlowEditor({
         ...(requireApprovalChanged ? { requireApproval: effectiveRequireApproval } : {}),
       });
       const persisted = updated.graph as WorkflowGraph;
+      // `persistedGraphRef`/`setDraftGraph` run UNCONDITIONALLY regardless of
+      // whether a remount fires below — the dirty diff (`initialDirty`, B21)
+      // is computed against `persistedGraphRef`, not the canvas's own mount
+      // baseline, so it stays correct either way. Only the remount is gated.
       persistedGraphRef.current = persisted;
       persistedNameRef.current = updated.name;
       setDraftGraph(persisted);
@@ -496,12 +517,25 @@ function FlowEditor({
         setName(updated.name);
         setTitleDraft(updated.name);
       }
-      setCanvasVersion(v => v + 1);
+      // F4/F5 fix: only remount the canvas (wiping its undo history and,
+      // pre-Fix-A, its viewport) when the server actually normalized the
+      // graph into something different from what was sent (issue B21 — schema
+      // migration, id defaults, port normalization, etc.). When the response
+      // is a byte-for-byte echo of `next` (the common case), re-seeding from
+      // it would be a no-op remount — most visibly on Accept, whose own
+      // preview→draft transition already bumps `canvasVersion` once, so a
+      // guaranteed-normalized-away Save bump right after it was a pure
+      // double-remount (undo wipe + dirty flash) with no behavioral upside.
+      const graphChanged = JSON.stringify(persisted) !== JSON.stringify(next);
+      if (graphChanged) {
+        setCanvasVersion(v => v + 1);
+      }
       log(
-        'save: flow id=%s persisted — canvas re-synced from response nodes=%d edges=%d',
+        'save: flow id=%s persisted — canvas re-synced from response nodes=%d edges=%d graphChanged=%s',
         flowId,
         persisted.nodes.length,
-        persisted.edges.length
+        persisted.edges.length,
+        graphChanged
       );
     },
     [isDraft, flowId, name, requireApproval, navigate]
@@ -891,6 +925,8 @@ function FlowEditor({
             saveDisabled={preview !== null}
             initialDirty={initialDirty}
             showPalette={sidePanel === 'legend'}
+            savedViewport={viewportRef.current}
+            onViewportChange={handleViewportChange}
           />
 
           {runError && (
