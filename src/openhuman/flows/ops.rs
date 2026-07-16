@@ -4470,24 +4470,58 @@ fn text_looks_like_question(text: &str) -> bool {
         .is_some_and(question_mark_outside_code)
 }
 
-/// Does `text` contain at least one `?` that isn't inside a backtick-delimited
-/// code span (inline code like `` `U...` `` or a fenced block like
-/// `` ``` ``)? Tracks a running count of backtick characters and treats a `?`
-/// as "outside code" when that count is even so far — an odd count means an
-/// odd number of backtick delimiters have opened before this point, i.e. the
-/// scan is currently inside a span (this holds for both single-backtick
-/// inline spans and triple-backtick fences, since either one flips the
-/// cumulative parity by an odd amount at open and again at close).
+/// Does `text` contain at least one *sentence-terminal* `?` that isn't
+/// inside a backtick-delimited code span (inline code like `` `U...` `` or a
+/// fenced block like `` ``` ``)? Tracks a running count of backtick
+/// characters and treats a `?` as "outside code" when that count is even so
+/// far — an odd count means an odd number of backtick delimiters have opened
+/// before this point, i.e. the scan is currently inside a span (this holds
+/// for both single-backtick inline spans and triple-backtick fences, since
+/// either one flips the cumulative parity by an odd amount at open and again
+/// at close).
+///
+/// Codex review follow-up: a bare `?` outside code isn't necessarily a real
+/// question — a status line like "Checked https://api.example/search?q=foo
+/// and got 403." has one mid-token, in a URL query string. Counting that
+/// would flip `text_looks_like_question` to `true` and skip
+/// `combine_trail_off_fallback` entirely, leaving the user with an
+/// unanswerable status note — exactly the failure mode this backstop exists
+/// to prevent. So each candidate `?` is additionally required to be
+/// sentence-terminal via [`is_sentence_terminal_question_mark`].
 fn question_mark_outside_code(text: &str) -> bool {
+    let chars: Vec<char> = text.chars().collect();
     let mut backtick_count = 0usize;
-    for ch in text.chars() {
+    for (i, &ch) in chars.iter().enumerate() {
         match ch {
             '`' => backtick_count += 1,
-            '?' if backtick_count % 2 == 0 => return true,
+            '?' if backtick_count.is_multiple_of(2)
+                && is_sentence_terminal_question_mark(&chars, i) =>
+            {
+                return true;
+            }
             _ => {}
         }
     }
     false
+}
+
+/// Is the `?` at `chars[index]` sentence-terminal — i.e. does it read as an
+/// actual question mark rather than a character that merely happens to be a
+/// `?` mid-token (a URL query string like `search?q=foo`, a shell glob,
+/// etc.)? Skips over any immediately-following closing quote/bracket
+/// punctuation (`"`, `'`, right single/double quotes, `)`, `]`) and requires
+/// what remains to be whitespace or the end of the text — the shape a `?`
+/// takes at the end of a real sentence or clause.
+fn is_sentence_terminal_question_mark(chars: &[char], index: usize) -> bool {
+    let mut i = index + 1;
+    while let Some(&c) = chars.get(i) {
+        if matches!(c, '"' | '\'' | '\u{2019}' | '\u{201D}' | ')' | ']') {
+            i += 1;
+            continue;
+        }
+        return c.is_whitespace();
+    }
+    true // '?' was the last character in the paragraph.
 }
 
 /// Builder-authoring tools whose result body can explain a trail-off — the

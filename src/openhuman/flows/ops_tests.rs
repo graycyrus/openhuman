@@ -4795,6 +4795,22 @@ fn text_looks_like_question_ignores_question_mark_inside_code() {
     ));
 }
 
+/// Codex review follow-up: a `?` mid-token that isn't a real question mark —
+/// e.g. a URL query string in a status update — must NOT flip
+/// `text_looks_like_question` to `true`. Counting it would make `flows_build`
+/// skip `combine_trail_off_fallback` entirely, leaving the user with an
+/// unanswerable status note and no guaranteed question — exactly the failure
+/// mode this backstop exists to prevent.
+#[test]
+fn text_looks_like_question_ignores_question_mark_in_url_query_string() {
+    assert!(!text_looks_like_question(
+        "Checked https://api.example/search?q=foo and got 403."
+    ));
+    assert!(!text_looks_like_question(
+        "Ran the search with filter?status=open but the API rejected it."
+    ));
+}
+
 #[test]
 fn text_looks_like_question_rejects_status_dumps_and_silence() {
     assert!(!text_looks_like_question(
