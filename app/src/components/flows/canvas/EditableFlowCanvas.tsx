@@ -214,6 +214,20 @@ export interface EditorSaveMeta {
 export interface EditableFlowCanvasHandle {
   save: () => void;
   discard: () => void;
+  /**
+   * Clear the forced-dirty flag and advance the baseline to the CURRENT live
+   * graph, without going through `save()` / `onSave` (the host has already
+   * persisted the graph itself — see `handleAcceptProposal` in
+   * `FlowCanvasPage.tsx`). Needed for the Accept path: it calls the page's
+   * `handleSave` directly (bypassing this canvas's own `save()`, whose ref is
+   * stale mid-remount) and only remounts a SECOND time when the server
+   * actually normalized the graph. When it doesn't (the common "echoed back
+   * unchanged" case), this already-mounted instance's `forcedDirty` — seeded
+   * `true` by Accept's own remount, before the persist resolved — would
+   * otherwise never clear, since only this canvas's own `save()`/`discard()`
+   * do that. Call this after such an out-of-band persist succeeds to sync it.
+   */
+  clearForcedDirty: () => void;
 }
 
 const EMPTY_ID_SET: ReadonlySet<string> = new Set();
@@ -243,6 +257,23 @@ function EditableFlowCanvas(
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initialEdges);
   const rfRef = useRef<ReactFlowInstance<FlowNode, FlowEdge> | null>(null);
+
+  // F4/F5 fix diagnostic: log once per mount whether this instance restores a
+  // caller-supplied viewport (`savedViewport`, threaded through from
+  // `FlowCanvasPage`'s `viewportRef`) or falls back to React Flow's own
+  // `fitView` (first-ever mount, or a host that doesn't track viewport).
+  useEffect(() => {
+    log(
+      'mount: viewport %s x=%s y=%s zoom=%s',
+      savedViewport ? 'restored' : 'fitView-fallback',
+      savedViewport?.x,
+      savedViewport?.y,
+      savedViewport?.zoom
+    );
+    // Mount-only — a later `savedViewport` prop change (from panning) must
+    // not re-log; only a fresh mount (new instance) should.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Undo / redo history ───────────────────────────────────────────────────
   // A bounded past/future stack of {nodes, edges} snapshots so structural edits
@@ -615,8 +646,13 @@ function EditableFlowCanvas(
         if (!dirty || saving) return;
         handleDiscard();
       },
+      clearForcedDirty: () => {
+        log('clearForcedDirty: host persisted externally — syncing baseline');
+        setBaseline({ nodes, edges });
+        setForcedDirty(false);
+      },
     }),
-    [dirty, hasErrors, saving, saveDisabled, handleSave, handleDiscard]
+    [dirty, hasErrors, saving, saveDisabled, handleSave, handleDiscard, nodes, edges]
   );
 
   // Mirror the Save-button state up so the header can render + gate its buttons.

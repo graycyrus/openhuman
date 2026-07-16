@@ -305,10 +305,7 @@ describe('FlowCanvasPage', () => {
       renderEditor();
       await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
-      expect(screen.getByTestId('flow-canvas')).toHaveAttribute(
-        'data-viewport-restored',
-        'false'
-      );
+      expect(screen.getByTestId('flow-canvas')).toHaveAttribute('data-viewport-restored', 'false');
     });
 
     it('restores the captured viewport across a remount triggered by a server-normalized save (B21)', async () => {
@@ -355,20 +352,23 @@ describe('FlowCanvasPage', () => {
       );
       renderEditor();
       await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
-      expect(screen.getByTestId('flow-canvas')).toHaveAttribute(
-        'data-viewport-restored',
-        'false'
-      );
+      expect(screen.getByTestId('flow-canvas')).toHaveAttribute('data-viewport-restored', 'false');
 
       // Pan the canvas — React Flow's `onViewportChange` fires off a real
       // wheel event on the pane (panOnScroll is on), which is what the host
       // page's `handleViewportChange` captures into the ref that survives the
-      // upcoming remount.
+      // upcoming remount. Wait for the pane's own `.react-flow__viewport`
+      // transform to actually change rather than a fixed sleep (scheduler-
+      // dependent — React Flow's viewport update isn't synchronous with the
+      // wheel event) so the test isn't flaky under slow CI runners.
       const pane = document.querySelector('.react-flow__pane');
       expect(pane).not.toBeNull();
-      await act(async () => {
-        fireEvent.wheel(pane as Element, { deltaY: -50, deltaX: 0, clientX: 200, clientY: 200 });
-        await new Promise(resolve => setTimeout(resolve, 50));
+      const viewportEl = document.querySelector('.react-flow__viewport') as HTMLElement | null;
+      expect(viewportEl).not.toBeNull();
+      const transformBeforePan = viewportEl?.style.transform;
+      fireEvent.wheel(pane as Element, { deltaY: -50, deltaX: 0, clientX: 200, clientY: 200 });
+      await waitFor(() => {
+        expect(viewportEl?.style.transform).not.toBe(transformBeforePan);
       });
 
       fireEvent.click(screen.getByTestId('flow-canvas-legend-toggle'));

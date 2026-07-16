@@ -290,6 +290,9 @@ function FlowEditor({
   const viewportRef = useRef<Viewport | null>(null);
   const handleViewportChange = useCallback((vp: Viewport) => {
     viewportRef.current = vp;
+    // Grep-friendly, numeric-only (no PII) — fires on every pan/zoom, so kept
+    // to plain numbers rather than the full `Viewport` object.
+    log('viewport capture: x=%d y=%d zoom=%d', vp.x, vp.y, vp.zoom);
   }, []);
   const [saveMeta, setSaveMeta] = useState<EditorSaveMeta>({
     dirty: false,
@@ -453,7 +456,11 @@ function FlowEditor({
   // Declared ahead of `handleAcceptProposal` (below), which calls it directly
   // to persist an accepted proposal immediately.
   const handleSave = useCallback(
-    async (next: WorkflowGraph, overrideName?: string, overrideRequireApproval?: boolean) => {
+    async (
+      next: WorkflowGraph,
+      overrideName?: string,
+      overrideRequireApproval?: boolean
+    ): Promise<{ remounted: boolean }> => {
       // `overrideName` covers the copilot-Accept call site: it calls
       // `setName(proposal.name)` and `handleSave(...)` in the same handler,
       // but `name` in THIS closure is still the pre-update value — React
@@ -480,7 +487,9 @@ function FlowEditor({
         const created = await createFlow(effectiveName, next, effectiveRequireApproval);
         log('save: draft persisted as flow id=%s', created.id);
         navigate(`/flows/${created.id}`, { replace: true });
-        return;
+        // Navigating replaces this whole page (new `flowId` route param), so
+        // "remounted" is moot for a draft-create — no caller branches on it.
+        return { remounted: false };
       }
       // Only include `name` / `requireApproval` in the update payload when
       // they actually diverge from what's already persisted (a manual
@@ -537,8 +546,20 @@ function FlowEditor({
         persisted.edges.length,
         graphChanged
       );
+      return { remounted: graphChanged };
     },
     [isDraft, flowId, name, requireApproval, navigate]
+  );
+
+  // Adapter for the canvas's own `onSave` prop, whose type (`void |
+  // Promise<void>`) is shared with the read-only viewer and every other
+  // consumer — `handleSave`'s richer `{ remounted }` return (needed by
+  // `handleAcceptProposal` below) isn't part of that contract.
+  const onCanvasSave = useCallback(
+    async (next: WorkflowGraph) => {
+      await handleSave(next);
+    },
+    [handleSave]
   );
 
   const handleGraphChange = useCallback(
@@ -624,8 +645,25 @@ function FlowEditor({
       // `canvasVersion` bump above) so the ref's imperative handle is stale;
       // call `handleSave` directly with the known-good proposed graph.
       try {
-        await handleSave(proposedGraph, overrideName, proposal.requireApproval);
-        log('copilot proposal accepted: persisted');
+        const { remounted } = await handleSave(
+          proposedGraph,
+          overrideName,
+          proposal.requireApproval
+        );
+        // The canvas remounted once already (this handler's own bump above)
+        // with `forcedDirty` seeded `true` — correct pre-persist, but that
+        // instance's `forcedDirty` is only ever cleared by ITS OWN save()/
+        // discard(), neither of which fires here (we persisted directly,
+        // above). A second remount (`remounted === true`, server actually
+        // normalized the graph) reseeds a fresh instance with the now-correct
+        // `initialDirty`, so nothing else to do. Otherwise (the common
+        // echoed-back-unchanged case) explicitly sync the still-current
+        // instance so it doesn't read dirty forever (see
+        // `EditableFlowCanvasHandle.clearForcedDirty`'s doc comment).
+        if (!remounted) {
+          canvasRef.current?.clearForcedDirty();
+        }
+        log('copilot proposal accepted: persisted remounted=%s', remounted);
       } catch (err) {
         log('copilot proposal accepted: save failed err=%o', err);
         // Rethrow: the draft above is already applied unconditionally, so no
@@ -915,7 +953,7 @@ function FlowEditor({
             nodes={nodes}
             edges={edges}
             meta={meta}
-            onSave={handleSave}
+            onSave={onCanvasSave}
             onDirtyChange={setDirty}
             onSaveMetaChange={setSaveMeta}
             activeRunId={activeRunId}
