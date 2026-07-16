@@ -404,37 +404,64 @@ mod tests {
         // Positive: non-owner DM resolution — the prompt must teach the
         // builder to resolve a NAMED recipient who is NOT the connected
         // owner via a lookup node, not just the owner's own
-        // `platform_user_id`.
+        // `platform_user_id`. This guidance must be PLATFORM-AGNOSTIC (no
+        // toolkit-specific slug hardcoded) — the same shape applies to
+        // Slack, Discord, Telegram, or any other messaging toolkit.
         assert!(
             STANDING_PROMPT.contains("is NOT the connected"),
             "standing prompt must teach the non-owner DM case explicitly"
         );
         assert!(
-            STANDING_PROMPT.contains("SLACK_FIND_USERS"),
-            "standing prompt must name SLACK_FIND_USERS as the non-owner DM \
-             lookup mechanism"
+            STANDING_PROMPT.contains("platform-agnostic"),
+            "standing prompt must state the non-owner DM guidance is \
+             platform-agnostic, not tied to one toolkit"
         );
         assert!(
-            STANDING_PROMPT.contains("config.args.email")
-                && STANDING_PROMPT.contains("exact_match"),
-            "standing prompt must instruct wiring SLACK_FIND_USERS's email + \
-             exact_match args for a safe single-match lookup"
+            STANDING_PROMPT.contains("search_tool_catalog { query, toolkit }"),
+            "standing prompt must teach resolving the lookup action via \
+             search_tool_catalog scoped to the TARGET toolkit, rather than \
+             hardcoding one platform's slug"
         );
         assert!(
-            STANDING_PROMPT.contains("SLACK_LIST_ALL_USERS"),
-            "standing prompt must keep the SLACK_LIST_ALL_USERS + filter \
-             fallback for when SLACK_FIND_USERS itself can't resolve a name"
+            STANDING_PROMPT.contains("tool_call` node upstream of the send"),
+            "standing prompt must teach wiring the lookup as a tool_call \
+             node upstream of the send node"
+        );
+        assert!(
+            STANDING_PROMPT.contains("resolves to exactly one match"),
+            "standing prompt must require a name search to resolve to \
+             exactly one match before binding it without asking"
         );
         assert!(
             STANDING_PROMPT.contains("ask the user to confirm which person"),
-            "standing prompt must preserve the safety rule: never DM an \
+            "standing prompt must preserve the safety rule: never message an \
              unverified same-name match, ask instead when ambiguous"
         );
         assert!(
-            STANDING_PROMPT.contains("lookup `tool_call` node"),
-            "standing prompt must teach that a non-owner DM recipient is \
-             resolved via an upstream lookup node, not an inferred arg"
+            STANDING_PROMPT.contains("Check the send action")
+                && STANDING_PROMPT.contains("open conversation"),
+            "standing prompt must teach checking the send tool's own contract \
+             for a required open-conversation step, handled generally via the \
+             contract rather than a single-platform special case"
         );
+
+        // Negative: none of the non-owner DM guidance may hardcode a
+        // toolkit-specific action slug or arg name — the reviewer flagged an
+        // earlier draft of this guidance as Slack-only, which violates the
+        // platform-agnostic rule.
+        for banned in [
+            "SLACK_FIND_USERS",
+            "SLACK_LIST_ALL_USERS",
+            "config.args.email",
+            "exact_match",
+        ] {
+            assert!(
+                !STANDING_PROMPT.contains(banned),
+                "standing prompt's non-owner DM guidance must not hardcode \
+                 the platform-specific `{banned}` — it must stay \
+                 platform-agnostic (any messaging toolkit)"
+            );
+        }
     }
 
     #[test]

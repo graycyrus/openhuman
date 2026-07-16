@@ -624,31 +624,47 @@ into exactly one bucket before you write the node:
      for that connection, ask the user for their member id in ONE concise
      question rather than guessing a channel.
    - "DM `<name>`" / "message `<name>`" where `<name>` is NOT the connected
-     owner (no matching `platform_user_id`) → you don't have their member id
-     up front, and guessing one is unsafe. Wire a **lookup `tool_call` node
-     upstream of the send** instead of asking immediately:
-     - Have (or can `memory_recall`) a verified **email**? Add a `tool_call`
-       on `SLACK_FIND_USERS` with `config.args.email` set and
-       `exact_match: true` — Slack's dedicated email lookup returns at most
-       one match, so it's safe to bind without asking.
-     - Only have a **name**? `SLACK_FIND_USERS` also takes `search_query`,
-       but a name search can return multiple people. Only bind it straight
-       through when it resolves to exactly one match; otherwise this is
-       bucket 3 — **ask the user to confirm which person / their email**
-       rather than DMing an unverified same-name match. Fall back to
-       `SLACK_LIST_ALL_USERS` + a downstream `transform`/`code` filter on
-       `email`/`display_name`/`real_name` only if `SLACK_FIND_USERS` itself
-       can't resolve it.
-     - Bind the resolved id into the send node's `channel` arg with an `=`
-       expression off the lookup node (`get_tool_contract` names the exact
-       output field; confirm with `dry_run_workflow` rather than guessing),
-       same as the owner path above.
+     owner (no matching `platform_user_id`) → you don't have their platform
+     user id up front, and guessing one is unsafe. This shape is
+     **platform-agnostic** — it applies the same way whether the
+     destination toolkit is Slack, Discord, Telegram, or any other
+     messaging app. Don't ask immediately — resolve it:
+     1. `search_tool_catalog { query, toolkit }` scoped to the TARGET
+        toolkit to find its user-lookup action — a "find user" / "lookup by
+        email" / "list users" style action, whatever that platform exposes
+        (never assume a slug across toolkits; always search for it).
+     2. Wire that lookup as a **`tool_call` node upstream of the send**.
+     3. Prefer an **email / exact lookup** when the platform offers one —
+        that's unambiguous, so bind its result directly with no question.
+        A **name search** can return multiple people: only bind it straight
+        through when it resolves to exactly one match; otherwise this is
+        bucket 3 — **ask the user to confirm which person / their email**
+        rather than messaging an unverified same-name match. If the
+        toolkit's lookup action can't resolve the person by name or email at
+        all, fall back to its "list users" style action plus a downstream
+        `transform`/`code` filter on an identifying field (email/display
+        name/etc).
+     4. Bind the resolved id into the send node's recipient arg with an `=`
+        expression off the lookup node — use `get_tool_contract` to find the
+        exact output field and confirm with `dry_run_workflow` rather than
+        guessing — same as the owner path above.
+     5. **Check the send action's own `get_tool_contract` for a required
+        "open conversation" step first.** Some messaging toolkits require
+        opening/creating a DM conversation for a user id before you can send
+        to it; others accept a user id as the recipient directly and
+        open/reuse the DM automatically. Never assume either way — if the
+        contract names a separate open/create-conversation action as a
+        prerequisite, wire that `tool_call` too, between the lookup and the
+        send.
 
-     Worked example — "every Monday at 9am, DM alan@acme.com his open
-     tickets": `trigger` (schedule, Mon 09:00) → `tool_call` `find_alan`
-     (`SLACK_FIND_USERS`, `{ "email": "alan@acme.com", "exact_match": true }`)
-     → `tool_call` fetching the tickets → `tool_call` `dm_alan`
-     (`SLACK_SEND_MESSAGE`, `channel: "=nodes.find_alan.item.json.data.<id_field>"`).
+     Worked example (illustrative, not tied to one platform) — "every
+     Monday at 9am, message alan@acme.com his open tickets": `trigger`
+     (schedule, Mon 09:00) → `tool_call` `find_alan` (the target toolkit's
+     user-lookup action, args grounded via `get_tool_contract`, e.g. an
+     `email` arg) → `tool_call` fetching the tickets → (an
+     open-conversation `tool_call` first, only if that toolkit's contract
+     requires one) → `tool_call` `dm_alan` (the toolkit's send action,
+     recipient arg bound to `=nodes.find_alan.item.json.data.<id_field>`).
    - Exactly one connected account for the toolkit the step needs → that
      account (`list_flow_connections` / `composio_list_connections` tell
      you this; don't ask "which Gmail?" when there's only one).
