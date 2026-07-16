@@ -4762,11 +4762,27 @@ fn text_looks_like_question_detects_trailing_question_mark() {
 /// blank-line paragraph break (`"...to?\n\nLet me know!"`) is a DIFFERENT
 /// shape — the `?` there sits in an earlier paragraph, not the last one — and
 /// remains an intentional false negative: the final-paragraph scan only
-/// looks at the LAST non-blank paragraph, by design (see the function doc).
+/// looks at the LAST non-blank paragraph, by design (see the function doc
+/// and `text_looks_like_question_ignores_question_mark_in_earlier_paragraph`
+/// below, which pins that scope decision).
 #[test]
-fn text_looks_like_question_accepts_false_negative_on_trailing_pleasantry() {
+fn text_looks_like_question_detects_same_paragraph_trailing_pleasantry() {
     assert!(text_looks_like_question(
         "Which channel should I post to? Let me know!"
+    ));
+}
+
+/// Pins the intentional cross-paragraph false negative documented above: a
+/// `?` that sits in an EARLIER paragraph than the last one is deliberately
+/// NOT detected — the final-paragraph scan only looks at the last non-blank
+/// paragraph, by design. This is harmless because the trail-off backstop's
+/// fallback is non-destructive (PREPEND, not REPLACE): even when this false
+/// negative fires, the model's original question is preserved below the
+/// fallback rather than discarded.
+#[test]
+fn text_looks_like_question_ignores_question_mark_in_earlier_paragraph() {
+    assert!(!text_looks_like_question(
+        "Which channel should I post to?\n\nLet me know!"
     ));
 }
 
