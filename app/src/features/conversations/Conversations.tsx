@@ -2675,6 +2675,7 @@ const Conversations = ({
                             id: 'active-tool',
                             name: selectedInferenceStatus.activeTool ?? 'tool',
                             round: selectedInferenceStatus.iteration,
+                            seq: 0,
                             status: 'running',
                           }
                         ).title
@@ -2686,6 +2687,7 @@ const Conversations = ({
                             id: 'active-subagent',
                             name: `subagent:${selectedInferenceStatus.activeSubagent ?? ''}`,
                             round: selectedInferenceStatus.iteration,
+                            seq: 0,
                             status: 'running',
                           }
                         ).title
