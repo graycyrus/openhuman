@@ -2677,7 +2677,14 @@ pub async fn flows_update(
         );
     }
 
-    tracing::debug!(target: "flows", flow_id = %id, has_expected = expected_version.is_some(), "[flows] flows_update: persisting changes");
+    tracing::debug!(
+        target: "flows",
+        flow_id = %id,
+        has_expected = expected_version.is_some(),
+        require_approval = effective_require_approval,
+        side_effect_forced,
+        "[flows] flows_update: persisting changes"
+    );
     // `enabled_override` is threaded into the same guarded UPDATE as the
     // graph/name/require_approval write (see `store::update_flow_graph`)
     // rather than a follow-up `flows_set_enabled` call, so the disarm can
