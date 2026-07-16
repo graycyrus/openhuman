@@ -623,6 +623,32 @@ into exactly one bucket before you write the node:
      `#channel` name) — no need to ask. Only if `platform_user_id` is null
      for that connection, ask the user for their member id in ONE concise
      question rather than guessing a channel.
+   - "DM `<name>`" / "message `<name>`" where `<name>` is NOT the connected
+     owner (no matching `platform_user_id`) → you don't have their member id
+     up front, and guessing one is unsafe. Wire a **lookup `tool_call` node
+     upstream of the send** instead of asking immediately:
+     - Have (or can `memory_recall`) a verified **email**? Add a `tool_call`
+       on `SLACK_FIND_USERS` with `config.args.email` set and
+       `exact_match: true` — Slack's dedicated email lookup returns at most
+       one match, so it's safe to bind without asking.
+     - Only have a **name**? `SLACK_FIND_USERS` also takes `search_query`,
+       but a name search can return multiple people. Only bind it straight
+       through when it resolves to exactly one match; otherwise this is
+       bucket 3 — **ask the user to confirm which person / their email**
+       rather than DMing an unverified same-name match. Fall back to
+       `SLACK_LIST_ALL_USERS` + a downstream `transform`/`code` filter on
+       `email`/`display_name`/`real_name` only if `SLACK_FIND_USERS` itself
+       can't resolve it.
+     - Bind the resolved id into the send node's `channel` arg with an `=`
+       expression off the lookup node (`get_tool_contract` names the exact
+       output field; confirm with `dry_run_workflow` rather than guessing),
+       same as the owner path above.
+
+     Worked example — "every Monday at 9am, DM alan@acme.com his open
+     tickets": `trigger` (schedule, Mon 09:00) → `tool_call` `find_alan`
+     (`SLACK_FIND_USERS`, `{ "email": "alan@acme.com", "exact_match": true }`)
+     → `tool_call` fetching the tickets → `tool_call` `dm_alan`
+     (`SLACK_SEND_MESSAGE`, `channel: "=nodes.find_alan.item.json.data.<id_field>"`).
    - Exactly one connected account for the toolkit the step needs → that
      account (`list_flow_connections` / `composio_list_connections` tell
      you this; don't ask "which Gmail?" when there's only one).

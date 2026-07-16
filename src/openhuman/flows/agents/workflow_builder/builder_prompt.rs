@@ -400,6 +400,41 @@ mod tests {
              ask the user for their member id in one question rather than \
              guessing a channel"
         );
+
+        // Positive: non-owner DM resolution — the prompt must teach the
+        // builder to resolve a NAMED recipient who is NOT the connected
+        // owner via a lookup node, not just the owner's own
+        // `platform_user_id`.
+        assert!(
+            STANDING_PROMPT.contains("is NOT the connected"),
+            "standing prompt must teach the non-owner DM case explicitly"
+        );
+        assert!(
+            STANDING_PROMPT.contains("SLACK_FIND_USERS"),
+            "standing prompt must name SLACK_FIND_USERS as the non-owner DM \
+             lookup mechanism"
+        );
+        assert!(
+            STANDING_PROMPT.contains("config.args.email")
+                && STANDING_PROMPT.contains("exact_match"),
+            "standing prompt must instruct wiring SLACK_FIND_USERS's email + \
+             exact_match args for a safe single-match lookup"
+        );
+        assert!(
+            STANDING_PROMPT.contains("SLACK_LIST_ALL_USERS"),
+            "standing prompt must keep the SLACK_LIST_ALL_USERS + filter \
+             fallback for when SLACK_FIND_USERS itself can't resolve a name"
+        );
+        assert!(
+            STANDING_PROMPT.contains("ask the user to confirm which person"),
+            "standing prompt must preserve the safety rule: never DM an \
+             unverified same-name match, ask instead when ambiguous"
+        );
+        assert!(
+            STANDING_PROMPT.contains("lookup `tool_call` node"),
+            "standing prompt must teach that a non-owner DM recipient is \
+             resolved via an upstream lookup node, not an inferred arg"
+        );
     }
 
     #[test]
