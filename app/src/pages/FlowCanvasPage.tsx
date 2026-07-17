@@ -1006,8 +1006,15 @@ function FlowEditor({
           {runError && (
             // top-14 (not top-3) so this never overlaps the canvas's own
             // top-right undo/redo controls, which sit at top-3; max-w-md
-            // caps how wide a long nested error can grow.
-            <div className="pointer-events-none absolute inset-x-3 top-14 z-20 flex justify-center">
+            // caps how wide a long nested error can grow. When the legend
+            // palette is open it also docks at top-14/right-3 (w-48), so we
+            // pull the banner's right edge in past it (right-56) rather than
+            // centering across the full width, which would let a long
+            // message reach under the palette and swallow its clicks.
+            <div
+              className={`pointer-events-none absolute left-3 top-14 z-20 flex justify-center ${
+                sidePanel === 'legend' ? 'right-56' : 'right-3'
+              }`}>
               <div
                 role="alert"
                 data-testid="flow-canvas-run-error"
