@@ -2684,8 +2684,9 @@ impl ToolInvoker for OpenHumanTools {
         // Allow records an audit id to close out after the call resolves.
         //
         // Effect-aware short-circuit: when the tier decision is already
-        // `Allow` (a curated Read action, or Write/Read under Full), skip
-        // `gate_call_for_tier`/`intercept_audited` entirely. This matters
+        // `Allow` (a curated Read action — the only `CommandClass` this
+        // classifier maps to `Read`), skip `gate_call_for_tier`/
+        // `intercept_audited` entirely. This matters
         // because `flows/ops.rs`'s Rule 2 force-sets `require_approval: true`
         // on any saved flow that contains a `tool_call` node, regardless of
         // which actions it calls — without this short-circuit, that forced
