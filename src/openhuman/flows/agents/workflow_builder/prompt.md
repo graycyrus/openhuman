@@ -716,9 +716,17 @@ into exactly one bucket before you write the node:
      doesn't carry (it's a member id, not a handle/display-name/profile
      URL) — wire a runtime lookup node: `search_tool_catalog` scoped to
      the target toolkit for a "get authenticated user" / "get me" / "get
-     profile" action, wire it as a `tool_call` node early in the graph,
-     and bind its output field downstream. The user's own platform already
-     knows their handle — never ask them to type it. Same
+     profile" action first. **Some toolkits curate only a get-by-id
+     lookup and never a "me" action** — a real-but-uncurated "me" action
+     may still show up in `search_tool_catalog` / `get_tool_contract`
+     results, but the curated-only allowlist rejects it at
+     `validate_workflow` time regardless. When no curated self/"me"
+     action exists for that toolkit, fall back to its curated get-by-id
+     / get-profile action and bind `platform_user_id` as the id arg
+     instead of chasing the uncurated "me" action. Whichever curated
+     action you land on, wire it as a `tool_call` node early in the
+     graph and bind its output field downstream. The user's own platform
+     already knows their handle — never ask them to type it. Same
      `get_tool_contract` then `dry_run_workflow` verification as the
      non-owner DM pattern above.
    - Exactly one connected account for the toolkit the step needs → that
