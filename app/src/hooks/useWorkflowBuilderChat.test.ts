@@ -45,6 +45,8 @@ vi.mock('../store/threadSlice', () => ({
   THREAD_NOT_FOUND_MESSAGE,
 }));
 vi.mock('../store/chatRuntimeSlice', () => ({
+  beginInferenceTurn: (p: unknown) => ({ type: 'beginInferenceTurn', p }),
+  endInferenceTurn: (p: unknown) => ({ type: 'endInferenceTurn', p }),
   clearWorkflowProposalForThread: (p: unknown) => ({ type: 'clearProposal', p }),
   setWorkflowProposalForThread: (p: unknown) => ({ type: 'setProposal', p }),
   fetchAndHydrateTurnState: (threadId: string) => ({ type: 'fetchAndHydrateTurnState', threadId }),
@@ -108,6 +110,60 @@ describe('useWorkflowBuilderChat', () => {
       'builder-1'
     );
     await waitFor(() => expect(result.current.threadId).toBe('builder-1'));
+  });
+
+  it('seeds and clears the shared turn-lifecycle entry around the blocking flows_build call', async () => {
+    // Regression test: `turnActive` (derived from `inferenceTurnLifecycleByThread`
+    // below) must reflect a REAL turn in flight, or `ToolTimelineBlock`'s
+    // `turnActive ?? isRunning` fallback is defeated — a `false` `turnActive`
+    // (as opposed to `undefined`) short-circuits nullish coalescing and never
+    // falls back to `isRunning`, permanently disabling the panel's settle-edge
+    // override reset for the copilot surface this hook drives.
+    let sawActiveDuringCall = false;
+    buildWorkflow.mockImplementation(async () => {
+      // `beginInferenceTurn` must have been dispatched — and not yet cleared —
+      // by the time the blocking RPC is in flight.
+      sawActiveDuringCall = dispatch.mock.calls.some(
+        ([a]) => (a as { type: string }).type === 'beginInferenceTurn'
+      );
+      return okResult();
+    });
+
+    const { result } = renderHook(() => useWorkflowBuilderChat());
+    await act(async () => {
+      await result.current.send({
+        displayText: 'hi',
+        request: { mode: 'create', instruction: 'x' },
+      });
+    });
+
+    expect(sawActiveDuringCall).toBe(true);
+    const calls = dispatch.mock.calls.map(([a]) => a as { type: string; p?: unknown });
+    const beginIndex = calls.findIndex(a => a.type === 'beginInferenceTurn');
+    const endIndex = calls.findIndex(a => a.type === 'endInferenceTurn');
+    expect(beginIndex).toBeGreaterThanOrEqual(0);
+    expect(endIndex).toBeGreaterThan(beginIndex);
+    expect(calls[beginIndex].p).toEqual({ threadId: 'builder-1' });
+    expect(calls[endIndex].p).toEqual({ threadId: 'builder-1' });
+  });
+
+  it('clears the turn-lifecycle entry even when the blocking flows_build call throws', async () => {
+    buildWorkflow.mockRejectedValue(new Error('network blip'));
+
+    const { result } = renderHook(() => useWorkflowBuilderChat());
+    await act(async () => {
+      await result.current.send({
+        displayText: 'hi',
+        request: { mode: 'create', instruction: 'x' },
+      });
+    });
+
+    // A failed turn must not leak the lifecycle entry — otherwise `turnActive`
+    // would stay stuck `true` forever, since no `chat_done` ever arrives for a
+    // turn that never reached the server.
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'endInferenceTurn', p: { threadId: 'builder-1' } })
+    );
   });
 
   it('surfaces the proposal the builder returned by dispatching it into the store', async () => {

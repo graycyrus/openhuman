@@ -27,9 +27,15 @@
 import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { type BuilderTurnRequest, buildWorkflow } from '../services/api/flowsApi';
 import {
+  type BuilderTurnRequest,
+  type BuilderTurnResult,
+  buildWorkflow,
+} from '../services/api/flowsApi';
+import {
+  beginInferenceTurn,
   clearWorkflowProposalForThread,
+  endInferenceTurn,
   fetchAndHydrateTurnHistory,
   fetchAndHydrateTurnState,
   setWorkflowProposalForThread,
@@ -362,8 +368,37 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
         // slices as the turn runs, so this hook must NOT also append the agent
         // reply (doing so would double it — B26). We still await the blocking
         // result for its `proposal`/`error` signal.
+        //
+        // Seed the shared turn-lifecycle entry for this thread (mirrors
+        // `Conversations.tsx`'s `beginInferenceTurn` dispatch on send) so
+        // `turnActive` above (`threadId in inferenceTurnLifecycleByThread`)
+        // reflects a REAL turn in flight. Without this, nothing ever creates
+        // an entry for the builder's dedicated thread — `ChatRuntimeProvider`
+        // only *updates* an existing entry (`markInferenceTurnStreaming` is a
+        // no-op unless one is already present) — so `turnActive` would stay
+        // `false` for the entire life of every builder turn. Because it's a
+        // *boolean* `false` rather than `undefined`, that permanently defeats
+        // `ToolTimelineBlock`'s `turnActive ?? isRunning` fallback (nullish
+        // coalescing only falls back on null/undefined, never on `false`),
+        // so the panel's settle-edge override reset — the entire point of
+        // this fix — would never fire for the copilot surface it targets.
+        dispatch(beginInferenceTurn({ threadId: targetThreadId }));
         log('send: running flows_build thread=%s mode=%s', targetThreadId, request.mode);
-        const result = await buildWorkflow(request, targetThreadId);
+        let result: BuilderTurnResult;
+        try {
+          result = await buildWorkflow(request, targetThreadId);
+        } finally {
+          // The blocking RPC settling (success or error) IS the turn ending —
+          // clear eagerly here rather than relying solely on
+          // `ChatRuntimeProvider`'s generic `chat_done` listener (which also
+          // calls `endInferenceTurn` for this thread — redundant but
+          // harmless, since it's a plain delete). If the server-side turn
+          // never reaches `chat_done` (e.g. this call throws before the core
+          // ever starts one), that listener never fires and the lifecycle
+          // entry would otherwise leak, stranding `turnActive` — and the
+          // panel it drives — permanently `true`.
+          dispatch(endInferenceTurn({ threadId: targetThreadId }));
+        }
 
         // Surface the proposal via the same store slice the streamed path used,
         // so `WorkflowProposalCard` / the copilot preview render unchanged. This
