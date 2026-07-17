@@ -1,5 +1,5 @@
 import createDebug from 'debug';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import WorktreeActions from '../../../components/worktree/WorktreeActions';
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -511,14 +511,14 @@ export function ToolTimelineBlock({
   const [userOverrideOpen, setUserOverrideOpen] = useState<boolean | null>(null);
 
   // Whether *any* entry is currently running — computed here (ahead of the
-  // `entries.length === 0` early return below) purely so the reset effect
-  // that follows is an unconditional hook call every render; order doesn't
-  // matter for this existence check, unlike `latestRunningEntryId` further
-  // down, which needs the seq-sorted order to pick a specific "latest" row.
+  // `entries.length === 0` early return below) purely so the render-time
+  // reset adjustment that follows runs every render; order doesn't matter for
+  // this existence check, unlike `latestRunningEntryId` further down, which
+  // needs the seq-sorted order to pick a specific "latest" row.
   const isRunning = entries.some(entry => entry.status === 'running');
 
-  // The signal the reset effect below watches for a "turn just settled" edge.
-  // Prefer the real TURN lifecycle (`turnActive`, sourced from
+  // The signal the reset below watches for a "turn just settled" edge. Prefer
+  // the real TURN lifecycle (`turnActive`, sourced from
   // `inferenceTurnLifecycleByThread` — the same signal the chat threads page
   // uses) when the caller supplies it: it flips true→false exactly once per
   // USER TURN. `isRunning` is only a fallback for callers with no turn
@@ -534,14 +534,21 @@ export function ToolTimelineBlock({
   // the just-settled turn. The override only sticks WITHIN a turn —
   // preventing involuntary mid-feedback collapse (#4942) — not permanently
   // across turns.
-  const prevSettleRef = useRef(false);
-  useEffect(() => {
-    if (prevSettleRef.current && !settleSignal) {
+  //
+  // Done as a render-time adjustment (comparing against `prevSettleSignal`
+  // state and calling both setters synchronously in the render body), not a
+  // `useEffect`, per React's documented pattern for resetting state on a prop
+  // transition: it bails out and re-renders with the reset applied before
+  // paint, instead of committing a stale (still-collapsed/expanded) frame
+  // and only correcting it a tick later once the effect runs.
+  const [prevSettleSignal, setPrevSettleSignal] = useState(settleSignal);
+  if (prevSettleSignal !== settleSignal) {
+    if (prevSettleSignal && !settleSignal) {
       log('agent-task-insights: turn settled (running→done), resetting user override');
       setUserOverrideOpen(null);
     }
-    prevSettleRef.current = settleSignal;
-  }, [settleSignal]);
+    setPrevSettleSignal(settleSignal);
+  }
 
   if (entries.length === 0) return null;
 

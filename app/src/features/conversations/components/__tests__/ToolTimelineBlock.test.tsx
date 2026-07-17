@@ -705,6 +705,21 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
         </Provider>
       );
       expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+
+      // Both sides of that transition read "collapsed", which a STALE `false`
+      // override would also produce — prove the override actually reset (not
+      // just that it happened to still agree with the auto rule) by starting
+      // a brand-new turn: the auto rule alone (isRunning) should now govern,
+      // reopening the panel with no further user interaction.
+      const newTurnRunning: ToolTimelineEntry[] = [
+        { id: 'c', name: 'subagent:researcher', round: 2, seq: 0, status: 'running' },
+      ];
+      rerender(
+        <Provider store={store}>
+          <ToolTimelineBlock entries={newTurnRunning} turnActive />
+        </Provider>
+      );
+      expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
     });
   });
 
