@@ -215,12 +215,17 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
     state => state.chatRuntime.inferenceTurnLifecycleByThread
   );
 
-  // A turn is in flight on this thread iff the runtime has a lifecycle entry
-  // for it at all (`'started'` or `'streaming'` — both keys present while
-  // running, deleted once the turn settles). Mirrors `Conversations.tsx`'s
-  // `isSending` derivation so the copilot's `ToolTimelineBlock` resets its
-  // sticky override on the same real turn-settle edge the main chat uses.
-  const turnActive = threadId != null && threadId in inferenceTurnLifecycleByThread;
+  // A turn is in flight on this thread iff its lifecycle entry is `'started'`
+  // or `'streaming'` — NOT `'interrupted'`, which `hydrateRuntimeFromSnapshot`
+  // (chatRuntimeSlice.ts) writes for a turn that crashed mid-flight in a PRIOR
+  // core process (cold-boot rehydrate): there is no live driver behind it, so
+  // treating it as "active" would leak stale disclosure state into a later,
+  // genuinely new turn on this same thread. Mirrors `Conversations.tsx`'s
+  // `isSending` derivation (same explicit two-state check, not a broad `in`
+  // membership test) so the copilot's `ToolTimelineBlock` resets its sticky
+  // override on the same real turn-settle edge the main chat uses.
+  const threadLifecycle = threadId != null ? inferenceTurnLifecycleByThread[threadId] : undefined;
+  const turnActive = threadLifecycle === 'started' || threadLifecycle === 'streaming';
 
   // Prefer the runtime's streamed proposal (populated on this thread by
   // `ChatRuntimeProvider` as the builder's `propose_workflow`/`revise_workflow`

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BuilderTurnResult } from '../services/api/flowsApi';
-import type { WorkflowProposal } from '../store/chatRuntimeSlice';
+import type { InferenceTurnLifecycle, WorkflowProposal } from '../store/chatRuntimeSlice';
 import type { ThreadMessage } from '../types/thread';
 import { useWorkflowBuilderChat, type WorkflowBuilderSendResult } from './useWorkflowBuilderChat';
 
@@ -21,7 +21,7 @@ const selectorState = vi.hoisted(() => ({
   messagesByThreadId: {} as Record<string, unknown[]>,
   toolTimelineByThread: {} as Record<string, unknown[]>,
   streamingAssistantByThread: {} as Record<string, { content: string }>,
-  inferenceTurnLifecycleByThread: {} as Record<string, string>,
+  inferenceTurnLifecycleByThread: {} as Record<string, InferenceTurnLifecycle>,
 }));
 vi.mock('../store/hooks', () => ({
   useAppDispatch: () => dispatch,
@@ -164,6 +164,32 @@ describe('useWorkflowBuilderChat', () => {
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'endInferenceTurn', p: { threadId: 'builder-1' } })
     );
+  });
+
+  it("treats an 'interrupted' lifecycle entry as NOT active (no live driver behind it)", () => {
+    // 'interrupted' is written by `hydrateRuntimeFromSnapshot` for a turn that
+    // crashed mid-flight in a PRIOR core process (cold-boot rehydrate) — there
+    // is no live driver streaming for it, so `turnActive` must stay `false`,
+    // or stale disclosure state (from before the crash) leaks into whatever
+    // the user does next on this thread.
+    const interrupted: InferenceTurnLifecycle = 'interrupted';
+    selectorState.inferenceTurnLifecycleByThread = { 'builder-1': interrupted };
+
+    const { result } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+
+    expect(result.current.turnActive).toBe(false);
+  });
+
+  it("treats 'started'/'streaming' lifecycle entries as active", () => {
+    const started: InferenceTurnLifecycle = 'started';
+    selectorState.inferenceTurnLifecycleByThread = { 'builder-1': started };
+    const { result: startedResult } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+    expect(startedResult.current.turnActive).toBe(true);
+
+    const streaming: InferenceTurnLifecycle = 'streaming';
+    selectorState.inferenceTurnLifecycleByThread = { 'builder-1': streaming };
+    const { result: streamingResult } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+    expect(streamingResult.current.turnActive).toBe(true);
   });
 
   it('surfaces the proposal the builder returned by dispatching it into the store', async () => {
