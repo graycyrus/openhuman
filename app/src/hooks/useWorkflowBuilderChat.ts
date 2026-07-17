@@ -94,6 +94,15 @@ export interface UseWorkflowBuilderChat {
   threadId: string | null;
   /** True while a builder turn is in flight on this thread. */
   sending: boolean;
+  /**
+   * Whether a turn is in flight on this thread per the runtime's
+   * `inferenceTurnLifecycleByThread` — the same turn-lifecycle signal the main
+   * chat threads page uses to derive `isSending`. Passed through as
+   * `ToolTimelineBlock`'s `turnActive` prop so the panel's sticky
+   * open/collapse override resets once per TURN instead of once per
+   * sub-agent (see that component's doc for the #5008 flicker this fixes).
+   */
+  turnActive: boolean;
   /** The latest proposal the agent returned on this thread, or `null`. */
   proposal: WorkflowProposal | null;
   /**
@@ -196,6 +205,16 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
   const streamingAssistantByThread = useAppSelector(
     state => state.chatRuntime.streamingAssistantByThread
   );
+  const inferenceTurnLifecycleByThread = useAppSelector(
+    state => state.chatRuntime.inferenceTurnLifecycleByThread
+  );
+
+  // A turn is in flight on this thread iff the runtime has a lifecycle entry
+  // for it at all (`'started'` or `'streaming'` — both keys present while
+  // running, deleted once the turn settles). Mirrors `Conversations.tsx`'s
+  // `isSending` derivation so the copilot's `ToolTimelineBlock` resets its
+  // sticky override on the same real turn-settle edge the main chat uses.
+  const turnActive = threadId != null && threadId in inferenceTurnLifecycleByThread;
 
   // Prefer the runtime's streamed proposal (populated on this thread by
   // `ChatRuntimeProvider` as the builder's `propose_workflow`/`revise_workflow`
@@ -412,6 +431,7 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
   return {
     threadId,
     sending,
+    turnActive,
     proposal,
     capped,
     messages,

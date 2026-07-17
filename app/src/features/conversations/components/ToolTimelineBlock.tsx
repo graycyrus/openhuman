@@ -454,6 +454,7 @@ export function ToolTimelineBlock({
   onViewWholeRun,
   expandAllRows = false,
   liveResponse,
+  turnActive,
 }: {
   entries: ToolTimelineEntry[];
   /** Opens the full-transcript drawer for a subagent row. When omitted,
@@ -479,6 +480,16 @@ export function ToolTimelineBlock({
    * Omitted/empty once the turn settles — the final answer is the message
    * bubble. */
   liveResponse?: string;
+  /** Whether a turn is in flight on this thread's lifecycle
+   * (`inferenceTurnLifecycleByThread`), the same signal the chat threads page
+   * uses. When provided, the sticky `userOverrideOpen` reset fires on THIS
+   * value's true→false edge — once per USER TURN — instead of on `isRunning`'s
+   * edge, which flips once PER SUB-AGENT within a single turn (each
+   * subagent spawn→settle) and made the panel flicker open/closed as
+   * sub-agents ran (regression from #5008). Falls back to `isRunning` when
+   * omitted, which is correct for a settled/past-turn render (there is no
+   * turn left to track). */
+  turnActive?: boolean;
 }) {
   const { t } = useT();
 
@@ -506,18 +517,31 @@ export function ToolTimelineBlock({
   // down, which needs the seq-sorted order to pick a specific "latest" row.
   const isRunning = entries.some(entry => entry.status === 'running');
 
-  // Reset the user's manual open/close override on the running→settled edge
-  // (a turn just finished) so the auto-collapse applies to the just-settled
-  // turn. The override only sticks WITHIN a turn — preventing involuntary
-  // mid-feedback collapse (#4942) — not permanently across turns.
-  const prevIsRunningRef = useRef(false);
+  // The signal the reset effect below watches for a "turn just settled" edge.
+  // Prefer the real TURN lifecycle (`turnActive`, sourced from
+  // `inferenceTurnLifecycleByThread` — the same signal the chat threads page
+  // uses) when the caller supplies it: it flips true→false exactly once per
+  // USER TURN. `isRunning` is only a fallback for callers with no turn
+  // lifecycle to hand (e.g. a settled/past-turn render, where entries never
+  // change again anyway) — used directly it flips once PER SUB-AGENT within a
+  // single turn (each subagent spawn→settle), which reset the override (and
+  // so auto-collapsed the panel) repeatedly within one turn and made it
+  // flicker open/closed as sub-agents ran (#5008 regression).
+  const settleSignal = turnActive ?? isRunning;
+
+  // Reset the user's manual open/close override on the settleSignal's
+  // true→false edge (a turn just finished) so the auto-collapse applies to
+  // the just-settled turn. The override only sticks WITHIN a turn —
+  // preventing involuntary mid-feedback collapse (#4942) — not permanently
+  // across turns.
+  const prevSettleRef = useRef(false);
   useEffect(() => {
-    if (prevIsRunningRef.current && !isRunning) {
+    if (prevSettleRef.current && !settleSignal) {
       log('agent-task-insights: turn settled (running→done), resetting user override');
       setUserOverrideOpen(null);
     }
-    prevIsRunningRef.current = isRunning;
-  }, [isRunning]);
+    prevSettleRef.current = settleSignal;
+  }, [settleSignal]);
 
   if (entries.length === 0) return null;
 

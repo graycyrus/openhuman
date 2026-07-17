@@ -1983,6 +1983,9 @@ const Conversations = ({
             entries={selectedThreadToolTimeline}
             onViewDetails={openScopedDetail}
             onViewWholeRun={openWholeRunSource}
+            turnActive={
+              selectedThreadId != null && selectedThreadId in inferenceTurnLifecycleByThread
+            }
           />
         ) : (
           // Transcript-only turn: reasoning/narration was streamed but no tool

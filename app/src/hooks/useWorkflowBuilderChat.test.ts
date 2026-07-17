@@ -21,6 +21,7 @@ const selectorState = vi.hoisted(() => ({
   messagesByThreadId: {} as Record<string, unknown[]>,
   toolTimelineByThread: {} as Record<string, unknown[]>,
   streamingAssistantByThread: {} as Record<string, { content: string }>,
+  inferenceTurnLifecycleByThread: {} as Record<string, string>,
 }));
 vi.mock('../store/hooks', () => ({
   useAppDispatch: () => dispatch,
@@ -31,6 +32,7 @@ vi.mock('../store/hooks', () => ({
         pendingWorkflowProposalsByThread: selectorState.proposals,
         toolTimelineByThread: selectorState.toolTimelineByThread,
         streamingAssistantByThread: selectorState.streamingAssistantByThread,
+        inferenceTurnLifecycleByThread: selectorState.inferenceTurnLifecycleByThread,
       },
     }),
 }));
@@ -68,6 +70,7 @@ describe('useWorkflowBuilderChat', () => {
     selectorState.messagesByThreadId = {};
     selectorState.toolTimelineByThread = {};
     selectorState.streamingAssistantByThread = {};
+    selectorState.inferenceTurnLifecycleByThread = {};
     dispatch.mockReset().mockImplementation((action: { type: string }) => {
       if (action.type === 'createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'builder-1' }) };
