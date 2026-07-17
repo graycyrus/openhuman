@@ -359,6 +359,22 @@ mod tests {
              created flows are always born disabled (issue #6)"
         );
 
+        // Positive (Bld §4): run guidance is capability-conditional. `run_flow`
+        // (and resume/cancel) are hidden on the `flows_build` path, so the
+        // prompt must NOT unconditionally claim the builder can run a flow —
+        // it must first check whether the tool is on its belt and, when it is
+        // not, point the user to the Workflows UI Run control instead of
+        // offering-then-refusing (the confusing "want me to run it?" → "I
+        // don't have access" behavior).
+        assert!(
+            STANDING_PROMPT.contains("only if the tool is on your belt")
+                && STANDING_PROMPT.contains("never offer to run the flow")
+                && STANDING_PROMPT.contains("Workflows UI"),
+            "standing prompt must make run_flow capability-conditional: never offer to run \
+             when the tool is off the belt, and point the user to the Workflows UI Run \
+             control instead (Bld §4 offer-then-refuse)"
+        );
+
         // Positive: self-DM resolution — the prompt must teach the builder to
         // wire "DM me" onto the connection's own `platform_user_id`, not a
         // public channel (the #general/#team-product fallback bug).
