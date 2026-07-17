@@ -480,6 +480,32 @@ mod tests {
         }
     }
 
+    /// The standing prompt must teach reply hygiene: no deliberation
+    /// narration, no draft-then-restate, lead with substance. Without these
+    /// the reasoning-tier model narrates its chain of thought in the visible
+    /// reply ("let me think… actually wait… let me reconsider") and restates
+    /// its questions twice in the same message. (The harness already keeps
+    /// real reasoning blocks out of the visible text — this is the model
+    /// choosing to narrate in its output, so a prompt rule is the fix.)
+    #[test]
+    fn standing_prompt_teaches_reply_hygiene() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        for rule in [
+            "finished reply",
+            "No deliberation narration",
+            "No draft-then-restate",
+            "Lead with substance",
+        ] {
+            assert!(
+                STANDING_PROMPT.contains(rule),
+                "standing prompt must teach the reply-hygiene rule `{rule}` — the \
+                 reply is the finished answer, not a thinking scratchpad (no \
+                 deliberation narration, no draft-then-restate)"
+            );
+        }
+    }
+
     #[test]
     fn repair_includes_run_id_error_and_failing_nodes() {
         let mut r = req(BuildMode::Repair);
