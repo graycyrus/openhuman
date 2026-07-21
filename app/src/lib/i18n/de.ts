@@ -4306,7 +4306,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Dieser Vorschlag ändert keine Knoten.',
   'flows.copilot.accept': 'Auf Entwurf anwenden',
   'flows.copilot.acceptAndSave': 'Übernehmen & speichern',
+  'flows.copilot.saveAndEnable': 'Speichern & aktivieren',
   'flows.copilot.saving': 'Wird gespeichert…',
+  'flows.copilot.enabling': 'Wird aktiviert…',
+  'flows.copilot.enableError':
+    'Gespeichert, aber der Workflow konnte nicht aktiviert werden. Aktivieren Sie ihn über die Liste.',
   'flows.copilot.reject': 'Verwerfen',
   'flows.copilot.previewHint':
     'Ein vorgeschlagener Entwurf wird geprüft: es wurde noch nichts gespeichert.',
