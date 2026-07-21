@@ -36,7 +36,9 @@ import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import ApprovalRequestCard from '../chat/ApprovalRequestCard';
 import ChatComposer from '../chat/ChatComposer';
+import IntegrationConnectCard from '../chat/IntegrationConnectCard';
 import Button from '../ui/Button';
 import ToolActivityChip from './ToolActivityChip';
 
@@ -159,6 +161,7 @@ export default function WorkflowCopilotPanel({
     sending,
     turnActive,
     proposal,
+    pendingApproval,
     capped,
     displayMessages,
     toolTimeline,
@@ -637,6 +640,36 @@ export default function WorkflowCopilotPanel({
           </div>
         )}
       </div>
+
+      {/* Parked ApprovalGate request for the copilot's dedicated thread (PR3:
+          flows-copilot-live-run-approval). `flows_build` now runs under
+          `AgentTurnOrigin::WebChat` + `APPROVAL_CHAT_CONTEXT` when streaming,
+          so a `run_flow` / `resume_flow_run` call parks here instead of
+          auto-allowing or being hidden — surfaced via the SAME
+          `pendingApprovalByThread` slice / `approval_request` socket event
+          `Conversations.tsx` reads for the main chat, reusing the identical
+          cards (no new component, no new i18n keys). `composio_connect` parks
+          on the same gate but needs a Connect button + OAuth poll rather than
+          approve/deny, mirroring `Conversations.tsx`'s branch. Rendered above
+          the composer, outside the scrollable transcript, so it stays visible
+          regardless of scroll position. */}
+      {pendingApproval && threadId && (
+        <div className="px-3 pt-2" data-testid="workflow-copilot-approval">
+          {pendingApproval.toolName === 'composio_connect' ? (
+            <IntegrationConnectCard
+              key={pendingApproval.requestId}
+              threadId={threadId}
+              approval={pendingApproval}
+            />
+          ) : (
+            <ApprovalRequestCard
+              key={pendingApproval.requestId}
+              threadId={threadId}
+              approval={pendingApproval}
+            />
+          )}
+        </div>
+      )}
 
       <div className="border-t border-line px-3 py-2.5">
         <ChatComposer
