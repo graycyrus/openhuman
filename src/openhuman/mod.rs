@@ -58,8 +58,6 @@ pub mod harness_init;
 pub mod health;
 pub mod heartbeat;
 pub mod http_host;
-#[cfg(feature = "media")]
-pub mod image;
 pub mod inference;
 pub mod integrations;
 pub mod javascript;

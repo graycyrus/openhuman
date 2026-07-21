@@ -378,10 +378,9 @@ voice = ["dep:hound", "dep:lettre"]
 # always-on. When off, tinyplace payments + Polymarket writes degrade to
 # graceful "wallet disabled" errors via the wallet/web3/x402 stub facades.
 web3 = ["dep:bitcoin", "dep:curve25519-dalek"]
-# Media-generation + image domains: the `media_generate_*` agent tools
-# (image/video via GMI through the backend) and the `openhuman::image` tool
-# contracts scaffold. Default-ON. Slim builds opt out via
-# `--no-default-features --features "<explicit list without media>"`.
+# Media-generation domain: the `media_generate_*` agent tools
+# (image/video via GMI through the backend). Default-ON. Slim builds opt
+# out via `--no-default-features --features "<explicit list without media>"`.
 # Composes with the runtime `DomainSet::media` flag (#4796).
 # NOTE: this gate sheds NO exclusive dependencies — media generation is
 # backend-proxied (reqwest, shared) and the `image` crate is shared with
