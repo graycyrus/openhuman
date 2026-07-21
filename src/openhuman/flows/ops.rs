@@ -3122,6 +3122,17 @@ pub async fn flows_run(
 
     start_flow_run_row(config, &thread_id, flow_id);
 
+    tracing::debug!(
+        target: "flows",
+        flow_id = %flow_id,
+        run_id = %thread_id,
+        "[flows] flows_run: publishing FlowRunStarted"
+    );
+    crate::core::event_bus::publish_global(crate::core::event_bus::DomainEvent::FlowRunStarted {
+        flow_id: flow_id.to_string(),
+        run_id: thread_id.clone(),
+    });
+
     // Register this run as in-flight (issue G4) so a concurrent
     // `flows_cancel_run` can signal it to abort. The guard deregisters on any
     // exit from this fn (including the early returns below).

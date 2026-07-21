@@ -1407,6 +1407,83 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
     );
 }
 
+/// Issue B35 (runs-rail live refresh): `flows_run` must publish
+/// `DomainEvent::FlowRunStarted` right after the run row is persisted, with
+/// the flow id and the run's thread id, so the socket bridge can tell an open
+/// Workflows sidebar/drawer to refetch and show "Running" immediately instead
+/// of waiting for the (up to 610s) blocking RPC to resolve.
+#[tokio::test]
+async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
+    use crate::core::event_bus::{
+        init_global, subscribe_global, DomainEvent, EventHandler, DEFAULT_CAPACITY,
+    };
+    use async_trait::async_trait;
+    use std::sync::Mutex as StdMutex;
+
+    #[derive(Default)]
+    struct Collector {
+        events: Arc<StdMutex<Vec<(String, String)>>>,
+    }
+
+    #[async_trait]
+    impl EventHandler for Collector {
+        fn name(&self) -> &str {
+            "test::flows::ops::flow_run_started_collector"
+        }
+        fn domains(&self) -> Option<&[&str]> {
+            Some(&["cron"])
+        }
+        async fn handle(&self, event: &DomainEvent) {
+            if let DomainEvent::FlowRunStarted { flow_id, run_id } = event {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push((flow_id.clone(), run_id.clone()));
+            }
+        }
+    }
+
+    init_global(DEFAULT_CAPACITY);
+    let events: Arc<StdMutex<Vec<(String, String)>>> = Arc::new(StdMutex::new(Vec::new()));
+    let collector = Arc::new(Collector {
+        events: Arc::clone(&events),
+    });
+    let _handle = subscribe_global(collector).expect("bus subscriber installed");
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "b35-run-started".to_string(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // The bus is process-global and shared with concurrently-running tests,
+    // so filter for our own flow id rather than asserting on total count.
+    let mut found = None;
+    for _ in 0..20 {
+        {
+            let guard = events.lock().unwrap();
+            if let Some(entry) = guard.iter().find(|(fid, _)| *fid == created.value.id) {
+                found = Some(entry.clone());
+                break;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    let (flow_id, run_id) = found.expect("expected a FlowRunStarted event for this flow");
+    assert_eq!(flow_id, created.value.id);
+    assert_eq!(run_id, thread_id);
+}
+
 // ── Live run observation (issue G2) ───────────────────────────────────────
 
 use crate::openhuman::tinyflows::observability::FlowRunObserver;

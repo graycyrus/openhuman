@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlowRunsLiveRefresh } from '../../hooks/useFlowRunsLiveRefresh';
+import { useFlowRunStarted } from '../../hooks/useFlowRunStarted';
 import {
   resolveDisplayStatus,
   useRunsPendingApprovalSet,
@@ -146,6 +147,11 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
   }, [flowId]);
 
   useFlowRunsLiveRefresh(runs, refetch);
+  // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
+  // already-active run) — fills the empty-list gap ("No runs yet") that hook
+  // can't reach, so the very first run shows up as "Running" instantly
+  // instead of waiting for a manual refresh (issue B35).
+  useFlowRunStarted(() => void refetch(), flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   useEscapeKey(

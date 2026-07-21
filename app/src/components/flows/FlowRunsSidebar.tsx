@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useFlowRunsLiveRefresh } from '../../hooks/useFlowRunsLiveRefresh';
+import { useFlowRunStarted } from '../../hooks/useFlowRunStarted';
 import {
   resolveDisplayStatus,
   useRunsPendingApprovalSet,
@@ -105,6 +106,14 @@ export default function FlowRunsSidebar({ flowId }: FlowRunsSidebarProps) {
   }, [load]);
 
   useFlowRunsLiveRefresh(runs, load);
+  // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
+  // already-active run) — fills the empty-list gap ("No runs yet") that
+  // hook can't reach, so the very first run shows up as "Running" instantly
+  // instead of waiting for a manual refresh (issue B35).
+  useFlowRunStarted(() => {
+    log('run-started: refetch flow=%s', flowId);
+    void load();
+  }, flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   return (

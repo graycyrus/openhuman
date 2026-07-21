@@ -1087,6 +1087,25 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     let _ = io_memory_sync.emit("flow:run_progress", &payload);
                     let _ = io_memory_sync.emit("flow_run_progress", &payload);
                 }
+                // A `flow_runs` row was just persisted, before execution begins
+                // (issue B35, runs-rail live refresh). Broadcast so an open
+                // Workflows canvas/sidebar can show "Running" immediately
+                // instead of waiting for the blocking `flows_run` RPC to
+                // resolve or the first `FlowRunProgress` step. Best-effort,
+                // same rationale as `flow:run_progress` above.
+                crate::core::event_bus::DomainEvent::FlowRunStarted { flow_id, run_id } => {
+                    let payload = serde_json::json!({
+                        "flow_id": flow_id,
+                        "run_id": run_id,
+                    });
+                    log::debug!(
+                        "[socketio] broadcast flow_run_started flow_id={} run_id={}",
+                        flow_id,
+                        run_id
+                    );
+                    let _ = io_memory_sync.emit("flow:run_started", &payload);
+                    let _ = io_memory_sync.emit("flow_run_started", &payload);
+                }
                 // A saved flow's definition changed (create/update/delete/
                 // enable). Broadcast so an open Workflows list/canvas refetches
                 // — most importantly, so an agent `save_workflow` becomes

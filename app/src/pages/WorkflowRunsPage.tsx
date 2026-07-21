@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import PanelPage from '../components/layout/PanelPage';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { useFlowRunsLiveRefresh } from '../hooks/useFlowRunsLiveRefresh';
+import { useFlowRunStarted } from '../hooks/useFlowRunStarted';
 import {
   resolveDisplayStatus,
   useRunsPendingApprovalSet,
@@ -81,6 +82,12 @@ export default function WorkflowRunsPage() {
   }, []);
 
   useFlowRunsLiveRefresh(runs, refetchRuns);
+  // Unconditional (unlike useFlowRunsLiveRefresh, which is gated on an
+  // already-active run) — fills the empty-list gap ("No runs yet") that hook
+  // can't reach, so the very first run across any flow shows up as "Running"
+  // instantly instead of waiting for a manual refresh (issue B35). No
+  // `flowId` filter — this is the flow-agnostic "all runs" page.
+  useFlowRunStarted(() => void refetchRuns());
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   const statusLabel = (status: FlowRunStatus) =>
