@@ -4714,7 +4714,6 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_yaml",
- "sha1",
  "sha2 0.10.9",
  "similar",
  "socketioxide",
