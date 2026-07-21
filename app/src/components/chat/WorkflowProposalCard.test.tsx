@@ -129,10 +129,14 @@ describe('WorkflowProposalCard', () => {
       />
     );
     // The own-property guard treats __proto__ as unknown and humanizes it, so
-    // the row still renders (step name present) and no function/object leaks
-    // into the badge label.
+    // the row still renders (step name present) and the badge shows a real
+    // string. Assert the badge's exact (whitespace-normalized) content directly
+    // — not just the step name / absence of "function" — so a missing badge or
+    // an inherited-member leak like `[object Object]` would fail here too.
+    // `__proto__` humanizes (underscores -> spaces, first char already a space)
+    // to a lowercase "proto" badge.
     expect(screen.getByText('Proto step')).toBeInTheDocument();
-    expect(screen.queryByText('function', { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByTestId('workflow-proposal-step-kind')).toHaveTextContent(/^proto$/);
   });
 
   it('has the expected root test id', () => {
