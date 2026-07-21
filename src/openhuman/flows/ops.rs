@@ -4371,9 +4371,28 @@ pub async fn flows_build(
     // surface below) only hides the always-hidden `run_workflow`; headless
     // (CLI / tests / no chat thread) keeps the full historical hide-list
     // (issue #4593 / #4881) since there is no routable approval surface there.
-    if stream.is_some() {
+    //
+    // The reduced (copilot) hide-list is safe ONLY when the process-global
+    // `ApprovalGate` is actually installed to park the unhidden
+    // `run_flow`/`resume_flow_run`. `flows_build` is a public RPC and the gate
+    // can be opted out (`OPENHUMAN_APPROVAL_GATE=0` on CLI/docker leaves
+    // `ApprovalGate::try_global()` == `None`; desktop always installs it) — and
+    // `ApprovalSecurityMiddleware` skips interception entirely when the gate is
+    // absent, so the WebChat origin below would NOT park and the unhidden
+    // live-run tools would execute unapproved. Fall back to the full hide-list
+    // whenever the gate is not installed, regardless of `stream`. (codex #5090)
+    let approval_gate_active = crate::openhuman::approval::ApprovalGate::try_global().is_some();
+    if stream.is_some() && approval_gate_active {
         restrict_builder_toolset_for_copilot(&mut agent);
     } else {
+        if stream.is_some() {
+            tracing::warn!(
+                target: "flows",
+                "[flows] flows_build: streaming turn but no ApprovalGate installed \
+                 (OPENHUMAN_APPROVAL_GATE off / headless) — keeping the full live-run \
+                 hide-list so run_flow/resume_flow_run cannot execute unapproved"
+            );
+        }
         restrict_builder_toolset(&mut agent);
     }
 
