@@ -104,15 +104,12 @@ describe('WorkflowProposalCard', () => {
   // capitalized kind.
   it.each(['constructor', 'toString'])(
     'humanizes the inherited-property kind %s instead of resolving it on the prototype',
-    (kind) => {
+    kind => {
       render(
         <WorkflowProposalCard
           threadId="t1"
           proposal={proposal({
-            summary: {
-              trigger: 'manual',
-              steps: [{ kind, name: 'Edge-case step' }],
-            },
+            summary: { trigger: 'manual', steps: [{ kind, name: 'Edge-case step' }] },
           })}
         />
       );
@@ -127,10 +124,7 @@ describe('WorkflowProposalCard', () => {
       <WorkflowProposalCard
         threadId="t1"
         proposal={proposal({
-          summary: {
-            trigger: 'manual',
-            steps: [{ kind: '__proto__', name: 'Proto step' }],
-          },
+          summary: { trigger: 'manual', steps: [{ kind: '__proto__', name: 'Proto step' }] },
         })}
       />
     );
