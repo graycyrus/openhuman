@@ -35,6 +35,7 @@ const autonomy = (overrides: Partial<AutonomySettings> = {}): AutonomySettings =
   allow_tool_install: true,
   max_actions_per_hour: 0,
   auto_approve: [],
+  auto_approve_all: false,
   ...overrides,
 });
 
@@ -307,5 +308,39 @@ describe('AgentAccessPanel (advanced)', () => {
     renderWithProviders(<AgentAccessPanel />);
     await screen.findByText('Approval history');
     expect(screen.getByTestId('agent-access-approval-history-link')).toBeInTheDocument();
+  });
+
+  // ── auto-approve-all bypass (security-sensitive) ────────────────────────
+
+  it('renders the auto-approve-all toggle OFF by default', async () => {
+    renderWithProviders(<AgentAccessPanel />);
+    const sw = await screen.findByRole('switch', { name: /auto-approve all actions/i });
+    expect(sw).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('toggling auto-approve-all ON persists auto_approve_all: true', async () => {
+    renderWithProviders(<AgentAccessPanel />);
+    const sw = await screen.findByRole('switch', { name: /auto-approve all actions/i });
+    fireEvent.click(sw);
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ auto_approve_all: true }))
+    );
+  });
+
+  it('shows the warning description regardless of toggle state', async () => {
+    renderWithProviders(<AgentAccessPanel />);
+    const sw = await screen.findByRole('switch', { name: /auto-approve all actions/i });
+
+    // Off state: warning is already visible.
+    expect(sw).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('auto-approve-all-warning')).toBeInTheDocument();
+    expect(screen.getByTestId('auto-approve-all-warning')).toHaveTextContent(
+      /credential directories, workspace-internal paths/i
+    );
+
+    // On state: toggling it on keeps the same warning mounted, still visible.
+    fireEvent.click(sw);
+    await waitFor(() => expect(sw).toHaveAttribute('aria-checked', 'true'));
+    expect(screen.getByTestId('auto-approve-all-warning')).toBeInTheDocument();
   });
 });

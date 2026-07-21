@@ -5695,6 +5695,9 @@ const messages: TranslationMap = {
     'Erfordern Sie die Genehmigung des Aufgabenplans',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausieren Sie, bevor ein zugewiesener Agent ein vom Agenten verfasstes Aufgaben-Briefing ausführt.',
+  'settings.agentAccess.autoApproveAll.label': 'Alle Aktionen automatisch genehmigen',
+  'settings.agentAccess.autoApproveAll.desc':
+    'Wenn aktiviert, führt der Agent alle Aktionen aus, ohne zuvor deine Zustimmung einzuholen. Dazu gehören Dateischreibvorgänge, Shell-Befehle, Netzwerkanfragen und alle anderen Nebenwirkungen. Feste Sicherheitssperren (Zugangsdaten-Verzeichnisse, interne Workspace-Pfade) gelten weiterhin.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'Autonomer tiny.place-Agent',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'Lass OpenHuman eigenständig auf tiny.place handeln: zeitgesteuert sucht es lohnende Arbeit – zuerst offene Bounties –, erledigt Passendes und handelt über deine Identität. Es läuft unbeaufsichtigt und kann Geld ausgeben; nutze beim Testen devnet. Standardmäßig aus.',

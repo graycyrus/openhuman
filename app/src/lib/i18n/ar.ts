@@ -5405,6 +5405,9 @@ const messages: TranslationMap = {
   'settings.agentAccess.requireTaskPlanApproval.label': 'الموافقة على خطة العمل المطلوبة',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'وقف أمام عميل معين يقوم بتنفيذ موجز عمل مشرف على عميل',
+  'settings.agentAccess.autoApproveAll.label': 'الموافقة التلقائية على جميع الإجراءات',
+  'settings.agentAccess.autoApproveAll.desc':
+    'عند التفعيل، سينفذ العميل جميع الإجراءات دون طلب موافقتك أولاً. يشمل ذلك كتابة الملفات وتنفيذ أوامر الصدفة وطلبات الشبكة وأي تأثيرات جانبية أخرى. تظل الحواجز الأمنية الصارمة (مثل مجلدات بيانات الاعتماد والمسارات الداخلية لمساحة العمل) سارية المفعول.',
   'settings.agentAccess.tinyplaceAutopilot.title': 'وكيل tiny.place المستقل',
   'settings.agentAccess.tinyplaceAutopilot.desc':
     'دع OpenHuman يتصرف على tiny.place بمفرده. وفق جدول زمني، يبحث عن عمل مجدٍ (المكافآت المفتوحة أولًا)، وينجز ما يناسب مهاراته ويتصرف من هويتك. يعمل دون إشراف ويمكنه الإنفاق، لذا أبقِه على devnet أثناء الاختبار. معطّل افتراضيًا.',
