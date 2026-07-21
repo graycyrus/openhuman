@@ -149,17 +149,30 @@ const AgentAccessPanel = () => {
   // `allow_tool_install` is fixed; workspace_only, trusted_roots vary.
   // `level` is carried through from state (its UI lives in PermissionsPanel).
   // Pass explicit `next` values (setState is async).
-  const persist = async (next: {
-    workspaceOnly: boolean;
-    requireTaskPlanApproval: boolean;
-    autoApproveAll: boolean;
-    trustedRoots: TrustedRoot[];
-    // Only sent when the allowlist itself is being changed. Omitting it leaves
-    // the server's `auto_approve` untouched (partial patch) — important so a
-    // tier/folder change can't clobber a tool the user just added via the
-    // in-chat "Always allow" button.
-    autoApprove?: string[];
-  }) => {
+  //
+  // `onError` lets a caller revert its own optimistic `setState` if the RPC
+  // fails (mirrors `toggleAutopilot`'s revert-on-failure below) — otherwise a
+  // failed save leaves the switch showing the new value locally while the
+  // server-side field silently kept its old one.
+  const persist = async (
+    next: {
+      workspaceOnly: boolean;
+      requireTaskPlanApproval: boolean;
+      trustedRoots: TrustedRoot[];
+      // Only sent when the allowlist itself is being changed. Omitting it leaves
+      // the server's `auto_approve` untouched (partial patch) — important so a
+      // tier/folder change can't clobber a tool the user just added via the
+      // in-chat "Always allow" button.
+      autoApprove?: string[];
+      // Same partial-patch reasoning as `autoApprove` above: only
+      // `toggleAutoApproveAll` sets this. Every other caller must omit it so
+      // an unrelated autosave (folders, task-plan-approval, workspace
+      // confinement) can never rewrite `auto_approve_all` back to this
+      // panel's possibly-stale local value.
+      autoApproveAll?: boolean;
+    },
+    onError?: () => void
+  ) => {
     const seq = ++persistSeqRef.current;
     if (!isTauri()) return;
     setError(null);
@@ -172,8 +185,8 @@ const AgentAccessPanel = () => {
         trusted_roots: next.trustedRoots,
         allow_tool_install: ALLOW_TOOL_INSTALL,
         require_task_plan_approval: next.requireTaskPlanApproval,
-        auto_approve_all: next.autoApproveAll,
         ...(next.autoApprove !== undefined ? { auto_approve: next.autoApprove } : {}),
+        ...(next.autoApproveAll !== undefined ? { auto_approve_all: next.autoApproveAll } : {}),
       });
       // Only the most recent persist may write UI state back.
       if (persistSeqRef.current === seq) {
@@ -182,6 +195,7 @@ const AgentAccessPanel = () => {
     } catch (e) {
       if (persistSeqRef.current === seq) {
         setError(e instanceof Error ? e.message : t('settings.agentAccess.saveError'));
+        onError?.();
       }
     } finally {
       if (persistSeqRef.current === seq) {
@@ -191,18 +205,28 @@ const AgentAccessPanel = () => {
   };
 
   const toggleWorkspaceOnly = (next: boolean) => {
+    const prev = workspaceOnly;
     setWorkspaceOnly(next);
-    void persist({ workspaceOnly: next, requireTaskPlanApproval, autoApproveAll, trustedRoots });
+    void persist({ workspaceOnly: next, requireTaskPlanApproval, trustedRoots }, () =>
+      setWorkspaceOnly(prev)
+    );
   };
 
   const toggleTaskPlanApproval = (next: boolean) => {
+    const prev = requireTaskPlanApproval;
     setRequireTaskPlanApproval(next);
-    void persist({ workspaceOnly, requireTaskPlanApproval: next, autoApproveAll, trustedRoots });
+    void persist({ workspaceOnly, requireTaskPlanApproval: next, trustedRoots }, () =>
+      setRequireTaskPlanApproval(prev)
+    );
   };
 
   const toggleAutoApproveAll = (next: boolean) => {
+    const prev = autoApproveAll;
     setAutoApproveAll(next);
-    void persist({ workspaceOnly, requireTaskPlanApproval, autoApproveAll: next, trustedRoots });
+    void persist(
+      { workspaceOnly, requireTaskPlanApproval, trustedRoots, autoApproveAll: next },
+      () => setAutoApproveAll(prev)
+    );
   };
 
   // The autopilot is a cron job, not an autonomy field — flip its `enabled`
@@ -239,35 +263,24 @@ const AgentAccessPanel = () => {
     setTrustedRoots(nextRoots);
     setNewRootPath('');
     setNewRootAccess('read');
-    void persist({
-      workspaceOnly,
-      requireTaskPlanApproval,
-      autoApproveAll,
-      trustedRoots: nextRoots,
-    });
+    // `autoApproveAll` intentionally omitted: this save is about the folder
+    // grant, not the auto-approve-all toggle, and the partial-patch RPC
+    // leaves omitted fields untouched server-side (see `persist` above).
+    void persist({ workspaceOnly, requireTaskPlanApproval, trustedRoots: nextRoots });
   };
 
   const removeRoot = (path: string) => {
     const nextRoots = trustedRoots.filter(r => r.path !== path);
     setTrustedRoots(nextRoots);
-    void persist({
-      workspaceOnly,
-      requireTaskPlanApproval,
-      autoApproveAll,
-      trustedRoots: nextRoots,
-    });
+    // `autoApproveAll` intentionally omitted — see `addRoot` above.
+    void persist({ workspaceOnly, requireTaskPlanApproval, trustedRoots: nextRoots });
   };
 
   const removeAutoApprove = (tool: string) => {
     const nextList = autoApprove.filter(name => name !== tool);
     setAutoApprove(nextList);
-    void persist({
-      workspaceOnly,
-      requireTaskPlanApproval,
-      autoApproveAll,
-      trustedRoots,
-      autoApprove: nextList,
-    });
+    // `autoApproveAll` intentionally omitted — see `addRoot` above.
+    void persist({ workspaceOnly, requireTaskPlanApproval, trustedRoots, autoApprove: nextList });
   };
 
   // Persist the action timeout on blur / Enter. Validates the integer range

@@ -11849,7 +11849,10 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         json!({ "auto_approve_all": true }),
     )
     .await;
-    assert_no_jsonrpc_error(&update_auto_all, "update_autonomy_settings auto_approve_all");
+    assert_no_jsonrpc_error(
+        &update_auto_all,
+        "update_autonomy_settings auto_approve_all",
+    );
 
     let after_auto_all = post_json_rpc(
         &rpc_base,

@@ -1057,16 +1057,14 @@ fn policy_from_config_carries_auto_approve_all() {
         auto_approve_all: true,
         ..crate::openhuman::config::AutonomyConfig::default()
     };
-    let enabled_policy =
-        SecurityPolicy::from_config(&enabled_config, &workspace, &workspace);
+    let enabled_policy = SecurityPolicy::from_config(&enabled_config, &workspace, &workspace);
     assert!(enabled_policy.auto_approve_all);
 
     let disabled_config = crate::openhuman::config::AutonomyConfig {
         auto_approve_all: false,
         ..crate::openhuman::config::AutonomyConfig::default()
     };
-    let disabled_policy =
-        SecurityPolicy::from_config(&disabled_config, &workspace, &workspace);
+    let disabled_policy = SecurityPolicy::from_config(&disabled_config, &workspace, &workspace);
     assert!(!disabled_policy.auto_approve_all);
 }
 

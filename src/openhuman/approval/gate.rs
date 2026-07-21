@@ -571,10 +571,20 @@ impl ApprovalGate {
             );
 
         if auto_all {
+            // `origin_class` is the sanitized variant label (no thread/client
+            // ids, channel sender, reply target, or message id) — safe at
+            // `info`. The full `?origin` (with those identifiers) is still
+            // available at `debug` for local troubleshooting.
             tracing::info!(
                 tool = tool_name,
-                origin = ?origin,
+                origin_class = %origin.class(),
+                auto_approved = true,
                 "[approval::gate] auto_approve_all enabled — auto-approving without prompt"
+            );
+            tracing::debug!(
+                tool = tool_name,
+                origin = ?origin,
+                "[approval::gate] auto_approve_all full origin (debug-only)"
             );
             return (GateOutcome::Allow, None);
         }
@@ -1676,7 +1686,10 @@ mod tests {
             auto_approve_all: true,
             ..crate::openhuman::security::SecurityPolicy::default()
         };
-        crate::openhuman::security::live_policy::install(
+        // Scoped: restores whatever live_policy held before this test on drop
+        // (including on panic), so a leaked `auto_approve_all: true` can never
+        // reach a sibling gate test that doesn't hold `TEST_ENV_LOCK`.
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
             Arc::new(policy),
             dir.path().to_path_buf(),
             dir.path().to_path_buf(),
@@ -1708,7 +1721,7 @@ mod tests {
             auto_approve_all: false,
             ..crate::openhuman::security::SecurityPolicy::default()
         };
-        crate::openhuman::security::live_policy::install(
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
             Arc::new(policy),
             dir.path().to_path_buf(),
             dir.path().to_path_buf(),
@@ -1736,7 +1749,10 @@ mod tests {
                 break p;
             }
             tries += 1;
-            assert!(tries < 50, "pending row never appeared — call resolved without parking");
+            assert!(
+                tries < 50,
+                "pending row never appeared — call resolved without parking"
+            );
             tokio::time::sleep(Duration::from_millis(10)).await;
         };
 
@@ -1759,7 +1775,7 @@ mod tests {
             auto_approve_all: true,
             ..crate::openhuman::security::SecurityPolicy::default()
         };
-        crate::openhuman::security::live_policy::install(
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
             Arc::new(policy),
             dir.path().to_path_buf(),
             dir.path().to_path_buf(),
@@ -1793,7 +1809,7 @@ mod tests {
             auto_approve_all: true,
             ..crate::openhuman::security::SecurityPolicy::default()
         };
-        crate::openhuman::security::live_policy::install(
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
             Arc::new(policy),
             dir.path().to_path_buf(),
             dir.path().to_path_buf(),
@@ -1824,7 +1840,7 @@ mod tests {
             auto_approve_all: true,
             ..crate::openhuman::security::SecurityPolicy::default()
         };
-        crate::openhuman::security::live_policy::install(
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
             Arc::new(policy),
             dir.path().to_path_buf(),
             dir.path().to_path_buf(),
@@ -1860,7 +1876,7 @@ mod tests {
             auto_approve_all: true,
             ..crate::openhuman::security::SecurityPolicy::default()
         };
-        crate::openhuman::security::live_policy::install(
+        let _policy_guard = crate::openhuman::security::live_policy::install_scoped(
             Arc::new(policy),
             dir.path().to_path_buf(),
             dir.path().to_path_buf(),

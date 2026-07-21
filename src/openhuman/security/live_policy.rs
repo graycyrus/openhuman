@@ -110,6 +110,61 @@ pub(crate) fn test_privacy_scope(mode: PrivacyMode) -> TestPrivacyGuard {
     TestPrivacyGuard(prev)
 }
 
+/// RAII guard returned by [`install_scoped`]. Restores the process-global
+/// live policy (and `workspace_dir`/`action_dir`) to whatever was installed
+/// before the scoped [`install`] call, on drop — including on panic/unwind, so
+/// a failed assertion mid-test still cannot leak the scoped policy (e.g.
+/// `auto_approve_all: true`) into sibling tests that don't hold
+/// `TEST_ENV_LOCK`. If nothing was installed yet when the scope started,
+/// drop restores `SecurityPolicy::default()` (safe: `auto_approve_all: false`,
+/// empty `auto_approve`) rather than leaving the scoped policy live.
+#[cfg(test)]
+pub(crate) struct TestPolicyGuard {
+    prev_policy: Arc<SecurityPolicy>,
+    prev_workspace: PathBuf,
+    prev_action: PathBuf,
+}
+
+#[cfg(test)]
+impl Drop for TestPolicyGuard {
+    fn drop(&mut self) {
+        install(
+            Arc::clone(&self.prev_policy),
+            self.prev_workspace.clone(),
+            self.prev_action.clone(),
+        );
+    }
+}
+
+/// Install `policy` as the process-global live policy for the duration of the
+/// returned guard, capturing whatever was live beforehand (or
+/// `SecurityPolicy::default()` if nothing was installed yet) so it is
+/// restored automatically when the guard drops. Callers MUST still hold
+/// `TEST_ENV_LOCK` for the scope's lifetime (this only prevents *leaking*
+/// past the end of the test, not concurrent access during it).
+#[cfg(test)]
+pub(crate) fn install_scoped(
+    policy: Arc<SecurityPolicy>,
+    workspace_dir: PathBuf,
+    action_dir: PathBuf,
+) -> TestPolicyGuard {
+    let prev_policy = current().unwrap_or_else(|| Arc::new(SecurityPolicy::default()));
+    let prev_workspace = STATE
+        .get()
+        .and_then(|s| s.workspace_dir.read().ok().map(|g| g.clone()))
+        .unwrap_or_default();
+    let prev_action = STATE
+        .get()
+        .and_then(|s| s.action_dir.read().ok().map(|g| g.clone()))
+        .unwrap_or_default();
+    install(policy, workspace_dir, action_dir);
+    TestPolicyGuard {
+        prev_policy,
+        prev_workspace,
+        prev_action,
+    }
+}
+
 /// The current live Privacy Mode, if a policy has been [`install`]ed. Falls back
 /// to [`PrivacyMode::Standard`] when no policy is installed (e.g. a CLI
 /// invocation that never started a session runtime) — i.e. no egress
