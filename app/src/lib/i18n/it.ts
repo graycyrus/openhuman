@@ -4260,7 +4260,7 @@ const messages: TranslationMap = {
   'flows.copilot.saving': 'Salvataggio…',
   'flows.copilot.enabling': 'Attivazione…',
   'flows.copilot.enableError':
-    'Salvato, ma non è stato possibile attivare il flusso di lavoro. Prova ad attivarlo dall’elenco.',
+    'Workflow salvato, ma non è stato possibile attivarlo. Riprova, oppure attivalo dalla pagina Workflows.',
   'flows.copilot.reject': 'Ignora',
   'flows.copilot.previewHint': 'Revisione di una bozza proposta: non è stato ancora salvato nulla.',
   'flows.copilot.repairDisplay': 'Un’esecuzione è fallita; esaminala e proponi una correzione.',

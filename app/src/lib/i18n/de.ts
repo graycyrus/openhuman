@@ -4310,7 +4310,7 @@ const messages: TranslationMap = {
   'flows.copilot.saving': 'Wird gespeichert…',
   'flows.copilot.enabling': 'Wird aktiviert…',
   'flows.copilot.enableError':
-    'Gespeichert, aber der Workflow konnte nicht aktiviert werden. Aktivieren Sie ihn über die Liste.',
+    'Workflow gespeichert, konnte aber nicht aktiviert werden. Versuchen Sie es erneut oder aktivieren Sie ihn auf der Workflows-Seite.',
   'flows.copilot.reject': 'Verwerfen',
   'flows.copilot.previewHint':
     'Ein vorgeschlagener Entwurf wird geprüft: es wurde noch nichts gespeichert.',

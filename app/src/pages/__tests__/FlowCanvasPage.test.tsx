@@ -1058,6 +1058,73 @@ describe('FlowCanvasPage copilot proposal name adoption', () => {
       expect(setFlowEnabled).toHaveBeenCalledWith('created-id', true);
     });
 
+    it('on a draft "Save & enable", runs enable BEFORE navigating, and swallows an enable failure (flow saved, armed from its own page)', async () => {
+      createFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Standup reminder' }));
+      getFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Standup reminder' }));
+      setFlowEnabled.mockRejectedValue(new Error('enable rpc failed'));
+      render(
+        <MemoryRouter
+          initialEntries={[
+            {
+              pathname: '/flows/draft',
+              state: {
+                name: 'New workflow',
+                graph: {
+                  schema_version: 1,
+                  name: 'New workflow',
+                  nodes: [
+                    {
+                      id: 't',
+                      kind: 'trigger',
+                      name: 'Start',
+                      config: {},
+                      ports: [],
+                      position: { x: 0, y: 0 },
+                    },
+                  ],
+                  edges: [],
+                },
+                requireApproval: false,
+              },
+            },
+          ]}>
+          <Routes>
+            <Route path="/flows/draft" element={<FlowCanvasDraftPage />} />
+            <Route path="/flows/:id" element={<FlowCanvasPage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+      let caughtErr: unknown;
+      await act(async () => {
+        try {
+          await (
+            copilotPanelProps.current?.onAccept as (
+              p: WorkflowProposal,
+              opts?: { enable?: boolean }
+            ) => Promise<void>
+          )(makeProposal(), { enable: true });
+        } catch (err) {
+          caughtErr = err;
+        }
+      });
+
+      // On a draft the create succeeds first, so the enable is attempted
+      // BEFORE the deferred navigation (the whole point of the fix — otherwise
+      // navigate would unmount this page and the enable RPC would resolve
+      // against a dead component). And because the flow IS saved, a draft
+      // enable failure must NOT rethrow: rethrowing would strand the user on
+      // the draft and a retry would create a DUPLICATE flow. Instead we
+      // navigate to the real flow and let the user arm it there. (Contrast the
+      // existing-flow rethrow test above, which keeps the proposal for retry.)
+      expect(createFlow).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(setFlowEnabled).toHaveBeenCalledWith('created-id', true));
+      expect(caughtErr).toBeUndefined();
+      // Navigation to the real flow happened afterward (its page fetches it).
+      await waitFor(() => expect(getFlow).toHaveBeenCalledWith('created-id'));
+    });
+
     it('does NOT call setFlowEnabled for a plain Accept & save (no opts)', async () => {
       getFlow.mockResolvedValue(makeFlow({ id: 'test-id' }));
       renderEditor();

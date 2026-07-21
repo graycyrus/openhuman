@@ -500,8 +500,17 @@ function FlowEditor({
     async (
       next: WorkflowGraph,
       overrideName?: string,
-      overrideRequireApproval?: boolean
-    ): Promise<{ remounted: boolean; flowId: string; flowEnabled: boolean }> => {
+      overrideRequireApproval?: boolean,
+      // When true, a draft-create does NOT navigate to `/flows/:id` itself —
+      // the caller owns navigation timing. `handleAcceptProposal`'s
+      // "Save & enable" needs this: it must run `setFlowEnabled` on the
+      // just-created flow BEFORE the route change unmounts this page, else the
+      // enable RPC resolves against an unmounted component (its loading/error
+      // state is lost and the new page shows the flow still disabled). The
+      // `wasDraft` flag in the return tells the caller navigation is now its
+      // responsibility.
+      deferDraftNavigation?: boolean
+    ): Promise<{ remounted: boolean; flowId: string; flowEnabled: boolean; wasDraft: boolean }> => {
       // `overrideName` covers the copilot-Accept call site: it calls
       // `setName(proposal.name)` and `handleSave(...)` in the same handler,
       // but `name` in THIS closure is still the pre-update value — React
@@ -527,15 +536,23 @@ function FlowEditor({
         );
         const created = await createFlow(effectiveName, next, effectiveRequireApproval);
         log('save: draft persisted as flow id=%s enabled=%s', created.id, created.enabled);
-        navigate(`/flows/${created.id}`, { replace: true });
+        if (!deferDraftNavigation) {
+          navigate(`/flows/${created.id}`, { replace: true });
+        }
         // Navigating replaces this whole page (new `flowId` route param), so
         // "remounted" is moot for a draft-create — no caller branches on it.
         // `flowId`/`flowEnabled` DO matter — a "Save & enable" caller reads
         // them to arm the just-created flow (B29 Rule 1 always persists an
         // automatic-trigger draft disabled, regardless of the caller's
         // intent), and this RPC response is the only place that id/enabled
-        // pair is available before the route change lands.
-        return { remounted: false, flowId: created.id, flowEnabled: created.enabled };
+        // pair is available before the route change lands. `wasDraft` lets a
+        // `deferDraftNavigation` caller know it now owns the navigation.
+        return {
+          remounted: false,
+          flowId: created.id,
+          flowEnabled: created.enabled,
+          wasDraft: true,
+        };
       }
       // Only include `name` / `requireApproval` in the update payload when
       // they actually diverge from what's already persisted (a manual
@@ -593,7 +610,7 @@ function FlowEditor({
         graphChanged,
         updated.enabled
       );
-      return { remounted: graphChanged, flowId, flowEnabled: updated.enabled };
+      return { remounted: graphChanged, flowId, flowEnabled: updated.enabled, wasDraft: false };
     },
     [isDraft, flowId, name, requireApproval, navigate]
   );
@@ -707,7 +724,15 @@ function FlowEditor({
           remounted,
           flowId: savedFlowId,
           flowEnabled,
-        } = await handleSave(proposedGraph, overrideName, proposal.requireApproval);
+          wasDraft,
+        } = await handleSave(
+          proposedGraph,
+          overrideName,
+          proposal.requireApproval,
+          // Defer a draft-create's navigation so a "Save & enable" arms the
+          // flow BEFORE this page unmounts — see `deferDraftNavigation`.
+          true
+        );
         // The canvas remounted once already (this handler's own bump above)
         // with `forcedDirty` seeded `true` — correct pre-persist, but that
         // instance's `forcedDirty` is only ever cleared by ITS OWN save()/
@@ -736,8 +761,31 @@ function FlowEditor({
         // proposal visible for retry rather than silently vanishing.
         if (opts?.enable) {
           log('copilot proposal accepted: enabling flow id=%s', savedFlowId);
-          await setFlowEnabled(savedFlowId, true);
-          log('copilot proposal accepted: enable succeeded id=%s', savedFlowId);
+          try {
+            await setFlowEnabled(savedFlowId, true);
+            log('copilot proposal accepted: enable succeeded id=%s', savedFlowId);
+          } catch (enableErr) {
+            // The flow IS saved at this point. On a DRAFT we must still
+            // navigate to the created flow (below) or a retry would create a
+            // duplicate — so we can't keep the proposal for an in-place retry;
+            // swallow here and let the user arm it from the flow page (matches
+            // the "Saved, but could not enable" guidance). On an EXISTING flow
+            // there's no navigation, so rethrow to keep the proposal visible
+            // for retry, preserving the pre-existing behavior.
+            if (!wasDraft) throw enableErr;
+            log(
+              'copilot proposal accepted: enable failed on draft; flow saved-but-disabled id=%s err=%o',
+              savedFlowId,
+              enableErr
+            );
+          }
+        }
+
+        // Draft navigation was deferred so the "Save & enable" arm could run
+        // first; now that persist + enable have settled, move to the real flow
+        // route. A non-draft accept stays on its existing `/flows/:id` page.
+        if (wasDraft) {
+          navigate(`/flows/${savedFlowId}`, { replace: true });
         }
       } catch (err) {
         log('copilot proposal accepted: save/enable failed err=%o', err);
