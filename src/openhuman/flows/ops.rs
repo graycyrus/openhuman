@@ -4284,16 +4284,23 @@ fn restrict_builder_toolset(agent: &mut crate::openhuman::agent::Agent) {
 /// rendered with the existing `ApprovalRequestCard` in the copilot panel. So
 /// `run_flow` and `resume_flow_run` — both `external_effect() == true` — no
 /// longer need to be hidden on this path: they are reachable, but gated
-/// behind a real approval, exactly like a main-chat tool call. `cancel_flow_run`
-/// is likewise unhidden — it fires no new outbound effect
-/// (`external_effect() == false`) and is a legitimate companion action once a
-/// live run is reachable at all (stop a run the copilot itself started).
+/// behind a real approval, exactly like a main-chat tool call.
+///
+/// `cancel_flow_run` stays HIDDEN on this path, though. It reports
+/// `external_effect() == false`, so `ApprovalSecurityMiddleware` would not park
+/// it behind the approval surface — and the tool cancels an arbitrary run id
+/// (e.g. one read from `list_flow_runs`) with no ownership check. An unhidden
+/// `cancel_flow_run` would therefore let a streaming copilot turn cancel ANY
+/// in-flight or approval-parked run, unapproved — far broader than the "stop a
+/// run the copilot itself started" companion use it was meant for. Until it
+/// gains an ownership/approval guard it is kept hidden here (a user can still
+/// cancel from the Runs rail). (codex review, #5090.)
 ///
 /// `run_workflow` (the unrelated legacy skills-workflow runner sharing this
 /// belt) stays hidden on BOTH paths — belt-and-braces against a re-rename or
 /// the name ever leaking back onto the `workflow_builder` toolset; `hide_tools`
 /// no-ops on a name that isn't present.
-const FLOWS_BUILD_COPILOT_HIDDEN_TOOLS: &[&str] = &["run_workflow"];
+const FLOWS_BUILD_COPILOT_HIDDEN_TOOLS: &[&str] = &["run_workflow", "cancel_flow_run"];
 
 /// Strip only [`FLOWS_BUILD_COPILOT_HIDDEN_TOOLS`] from `agent`'s callable set
 /// on the streaming `flows_build` path (copilot pane with a real approval
@@ -4302,8 +4309,9 @@ fn restrict_builder_toolset_for_copilot(agent: &mut crate::openhuman::agent::Age
     tracing::info!(
         target: "flows",
         hidden = ?FLOWS_BUILD_COPILOT_HIDDEN_TOOLS,
-        "[flows] flows_build: streaming copilot turn — run_flow/resume_flow_run/cancel_flow_run \
-         stay visible, gated behind the WebChat approval surface instead of hidden"
+        "[flows] flows_build: streaming copilot turn — run_flow/resume_flow_run stay visible \
+         (gated behind the WebChat approval surface); run_workflow + cancel_flow_run hidden \
+         (cancel_flow_run has no external_effect to park and no run-ownership guard)"
     );
     agent.hide_tools(FLOWS_BUILD_COPILOT_HIDDEN_TOOLS);
 }

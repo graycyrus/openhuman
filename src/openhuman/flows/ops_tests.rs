@@ -3893,10 +3893,12 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
 fn flows_build_hide_lists_have_the_expected_contents() {
     assert_eq!(
         FLOWS_BUILD_COPILOT_HIDDEN_TOOLS,
-        ["run_workflow"],
-        "the streaming (copilot) hide-list must hide ONLY the unrelated legacy \
-         `run_workflow` tool — `run_flow`/`resume_flow_run`/`cancel_flow_run` must \
-         stay visible there, gated by the WebChat approval surface instead"
+        ["run_workflow", "cancel_flow_run"],
+        "the streaming (copilot) hide-list must hide the legacy `run_workflow` AND \
+         `cancel_flow_run` — the latter has no external_effect to park and no \
+         run-ownership guard (codex #5090), so it must NOT be exposed unapproved; \
+         only `run_flow`/`resume_flow_run` stay visible, gated by the WebChat \
+         approval surface"
     );
     for tool in [
         "run_workflow",
@@ -3913,10 +3915,11 @@ fn flows_build_hide_lists_have_the_expected_contents() {
 }
 
 /// Streaming (copilot) path: `restrict_builder_toolset_for_copilot` leaves
-/// `run_flow` / `resume_flow_run` / `cancel_flow_run` visible on the builder's
-/// belt — they're gated by the WebChat approval surface, not hidden — while
-/// still hiding the unrelated legacy `run_workflow` and keeping every
-/// authoring tool reachable (PR3: flows-copilot-live-run-approval).
+/// `run_flow` / `resume_flow_run` visible on the builder's belt — they're gated
+/// by the WebChat approval surface, not hidden — while hiding the unrelated
+/// legacy `run_workflow` AND `cancel_flow_run` (the latter can't be parked and
+/// has no run-ownership guard — codex #5090) and keeping every authoring tool
+/// reachable (PR3: flows-copilot-live-run-approval).
 #[tokio::test]
 async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
     let tmp = TempDir::new().unwrap();
@@ -3932,18 +3935,20 @@ async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
     restrict_builder_toolset_for_copilot(&mut agent);
 
     let visible = agent.visible_tool_names_for_test();
-    for still_reachable in ["run_flow", "resume_flow_run", "cancel_flow_run"] {
+    for still_reachable in ["run_flow", "resume_flow_run"] {
         assert!(
             visible.contains(still_reachable),
             "`{still_reachable}` must stay reachable on the streaming copilot path — it \
              is gated behind the WebChat approval surface, not hidden; visible = {visible:?}"
         );
     }
-    assert!(
-        !visible.contains("run_workflow"),
-        "the unrelated legacy `run_workflow` tool must still be hidden on the copilot \
-         path; visible = {visible:?}"
-    );
+    for hidden in ["run_workflow", "cancel_flow_run"] {
+        assert!(
+            !visible.contains(hidden),
+            "`{hidden}` must stay hidden on the copilot path (legacy runner / \
+             unparkable-and-unguarded cancel — codex #5090); visible = {visible:?}"
+        );
+    }
     for keep in [
         "propose_workflow",
         "revise_workflow",
