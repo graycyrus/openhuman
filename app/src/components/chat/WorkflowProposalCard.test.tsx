@@ -96,6 +96,51 @@ describe('WorkflowProposalCard', () => {
     expect(screen.queryByText('future_thing')).not.toBeInTheDocument();
   });
 
+  // `step.kind` is arbitrary wire data. A plain bracket index would resolve
+  // inherited Object members (e.g. `constructor` -> the Object function) and
+  // hand a non-string to t(), breaking the badge render. The own-property
+  // guard must send these through the humanized fallback instead. `constructor`
+  // and `toString` have no underscores, so the humanized label is just the
+  // capitalized kind.
+  it.each(['constructor', 'toString'])(
+    'humanizes the inherited-property kind %s instead of resolving it on the prototype',
+    (kind) => {
+      render(
+        <WorkflowProposalCard
+          threadId="t1"
+          proposal={proposal({
+            summary: {
+              trigger: 'manual',
+              steps: [{ kind, name: 'Edge-case step' }],
+            },
+          })}
+        />
+      );
+      const expected = kind.charAt(0).toUpperCase() + kind.slice(1);
+      expect(screen.getByText(expected)).toBeInTheDocument();
+      expect(screen.getByText('Edge-case step')).toBeInTheDocument();
+    }
+  );
+
+  it('renders a __proto__ step kind without leaking an inherited property', () => {
+    render(
+      <WorkflowProposalCard
+        threadId="t1"
+        proposal={proposal({
+          summary: {
+            trigger: 'manual',
+            steps: [{ kind: '__proto__', name: 'Proto step' }],
+          },
+        })}
+      />
+    );
+    // The own-property guard treats __proto__ as unknown and humanizes it, so
+    // the row still renders (step name present) and no function/object leaks
+    // into the badge label.
+    expect(screen.getByText('Proto step')).toBeInTheDocument();
+    expect(screen.queryByText('function', { exact: false })).not.toBeInTheDocument();
+  });
+
   it('has the expected root test id', () => {
     render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);
     expect(screen.getByTestId('workflow-proposal-card')).toBeInTheDocument();

@@ -46,6 +46,20 @@ function humanizeUnknownStepKind(kind: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/**
+ * Resolve the i18n key for a mapped `step.kind`, guarding against inherited
+ * Object properties. `step.kind` is arbitrary wire data, so a plain bracket
+ * index (`STEP_KIND_I18N_KEYS[step.kind]`) would resolve inherited members for
+ * values like `constructor` or `__proto__` — handing a function/object to
+ * `t()` and breaking the badge render. Only own keys count; anything else
+ * returns `undefined` so the caller falls back to `humanizeUnknownStepKind`.
+ */
+function stepKindI18nKey(kind: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(STEP_KIND_I18N_KEYS, kind)
+    ? STEP_KIND_I18N_KEYS[kind]
+    : undefined;
+}
+
 interface Props {
   threadId: string;
   proposal: WorkflowProposal;
@@ -214,7 +228,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
             {proposal.summary.steps.length > 0 ? (
               <ol className="mt-1 max-h-56 list-decimal overflow-y-auto pl-6 text-content-secondary">
                 {proposal.summary.steps.map((step, i) => {
-                  const kindI18nKey = STEP_KIND_I18N_KEYS[step.kind];
+                  const kindI18nKey = stepKindI18nKey(step.kind);
                   const kindLabel = kindI18nKey
                     ? t(kindI18nKey)
                     : humanizeUnknownStepKind(step.kind);
