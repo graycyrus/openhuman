@@ -1,10 +1,10 @@
 # App State
 
-Aggregator that the React shell polls every few seconds to render the OS-level chrome (auth user, autocomplete status, accessibility status, local-AI status, service health, onboarding tasks). Owns the on-disk `app-state.json`, an in-memory current-user cache, and the merge/patch surface for shell-managed local fields. Does NOT own any of the underlying domain state — it only assembles snapshots from peer domains and persists shell-side onboarding metadata.
+Aggregator that the React shell polls every few seconds to render the OS-level chrome (auth user, accessibility status, local-AI status, service health, onboarding tasks). Owns the on-disk `app-state.json`, an in-memory current-user cache, and the merge/patch surface for shell-managed local fields. Does NOT own any of the underlying domain state — it only assembles snapshots from peer domains and persists shell-side onboarding metadata.
 
 ## Public surface
 
-- `pub struct AppStateSnapshot` — `ops.rs` — composite payload returned to the shell (auth user, runtime status, autocomplete, local AI, accessibility, onboarding).
+- `pub struct AppStateSnapshot` — `ops.rs` — composite payload returned to the shell (auth user, runtime status, local AI, accessibility, onboarding).
 - `pub struct RuntimeSnapshot` — `ops.rs` — runtime sub-section of the snapshot.
 - `pub struct StoredAppState` — `ops.rs` — disk schema persisted to `<workspace>/app-state.json`.
 - `pub struct StoredAppStatePatch` — `ops.rs` — partial-update payload used by `update_local_state`.
@@ -16,7 +16,6 @@ Aggregator that the React shell polls every few seconds to render the OS-level c
 ## Calls into
 
 - `src/openhuman/config/` — `config_rpc::*` for `Config` reads and the workspace dir resolver.
-- `src/openhuman/autocomplete/` — `AutocompleteStatus` snapshot.
 - `src/openhuman/inference/local/` — `LocalAiStatus` snapshot.
 - `src/openhuman/screen_intelligence/` — `AccessibilityStatus` snapshot.
 - `src/openhuman/service/` — `ServiceState` / `ServiceStatus` runtime info.

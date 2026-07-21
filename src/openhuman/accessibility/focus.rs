@@ -150,12 +150,10 @@ fn focused_text_via_helper() -> Result<FocusedTextContext, String> {
 /// Focus query via osascript (fallback when helper is unavailable).
 ///
 /// Short-circuits when `automation_state::system_events_denied()` is set
-/// (the autocomplete refresh loop captured `(-1743)` from a prior
-/// osascript invocation). This stops re-firing osascript — and the
-/// macOS Apple Events consent popup — once we've observed the denial
-/// within the current session. The flag clears on
-/// `autocomplete::start_if_enabled` so a user-initiated re-engagement
-/// after granting via System Settings re-probes naturally.
+/// (some prior osascript invocation captured `(-1743)`). This stops
+/// re-firing osascript — and the macOS Apple Events consent popup — once
+/// we've observed the denial within the current session. See
+/// `automation_state`'s module docs for how the flag is set/cleared.
 #[cfg(target_os = "macos")]
 fn focused_text_via_osascript() -> Result<FocusedTextContext, String> {
     if super::automation_state::system_events_denied() {

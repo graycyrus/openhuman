@@ -117,10 +117,9 @@ describe('entriesForSection', () => {
   });
 
   it('excludes hidden deep-links', () => {
-    // 'autocomplete' and 'permissions' are section: 'developer' + hiddenDeepLink.
+    // 'permissions' is section: 'developer' + hiddenDeepLink.
     const devEntries = entriesForSection('developer');
     const ids = devEntries.map(e => e.id);
-    expect(ids).not.toContain('autocomplete');
     expect(ids).not.toContain('permissions');
   });
 

@@ -1,13 +1,13 @@
 ---
 description: >-
-  On-device screen capture, OCR + vision summarization, input automation, and
-  inline autocomplete, gated behind explicit macOS privacy permissions.
+  On-device screen capture, OCR + vision summarization, and input automation,
+  gated behind explicit macOS privacy permissions.
 icon: scan-eye
 ---
 
 # Screen Intelligence
 
-Screen Intelligence lets the agent see what you're working on. When you start a consent-gated session, OpenHuman periodically screenshots your **active window**, runs it through on-device OCR and a local vision model, and synthesizes a short "what the user is doing right now" note into memory. On top of that capture loop it offers **input automation** (text staging, keyboard actions, a panic stop) and a separate **system-wide autocomplete** that suggests inline text completions in any focused field.
+Screen Intelligence lets the agent see what you're working on. When you start a consent-gated session, OpenHuman periodically screenshots your **active window**, runs it through on-device OCR and a local vision model, and synthesizes a short "what the user is doing right now" note into memory. On top of that capture loop it offers **input automation** (text staging, keyboard actions, a panic stop).
 
 Everything runs locally. Capture, OCR, and summarization happen on your machine using the local model (Ollama); nothing is sent to the cloud as part of this feature.
 
@@ -47,15 +47,15 @@ The capture-side autocomplete helpers (`autocomplete_suggest` / `autocomplete_co
 
 ## Autocomplete
 
-Separate from the capture session, OpenHuman ships a **system-wide inline autocomplete** engine (the `autocomplete` domain). It is also **macOS-only** at runtime.
+OpenHuman also ships an **in-app inline autocomplete** engine (the `autocomplete` domain, cross-platform — no macOS-only gate). The chat composer polls it with its current draft text and renders the suggestion as ghost text.
 
-* It captures your currently-focused text field through the macOS accessibility (AX) layer, runs **local** inference to generate a short single-line continuation, and renders it in a floating overlay badge.
-* Press **Tab** to accept (it inserts the text and cleans up any stray indentation the app added), or **Escape** to reject.
-* Accepted completions are saved as personalization examples in a local KV store and a local memory-doc namespace, and feed back into later suggestions.
-* It special-cases terminals (extracting just the input line), skips blocked/disabled apps and OpenHuman's own window, and filters low-quality suggestions (too short, no alphanumerics, or an echo of what you just typed).
-* Debounce is clamped between 50 and 2000 ms; the displayed/applied suggestion is capped at 64 characters. After 5 consecutive inference failures the engine auto-stops to avoid notification floods.
+* The composer passes its draft text as explicit `context` — there is no accessibility/focus capture involved, and no separate overlay UI; the suggestion renders inline in the composer itself.
+* Press **Tab** to accept; the composer applies the text itself and tells the engine `skip_apply: true`.
+* Accepted completions are saved as personalization examples in a local KV store and a local memory-doc namespace, and feed back into later suggestions (via the static configured style examples — semantic/recency history lookups are skipped to keep in-app typing latency low).
+* It filters low-quality suggestions (too short, no alphanumerics, or an echo of what you just typed).
+* The displayed/applied suggestion is capped at 64 characters.
 
-There is also an in-app path: the OpenHuman composer passes an explicit `context` to the engine, bypassing AX capture entirely.
+> A system-wide macOS accessibility overlay used to live alongside this (capturing the focused field in *any* app via AX/osascript, with its own Tab/Escape key polling and floating badge). It was removed as dead weight — the in-app path above is what the composer actually uses.
 
 ***
 
@@ -66,8 +66,8 @@ Capture and automation require macOS privacy grants. OpenHuman detects each one 
 | Permission | Why it's needed | Detected via |
 | --- | --- | --- |
 | **Screen Recording** | Screenshot the active window for OCR + vision. | `CGPreflightScreenCaptureAccess` |
-| **Accessibility** | Read the foreground window/element, capture focused text, and insert text (required to start a session and to run autocomplete). | `AXIsProcessTrusted` |
-| **Input Monitoring** | Listen for accept/reject key edges (Tab/Escape) and the Globe/Fn hotkey. | `IOHIDCheckAccess` |
+| **Accessibility** | Read the foreground window/element, capture focused text, and insert text (required to start a session). | `AXIsProcessTrusted` |
+| **Input Monitoring** | Listen for the Globe/Fn hotkey. | `IOHIDCheckAccess` |
 | **Microphone** | Voice features (cross-platform; the only permission detected off macOS). | CPAL device probe |
 
 > **Restart after granting.** macOS TCC grants are per-executable **and per-process**, so a running core never sees a freshly granted permission. After you grant a permission you must restart the core for it to take effect. The status payload carries `permission_check_process_path` and the core process pid/start time so the UI can confirm a restart actually happened. The panel exposes a "refresh with restart" action for this.

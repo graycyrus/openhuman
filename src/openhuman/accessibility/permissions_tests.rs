@@ -153,7 +153,8 @@ fn permission_state_serde_round_trip() {
 // that the flag is `AtomicBool` initialized to `false` — each new process
 // starts clean. The tests below verify the clean-start invariant at the
 // module level and that `clear()` restores the initial state, which is the
-// mechanism used by `autocomplete::start_if_enabled` on re-engagement.
+// re-engagement mechanism intended for any future osascript-driven caller
+// (see `automation_state`'s module docs).
 
 mod automation_state_stale_cache {
     use crate::openhuman::accessibility::automation_state;

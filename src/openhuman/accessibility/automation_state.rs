@@ -16,17 +16,21 @@
 //! error code that's already produced by the existing fallback path —
 //! capturing it costs nothing extra and avoids the FFI entirely.
 //!
-//! The flag is cleared at the top of `autocomplete::start_if_enabled`
-//! so a user-initiated re-engagement (toggle autocomplete off+on after
-//! granting via System Settings) re-probes naturally on the next tick.
+//! `mark_system_events_denied()` / `clear()` have no production caller today:
+//! their only caller was the system-wide autocomplete overlay's background
+//! refresh loop (macOS AX capture of the frontmost app via osascript), which
+//! was removed — see `src/openhuman/autocomplete/core/engine.rs`. The flag
+//! and its `focus.rs` / `paste.rs` short-circuit checks are left in place as
+//! shared, domain-agnostic infrastructure for any future osascript-driven
+//! accessibility caller that wants the same -1743 short-circuit.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static SYSTEM_EVENTS_DENIED: AtomicBool = AtomicBool::new(false);
 
 /// Mark that osascript has returned -1743 for `tell application "System
-/// Events"` in this process. Called from the autocomplete refresh-loop
-/// error branch when the sentinel substring is observed.
+/// Events"` in this process. No production call site today (see module
+/// docs); available for a future osascript-driven caller to wire up.
 pub fn mark_system_events_denied() {
     SYSTEM_EVENTS_DENIED.store(true, Ordering::Relaxed);
 }
@@ -38,10 +42,9 @@ pub fn system_events_denied() -> bool {
     SYSTEM_EVENTS_DENIED.load(Ordering::Relaxed)
 }
 
-/// Reset the denial flag. Called from `autocomplete::start_if_enabled`
-/// so an explicit re-engagement (user toggled autocomplete off+on, or
-/// the engine was started fresh) re-probes via the next osascript tick
-/// instead of inheriting a stale denial from a previous session.
+/// Reset the denial flag. No production call site today (see module docs);
+/// available for a future caller to re-probe after explicit user
+/// re-engagement instead of inheriting a stale denial from a prior session.
 pub fn clear() {
     SYSTEM_EVENTS_DENIED.store(false, Ordering::Relaxed);
 }

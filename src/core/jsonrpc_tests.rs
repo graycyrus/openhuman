@@ -296,10 +296,10 @@ async fn invoke_config_get_runtime_flags_via_registry() {
 }
 
 #[tokio::test]
-async fn invoke_autocomplete_status_rejects_unknown_param() {
+async fn invoke_autocomplete_current_rejects_unknown_param() {
     let err = invoke_method(
         default_state(),
-        "openhuman.autocomplete_status",
+        "openhuman.autocomplete_current",
         json!({ "extra": true }),
     )
     .await

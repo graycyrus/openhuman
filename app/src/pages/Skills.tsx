@@ -29,7 +29,6 @@ import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
 import WalletPanel from '../components/settings/panels/WalletPanel';
-import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
 import { SKILL_CATEGORY_ORDER, type SkillCategory } from '../components/skills/skillCategories';
@@ -43,7 +42,6 @@ import SkillSearchBar from '../components/skills/SkillSearchBar';
 import SkillsExplorerTab from '../components/skills/SkillsExplorerTab';
 import VoiceSetupModal from '../components/skills/VoiceSetupModal';
 import BetaBanner from '../components/ui/BetaBanner';
-import { useAutocompleteSkillStatus } from '../features/autocomplete/useAutocompleteSkillStatus';
 import { useScreenIntelligenceSkillStatus } from '../features/screen-intelligence/useScreenIntelligenceSkillStatus';
 import { useVoiceSkillStatus } from '../features/voice/useVoiceSkillStatus';
 import { useChannelDefinitions } from '../hooks/useChannelDefinitions';
@@ -411,7 +409,7 @@ const BUILT_IN_SKILLS: Array<{
   //   route: '/settings/screen-intelligence',
   //   icon: BUILT_IN_SKILL_ICONS.screenIntelligence,
   // },
-  // text-autocomplete + voice-stt hidden per #717 (modals/status hooks retained for re-enable).
+  // voice-stt hidden per #717 (modal/status hook retained for re-enable).
 ];
 
 // ─── Item type for unified list ────────────────────────────────────────────────
@@ -620,10 +618,8 @@ export default function Skills() {
     null
   );
   const [screenIntelligenceModalOpen, setScreenIntelligenceModalOpen] = useState(false);
-  const [autocompleteModalOpen, setAutocompleteModalOpen] = useState(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const screenIntelligenceStatus = useScreenIntelligenceSkillStatus();
-  const autocompleteStatus = useAutocompleteSkillStatus();
   const voiceStatus = useVoiceSkillStatus();
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -885,7 +881,7 @@ export default function Skills() {
           if (item.kind === 'builtin') {
             /* v8 ignore start -- BUILT_IN_SKILLS list is empty today; the per-id
                branches below are kept for re-enabling screen-intelligence /
-               text-autocomplete / voice-stt and shouldn't drag the diff-coverage
+               voice-stt and shouldn't drag the diff-coverage
                gate down while they're unreachable. */
             if (item.id === 'screen-intelligence') {
               return (
@@ -913,33 +909,6 @@ export default function Skills() {
                       return;
                     }
                     setScreenIntelligenceModalOpen(true);
-                  }}
-                />
-              );
-            }
-            if (item.id === 'text-autocomplete') {
-              return (
-                <UnifiedSkillCard
-                  key={item.id}
-                  icon={item.icon}
-                  title={item.name}
-                  description={item.description}
-                  statusLabel={autocompleteStatus.statusLabel}
-                  statusColor={autocompleteStatus.statusColor}
-                  ctaLabel={autocompleteStatus.ctaLabel}
-                  ctaVariant={autocompleteStatus.ctaVariant}
-                  testId={`skill-row-${item.id}`}
-                  ctaTestId={`skill-install-${item.id}`}
-                  onCtaClick={() => {
-                    if (
-                      autocompleteStatus.platformUnsupported ||
-                      autocompleteStatus.connectionStatus === 'connected' ||
-                      autocompleteStatus.connectionStatus === 'disconnected'
-                    ) {
-                      navigate(item.route!);
-                      return;
-                    }
-                    setAutocompleteModalOpen(true);
                   }}
                 />
               );
@@ -1485,10 +1454,6 @@ export default function Skills() {
           onClose={() => setScreenIntelligenceModalOpen(false)}
           initialStep={screenIntelligenceStatus.allPermissionsGranted ? 'enable' : 'permissions'}
         />
-      )}
-
-      {autocompleteModalOpen && (
-        <AutocompleteSetupModal onClose={() => setAutocompleteModalOpen(false)} />
       )}
 
       {voiceModalOpen && (

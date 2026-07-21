@@ -25,7 +25,7 @@ const AUTH_ME_STORE_RETRY_DELAY: Duration = Duration::from_millis(150);
 const AUTH_ME_STORE_TRANSIENT_STATUSES: &[u16] = &[408, 429, 500, 502, 503, 504, 520];
 
 /// Start all login-gated background services (local AI, voice, screen
-/// intelligence, autocomplete).  Called both from the initial boot path
+/// intelligence).  Called both from the initial boot path
 /// (when an existing session is detected) and from `store_session()` on
 /// fresh login.
 pub async fn start_login_gated_services(config: &Config) {
@@ -151,23 +151,7 @@ pub async fn start_login_gated_services(config: &Config) {
         ));
     }
 
-    // 5. Autocomplete (text suggestions + Swift overlay helper).
-    {
-        let config = config.clone();
-        tasks.push((
-            "autocomplete",
-            tokio::spawn(async move {
-                let step = std::time::Instant::now();
-                crate::openhuman::autocomplete::start_if_enabled(&config).await;
-                log::debug!(
-                    "[services] autocomplete started ({} ms)",
-                    step.elapsed().as_millis()
-                );
-            }),
-        ));
-    }
-
-    // 6. Orchestration hosted-client: read-sync loop + world-diff uploader +
+    // 5. Orchestration hosted-client: read-sync loop + world-diff uploader +
     //    one-shot history migration. Idempotent (aborts a prior session's loops
     //    first); no-op when orchestration is disabled. Runs here so both startup
     //    (already logged in) and a fresh login start the hosted-client tail.
@@ -209,29 +193,19 @@ pub async fn start_login_gated_services(config: &Config) {
 /// Stop all login-gated background services.  Called from `clear_session()`
 /// on logout so orphan processes don't consume resources.
 pub async fn stop_login_gated_services(config: &Config) {
-    // 1. Autocomplete — stop engine + Swift overlay helper.
-    {
-        let engine = crate::openhuman::autocomplete::global_engine();
-        let status = engine.status().await;
-        if status.running {
-            engine.stop(None).await;
-            log::info!("[services] autocomplete engine stopped on logout");
-        }
-    }
-
-    // 2. Voice server
+    // 1. Voice server
     if let Some(server) = crate::openhuman::voice::server::try_global_server() {
         server.stop().await;
         log::info!("[services] voice server stopped on logout");
     }
 
-    // 3. Screen intelligence server
+    // 2. Screen intelligence server
     if let Some(server) = crate::openhuman::screen_intelligence::server::try_global_server() {
         server.stop().await;
         log::info!("[services] screen intelligence server stopped on logout");
     }
 
-    // 4. Local AI — reset state to idle. We don't kill the Ollama process
+    // 3. Local AI — reset state to idle. We don't kill the Ollama process
     //    (it may be serving other clients or mid-download), but we clear
     //    the internal state so it re-bootstraps on next login.
     if config.local_ai.runtime_enabled {
@@ -240,11 +214,11 @@ pub async fn stop_login_gated_services(config: &Config) {
         log::info!("[services] local AI reset to idle on logout");
     }
 
-    // 5. Dictation listener — abort the hotkey forwarder task so it doesn't
+    // 4. Dictation listener — abort the hotkey forwarder task so it doesn't
     //    accumulate duplicate rdev listeners across logout → login cycles.
     crate::openhuman::voice::dictation_listener::stop();
 
-    // 6. Always-on listening — disable the runtime gate so the mic capture loop
+    // 5. Always-on listening — disable the runtime gate so the mic capture loop
     //    stops transcribing/delivering after logout (no audio processed while
     //    logged out). Symmetric with start_login_gated_services step 3b.
     crate::openhuman::voice::always_on::stop();
@@ -626,7 +600,7 @@ async fn store_session_inner(
         logs.push("subconscious engine bootstrapped".to_string());
     }
 
-    // Start all login-gated services (voice, autocomplete, screen
+    // Start all login-gated services (voice, screen
     // intelligence, local AI). Uses the effective config so services see
     // the user-scoped workspace directory.
     start_login_gated_services(&effective_config).await;
@@ -758,7 +732,7 @@ pub async fn clear_session(config: &Config) -> Result<RpcOutcome<serde_json::Val
         }
     }
 
-    // Stop all login-gated services (voice, autocomplete, screen
+    // Stop all login-gated services (voice, screen
     // intelligence, local AI) so they don't run as orphan processes after
     // logout, consuming RAM/CPU with no user context to operate against.
     stop_login_gated_services(config).await;

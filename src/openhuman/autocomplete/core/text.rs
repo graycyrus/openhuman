@@ -42,10 +42,6 @@ pub(super) fn sanitize_suggestion(text: &str) -> String {
     truncate_head(&cleaned, MAX_SUGGESTION_CHARS)
 }
 
-pub(super) fn is_no_text_candidate_error(err: &str) -> bool {
-    err.contains("ERROR:no_text_candidate_found")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,34 +160,5 @@ mod tests {
         // Bare \r is NOT treated as a line ending by lines(), so it stays in the
         // first-line content and is then removed by replace('\r', "").
         assert_eq!(sanitize_suggestion("hello\rworld"), "helloworld");
-    }
-
-    // --- is_no_text_candidate_error ---
-
-    #[test]
-    fn is_no_text_candidate_error_exact_match() {
-        assert!(is_no_text_candidate_error("ERROR:no_text_candidate_found"));
-    }
-
-    #[test]
-    fn is_no_text_candidate_error_substring_match() {
-        assert!(is_no_text_candidate_error(
-            "AX query failed: ERROR:no_text_candidate_found"
-        ));
-    }
-
-    #[test]
-    fn is_no_text_candidate_error_unrelated_error() {
-        assert!(!is_no_text_candidate_error("some other error"));
-    }
-
-    #[test]
-    fn is_no_text_candidate_error_empty_string() {
-        assert!(!is_no_text_candidate_error(""));
-    }
-
-    #[test]
-    fn is_no_text_candidate_error_partial_prefix_no_match() {
-        assert!(!is_no_text_candidate_error("ERROR:no_text"));
     }
 }

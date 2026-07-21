@@ -203,7 +203,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         domain: "conversation",
         category: CapabilityCategory::Conversation,
         description: "Show predictive inline text suggestions while you type.",
-        how_to: "Settings > Inline Autocomplete",
+        how_to: "Automatic in the chat composer — accept a suggestion with Tab.",
         status: CapabilityStatus::Beta,
         privacy: None,
     },

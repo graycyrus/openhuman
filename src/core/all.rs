@@ -372,7 +372,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Web3,
         crate::openhuman::x402::all_x402_registered_controllers(),
     );
-    // Inline autocomplete settings
+    // In-app inline autocomplete (composer suggestion polling + accept)
     push(
         &mut controllers,
         DomainGroup::Platform,
@@ -894,7 +894,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
         "auth" => Some("Manage app session and provider credentials."),
         "agent_experience" => Some("Local procedural experience capture and retrieval for agents."),
-        "autocomplete" => Some("Inline autocomplete engine controls and style settings."),
+        "autocomplete" => Some("In-app inline autocomplete: poll for a suggestion and accept it."),
         "channels" => Some("Channel definitions, connections, and lifecycle management."),
         "composio" => Some(
             "Composio OAuth integrations proxied via the backend — toolkits, connections, tools, and actions."

@@ -1069,6 +1069,46 @@ enabled = false
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
+/// Same as [`write_min_config_with_local_ai_disabled`] but also flips
+/// `[autocomplete].enabled` on — the in-app autocomplete engine's `enabled`
+/// gate defaults to `false`, and there is no longer a `set_style` RPC to
+/// toggle it at runtime (removed with the system-wide overlay, issue #5056).
+fn write_min_config_with_autocomplete_enabled(openhuman_dir: &Path, api_origin: &str) {
+    let cfg = format!(
+        r#"api_url = "{api_origin}"
+default_model = "e2e-mock-model"
+default_temperature = 0.7
+chat_onboarding_completed = true
+
+[secrets]
+encrypt = false
+
+[local_ai]
+enabled = false
+
+[autocomplete]
+enabled = true
+"#
+    );
+    fn write_config_file(config_dir: &Path, cfg: &str) {
+        std::fs::create_dir_all(config_dir).expect("mkdir openhuman");
+        let path = config_dir.join("config.toml");
+        std::fs::write(&path, cfg).expect("write config");
+    }
+
+    write_config_file(openhuman_dir, &cfg);
+
+    if openhuman_dir
+        .file_name()
+        .is_some_and(|name| name == std::ffi::OsStr::new(".openhuman"))
+    {
+        write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
+    }
+
+    let _: openhuman_core::openhuman::config::Config =
+        toml::from_str(&cfg).expect("config toml must match Config schema");
+}
+
 fn write_model_council_unreachable_inference_config(openhuman_dir: &Path, api_origin: &str) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
@@ -6064,13 +6104,6 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
         "expected runtime.localAi object: {runtime}"
     );
     assert!(
-        runtime
-            .get("autocomplete")
-            .and_then(Value::as_object)
-            .is_some(),
-        "expected runtime.autocomplete object: {runtime}"
-    );
-    assert!(
         runtime.get("service").and_then(Value::as_object).is_some(),
         "expected runtime.service object: {runtime}"
     );
@@ -7452,9 +7485,14 @@ async fn json_rpc_screen_intelligence_vision_recent_returns_empty_without_sessio
     rpc_join.abort();
 }
 
-#[cfg(target_os = "macos")]
+/// The system-wide macOS overlay ("Path A": status/start/stop/set_style/
+/// debug_focus/history-listing) was removed (issue #5056) — the OpenHuman
+/// composer only ever calls `autocomplete_current` and `autocomplete_accept`
+/// ("Path B"), so that's all this flow exercises now. `[autocomplete].enabled`
+/// is flipped on via the config file directly since there is no longer a
+/// `set_style` RPC to do it at runtime.
 #[tokio::test]
-async fn json_rpc_autocomplete_runtime_settings_and_logs_flow() {
+async fn json_rpc_autocomplete_current_and_accept_flow() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -7467,127 +7505,11 @@ async fn json_rpc_autocomplete_runtime_settings_and_logs_flow() {
 
     let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let mock_origin = format!("http://{}", mock_addr);
-    write_min_config_with_local_ai_disabled(&openhuman_home, &mock_origin);
+    write_min_config_with_autocomplete_enabled(&openhuman_home, &mock_origin);
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{}", rpc_addr);
     tokio::time::sleep(Duration::from_millis(100)).await;
-
-    let set_style = post_json_rpc(
-        &rpc_base,
-        2001,
-        "openhuman.autocomplete_set_style",
-        json!({
-            "enabled": true,
-            "debounce_ms": 180,
-            "max_chars": 160,
-            "accept_with_tab": false,
-            "style_preset": "balanced",
-            "style_examples": ["[mail] ...Can you share an update? → Can you share a quick update?"],
-            "disabled_apps": []
-        }),
-    )
-    .await;
-    let set_style_outer = assert_no_jsonrpc_error(&set_style, "autocomplete_set_style");
-    let set_style_payload = set_style_outer.get("result").unwrap_or(set_style_outer);
-    let set_style_logs = set_style_outer
-        .get("logs")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    assert_eq!(
-        set_style_payload
-            .get("config")
-            .and_then(|v| v.get("debounce_ms"))
-            .and_then(Value::as_u64),
-        Some(180)
-    );
-    assert_eq!(
-        set_style_payload
-            .get("config")
-            .and_then(|v| v.get("max_chars"))
-            .and_then(Value::as_u64),
-        Some(160)
-    );
-    assert!(
-        set_style_logs.iter().any(|entry| {
-            entry
-                .as_str()
-                .map(|s| s.contains("[autocomplete] set_style"))
-                .unwrap_or(false)
-        }),
-        "expected structured set_style log line: {set_style_outer}"
-    );
-
-    let cfg = post_json_rpc(&rpc_base, 2002, "openhuman.config_get", json!({})).await;
-    let cfg_outer = assert_no_jsonrpc_error(&cfg, "get_config");
-    let cfg_payload = cfg_outer.get("result").unwrap_or(cfg_outer);
-    let cfg_autocomplete = cfg_payload
-        .get("config")
-        .and_then(|v| v.get("autocomplete"))
-        .expect("autocomplete config should exist");
-    assert_eq!(
-        cfg_autocomplete.get("debounce_ms").and_then(Value::as_u64),
-        Some(180)
-    );
-    assert_eq!(
-        cfg_autocomplete.get("max_chars").and_then(Value::as_u64),
-        Some(160)
-    );
-    assert_eq!(
-        cfg_autocomplete
-            .get("accept_with_tab")
-            .and_then(Value::as_bool),
-        Some(false)
-    );
-
-    let start = post_json_rpc(
-        &rpc_base,
-        2003,
-        "openhuman.autocomplete_start",
-        json!({ "debounce_ms": 180 }),
-    )
-    .await;
-    let start_outer = assert_no_jsonrpc_error(&start, "autocomplete_start");
-    let start_logs = start_outer
-        .get("logs")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    assert!(
-        start_logs.iter().any(|entry| {
-            entry
-                .as_str()
-                .map(|s| s.contains("[autocomplete] start"))
-                .unwrap_or(false)
-        }),
-        "expected structured start log line: {start_outer}"
-    );
-
-    let status_running =
-        post_json_rpc(&rpc_base, 2004, "openhuman.autocomplete_status", json!({})).await;
-    let status_running_outer = assert_no_jsonrpc_error(&status_running, "autocomplete_status");
-    let status_running_payload = status_running_outer
-        .get("result")
-        .unwrap_or(status_running_outer);
-    assert_eq!(
-        status_running_payload
-            .get("running")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        status_running_payload
-            .get("enabled")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        status_running_payload
-            .get("debounce_ms")
-            .and_then(Value::as_u64),
-        Some(180)
-    );
 
     let current = post_json_rpc(
         &rpc_base,
@@ -7650,33 +7572,6 @@ async fn json_rpc_autocomplete_runtime_settings_and_logs_flow() {
                 .unwrap_or(false)
         }),
         "expected structured accept log line: {accept_outer}"
-    );
-
-    let stop = post_json_rpc(
-        &rpc_base,
-        2007,
-        "openhuman.autocomplete_stop",
-        json!({ "reason": "json_rpc_e2e" }),
-    )
-    .await;
-    let stop_outer = assert_no_jsonrpc_error(&stop, "autocomplete_stop");
-    let stop_payload = stop_outer.get("result").unwrap_or(stop_outer);
-    assert_eq!(
-        stop_payload.get("stopped").and_then(Value::as_bool),
-        Some(true)
-    );
-
-    let status_stopped =
-        post_json_rpc(&rpc_base, 2008, "openhuman.autocomplete_status", json!({})).await;
-    let status_stopped_outer = assert_no_jsonrpc_error(&status_stopped, "autocomplete_status");
-    let status_stopped_payload = status_stopped_outer
-        .get("result")
-        .unwrap_or(status_stopped_outer);
-    assert_eq!(
-        status_stopped_payload
-            .get("running")
-            .and_then(Value::as_bool),
-        Some(false)
     );
 
     mock_join.abort();

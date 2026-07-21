@@ -2,8 +2,9 @@
 //!
 //! Provides a shutdown signal that listens for SIGINT (Ctrl-C) **and** SIGTERM
 //! (on Unix), then runs registered cleanup hooks before the process exits.
-//! Domain-specific cleanup (autocomplete, voice, etc.) registers itself here
-//! so `jsonrpc.rs` stays transport-only.
+//! Domain-specific cleanup (memory queue workers, HTTP host, channel
+//! adapters, etc.) registers itself here so `jsonrpc.rs` stays
+//! transport-only.
 
 use std::future::Future;
 use std::pin::Pin;

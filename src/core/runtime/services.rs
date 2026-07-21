@@ -18,12 +18,11 @@ use crate::core::runtime::ServiceSet;
 use crate::openhuman::config::Config;
 
 /// Background bootstrap for login-gated services (local AI, voice, screen
-/// intelligence, autocomplete) plus the subconscious engine + heartbeat.
+/// intelligence) plus the subconscious engine + heartbeat.
 ///
 /// Heavy services are only started when a user is logged in. If no user session
 /// exists on disk, startup is deferred until the login handler in
-/// `credentials::ops::store_session()` triggers it. The autocomplete shutdown
-/// hook is registered unconditionally.
+/// `credentials::ops::store_session()` triggers it.
 pub fn spawn_login_gated_services(embedded_core: bool) {
     tokio::spawn(async move {
         match crate::openhuman::config::Config::load_or_init().await {
@@ -33,23 +32,6 @@ pub fn spawn_login_gated_services(embedded_core: bool) {
                 } else {
                     log::debug!("[core] desktop core startup");
                 }
-
-                // Register autocomplete shutdown hook so the engine (and its
-                // Swift overlay helper) are stopped cleanly on process exit.
-                // This is unconditional — the hook should fire regardless of
-                // whether the user is currently logged in.
-                crate::core::shutdown::register(|| async {
-                    let engine = crate::openhuman::autocomplete::global_engine();
-                    let status = engine.status().await;
-                    if status.running {
-                        log::info!(
-                            "[core] stopping autocomplete engine (phase={})",
-                            status.phase
-                        );
-                        engine.stop(None).await;
-                        log::info!("[core] autocomplete engine stopped");
-                    }
-                });
 
                 // Check if a user is already logged in from a previous session.
                 let already_logged_in = crate::openhuman::config::default_root_openhuman_dir()

@@ -45,7 +45,7 @@ pub struct ServiceSet {
     pub cron: bool,
     /// Spawn realtime channel listeners (Telegram, Discord, …).
     pub channels: bool,
-    /// Spawn login-gated services (local AI, voice, autocomplete) + subconscious/heartbeat.
+    /// Spawn login-gated services (local AI, voice, screen intelligence) + subconscious/heartbeat.
     pub heartbeat: bool,
     /// Spawn the periodic self-update checker.
     pub update_scheduler: bool,

@@ -636,14 +636,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     navGroup: 'agentsAutonomy',
   },
-  {
-    id: 'autocomplete-debug',
-    titleKey: 'settings.developerMenu.autocomplete.title',
-    descriptionKey: 'settings.developerMenu.autocomplete.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'modelsInference',
-  },
   // Build Info (about page alias in dev menu)
   {
     id: 'build-info',
@@ -671,14 +663,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'general',
     navOrder: 4,
     highlight: true,
-  },
-  {
-    // autocomplete: hidden per #717 (route retained for re-enable).
-    id: 'autocomplete',
-    titleKey: 'settings.developerMenu.autocomplete.title',
-    section: 'developer',
-    hiddenDeepLink: true,
-    devOnly: true,
   },
   {
     // search: web search engine settings (Brave / Google / Tavily provider).
