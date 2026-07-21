@@ -58,6 +58,24 @@ describe('useFlowRunStarted', () => {
     expect(onStart).toHaveBeenCalledTimes(2);
   });
 
+  it('dedupes the colon and underscore aliases of the same run so onStart fires once', () => {
+    // The core bridge re-emits one `FlowRunStarted` event under both socket
+    // aliases with identical payloads — assert the hook collapses them.
+    const onStart = vi.fn();
+    renderHook(() => useFlowRunStarted(onStart));
+
+    const payload = { flow_id: 'flow-1', run_id: 'run-1' };
+    emit('flow:run_started', payload);
+    emit('flow_run_started', payload);
+
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith({ flow_id: 'flow-1', run_id: 'run-1' });
+
+    // A genuinely different run still gets through.
+    emit('flow:run_started', { flow_id: 'flow-1', run_id: 'run-2' });
+    expect(onStart).toHaveBeenCalledTimes(2);
+  });
+
   it('filters to the given flowId when provided', () => {
     const onStart = vi.fn();
     renderHook(() => useFlowRunStarted(onStart, 'flow-1'));

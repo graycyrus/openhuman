@@ -84,6 +84,13 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
   // it's stale once the drawer flips to a new flowId and bail instead of
   // clobbering the new flow's already-loaded runs.
   const currentFlowIdRef = useRef(flowId);
+  // Per-request generation counter, shared by the initial load effect and
+  // `refetch` below: a request started before a run-started event (or before
+  // a newer refetch) can resolve AFTER it and, without this guard, clobber a
+  // fresh "Running" row with stale data — even for the SAME flowId, where the
+  // `currentFlowIdRef` check alone can't tell requests apart. Only the
+  // most-recently-issued request for the current flow may apply its result.
+  const requestGenRef = useRef(0);
 
   useEffect(() => {
     currentFlowIdRef.current = flowId;
@@ -100,16 +107,17 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
     }
 
     let cancelled = false;
+    const requestGen = ++requestGenRef.current;
     setLoading(true);
     log('loading runs: flowId=%s', flowId);
     listFlowRuns(flowId)
       .then(result => {
-        if (cancelled) return;
+        if (cancelled || requestGen !== requestGenRef.current) return;
         setRuns(result);
         log('loaded runs: flowId=%s count=%d', flowId, result.length);
       })
       .catch(err => {
-        if (cancelled) return;
+        if (cancelled || requestGen !== requestGenRef.current) return;
         const msg = err instanceof Error ? err.message : String(err);
         log('load failed: flowId=%s err=%s', flowId, msg);
         setError(msg);
@@ -126,21 +134,28 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
   // Background refresh for the live-update hook below — deliberately doesn't
   // touch `loading`/`error` so a poll tick or progress event never flashes
   // the loading state or clobbers a real load error with a transient one.
-  // Guards against a stale response: if the drawer flips from flow A to flow
-  // B while an A refetch is still in flight, the late A response must not
-  // overwrite B's already-loaded runs (mirrors the `cancelled` guard on the
-  // main load effect above).
+  // Guards against a stale response two ways: if the drawer flips from flow A
+  // to flow B while an A refetch is still in flight, the late A response must
+  // not overwrite B's already-loaded runs (`currentFlowIdRef`); and if two
+  // requests for the SAME flow race (e.g. the initial load and an
+  // event-driven refetch, or two refetches back to back), only the response
+  // to the most-recently-issued one may apply (`requestGenRef`).
   const refetch = useCallback(() => {
     if (!flowId) return;
     const requestFlowId = flowId;
+    const requestGen = ++requestGenRef.current;
     listFlowRuns(requestFlowId)
       .then(result => {
-        if (currentFlowIdRef.current !== requestFlowId) return;
+        if (currentFlowIdRef.current !== requestFlowId || requestGen !== requestGenRef.current) {
+          return;
+        }
         setRuns(result);
         log('refetched runs: flowId=%s count=%d', requestFlowId, result.length);
       })
       .catch(err => {
-        if (currentFlowIdRef.current !== requestFlowId) return;
+        if (currentFlowIdRef.current !== requestFlowId || requestGen !== requestGenRef.current) {
+          return;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         log('refetch failed: flowId=%s err=%s', requestFlowId, msg);
       });
