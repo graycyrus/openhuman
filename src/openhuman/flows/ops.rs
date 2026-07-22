@@ -11,7 +11,8 @@ use tinyflows::model::{NodeKind, TriggerKind, WorkflowGraph};
 
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::approval::{
-    ApprovalChatContext, FlowRunContext, APPROVAL_CHAT_CONTEXT, APPROVAL_FLOW_RUN_CONTEXT,
+    ApprovalChatContext, FlowRunContext, APPROVAL_CHAT_CONTEXT, APPROVAL_COPILOT_STREAM_CONTEXT,
+    APPROVAL_FLOW_RUN_CONTEXT,
 };
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
@@ -4451,11 +4452,22 @@ pub async fn flows_build(
                 request_id = %target.request_id,
                 "[flows] flows_build: streaming copilot turn — WebChat origin + \
                  APPROVAL_CHAT_CONTEXT scoped, live-run tools park for approval instead \
-                 of auto-allowing"
+                 of auto-allowing (shortened to COPILOT_APPROVAL_TTL via \
+                 APPROVAL_COPILOT_STREAM_CONTEXT)"
             );
+            // `APPROVAL_COPILOT_STREAM_CONTEXT` scopes alongside the existing
+            // chat context so any `run_flow`/`resume_flow_run` park raised by
+            // this turn is clamped to the shorter `COPILOT_APPROVAL_TTL`
+            // instead of the gate's full ten-minute default — a stale park on
+            // a copilot pane the user may have already navigated away from
+            // shouldn't idle that long. Main-chat turns never scope this, so
+            // they are unaffected.
             let run = with_origin(
                 origin,
-                APPROVAL_CHAT_CONTEXT.scope(chat_ctx, agent.run_single(&prompt)),
+                APPROVAL_CHAT_CONTEXT.scope(
+                    chat_ctx,
+                    APPROVAL_COPILOT_STREAM_CONTEXT.scope((), agent.run_single(&prompt)),
+                ),
             );
             let run =
                 tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);
