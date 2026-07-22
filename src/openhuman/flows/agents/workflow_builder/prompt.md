@@ -551,6 +551,75 @@ And without `input_context`, don't reach for a jq expression woven into
 — that's prose, not jq, resolves to `null`, and both the `save_workflow` gate
 and `dry_run_workflow`'s `agent_prompt_nulls` will reject it.
 
+### Attachment requests: wire a real file attachment, never inline the body
+
+**Decision hook (do not skim past this).** If the user's ask contains "attach",
+"attachment", or "as a file" (for example "email the report as an attachment",
+"send me the page as a file"), the file MUST travel as a genuine attachment.
+Inlining HTML or text as the email body (a `GMAIL_SEND_EMAIL` with
+`is_html: true`) does NOT satisfy an attachment request, so never fall back to
+it. There is also no "write the file to disk, then attach it" path in
+tinyflows, so do not reason toward one, hit that dead end, and give up. The
+portable file handle is a **storage URL** (or file id), wired like this:
+
+1. The node that PRODUCES the file is an `agent` node (usually
+   `agent_ref: "code_executor"` for a generated HTML, CSV, or PDF page). It
+   uploads the file with the **`storage_upload_file`** tool and emits the
+   resulting **`public_url`** (or `file_id`) as a field in its
+   `config.output_parser.schema`, so a downstream node can bind it.
+2. The send node is a `tool_call` on the toolkit's ATTACHMENT send action. For
+   Gmail that is **`GMAIL_SEND_EMAIL_WITH_ATTACHMENT`**, not `GMAIL_SEND_EMAIL`.
+   Call **`get_tool_contract` on that action FIRST** to read the real
+   attachment arg name (it varies by action), and never guess it.
+3. Bind that attachment arg to the producer's URL field, for example
+   `=nodes.make_page.item.json.public_url`.
+
+Only if `get_tool_contract` shows the attachment action needs raw base64
+instead of a URL do you reach for a base64 helper. Verify against the contract
+first; a URL is the default.
+
+**Few-shot (the exact wiring), "research the top AI trends, make an HTML
+summary page, and email it to me as an attachment":**
+
+```json
+{ "nodes": [
+  { "id": "start",  "kind": "trigger",   "config": { "trigger_kind": "manual" } },
+  { "id": "get_me", "kind": "tool_call", "config": {
+      "slug": "GMAIL_GET_PROFILE", "connection_ref": "composio:gmail:<conn_id>", "args": {} } },
+  { "id": "research", "kind": "agent", "config": {
+      "agent_ref": "researcher",
+      "input_context": "=item",
+      "prompt": "Research the top 3 AI trends this week and write a titled summary with sources.",
+      "output_parser": { "schema": { "type": "object", "required": ["summary"],
+        "properties": { "summary": { "type": "string" } } } } } },
+  { "id": "make_page", "kind": "agent", "config": {
+      "agent_ref": "code_executor",
+      "input_context": "=nodes.research.item.json.summary",
+      "prompt": "Build a self-contained HTML page from the summary above, upload it with storage_upload_file, and return its public_url.",
+      "output_parser": { "schema": { "type": "object", "required": ["public_url"],
+        "properties": { "public_url": { "type": "string" } } } } } },
+  { "id": "send", "kind": "tool_call", "config": {
+      "slug": "GMAIL_SEND_EMAIL_WITH_ATTACHMENT",
+      "connection_ref": "composio:gmail:<conn_id>",
+      "args": {
+        "recipient_email": "=nodes.get_me.item.json.data.emailAddress",
+        "subject": "Your weekly AI trends",
+        "body": "The full summary is attached.",
+        "attachment": "=nodes.make_page.item.json.public_url" } } }
+],
+  "edges": [
+    { "from_node": "start",     "to_node": "get_me" },
+    { "from_node": "start",     "to_node": "research" },
+    { "from_node": "research",  "to_node": "make_page" },
+    { "from_node": "make_page", "to_node": "send" },
+    { "from_node": "get_me",    "to_node": "send" }
+  ] }
+```
+
+The `attachment` arg name above is illustrative: read the real one off
+`get_tool_contract` before wiring. The `get_me` lookup resolves "email me" per
+the self-target rules above, so you do not ask the user for their own address.
+
 ### Trigger kinds — which ones actually fire
 
 Set `config.trigger_kind` on the trigger node. **Only three fire automatically
