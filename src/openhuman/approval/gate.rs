@@ -825,8 +825,18 @@ impl ApprovalGate {
 
         let request_id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now();
-        let expires_at =
-            Some(now + chrono::Duration::from_std(self.effective_ttl()).unwrap_or_default());
+        // Resolve the clamped park TTL up front so the persisted `expires_at`
+        // and the actual wait below (see `resolve_park_ttl` further down)
+        // use the same value — see `Self::resolve_park_ttl` and the
+        // COPILOT_APPROVAL_TTL / IN_CALL_APPROVAL_TTL clamps. Computing this
+        // only after persisting the pending row let a copilot-streaming park
+        // advertise the old 10-minute `expires_at` while only actually
+        // waiting 180s, so a core restart or an `expire_stale` sweep mid-park
+        // could leave the row "actionable" for the wrong window (CodeRabbit
+        // + Codex review on PR #5112).
+        let effective_ttl =
+            Self::resolve_park_ttl(self.effective_ttl(), in_call_ctx.is_some(), copilot_stream);
+        let expires_at = Some(now + chrono::Duration::from_std(effective_ttl).unwrap_or_default());
 
         // Correlation context (flow-approval-surface, PR2): a Workflow-origin
         // park carries the flow id on the origin itself, but not the run id —
@@ -972,9 +982,11 @@ impl ApprovalGate {
 
         // Live meetings and copilot-streaming flows_build runs each get a
         // clamped park window — see IN_CALL_APPROVAL_TTL / COPILOT_APPROVAL_TTL
-        // and `Self::resolve_park_ttl`. `effective_ttl()` applies the
-        // debug-only env override; the clamp is applied on top so a longer
-        // override can't extend either park past its clamp.
+        // and `Self::resolve_park_ttl`. `effective_ttl` was resolved above
+        // (before `expires_at` was built) so the persisted expiry and this
+        // wait use the identical clamped duration; `effective_ttl()` applies
+        // the debug-only env override, and the clamp is applied on top so a
+        // longer override can't extend either park past its clamp.
         if copilot_stream {
             tracing::debug!(
                 tool = tool_name,
@@ -983,8 +995,6 @@ impl ApprovalGate {
                  COPILOT_APPROVAL_TTL"
             );
         }
-        let effective_ttl =
-            Self::resolve_park_ttl(self.effective_ttl(), in_call_ctx.is_some(), copilot_stream);
 
         // Optional caller-supplied park bound (issue #4756). A caller
         // (`composio_connect`) can cap how long the gate parks so a turn
@@ -2580,6 +2590,73 @@ mod tests {
                 tighter
             );
         }
+    }
+
+    /// Integration regression test for the streaming-to-gate contract
+    /// (CodeRabbit review on PR #5112): `resolve_park_ttl` is covered directly
+    /// above, but that alone doesn't prove `intercept_audited_inner` actually
+    /// persists the clamped TTL when the copilot-streaming context is scoped.
+    /// Builds a gate with the full `DEFAULT_APPROVAL_TTL` boot TTL (unlike
+    /// `test_gate()`'s 2s, which is already shorter than either clamp and
+    /// would make this assertion vacuous), scopes
+    /// `APPROVAL_COPILOT_STREAM_CONTEXT` alongside the chat context + WebChat
+    /// origin the way `flows::ops::flows_build` does in production, and
+    /// inspects the persisted `expires_at` on the pending row.
+    #[tokio::test]
+    async fn copilot_streaming_park_persists_the_clamped_expiry() {
+        let dir = TempDir::new().unwrap();
+        let config = Config {
+            workspace_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        };
+        let session = format!("session-{}", uuid::Uuid::new_v4());
+        let gate = ApprovalGate::new(config, session, DEFAULT_APPROVAL_TTL);
+        let gate = Arc::new(gate);
+
+        let before = chrono::Utc::now();
+        let g = gate.clone();
+        let handle = tokio::spawn(async move {
+            turn_origin::with_origin(
+                web_origin(),
+                APPROVAL_CHAT_CONTEXT.scope(
+                    chat_ctx(),
+                    APPROVAL_COPILOT_STREAM_CONTEXT.scope(
+                        (),
+                        g.intercept("composio", "send slack", serde_json::json!({})),
+                    ),
+                ),
+            )
+            .await
+        });
+
+        let pending = loop {
+            if let Some(p) = gate.list_pending().unwrap().into_iter().next() {
+                break p;
+            }
+            tokio::task::yield_now().await;
+        };
+
+        let expires_at = pending
+            .expires_at
+            .expect("a parked approval always sets expires_at");
+        let ttl_persisted = expires_at - before;
+        assert!(
+            ttl_persisted
+                <= chrono::Duration::from_std(COPILOT_APPROVAL_TTL).unwrap()
+                    + chrono::Duration::seconds(5),
+            "copilot-streaming park must persist an expires_at clamped to COPILOT_APPROVAL_TTL \
+             (180s), not the gate's full {:?} boot TTL — got a {ttl_persisted} window",
+            DEFAULT_APPROVAL_TTL
+        );
+        assert!(
+            ttl_persisted < chrono::Duration::from_std(DEFAULT_APPROVAL_TTL).unwrap(),
+            "sanity: the persisted expiry must be shorter than the unclamped default TTL"
+        );
+
+        gate.decide(&pending.request_id, ApprovalDecision::ApproveOnce)
+            .unwrap();
+        let outcome = handle.await.unwrap();
+        assert!(matches!(outcome, GateOutcome::Allow));
     }
 
     #[test]
