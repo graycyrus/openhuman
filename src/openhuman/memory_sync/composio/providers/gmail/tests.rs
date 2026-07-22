@@ -299,3 +299,24 @@ fn sent_mail_query_strings_are_well_formed() {
         );
     }
 }
+
+/// The workflow builder's B43 attachment few-shot wires
+/// `GMAIL_SEND_EMAIL_WITH_ATTACHMENT`. That slug MUST stay in the curated
+/// catalog, because `flow_tool_allowed` (tinyflows/caps.rs) rejects any
+/// uncurated Gmail action at run time — so an uncurated attachment send would
+/// make every attachment flow the prompt prescribes fail on its real run. It
+/// is a Write action (it sends mail), so it must carry `Write` scope.
+#[test]
+fn attachment_send_action_is_curated_as_write() {
+    use crate::openhuman::memory_sync::composio::providers::{find_curated, ToolScope};
+
+    let curated = find_curated(super::GMAIL_CURATED, "GMAIL_SEND_EMAIL_WITH_ATTACHMENT").expect(
+        "GMAIL_SEND_EMAIL_WITH_ATTACHMENT must be curated — the B43 workflow-builder \
+             few-shot wires it, and flow_tool_allowed rejects uncurated Gmail slugs at runtime",
+    );
+    assert_eq!(
+        curated.scope,
+        ToolScope::Write,
+        "the attachment send action sends mail — it must carry Write scope"
+    );
+}

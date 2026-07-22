@@ -76,12 +76,13 @@ pub const GMAIL_CURATED: &[CuratedTool] = &[
         scope: ToolScope::Write,
     },
     // Attachment variant of GMAIL_SEND_EMAIL — the downstream half of the
-    // storage-URL file-attachment path (B39/Gap 3, Option A): a flow's
-    // file-producing agent node uploads via `storage_upload_file` and binds
-    // the resulting `public_url`/`file_id` into this action's attachment arg.
-    // See `flows/agents/workflow_builder/prompt.md` and
-    // `agent_registry/agents/code_executor/prompt.md` for the producer-side
-    // guidance.
+    // storage-URL file-attachment path (B39/B43): a flow's file-producing
+    // agent node uploads via `storage_upload_file` (public) and binds the
+    // resulting `public_url` into this action's attachment arg. Must stay
+    // curated: `flow_tool_allowed` rejects uncurated Gmail slugs at run time,
+    // so an uncurated attachment send would make every prescribed attachment
+    // flow fail its real run. See `workflow_builder/prompt.md` +
+    // `code_executor/prompt.md` for the producer-side guidance.
     CuratedTool {
         slug: "GMAIL_SEND_EMAIL_WITH_ATTACHMENT",
         scope: ToolScope::Write,
