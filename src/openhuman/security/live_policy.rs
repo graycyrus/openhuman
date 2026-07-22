@@ -88,6 +88,13 @@ thread_local! {
     /// on the same thread while sibling tests on their own threads are unaffected.
     static TEST_PRIVACY_MODE: std::cell::Cell<Option<PrivacyMode>> =
         const { std::cell::Cell::new(None) };
+
+    /// Test-only, thread-scoped live-policy override. Approval-gate tests run
+    /// in parallel on separate `#[tokio::test]` current-thread runtimes, so a
+    /// process-global override can otherwise make an unrelated test observe a
+    /// transient `auto_approve_all` value and skip the park it is waiting for.
+    static TEST_POLICY_OVERRIDE: std::cell::RefCell<Option<Arc<SecurityPolicy>>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 /// RAII guard that restores the previous thread-local privacy override on drop.
@@ -110,59 +117,36 @@ pub(crate) fn test_privacy_scope(mode: PrivacyMode) -> TestPrivacyGuard {
     TestPrivacyGuard(prev)
 }
 
-/// RAII guard returned by [`install_scoped`]. Restores the process-global
-/// live policy (and `workspace_dir`/`action_dir`) to whatever was installed
-/// before the scoped [`install`] call, on drop — including on panic/unwind, so
-/// a failed assertion mid-test still cannot leak the scoped policy (e.g.
-/// `auto_approve_all: true`) into sibling tests that don't hold
-/// `TEST_ENV_LOCK`. If nothing was installed yet when the scope started,
-/// drop restores `SecurityPolicy::default()` (safe: `auto_approve_all: false`,
-/// empty `auto_approve`) rather than leaving the scoped policy live.
+/// RAII guard returned by [`install_scoped`]. Restores the calling test
+/// thread's prior policy override on drop, including on panic/unwind.
 #[cfg(test)]
 pub(crate) struct TestPolicyGuard {
-    prev_policy: Arc<SecurityPolicy>,
-    prev_workspace: PathBuf,
-    prev_action: PathBuf,
+    prev_policy: Option<Arc<SecurityPolicy>>,
 }
 
 #[cfg(test)]
 impl Drop for TestPolicyGuard {
     fn drop(&mut self) {
-        install(
-            Arc::clone(&self.prev_policy),
-            self.prev_workspace.clone(),
-            self.prev_action.clone(),
-        );
+        TEST_POLICY_OVERRIDE.with(|current| {
+            current.replace(self.prev_policy.take());
+        });
     }
 }
 
-/// Install `policy` as the process-global live policy for the duration of the
-/// returned guard, capturing whatever was live beforehand (or
-/// `SecurityPolicy::default()` if nothing was installed yet) so it is
-/// restored automatically when the guard drops. Callers MUST still hold
-/// `TEST_ENV_LOCK` for the scope's lifetime (this only prevents *leaking*
-/// past the end of the test, not concurrent access during it).
+/// Override [`current`] for the calling test thread for the duration of the
+/// returned guard. This deliberately does not mutate process-global state:
+/// sibling tests that call [`current`] must never observe the scoped policy.
+/// The path arguments mirror [`install`] so tests can use the same call shape;
+/// paths are already carried by `policy` and do not need separate storage for
+/// this read-only override.
 #[cfg(test)]
 pub(crate) fn install_scoped(
     policy: Arc<SecurityPolicy>,
-    workspace_dir: PathBuf,
-    action_dir: PathBuf,
+    _workspace_dir: PathBuf,
+    _action_dir: PathBuf,
 ) -> TestPolicyGuard {
-    let prev_policy = current().unwrap_or_else(|| Arc::new(SecurityPolicy::default()));
-    let prev_workspace = STATE
-        .get()
-        .and_then(|s| s.workspace_dir.read().ok().map(|g| g.clone()))
-        .unwrap_or_default();
-    let prev_action = STATE
-        .get()
-        .and_then(|s| s.action_dir.read().ok().map(|g| g.clone()))
-        .unwrap_or_default();
-    install(policy, workspace_dir, action_dir);
-    TestPolicyGuard {
-        prev_policy,
-        prev_workspace,
-        prev_action,
-    }
+    let prev_policy = TEST_POLICY_OVERRIDE.with(|current| current.replace(Some(policy)));
+    TestPolicyGuard { prev_policy }
 }
 
 /// The current live Privacy Mode, if a policy has been [`install`]ed. Falls back
@@ -181,6 +165,11 @@ pub fn current_privacy_mode() -> PrivacyMode {
 
 /// The current live policy, if one has been [`install`]ed this process.
 pub fn current() -> Option<Arc<SecurityPolicy>> {
+    #[cfg(test)]
+    if let Some(policy) = TEST_POLICY_OVERRIDE.with(|current| current.borrow().clone()) {
+        return Some(policy);
+    }
+
     STATE
         .get()
         .and_then(|s| s.policy.read().ok().map(|g| Arc::clone(&g)))
@@ -383,6 +372,45 @@ mod tests {
     use super::*;
     use crate::openhuman::config::AutonomyConfig;
     use crate::openhuman::security::AutonomyLevel;
+
+    #[test]
+    fn scoped_policy_is_thread_local_and_restored() {
+        let _env = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let workspace = std::env::temp_dir().join("openhuman_scoped_policy_test");
+        install(
+            Arc::new(SecurityPolicy::default()),
+            workspace.clone(),
+            workspace.clone(),
+        );
+
+        let scoped = Arc::new(SecurityPolicy {
+            auto_approve_all: true,
+            ..SecurityPolicy::default()
+        });
+        {
+            let _guard = install_scoped(scoped, workspace.clone(), workspace);
+            assert!(current().expect("scoped policy installed").auto_approve_all);
+
+            let sibling_value = std::thread::spawn(|| {
+                current()
+                    .expect("global policy remains installed")
+                    .auto_approve_all
+            })
+            .join()
+            .expect("sibling thread joined");
+            assert!(
+                !sibling_value,
+                "a sibling test thread must not observe the scoped policy"
+            );
+        }
+
+        assert!(
+            !current().expect("global policy restored").auto_approve_all,
+            "dropping the guard must restore the calling thread's prior view"
+        );
+    }
 
     #[test]
     fn install_then_reload_swaps_policy_and_bumps_generation() {
