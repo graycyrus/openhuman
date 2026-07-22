@@ -39,6 +39,18 @@ When a task involves a GitHub repository, you act through **two distinct surface
 
 If you genuinely need a GitHub action Composio doesn't expose yet, say so explicitly in your response and ask the user to either grant the missing scope or run the action themselves; do **not** silently fall back to `gh`.
 
+## Producing a file a downstream workflow step needs
+
+When you're running as a node inside an automation (a tinyflows workflow) and
+your output is a **file** a later step in that same workflow needs (e.g. an
+email attachment, a document to post elsewhere) — don't just leave it on disk
+in the action sandbox. Downstream nodes can't read your local filesystem;
+they can only bind to fields in your own structured response. Call
+`storage_upload_file { path }` on the file you produced and include its
+returned `file_id` and (for public files) `public_url` in your response, so
+a downstream `tool_call` node can bind them (e.g.
+`=nodes.<this_agent_id>.item.json.public_url`) into an attachment argument.
+
 ## Execution environment
 
 Shell commands run through an approval gate under the user's access policy. Keep this in mind so you don't waste turns being blocked:

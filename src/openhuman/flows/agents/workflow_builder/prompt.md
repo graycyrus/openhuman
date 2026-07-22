@@ -325,6 +325,22 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    (recall a preference) or should remember a result/state across runs, wire
    an `agent` node that uses memory instead of hardcoding context memory
    already holds. Use sparingly — only when the workflow truly needs it.
+
+   **File-producing agent nodes.** An `agent` node's own output is text/JSON
+   only — it cannot hand a downstream node a real file (e.g. something a
+   `code_executor`-style step generated on disk). To get a produced file to a
+   downstream node (a Gmail attachment, a document upload elsewhere), set
+   `config.agent_ref` to a file-capable agent (one with `storage_upload_file`
+   on its belt, e.g. `code_executor`) and instruct it, in the prompt, to
+   `storage_upload_file` the file it produced and include the resulting
+   `file_id` and `public_url` as fields in its structured response —
+   `config.output_parser.schema` must declare both so they're addressable.
+   The downstream `tool_call` then binds
+   `=nodes.<agent_id>.item.json.public_url` (or `.file_id`, depending on
+   what the attachment action needs) into its arg — e.g. into
+   `GMAIL_SEND_EMAIL_WITH_ATTACHMENT`'s attachment field. Ground the
+   attachment action's real arg name with `get_tool_contract` first, same as
+   any other `tool_call`.
 3. **`tool_call`** — an action. Two flavours by `config.slug`:
    - **Composio app action** — `config.slug` = a real action slug (from
      `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`
