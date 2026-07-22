@@ -3766,6 +3766,29 @@ fn finish_flow_run_row(
         tracing::warn!(target: "flows", thread_id, status, error = %e, "[flows] failed to persist flow run finish");
     }
 
+    // `status` can be `"pending_approval"` here (see `finalize_terminal_status`)
+    // when the run merely paused at a gate — that isn't a finish. `flows_resume`
+    // later settles under the SAME `thread_id`/`run_id`, and `useFlowRunFinished`
+    // de-dupes delivered events by `${flow_id}:${run_id}` (needed because the
+    // socket bridge re-emits this event under two aliases and must collapse
+    // them into one `onFinish` call). Publishing here for a pause would poison
+    // that dedup cache, so the real completion event after resume would be
+    // dropped as an "alias replay" and the run could stay stale in the runs
+    // list until the 30s poll backstop (Codex review, PR #5115). Gate the
+    // publish to actual terminal statuses; the row itself is still written
+    // above so poll-based fallbacks (list/get RPCs) see the paused state
+    // either way.
+    if status == "pending_approval" {
+        tracing::debug!(
+            target: "flows",
+            flow_id,
+            thread_id,
+            status,
+            "[flows] finish_flow_run_row: run paused for approval — not a finish, skipping FlowRunFinished"
+        );
+        return;
+    }
+
     tracing::debug!(
         target: "flows",
         flow_id,

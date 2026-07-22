@@ -1484,6 +1484,128 @@ async fn flows_run_publishes_flow_run_started_with_flow_and_run_id() {
     assert_eq!(run_id, thread_id);
 }
 
+/// PR #5115 review finding (Codex): a run that merely pauses at an approval
+/// gate must NOT publish `DomainEvent::FlowRunFinished` — only the eventual
+/// terminal settle (here, after `flows_resume`) should. `finalize_terminal_status`
+/// can return `"pending_approval"`, and `finish_flow_run_row` used to publish
+/// unconditionally on every status; since `useFlowRunFinished` de-dupes
+/// delivered events by `${flow_id}:${run_id}`, an event fired for the pause
+/// would poison that cache and cause the real completion event after resume
+/// to be silently dropped as an alias replay. Exercises the full pause ->
+/// resume lifecycle and asserts exactly one `FlowRunFinished` is observed,
+/// carrying the final `"completed"` status, not `"pending_approval"`.
+#[tokio::test]
+async fn flows_run_finished_event_skips_pending_approval_and_fires_once_on_resume() {
+    use crate::core::event_bus::{
+        init_global, subscribe_global, DomainEvent, EventHandler, DEFAULT_CAPACITY,
+    };
+    use async_trait::async_trait;
+    use std::sync::Mutex as StdMutex;
+
+    #[derive(Default)]
+    struct Collector {
+        events: Arc<StdMutex<Vec<(String, String, String)>>>,
+    }
+
+    #[async_trait]
+    impl EventHandler for Collector {
+        fn name(&self) -> &str {
+            "test::flows::ops::flow_run_finished_pending_approval_collector"
+        }
+        fn domains(&self) -> Option<&[&str]> {
+            Some(&["cron"])
+        }
+        async fn handle(&self, event: &DomainEvent) {
+            if let DomainEvent::FlowRunFinished {
+                flow_id,
+                run_id,
+                status,
+            } = event
+            {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push((flow_id.clone(), run_id.clone(), status.clone()));
+            }
+        }
+    }
+
+    init_global(DEFAULT_CAPACITY);
+    let events: Arc<StdMutex<Vec<(String, String, String)>>> = Arc::new(StdMutex::new(Vec::new()));
+    let collector = Arc::new(Collector {
+        events: Arc::clone(&events),
+    });
+    let _handle = subscribe_global(collector).expect("bus subscriber installed");
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "b35-finished-skips-pause".to_string(),
+        approval_gated_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+    assert_eq!(pending, vec!["gate".to_string()]);
+
+    // Give the bus a moment to deliver anything it's going to deliver, then
+    // assert the pause produced no FlowRunFinished for this run at all.
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    {
+        let guard = events.lock().unwrap();
+        assert!(
+            !guard.iter().any(|(_, rid, _)| *rid == thread_id),
+            "a run parked at an approval gate must not publish FlowRunFinished: {guard:?}"
+        );
+    }
+
+    let resumed = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .unwrap();
+    assert_eq!(resumed.value["pending_approvals"], json!([]));
+
+    // The bus is process-global and shared with concurrently-running tests,
+    // so filter for our own run id rather than asserting on total count.
+    let mut matched: Vec<(String, String, String)> = Vec::new();
+    for _ in 0..20 {
+        {
+            let guard = events.lock().unwrap();
+            matched = guard
+                .iter()
+                .filter(|(_, rid, _)| *rid == thread_id)
+                .cloned()
+                .collect();
+            if !matched.is_empty() {
+                break;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert_eq!(
+        matched.len(),
+        1,
+        "expected exactly one FlowRunFinished for this run (the post-resume settle, \
+         none for the pause): {matched:?}"
+    );
+    let (flow_id, run_id, status) = matched.into_iter().next().unwrap();
+    assert_eq!(flow_id, created.value.id);
+    assert_eq!(run_id, thread_id);
+    assert_eq!(status, "completed");
+}
+
 // ── Live run observation (issue G2) ───────────────────────────────────────
 
 use crate::openhuman::tinyflows::observability::FlowRunObserver;
