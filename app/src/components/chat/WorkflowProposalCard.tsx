@@ -9,6 +9,7 @@ import { createFlow, setFlowEnabled } from '../../services/api/flowsApi';
 import { threadApi } from '../../services/api/threadApi';
 import {
   clearWorkflowProposalForThread,
+  markWorkflowProposalCompleted,
   type WorkflowProposal,
 } from '../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../store/hooks';
@@ -122,7 +123,19 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
   // the persisted flow's own canvas (issue B36). Kept distinct from
   // `savedFlowId` above: that one tracks an in-between "saved but not yet
   // armed" retry state, this one is the fully-done state.
-  const [completedFlowId, setCompletedFlowId] = useState<string | null>(null);
+  //
+  // Initialized from `proposal.completedFlowId` (mirrored into Redux via
+  // `markWorkflowProposalCompleted`) rather than always starting at `null`:
+  // the card intentionally stays mounted after a successful save (its
+  // parent renders it only while the proposal survives in
+  // `pendingWorkflowProposalsByThread`), so a thread/route change can
+  // remount it before the user clicks "View workflow". Seeding from the
+  // Redux-persisted value keeps the confirmation showing across that
+  // remount instead of resetting to the pre-save editable view — which
+  // would let a second "Save & enable" click duplicate the flow.
+  const [completedFlowId, setCompletedFlowId] = useState<string | null>(
+    () => proposal.completedFlowId ?? null
+  );
 
   /**
    * When this proposal was rehydrated from a persisted thread message (the
@@ -181,6 +194,17 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
     navigate(FLOW_CANVAS_DRAFT_ROUTE, { state: draft });
   };
 
+  /**
+   * Record the terminal "saved and enabled" state both locally (drives this
+   * render) and in Redux via `markWorkflowProposalCompleted` (survives a
+   * remount before the user clicks "View workflow" — see the
+   * `completedFlowId` state comment above).
+   */
+  const markCompleted = (flowId: string) => {
+    setCompletedFlowId(flowId);
+    dispatch(markWorkflowProposalCompleted({ threadId, flowId }));
+  };
+
   const save = async () => {
     if (saving) return;
     setSaving(true);
@@ -200,7 +224,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
           log('save: createFlow returned enabled — nothing further to arm id=%s', flow.id);
           markSourceMessageConsumed();
           setSaving(false);
-          setCompletedFlowId(flow.id);
+          markCompleted(flow.id);
           onSaved?.();
           return;
         }
@@ -213,7 +237,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
       await setFlowEnabled(flowId, true);
       markSourceMessageConsumed();
       setSaving(false);
-      setCompletedFlowId(flowId);
+      markCompleted(flowId);
       onSaved?.();
     } catch (e) {
       log('save failed (createFlow/setFlowEnabled): %o', e);

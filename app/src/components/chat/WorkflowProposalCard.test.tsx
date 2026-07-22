@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import { markWorkflowProposalCompleted, type WorkflowProposal } from '../../store/chatRuntimeSlice';
 import { WorkflowProposalCard } from './WorkflowProposalCard';
 
 // Echo i18n keys so we can assert on the stable key string.
@@ -158,7 +158,15 @@ describe('WorkflowProposalCard', () => {
     // the proposal is NOT dispatched away until the user follows that link.
     await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
     expect(screen.getByText('chat.flowProposal.savedConfirmation')).toBeInTheDocument();
-    expect(mockDispatch).not.toHaveBeenCalled();
+    // The completion IS mirrored into Redux (not just local state) so the
+    // confirmation survives a remount before "View workflow" is clicked —
+    // see `WorkflowProposal.completedFlowId`. It must not be the
+    // proposal-clearing dispatch, though — that only happens on "View
+    // workflow"/"Dismiss".
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      markWorkflowProposalCompleted({ threadId: 't1', flowId: 'f1' })
+    );
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -169,13 +177,54 @@ describe('WorkflowProposalCard', () => {
     await waitFor(() =>
       expect(screen.getByText('chat.flowProposal.viewWorkflow')).toBeInTheDocument()
     );
+    // The successful save already dispatched markWorkflowProposalCompleted;
+    // record how many calls happened before "View workflow" is clicked so
+    // the assertions below are about what that click itself does.
+    const callsBeforeClick = mockDispatch.mock.calls.length;
 
     fireEvent.click(screen.getByText('chat.flowProposal.viewWorkflow'));
 
     // Navigates straight to the saved flow's own canvas route — the created
     // flow's real id ('f1'), not the unsaved-draft route.
     expect(mockNavigate).toHaveBeenCalledWith('/flows/f1');
-    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledTimes(callsBeforeClick + 1);
+    // Assert the RELATIVE order, not just that both happened: the
+    // proposal-clearing dispatch must fire before navigation away, since the
+    // parent only renders this card while the proposal survives in Redux —
+    // navigating first (even a tick early) risks unmounting before the
+    // dispatch lands.
+    const dispatchOrder = mockDispatch.mock.invocationCallOrder[callsBeforeClick];
+    const navigateOrder = mockNavigate.mock.invocationCallOrder[0];
+    expect(dispatchOrder).toBeLessThan(navigateOrder);
+  });
+
+  // Regression test for the remount bug flagged in review (issue B36): the
+  // card intentionally stays mounted showing the saved confirmation instead
+  // of dispatching the proposal away, so a thread switch / route change can
+  // unmount and remount it before the user clicks "View workflow". Before
+  // `completedFlowId` was mirrored into Redux, remounting reset the card's
+  // local state to null, so it fell back to the pre-save editable view — and
+  // a second "Save & enable" click would call `createFlow` again and
+  // duplicate the flow.
+  it('keeps showing the saved confirmation across a remount instead of re-offering "Save & enable"', async () => {
+    const p = proposal();
+    const { unmount } = render(<WorkflowProposalCard threadId="t1" proposal={p} />);
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
+
+    // Simulate a thread switch / route change: unmount the card, then
+    // remount it with the proposal as it would now read from Redux — still
+    // present (the completion dispatch didn't clear it), but carrying the
+    // `completedFlowId` set by `markWorkflowProposalCompleted`.
+    unmount();
+    mockCreateFlow.mockClear();
+    render(<WorkflowProposalCard threadId="t1" proposal={{ ...p, completedFlowId: 'f1' }} />);
+
+    // Must still show the saved confirmation, not the editable "Save &
+    // enable" view that would let a second click duplicate the flow.
+    expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument();
+    expect(screen.queryByText('chat.flowProposal.save')).not.toBeInTheDocument();
+    expect(mockCreateFlow).not.toHaveBeenCalled();
   });
 
   it('shows a loading state while saving', async () => {
@@ -218,9 +267,14 @@ describe('WorkflowProposalCard', () => {
     fireEvent.click(screen.getByText('chat.flowProposal.save'));
     await waitFor(() => expect(mockSetFlowEnabled).toHaveBeenCalledWith('f1', true));
     // The proposal isn't dispatched away immediately — the card shows the
-    // saved confirmation with a view link instead (issue B36).
+    // saved confirmation with a view link instead (issue B36). The only
+    // dispatch is the Redux-mirrored completion (survives a remount), not a
+    // clear.
     await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
-    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      markWorkflowProposalCompleted({ threadId: 't1', flowId: 'f1' })
+    );
   });
 
   it('keeps the flow saved and lets the user retry just the enable step if setFlowEnabled fails', async () => {
@@ -247,8 +301,12 @@ describe('WorkflowProposalCard', () => {
     expect(mockSetFlowEnabled).toHaveBeenCalledTimes(2);
     expect(mockSetFlowEnabled).toHaveBeenLastCalledWith('f1', true);
     // Still not dispatched away — the retry lands on the same saved
-    // confirmation, not an immediate clear.
-    expect(mockDispatch).not.toHaveBeenCalled();
+    // confirmation, not an immediate clear. The only dispatch is the
+    // Redux-mirrored completion once the retry succeeds.
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      markWorkflowProposalCompleted({ threadId: 't1', flowId: 'f1' })
+    );
   });
 
   it('opens the proposed graph in the canvas as an unsaved draft without persisting', () => {
