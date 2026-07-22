@@ -2453,6 +2453,32 @@ async fn agent_ref_resolving_to_a_harness_definition_is_accepted() {
     );
 }
 
+#[tokio::test]
+async fn agent_ref_unknown_is_rejected() {
+    // The whole point of the gate (and the branch Codex flagged as uncovered on
+    // #5114): an `agent` node whose `agent_ref` is NOT a real registered agent —
+    // neither a bundled harness definition nor a custom registry entry — must be
+    // REJECTED at author time, with the offending id named, rather than silently
+    // hitting the `RegistryFallback` persona path at run time. Exercises the
+    // error-construction branch of `validate_agent_refs`.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "no_such_agent_xyz", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(!errors.is_empty(), "an unknown agent_ref must be rejected");
+    assert!(
+        errors.iter().any(|e| e.contains("no_such_agent_xyz")),
+        "the rejection error must name the offending agent_ref: {errors:?}"
+    );
+}
+
 // ── validate_tool_contracts (systemic tool-contract fix, Part 2) ───────────
 //
 // The live-catalog cache is process-global (`LIVE_CATALOG_CACHE`) — every
