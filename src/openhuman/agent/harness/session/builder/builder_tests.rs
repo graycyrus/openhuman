@@ -314,8 +314,16 @@ async fn from_config_for_agent_still_errors_for_a_genuinely_unknown_id() {
     // No harness definition AND no config.agent_registry entry for this id —
     // the factory must still hard-error rather than silently building an
     // unfiltered/legacy agent.
-    let err = Agent::from_config_for_agent(&config, "totally_unknown_agent_id_b38")
-        .expect_err("an id with no harness definition and no custom entry must error");
+    //
+    // Note: `Agent` intentionally has no `Debug` impl (it holds `Box<dyn
+    // Tool>` / provider trait objects), so this must use `match` +
+    // `.is_err()` rather than `.expect_err()`, which requires `T: Debug`.
+    let result = Agent::from_config_for_agent(&config, "totally_unknown_agent_id_b38");
+    assert!(
+        result.is_err(),
+        "an id with no harness definition and no custom entry must error"
+    );
+    let err = result.err().unwrap();
     assert!(
         err.to_string().contains("totally_unknown_agent_id_b38"),
         "error should name the unresolved agent id: {err}"
