@@ -673,7 +673,8 @@ mod tests {
 
         assert!(
             STANDING_PROMPT.contains("specialist")
-                && (STANDING_PROMPT.contains("tool loop") || STANDING_PROMPT.contains("full persona")),
+                && (STANDING_PROMPT.contains("tool loop")
+                    || STANDING_PROMPT.contains("full persona")),
             "standing prompt must link agent_ref to the specialist's full tool loop \
              (the harness path), not just a persona/model swap"
         );
@@ -689,7 +690,11 @@ mod tests {
     fn standing_prompt_has_no_stale_agent_ref_followup_language() {
         const STANDING_PROMPT: &str = include_str!("prompt.md");
 
-        for banned in ["is a follow-up", "for now", "still gets tools from the node's own"] {
+        for banned in [
+            "is a follow-up",
+            "for now",
+            "still gets tools from the node's own",
+        ] {
             assert!(
                 !STANDING_PROMPT.contains(banned),
                 "standing prompt must not carry the stale agent_ref-tool-loop \
