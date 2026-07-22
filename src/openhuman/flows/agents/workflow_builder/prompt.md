@@ -564,9 +564,11 @@ portable file handle is a **storage URL** (or file id), wired like this:
 
 1. The node that PRODUCES the file is an `agent` node (usually
    `agent_ref: "code_executor"` for a generated HTML, CSV, or PDF page). It
-   uploads the file with the **`storage_upload_file`** tool and emits the
-   resulting **`public_url`** (or `file_id`) as a field in its
-   `config.output_parser.schema`, so a downstream node can bind it.
+   uploads the file with the **`storage_upload_file`** tool **as a public file**
+   (`visibility: "public"`, because `storage_upload_file` defaults to private
+   and a private upload has no `public_url`) and emits the resulting
+   **`public_url`** as a field in its `config.output_parser.schema`, so a
+   downstream node can bind it.
 2. The send node is a `tool_call` on the toolkit's ATTACHMENT send action. For
    Gmail that is **`GMAIL_SEND_EMAIL_WITH_ATTACHMENT`**, not `GMAIL_SEND_EMAIL`.
    Call **`get_tool_contract` on that action FIRST** to read the real
@@ -595,7 +597,7 @@ summary page, and email it to me as an attachment":**
   { "id": "make_page", "kind": "agent", "config": {
       "agent_ref": "code_executor",
       "input_context": "=nodes.research.item.json.summary",
-      "prompt": "Build a self-contained HTML page from the summary above, upload it with storage_upload_file, and return its public_url.",
+      "prompt": "Build a self-contained HTML page from the summary above, upload it as a public file with storage_upload_file (visibility public), and return its public_url.",
       "output_parser": { "schema": { "type": "object", "required": ["public_url"],
         "properties": { "public_url": { "type": "string" } } } } } },
   { "id": "send", "kind": "tool_call", "config": {

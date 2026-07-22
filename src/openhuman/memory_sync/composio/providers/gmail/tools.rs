@@ -75,6 +75,16 @@ pub const GMAIL_CURATED: &[CuratedTool] = &[
         slug: "GMAIL_SEND_EMAIL",
         scope: ToolScope::Write,
     },
+    // The attachment-send variant the workflow builder wires for "email it
+    // as an attachment" asks (B39/B43). Must stay curated: `flow_tool_allowed`
+    // rejects any uncurated Gmail slug at run time, and `get_tool_contract`
+    // flags an uncurated action `runtime_gate` (a hard stop the builder is
+    // told to avoid) — so an uncurated attachment send would make every
+    // attachment flow the B43 few-shot prescribes fail on its real run.
+    CuratedTool {
+        slug: "GMAIL_SEND_EMAIL_WITH_ATTACHMENT",
+        scope: ToolScope::Write,
+    },
     CuratedTool {
         slug: "GMAIL_REPLY_TO_THREAD",
         scope: ToolScope::Write,
