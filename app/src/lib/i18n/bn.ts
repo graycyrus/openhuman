@@ -3512,6 +3512,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'ওয়ার্কফ্লো সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
   'chat.flowProposal.enableError':
     'ওয়ার্কফ্লো সংরক্ষিত হয়েছে, কিন্তু সক্ষম করা যায়নি। আবার চেষ্টা করুন, বা Workflows পৃষ্ঠা থেকে সক্ষম করুন।',
+  'chat.flowProposal.savedConfirmation': 'সংরক্ষিত হয়েছে',
+  'chat.flowProposal.viewWorkflow': 'ওয়ার্কফ্লো দেখুন',
   'chat.flowProposal.stepKind.agent': 'এজেন্ট',
   'chat.flowProposal.stepKind.toolCall': 'কার্যক্রম',
   'chat.flowProposal.stepKind.httpRequest': 'ওয়েব অনুরোধ',

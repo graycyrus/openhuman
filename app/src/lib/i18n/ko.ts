@@ -3476,6 +3476,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': '워크플로를 저장할 수 없습니다. 다시 시도하세요.',
   'chat.flowProposal.enableError':
     '워크플로는 저장되었지만 활성화할 수 없습니다. 다시 시도하거나 Workflows 페이지에서 활성화하세요.',
+  'chat.flowProposal.savedConfirmation': '저장됨',
+  'chat.flowProposal.viewWorkflow': '워크플로 보기',
   'chat.flowProposal.stepKind.agent': '에이전트',
   'chat.flowProposal.stepKind.toolCall': '작업',
   'chat.flowProposal.stepKind.httpRequest': '웹 요청',

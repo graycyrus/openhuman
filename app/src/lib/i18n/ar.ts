@@ -3433,6 +3433,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'تعذّر حفظ سير العمل. حاول مرة أخرى.',
   'chat.flowProposal.enableError':
     'تم حفظ سير العمل، لكن تعذّر تفعيله. حاول مرة أخرى، أو فعّله من صفحة سير العمل.',
+  'chat.flowProposal.savedConfirmation': 'تم الحفظ',
+  'chat.flowProposal.viewWorkflow': 'عرض سير العمل',
   'chat.flowProposal.stepKind.agent': 'وكيل',
   'chat.flowProposal.stepKind.toolCall': 'إجراء',
   'chat.flowProposal.stepKind.httpRequest': 'طلب ويب',

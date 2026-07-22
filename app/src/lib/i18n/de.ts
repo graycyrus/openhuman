@@ -3614,6 +3614,8 @@ const messages: TranslationMap = {
     'Der Workflow konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
   'chat.flowProposal.enableError':
     'Workflow gespeichert, konnte aber nicht aktiviert werden. Versuchen Sie es erneut oder aktivieren Sie ihn auf der Workflows-Seite.',
+  'chat.flowProposal.savedConfirmation': 'Gespeichert',
+  'chat.flowProposal.viewWorkflow': 'Workflow ansehen',
   'chat.flowProposal.stepKind.agent': 'Agent',
   'chat.flowProposal.stepKind.toolCall': 'Aktion',
   'chat.flowProposal.stepKind.httpRequest': 'Webanfrage',

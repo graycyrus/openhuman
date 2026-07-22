@@ -3917,6 +3917,11 @@ const en: TranslationMap = {
   'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
   'chat.flowProposal.enableError':
     'Workflow saved, but could not enable it. Try again, or enable it from the Workflows page.',
+  // Terminal success state (issue B36): shown once the flow is saved and
+  // enabled, in place of the editable proposal, with a link into the
+  // persisted flow's own canvas.
+  'chat.flowProposal.savedConfirmation': 'Saved',
+  'chat.flowProposal.viewWorkflow': 'View workflow',
   // Plain-language labels for each `tinyflows` node kind, shown as the badge
   // next to each step in the proposal card's step list. Keep names short:
   // they render as small pill badges.

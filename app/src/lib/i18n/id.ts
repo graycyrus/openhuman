@@ -3528,6 +3528,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Alur kerja tidak dapat disimpan. Silakan coba lagi.',
   'chat.flowProposal.enableError':
     'Alur kerja disimpan, tetapi tidak dapat diaktifkan. Coba lagi, atau aktifkan dari halaman Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Tersimpan',
+  'chat.flowProposal.viewWorkflow': 'Lihat alur kerja',
   'chat.flowProposal.stepKind.agent': 'Agen',
   'chat.flowProposal.stepKind.toolCall': 'Tindakan',
   'chat.flowProposal.stepKind.httpRequest': 'Permintaan web',

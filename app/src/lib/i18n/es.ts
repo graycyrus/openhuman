@@ -3576,6 +3576,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'No se pudo guardar el flujo de trabajo. Inténtalo de nuevo.',
   'chat.flowProposal.enableError':
     'Flujo de trabajo guardado, pero no se pudo activar. Inténtalo de nuevo o actívalo desde la página de Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Guardado',
+  'chat.flowProposal.viewWorkflow': 'Ver flujo de trabajo',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Acción',
   'chat.flowProposal.stepKind.httpRequest': 'Solicitud web',

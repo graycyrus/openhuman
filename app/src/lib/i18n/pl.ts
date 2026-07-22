@@ -3556,6 +3556,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Nie udało się zapisać przepływu pracy. Spróbuj ponownie.',
   'chat.flowProposal.enableError':
     'Przepływ pracy zapisany, ale nie udało się go włączyć. Spróbuj ponownie lub włącz go na stronie Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Zapisano',
+  'chat.flowProposal.viewWorkflow': 'Zobacz przepływ pracy',
   'chat.flowProposal.stepKind.agent': 'Agent',
   'chat.flowProposal.stepKind.toolCall': 'Akcja',
   'chat.flowProposal.stepKind.httpRequest': 'Żądanie sieciowe',

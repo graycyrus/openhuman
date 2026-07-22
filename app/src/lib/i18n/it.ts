@@ -3575,6 +3575,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Impossibile salvare il workflow. Riprova.',
   'chat.flowProposal.enableError':
     'Workflow salvato, ma non è stato possibile attivarlo. Riprova, oppure attivalo dalla pagina Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Salvato',
+  'chat.flowProposal.viewWorkflow': 'Visualizza workflow',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Azione',
   'chat.flowProposal.stepKind.httpRequest': 'Richiesta web',

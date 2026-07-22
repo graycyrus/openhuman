@@ -3599,6 +3599,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': "Impossible d'enregistrer le workflow. Veuillez réessayer.",
   'chat.flowProposal.enableError':
     "Workflow enregistré, mais impossible de l'activer. Réessayez, ou activez-le depuis la page Workflows.",
+  'chat.flowProposal.savedConfirmation': 'Enregistré',
+  'chat.flowProposal.viewWorkflow': 'Voir le workflow',
   'chat.flowProposal.stepKind.agent': 'Agent',
   'chat.flowProposal.stepKind.toolCall': 'Action',
   'chat.flowProposal.stepKind.httpRequest': 'Requête web',

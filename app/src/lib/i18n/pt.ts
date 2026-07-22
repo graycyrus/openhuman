@@ -3568,6 +3568,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Não foi possível salvar o fluxo de trabalho. Tente novamente.',
   'chat.flowProposal.enableError':
     'Fluxo de trabalho salvo, mas não foi possível ativá-lo. Tente novamente ou ative-o na página Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Salvo',
+  'chat.flowProposal.viewWorkflow': 'Ver fluxo de trabalho',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Ação',
   'chat.flowProposal.stepKind.httpRequest': 'Pedido web',

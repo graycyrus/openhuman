@@ -144,16 +144,38 @@ describe('WorkflowProposalCard', () => {
     expect(screen.getByTestId('workflow-proposal-card')).toBeInTheDocument();
   });
 
-  it('saves via createFlow with the right args and clears optimistically', async () => {
+  it('saves via createFlow with the right args and shows the saved confirmation', async () => {
     const p = proposal();
     render(<WorkflowProposalCard threadId="t1" proposal={p} />);
     fireEvent.click(screen.getByText('chat.flowProposal.save'));
     await waitFor(() =>
       expect(mockCreateFlow).toHaveBeenCalledWith(p.name, p.graph, p.requireApproval)
     );
-    expect(mockDispatch).toHaveBeenCalledTimes(1);
     // createFlow already came back enabled — no need for a follow-up arm.
     expect(mockSetFlowEnabled).not.toHaveBeenCalled();
+    // The card stays mounted (issue B36) showing a saved confirmation with a
+    // link into the persisted flow — it must not silently clear/unmount, so
+    // the proposal is NOT dispatched away until the user follows that link.
+    await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
+    expect(screen.getByText('chat.flowProposal.savedConfirmation')).toBeInTheDocument();
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the persisted flow and clears the proposal when "View workflow" is clicked', async () => {
+    const p = proposal();
+    render(<WorkflowProposalCard threadId="t1" proposal={p} />);
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() =>
+      expect(screen.getByText('chat.flowProposal.viewWorkflow')).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByText('chat.flowProposal.viewWorkflow'));
+
+    // Navigates straight to the saved flow's own canvas route — the created
+    // flow's real id ('f1'), not the unsaved-draft route.
+    expect(mockNavigate).toHaveBeenCalledWith('/flows/f1');
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
   });
 
   it('shows a loading state while saving', async () => {
@@ -195,7 +217,10 @@ describe('WorkflowProposalCard', () => {
     render(<WorkflowProposalCard threadId="t1" proposal={p} />);
     fireEvent.click(screen.getByText('chat.flowProposal.save'));
     await waitFor(() => expect(mockSetFlowEnabled).toHaveBeenCalledWith('f1', true));
-    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    // The proposal isn't dispatched away immediately — the card shows the
+    // saved confirmation with a view link instead (issue B36).
+    await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   it('keeps the flow saved and lets the user retry just the enable step if setFlowEnabled fails', async () => {
@@ -216,11 +241,14 @@ describe('WorkflowProposalCard', () => {
 
     mockSetFlowEnabled.mockResolvedValueOnce({ id: 'f1', enabled: true });
     fireEvent.click(screen.getByText('chat.flowProposal.save'));
-    await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('workflow-proposal-saved')).toBeInTheDocument());
     // Only ever created once, even though "Save & enable" was clicked twice.
     expect(mockCreateFlow).toHaveBeenCalledTimes(1);
     expect(mockSetFlowEnabled).toHaveBeenCalledTimes(2);
     expect(mockSetFlowEnabled).toHaveBeenLastCalledWith('f1', true);
+    // Still not dispatched away — the retry lands on the same saved
+    // confirmation, not an immediate clear.
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   it('opens the proposed graph in the canvas as an unsaved draft without persisting', () => {

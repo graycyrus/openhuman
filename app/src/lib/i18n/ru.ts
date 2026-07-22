@@ -3540,6 +3540,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Не удалось сохранить рабочий процесс. Попробуйте еще раз.',
   'chat.flowProposal.enableError':
     'Рабочий процесс сохранён, но не удалось его включить. Попробуйте ещё раз или включите его на странице Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Сохранено',
+  'chat.flowProposal.viewWorkflow': 'Просмотреть рабочий процесс',
   'chat.flowProposal.stepKind.agent': 'Агент',
   'chat.flowProposal.stepKind.toolCall': 'Действие',
   'chat.flowProposal.stepKind.httpRequest': 'Веб-запрос',

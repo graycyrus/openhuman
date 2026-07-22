@@ -3329,6 +3329,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.dismiss': '忽略',
   'chat.flowProposal.error': '无法保存该工作流。请重试。',
   'chat.flowProposal.enableError': '工作流已保存，但无法启用。请重试，或在“工作流”页面手动启用。',
+  'chat.flowProposal.savedConfirmation': '已保存',
+  'chat.flowProposal.viewWorkflow': '查看工作流',
   'chat.flowProposal.stepKind.agent': '智能体',
   'chat.flowProposal.stepKind.toolCall': '操作',
   'chat.flowProposal.stepKind.httpRequest': '网络请求',
