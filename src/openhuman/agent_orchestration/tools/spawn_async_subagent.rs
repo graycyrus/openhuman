@@ -238,6 +238,13 @@ impl Tool for SpawnAsyncSubagentTool {
         // to blocking dispatch in this situation — see
         // `dispatch.rs::dispatch_subagent`'s `has_delivery_thread` check).
         if parent_thread_id.is_none() {
+            log::warn!(
+                "[spawn_async_subagent] refusing fire-and-forget spawn with no delivery thread \
+                 parent={} requested={} — directing caller to synchronous delegation (flow node / \
+                 CLI / cron context, background result would be discarded)",
+                parent.agent_definition_id,
+                definition.id
+            );
             return Ok(ToolResult::error(
                 "spawn_async_subagent: no parent chat thread available to deliver the result \
                  into (this looks like a flow node, CLI, or cron run rather than an interactive \
