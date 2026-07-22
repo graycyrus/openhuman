@@ -247,6 +247,19 @@ async fn build_session_agent_falls_back_to_global_default_when_no_definition() {
 // instead of the factory hard-erroring "agent definition '…' not found in
 // registry" (chat / task-dispatcher) because it never consulted
 // `config.agent_registry.entries`.
+//
+// Regression note: this test deliberately does NOT call
+// `AgentDefinitionRegistry::init_global*` itself, so — depending on whether
+// an earlier test in this binary already initialised the process-wide
+// `OnceLock` singleton — it exercises `build_session_agent_inner`'s tool-
+// visibility computation under EITHER state: `(Some(def), Some(registry))`
+// or `(Some(def), None)`. Both arms must apply `def.tools` (the synthesized
+// `ToolScope::Named` from `definition_from_registry_entry`); the `None`
+// (registry-uninitialized) arm previously fell through to the catch-all
+// "no registry, no filter" case and silently discarded the custom agent's
+// allowlist, leaving `visible_tool_names_for_test()` empty. See the
+// `(Some(def), None)` match arm in `factory.rs`'s delegation-tool-and-
+// visibility block for the fix.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[tokio::test]

@@ -826,7 +826,35 @@ impl Agent {
                 };
                 (synthed, None)
             }
-            (_, None) => {
+            (Some(def), None) => {
+                // We have a target definition (either a pre-populated
+                // harness entry looked up before the registry singleton
+                // existed, or — the common case today — a `CustomRegistry`
+                // definition `resolve_target_definition` synthesizes
+                // straight from `config.agent_registry.entries` without
+                // ever consulting `AgentDefinitionRegistry::global()`, see
+                // `agent_registry::find_custom_in_config`). Delegation-tool
+                // synthesis needs the registry (to resolve named
+                // subagents), so it's skipped here, but `def.tools` is a
+                // real scope the caller authored and MUST still gate
+                // visibility — silently dropping it into the `(_, None)`
+                // "no registry, no filter" catch-all would leave a custom
+                // agent's `ToolScope::Named` allowlist entirely
+                // unenforced (visible tools empty rather than the named
+                // set), regressing the least-privilege contract this
+                // synthesis path exists to provide.
+                log::debug!(
+                    "[agent::builder] AgentDefinitionRegistry not initialised — skipping \
+                     delegation tool synthesis, but still applying target definition's own \
+                     tool scope"
+                );
+                let filter: Option<std::collections::HashSet<String>> = match &def.tools {
+                    ToolScope::Named(names) => Some(names.iter().cloned().collect()),
+                    ToolScope::Wildcard => None,
+                };
+                (Vec::new(), filter)
+            }
+            (None, None) => {
                 log::debug!(
                     "[agent::builder] AgentDefinitionRegistry not initialised — \
                      skipping delegation tool synthesis"
