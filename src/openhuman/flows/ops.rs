@@ -122,10 +122,11 @@ pub(crate) fn to_flow_validation_error(
     }
 }
 
-/// The single canonical definition of the builder hard-gate stack: the three
+/// The single canonical definition of the builder hard-gate stack: the
 /// author-time gates that reject (not warn) a graph an agent must not propose
-/// or persist — binding-resolvability, tool-contract, and required-arg
-/// resolvability, in increasing cost order.
+/// or persist — binding-resolvability, agent-ref resolvability,
+/// connection-ref, tool-contract, and required-arg resolvability, in
+/// increasing cost order.
 ///
 /// Returns an empty `Vec` when the graph passes; otherwise the first failing
 /// gate's node-level error messages (short-circuiting, so an expensive later
@@ -143,6 +144,14 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     let binding_errors = validate_binding_resolvability(graph);
     if !binding_errors.is_empty() {
         return binding_errors;
+    }
+    // Cheap: an `agent` node's `agent_ref` that would hit the runtime's
+    // `RegistryFallback` "unknown agent_ref" hard error mid-run. Almost always a
+    // pure in-memory harness-registry lookup; only a ref that ISN'T a harness
+    // definition falls through to a local config read (custom agent registry).
+    let agent_ref_errors = validate_agent_refs(graph).await;
+    if !agent_ref_errors.is_empty() {
+        return agent_ref_errors;
     }
     // Async, live connection list: a tool_call whose `connection_ref` names the
     // wrong toolkit for its slug, or a connection id the user doesn't actually
@@ -1156,6 +1165,130 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
                          output_parser.schema and bind via `=nodes.{ref_id}.item.json.{field}`.",
                         node.id
                     ));
+                }
+            }
+        }
+    }
+    errors
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent-ref resolvability gate: an `agent` node's `agent_ref` must name a
+// real agent, not the runtime's `RegistryFallback` "unknown agent_ref" case
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// `run_via_registry_fallback` (`tinyflows/caps.rs`) hard-errors mid-run with
+// "unknown agent_ref '…'" the moment an `agent` node's `config.agent_ref`
+// doesn't resolve to either a harness `AgentDefinition` or a custom agent
+// registry entry. Today that is the FIRST time an author finds out — the
+// graph proposes, saves, and even passes every other builder gate, then
+// fails on the very node whose whole job was to run. This gate moves that
+// same check to propose/edit/save time so a broken `agent_ref` is rejected
+// before it's ever persisted, using the exact resolution the runtime uses
+// (`route_for_agent_ref` + `agent_registry::get_agent`) rather than
+// re-implementing it.
+//
+// A plain `agent` node with NO `agent_ref` is unaffected (and must stay
+// that way) — it runs on the default LLM completion (`caps.llm`), never
+// touches `OpenHumanAgentRunner`'s routing at all, so there is nothing to
+// resolve.
+
+/// Rejects an `agent` node whose `config.agent_ref` would hit the runtime's
+/// `RegistryFallback` "unknown agent_ref" hard error mid-run
+/// (`run_via_registry_fallback` in `tinyflows/caps.rs`) — a real ref is one
+/// that resolves via [`crate::openhuman::tinyflows::caps::route_for_agent_ref`]
+/// to a harness [`AgentDefinition`](crate::openhuman::agent::harness::definition::AgentDefinition)
+/// (`AgentRoute::Harness`), OR — when it routes to `AgentRoute::RegistryFallback`
+/// — resolves to an *enabled*
+/// [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+/// via [`crate::openhuman::agent_registry::get_agent`]. Both are exactly the
+/// checks `OpenHumanAgentRunner::run_agent` performs at run time, reused here
+/// rather than duplicated so the two planes cannot drift.
+///
+/// A node with no `agent_ref` (or a blank one) is a plain agent node — it
+/// runs on the default LLM completion, never reaches this routing at all —
+/// and is skipped, not rejected. A registry lookup failure (e.g. config
+/// unavailable) fails OPEN (skipped, logged) like the sibling
+/// `validate_connection_refs` gate: this gate must never false-reject a
+/// graph because of a transient local read.
+pub(crate) async fn validate_agent_refs(graph: &WorkflowGraph) -> Vec<String> {
+    use crate::openhuman::tinyflows::caps::{route_for_agent_ref, AgentRoute};
+
+    let mut errors = Vec::new();
+    for node in &graph.nodes {
+        if node.kind != NodeKind::Agent {
+            continue;
+        }
+        let Some(agent_ref) = node.config.get("agent_ref").and_then(Value::as_str) else {
+            continue;
+        };
+        let agent_ref = agent_ref.trim();
+        if agent_ref.is_empty() {
+            continue;
+        }
+
+        match route_for_agent_ref(agent_ref) {
+            AgentRoute::Harness => {
+                tracing::debug!(
+                    target: "flows",
+                    node = %node.id,
+                    %agent_ref,
+                    "[flows] agent-ref check: resolves to a harness agent definition"
+                );
+            }
+            AgentRoute::RegistryFallback => {
+                match crate::openhuman::agent_registry::get_agent(agent_ref).await {
+                    Ok(Some(entry)) if entry.enabled => {
+                        tracing::debug!(
+                            target: "flows",
+                            node = %node.id,
+                            %agent_ref,
+                            "[flows] agent-ref check: resolves to an enabled custom agent \
+                             registry entry"
+                        );
+                    }
+                    Ok(Some(_disabled)) => {
+                        tracing::warn!(
+                            target: "flows",
+                            node = %node.id,
+                            %agent_ref,
+                            "[flows] agent-ref check: agent_ref is registered but disabled — \
+                             rejecting"
+                        );
+                        errors.push(format!(
+                            "Node '{}': `agent_ref` `{agent_ref}` is registered but currently \
+                             disabled — enable it (or pick another agent_ref via \
+                             list_agent_profiles) before this node can run.",
+                            node.id
+                        ));
+                    }
+                    Ok(None) => {
+                        tracing::warn!(
+                            target: "flows",
+                            node = %node.id,
+                            %agent_ref,
+                            "[flows] agent-ref check: unknown agent_ref — neither a harness \
+                             definition nor a custom agent registry entry — rejecting"
+                        );
+                        errors.push(format!(
+                            "Node '{}': `agent_ref` `{agent_ref}` is not a real agent — it names \
+                             neither a built-in agent definition nor a custom agent registry \
+                             entry, and would fail at run time with an \"unknown agent_ref\" \
+                             error. Call list_agent_profiles to see the real, selectable \
+                             agent_ref values.",
+                            node.id
+                        ));
+                    }
+                    Err(e) => {
+                        tracing::debug!(
+                            target: "flows",
+                            node = %node.id,
+                            %agent_ref,
+                            error = %e,
+                            "[flows] agent-ref check: custom agent registry lookup unavailable — \
+                             skipping (fail-open)"
+                        );
+                    }
                 }
             }
         }
