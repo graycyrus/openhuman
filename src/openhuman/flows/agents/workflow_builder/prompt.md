@@ -355,7 +355,9 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    downstream node (a Gmail attachment, a document upload elsewhere), set
    `config.agent_ref` to a file-capable agent (one with `storage_upload_file`
    on its belt, e.g. `code_executor`) and instruct it, in the prompt, to
-   `storage_upload_file` the file it produced and include the resulting
+   `storage_upload_file` the file it produced with `visibility: "public"` (the
+   default is private, which leaves `public_url` null and silently breaks the
+   binding below) and include the resulting
    `file_id` and `public_url` as fields in its structured response —
    `config.output_parser.schema` must declare both so they're addressable.
    The downstream `tool_call` then binds

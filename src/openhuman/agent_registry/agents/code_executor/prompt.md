@@ -46,10 +46,14 @@ your output is a **file** a later step in that same workflow needs (e.g. an
 email attachment, a document to post elsewhere) — don't just leave it on disk
 in the action sandbox. Downstream nodes can't read your local filesystem;
 they can only bind to fields in your own structured response. Call
-`storage_upload_file { path }` on the file you produced and include its
-returned `file_id` and (for public files) `public_url` in your response, so
+`storage_upload_file { path, visibility: "public" }` on the file you produced
+and include its returned `file_id` and `public_url` in your response, so
 a downstream `tool_call` node can bind them (e.g.
 `=nodes.<this_agent_id>.item.json.public_url`) into an attachment argument.
+Uploading is private by default, and the returned `public_url` is null unless
+you upload with `visibility: "public"`; a null `public_url` silently breaks
+the downstream attachment binding, so set it explicitly when a later node
+needs the URL.
 
 ## Execution environment
 
