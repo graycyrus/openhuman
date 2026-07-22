@@ -663,6 +663,84 @@ mod tests {
         }
     }
 
+    /// B43: shipping the storage-URL producer pattern (B39) is not enough on
+    /// its own — the builder skims the passive "File-producing agent nodes"
+    /// guidance and, when asked to email something "as an attachment", anchors
+    /// on the pre-B39 "write a file to disk, then attach" dead model and falls
+    /// back to inlining HTML as the email BODY (`GMAIL_SEND_EMAIL` +
+    /// `is_html`). The prompt must therefore carry an IMPERATIVE decision hook
+    /// (not passive prose): when the ask contains "attach"/"attachment"/"as a
+    /// file", the builder MUST wire the `storage_upload_file` producer →
+    /// `public_url` in the output schema → `GMAIL_SEND_EMAIL_WITH_ATTACHMENT`
+    /// path, ground the real attachment arg via `get_tool_contract`, and MUST
+    /// NOT treat HTML-as-body as satisfying an attachment request.
+    #[test]
+    fn standing_prompt_teaches_attachment_decision_hook() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        // Positive: the imperative decision hook itself, an unmissable rule,
+        // not another line of skimmable guidance.
+        assert!(
+            STANDING_PROMPT.contains("Decision hook (do not skim past this)."),
+            "standing prompt must carry an imperative attachment decision hook \
+             the model cannot skim past (B43)"
+        );
+
+        // Positive: the trigger phrase the hook keys on.
+        assert!(
+            STANDING_PROMPT.contains("\"attach\",\n\"attachment\", or \"as a file\"")
+                || STANDING_PROMPT.contains("\"as a file\""),
+            "attachment decision hook must key on \"attach\"/\"attachment\"/\"as a file\" (B43)"
+        );
+
+        // Positive: the anti-inline invariant. HTML-as-body does NOT satisfy
+        // an attachment request. This is the exact failure mode B43 observed.
+        assert!(
+            STANDING_PROMPT.contains("does NOT satisfy an attachment request"),
+            "attachment decision hook must state that inlining HTML/text as the \
+             email body does NOT satisfy an attachment request (B43)"
+        );
+
+        // Positive: kill the pre-B39 "write the file to disk, then attach" dead
+        // model the builder anchored on before giving up.
+        assert!(
+            STANDING_PROMPT.contains("no \"write the file to disk, then attach it\" path"),
+            "attachment decision hook must explicitly retire the pre-B39 \
+             write-to-disk-then-attach mental model (B43)"
+        );
+
+        // Positive: the storage-URL producer wiring the hook prescribes.
+        for phrase in [
+            "storage_upload_file",
+            "public_url",
+            "GMAIL_SEND_EMAIL_WITH_ATTACHMENT",
+        ] {
+            assert!(
+                STANDING_PROMPT.contains(phrase),
+                "attachment decision hook must name `{phrase}` as part of the \
+                 storage-URL producer → attachment-send wiring (B43)"
+            );
+        }
+
+        // Positive: ground the real attachment arg name via get_tool_contract
+        // before wiring it, rather than guessing.
+        assert!(
+            STANDING_PROMPT.contains("`get_tool_contract` on that action FIRST**"),
+            "attachment decision hook must tell the builder to `get_tool_contract` \
+             the attachment action first to ground the real arg name (B43)"
+        );
+
+        // Positive: the compact few-shot showing the exact node wiring is
+        // present (trigger → research agent → file-producing agent with
+        // storage_upload_file → GMAIL_SEND_EMAIL_WITH_ATTACHMENT).
+        assert!(
+            STANDING_PROMPT.contains("Few-shot (the exact wiring)")
+                && STANDING_PROMPT.contains("=nodes.make_page.item.json.public_url"),
+            "attachment decision hook must include a compact few-shot binding the \
+             producer's public_url into the attachment send node (B43)"
+        );
+    }
+
     /// The runtime already gives an `agent_ref` step the selected specialist's
     /// full persona/model/tool loop/iteration cap (`run_via_harness` in
     /// `tinyflows/caps.rs`) — the prompt must say so, not describe it as a
