@@ -64,9 +64,10 @@ fn default_entry_from_definition(def: AgentDefinition) -> AgentRegistryEntry {
 ///   which renders as an empty subagent body rather than erroring).
 /// * `model` -> `ModelSpec` via [`registry_value_to_model_spec`], the
 ///   inverse of [`model_to_registry_value`].
-/// * `tool_allowlist` -> `ToolScope` via [`allowlist_to_tool_scope`]: `["*"]`
-///   (or empty) means `Wildcard`, matching how `tools_to_allowlist` renders
-///   `Wildcard` as `["*"]`.
+/// * `tool_allowlist` -> `ToolScope` via [`allowlist_to_tool_scope`]: exactly
+///   `["*"]` means `Wildcard`; an empty list means `Named(vec![])` (no
+///   tools) — matching how `tools_to_allowlist` renders `Wildcard` as
+///   `["*"]` and `Named(vec![])` as `[]`.
 /// * `tool_denylist` -> `disallowed_tools` (direct clone).
 /// * `subagents.allowlist` -> one `SubagentEntry::AgentId` per entry.
 ///
@@ -131,11 +132,16 @@ fn registry_value_to_model_spec(value: Option<&str>) -> ModelSpec {
     }
 }
 
-/// Inverse of [`tools_to_allowlist`]'s `Wildcard` rendering: an allowlist
-/// that is empty or exactly `["*"]` means "all tools" (`ToolScope::Wildcard`);
-/// any other list is an explicit `ToolScope::Named`.
+/// Inverse of [`tools_to_allowlist`]'s `Wildcard` rendering: exactly `["*"]`
+/// means "all tools" (`ToolScope::Wildcard`). An **empty** allowlist is a
+/// deliberate `ToolScope::Named(vec![])` — i.e. tool-less — matching what the
+/// settings UI/schema mean by "no tools selected", and matching the forward
+/// direction: `tools_to_allowlist(&ToolScope::Named(vec![]), &[])` already
+/// renders back to `[]`, never `["*"]`. Collapsing empty to `Wildcard` here
+/// would silently grant a custom agent saved with no tools selected every
+/// enabled tool, bypassing the least-privilege setting the editor shows.
 fn allowlist_to_tool_scope(allowlist: &[String]) -> ToolScope {
-    if allowlist.is_empty() || allowlist == ["*"] {
+    if allowlist == ["*"] {
         ToolScope::Wildcard
     } else {
         ToolScope::Named(allowlist.to_vec())
@@ -231,6 +237,29 @@ mod tests {
         // Round trip back through the forward direction should reproduce the
         // same wildcard shape `default_entry_from_definition` would emit.
         assert_eq!(tools_to_allowlist(&def.tools, &[]), vec!["*".to_string()]);
+    }
+
+    #[test]
+    fn definition_from_registry_entry_empty_allowlist_stays_tool_less() {
+        // Regression test (P1 review comment on this PR): an empty
+        // `tool_allowlist` means "no tools selected" in the settings UI/schema
+        // — it must synthesize a `ToolScope::Named(vec![])`, NEVER
+        // `ToolScope::Wildcard`. Collapsing empty to Wildcard would silently
+        // grant every enabled tool to a custom agent saved with no tools
+        // selected, bypassing the least-privilege setting the editor shows.
+        let mut entry = custom_entry("tool_less_agent");
+        entry.tool_allowlist = Vec::new();
+        let def = definition_from_registry_entry(&entry);
+
+        assert!(
+            matches!(def.tools, ToolScope::Named(ref names) if names.is_empty()),
+            "an empty tool_allowlist must synthesize a tool-less Named([]) scope, not Wildcard: {:?}",
+            def.tools
+        );
+
+        // Round trip back through the forward direction must reproduce the
+        // same empty shape, not `["*"]`.
+        assert_eq!(tools_to_allowlist(&def.tools, &[]), Vec::<String>::new());
     }
 
     #[test]
