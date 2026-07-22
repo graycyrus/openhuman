@@ -1194,8 +1194,7 @@ fn resolve_target_definition(
     // Harness registry miss (or not yet initialised). Before failing, check
     // the config-backed custom agent registry — the one place custom
     // (non-shipped) agents live.
-    if let Some(entry) = crate::openhuman::agent_registry::find_custom_in_config(config, agent_id)
-    {
+    if let Some(entry) = crate::openhuman::agent_registry::find_custom_in_config(config, agent_id) {
         log::info!(
             "[agent::builder] agent_id={} not found in the harness AgentDefinitionRegistry — \
              synthesizing a definition from its custom agent_registry entry so it runs with its \
