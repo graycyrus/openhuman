@@ -2385,6 +2385,74 @@ fn binding_to_agent_with_matching_schema_is_accepted() {
     );
 }
 
+// ── validate_agent_refs (agent-ref resolvability gate, PR #5114) ───────────
+
+#[tokio::test]
+async fn agent_ref_plain_node_without_ref_is_accepted() {
+    // A plain `agent` node carries NO `agent_ref` — it runs on the default LLM
+    // completion and never touches `OpenHumanAgentRunner`'s routing at all, so
+    // this gate must never reject it. This is the exact invariant #5114 must
+    // preserve: only an UNKNOWN `agent_ref` is rejected, never a plain node.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan", "config": { "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn agent_ref_blank_string_is_treated_as_absent() {
+    // A whitespace-only `agent_ref` must be treated the same as no ref at all
+    // rather than being resolved (and potentially rejected as "unknown").
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "   ", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn agent_ref_resolving_to_a_harness_definition_is_accepted() {
+    // "orchestrator" is one of the bundled built-in agent definitions
+    // (see `agent_registry::defaults::default_agents_include_core_personas`),
+    // so it must resolve via `AgentRoute::Harness` and never touch the
+    // custom agent registry at all.
+    //
+    // This also exercises the CodeRabbit/Codex #5114 review fix: run via the
+    // scoped `cargo test --lib flows::ops` filter, no other domain's test gets
+    // to call `AgentDefinitionRegistry::init_global_builtins()` first, so this
+    // only passes because `validate_agent_refs` now defensively initialises
+    // the harness registry itself before resolving a ref.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "orchestrator", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_agent_refs(&config, &g).await;
+    assert!(
+        errors.is_empty(),
+        "a real harness agent_ref must never be rejected: {errors:?}"
+    );
+}
+
 // ── validate_tool_contracts (systemic tool-contract fix, Part 2) ───────────
 //
 // The live-catalog cache is process-global (`LIVE_CATALOG_CACHE`) — every
