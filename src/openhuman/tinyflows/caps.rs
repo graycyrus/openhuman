@@ -896,16 +896,70 @@ impl AgentRunner for OpenHumanAgentRunner {
                 self.run_via_harness(agent_ref, request, conn).await
             }
             AgentRoute::RegistryFallback => {
-                tracing::info!(
-                    target: "flows",
+                // `route_for_agent_ref` only consults the harness
+                // `AgentDefinitionRegistry`, so a miss there used to mean
+                // "run the persona-only completion fallback" unconditionally
+                // — even for a user-created custom agent, which has real
+                // `tool_allowlist`/`model` settings that fallback ignores.
+                //
+                // The agent factory (`Agent::from_config_for_agent`) now
+                // also consults `config.agent_registry.entries` on a
+                // harness-registry miss and synthesizes a real
+                // `AgentDefinition` for any `AgentRegistrySource::Custom`
+                // entry it finds (issue B38/Gap 2). So: route a *known,
+                // enabled* custom entry through the harness turn — it gets
+                // its real tool belt — and reserve the persona-only
+                // completion for `agent_ref`s that are unknown to both the
+                // harness registry AND the custom config registry (or that
+                // are disabled, which `run_via_registry_fallback` already
+                // rejects with a clear error).
+                let custom_entry = crate::openhuman::agent_registry::find_custom_in_config(
+                    &self.config,
                     agent_ref,
-                    "[flows] agent_runner: FALLBACK path — persona-shaping single completion for a \
-                     custom registry entry"
                 );
-                self.run_via_registry_fallback(agent_ref, request, conn)
-                    .await
+                match route_custom_entry_lookup(custom_entry.as_ref()) {
+                    AgentRoute::Harness => {
+                        tracing::info!(
+                            target: "flows",
+                            agent_ref,
+                            "[flows] agent_runner: CUSTOM-REGISTRY path — routing through the \
+                             harness so the custom agent runs with its real tool belt instead of \
+                             the persona-only completion fallback"
+                        );
+                        self.run_via_harness(agent_ref, request, conn).await
+                    }
+                    AgentRoute::RegistryFallback => {
+                        tracing::info!(
+                            target: "flows",
+                            agent_ref,
+                            "[flows] agent_runner: FALLBACK path — persona-shaping single \
+                             completion for a custom registry entry"
+                        );
+                        self.run_via_registry_fallback(agent_ref, request, conn)
+                            .await
+                    }
+                }
             }
         }
+    }
+}
+
+/// Decides how to run an `agent_ref` that has no harness definition, given
+/// the (already-performed) config-backed custom registry lookup: an
+/// [`AgentRoute::Harness`] for a known, *enabled* custom entry — the factory
+/// synthesizes a real `AgentDefinition` for it (issue B38/Gap 2), so it can
+/// run the full tool loop — and [`AgentRoute::RegistryFallback`] for
+/// anything else (no entry at all, or a disabled one, which
+/// [`OpenHumanAgentRunner::run_via_registry_fallback`] itself rejects with a
+/// clear "is disabled" error rather than silently skipping it here). Pure
+/// over the lookup result so the decision is unit-testable without a live
+/// `Config`/registry.
+pub(crate) fn route_custom_entry_lookup(
+    entry: Option<&crate::openhuman::agent_registry::AgentRegistryEntry>,
+) -> AgentRoute {
+    match entry {
+        Some(e) if e.enabled => AgentRoute::Harness,
+        _ => AgentRoute::RegistryFallback,
     }
 }
 

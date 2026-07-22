@@ -241,6 +241,87 @@ async fn build_session_agent_falls_back_to_global_default_when_no_definition() {
     );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// B38 (Gap 2) — a custom (non-shipped) `AgentRegistryEntry` must synthesize a
+// real `AgentDefinition` and run with its own `ToolScope::Named` filter,
+// instead of the factory hard-erroring "agent definition '…' not found in
+// registry" (chat / task-dispatcher) because it never consulted
+// `config.agent_registry.entries`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn from_config_for_agent_synthesizes_custom_registry_entry_with_named_scope() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+    use crate::openhuman::agent_registry::types::{
+        AgentRegistryEntry, AgentRegistrySource, AgentSubagentPolicy,
+    };
+    use crate::openhuman::tokenjuice::RETRIEVE_TOOL_NAME;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.agent_registry.entries = vec![AgentRegistryEntry {
+        id: "finance_analyst_b38".to_string(),
+        name: "Finance Analyst".to_string(),
+        description: "Reviews spend and drafts finance summaries.".to_string(),
+        source: AgentRegistrySource::Custom,
+        enabled: true,
+        model: Some("hint:reasoning".to_string()),
+        system_prompt: Some("You are a meticulous finance analyst.".to_string()),
+        tool_allowlist: vec!["memory_search".to_string(), "web_search".to_string()],
+        tool_denylist: Vec::new(),
+        subagents: AgentSubagentPolicy::default(),
+        tags: Vec::new(),
+        metadata: serde_json::Value::Null,
+    }];
+
+    // Precondition: this id must NOT be a harness definition (built-in or
+    // workspace TOML) — the whole point is that only the config-backed
+    // custom registry knows about it.
+    assert!(
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+            .map(|reg| reg.get("finance_analyst_b38").is_none())
+            .unwrap_or(true),
+        "test id must not collide with a real harness definition"
+    );
+
+    let agent = Agent::from_config_for_agent(&config, "finance_analyst_b38").expect(
+        "a custom agent_registry entry must synthesize a real AgentDefinition and build \
+         successfully instead of erroring",
+    );
+
+    let visible = agent.visible_tool_names_for_test();
+    assert!(
+        visible.contains("memory_search") && visible.contains("web_search"),
+        "the custom agent's tool_allowlist must become a real ToolScope::Named filter: {visible:?}"
+    );
+    assert!(
+        visible.contains(RETRIEVE_TOOL_NAME),
+        "the compaction recovery tool must join any non-empty Named allowlist: {visible:?}"
+    );
+    assert!(
+        !visible.contains("automate"),
+        "a tool outside the custom agent's allowlist must not be visible: {visible:?}"
+    );
+}
+
+#[tokio::test]
+async fn from_config_for_agent_still_errors_for_a_genuinely_unknown_id() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // No harness definition AND no config.agent_registry entry for this id —
+    // the factory must still hard-error rather than silently building an
+    // unfiltered/legacy agent.
+    let err = Agent::from_config_for_agent(&config, "totally_unknown_agent_id_b38")
+        .expect_err("an id with no harness definition and no custom entry must error");
+    assert!(
+        err.to_string().contains("totally_unknown_agent_id_b38"),
+        "error should name the unresolved agent id: {err}"
+    );
+}
+
 // ── #5050 Fix 1: shared `Arc<Config>` for the per-build tool config ──────────
 
 #[test]
