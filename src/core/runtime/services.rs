@@ -110,6 +110,24 @@ pub fn spawn_cron_service() {
     tokio::spawn(async {
         match crate::openhuman::config::Config::load_or_init().await {
             Ok(config) => {
+                // Boot-time orphan sweep (bug B42): reconcile any `flow_runs`
+                // row left at `running` by a prior process (crash/SIGKILL/power
+                // loss — where the in-process drop-guard never ran) to a
+                // terminal `interrupted`, so the run-details sidebar never shows
+                // a perpetual blank spinner. Runs BEFORE the cron gate so it
+                // fires even on cron-disabled/slim configs, and early enough
+                // that no run started by THIS process can yet be an orphan.
+                #[cfg(feature = "flows")]
+                {
+                    let swept =
+                        crate::openhuman::flows::ops::sweep_orphaned_running_runs_on_boot(&config)
+                            .await;
+                    if swept > 0 {
+                        log::info!(
+                            "[flows] boot sweep reconciled {swept} orphaned running run(s) to 'interrupted'"
+                        );
+                    }
+                }
                 if !config.cron.enabled {
                     log::info!("[cron] scheduler disabled via config; skipping");
                     return;

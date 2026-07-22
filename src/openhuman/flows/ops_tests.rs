@@ -6318,3 +6318,141 @@ fn combine_trail_off_fallback_returns_fallback_alone_for_genuine_silence() {
     assert_eq!(combine_trail_off_fallback(&fallback, ""), fallback);
     assert_eq!(combine_trail_off_fallback(&fallback, "   \n\n  "), fallback);
 }
+
+// ── Live-run reliability: drop-guard + boot sweep + detach (bugs B41/B42) ───
+
+/// Seeds a real flow plus an already-inserted `running` `flow_runs` row, and
+/// returns `(config, flow_id, run_id)`. The `TempDir` is returned so the caller
+/// keeps the on-disk store alive for the duration of the test.
+fn seed_running_run(tmp: &TempDir) -> (Config, String, String) {
+    let config = test_config(tmp);
+    let flow = store::create_flow(
+        &config,
+        "reliability".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+    let run_id = format!("flow:{}:{}", flow.id, uuid::Uuid::new_v4());
+    let started_at = Utc::now().to_rfc3339();
+    store::insert_flow_run(&config, &run_id, &flow.id, &run_id, &started_at).unwrap();
+    (config, flow.id, run_id)
+}
+
+#[test]
+fn run_row_finalizer_reconciles_orphaned_running_row_to_interrupted_on_drop() {
+    let tmp = TempDir::new().unwrap();
+    let (config, flow_id, run_id) = seed_running_run(&tmp);
+
+    // Simulate the run future being dropped mid-await without any terminal
+    // write: the guard is created armed and never disarmed, so its `Drop`
+    // reconciles the row.
+    {
+        let _finalizer = RunRowFinalizer::new(Arc::new(config.clone()), &run_id, &flow_id);
+    }
+
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(
+        row.status, "interrupted",
+        "a dropped run must not stay 'running'"
+    );
+    assert_eq!(row.error.as_deref(), Some(INTERRUPTED_DROP_REASON));
+    assert!(
+        row.finished_at.is_some(),
+        "an interrupted run must be stamped finished"
+    );
+}
+
+#[test]
+fn run_row_finalizer_disarm_leaves_a_settled_row_untouched() {
+    let tmp = TempDir::new().unwrap();
+    let (config, flow_id, run_id) = seed_running_run(&tmp);
+
+    // A run that settled normally disarms its guard after the real terminal
+    // write; dropping the disarmed guard must be a no-op.
+    {
+        let finalizer = RunRowFinalizer::new(Arc::new(config.clone()), &run_id, &flow_id);
+        finalizer.disarm();
+    }
+
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(
+        row.status, "running",
+        "a disarmed finalizer must not overwrite the row's real status"
+    );
+    assert!(row.error.is_none());
+}
+
+#[tokio::test]
+async fn boot_sweep_reconciles_orphaned_running_run_to_interrupted() {
+    let tmp = TempDir::new().unwrap();
+    let (config, _flow_id, run_id) = seed_running_run(&tmp);
+
+    // No in-process run owns this row (the registry is empty), so the boot
+    // sweep must reconcile it.
+    let swept = sweep_orphaned_running_runs_on_boot(&config).await;
+    assert_eq!(swept, 1, "the orphaned running row must be swept");
+
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(row.status, "interrupted");
+    assert!(
+        row.error
+            .as_deref()
+            .is_some_and(|e| e.contains("app restart")),
+        "the reason must explain the boot reconciliation, got {:?}",
+        row.error
+    );
+}
+
+#[tokio::test]
+async fn boot_sweep_skips_a_run_that_is_live_in_flight() {
+    let tmp = TempDir::new().unwrap();
+    let (config, _flow_id, run_id) = seed_running_run(&tmp);
+
+    // Register the run as live in this process; the sweep must leave it alone.
+    let (_token, _guard) = run_registry::register(&run_id);
+    assert!(run_registry::is_in_flight(&run_id));
+
+    let swept = sweep_orphaned_running_runs_on_boot(&config).await;
+    assert_eq!(swept, 0, "a live in-flight run must never be swept");
+
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(row.status, "running", "the live run must stay running");
+}
+
+#[tokio::test]
+async fn flows_run_detached_returns_running_run_id_and_inserts_row() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "detached".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let outcome = flows_run_detached(&config, &flow.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .expect("detached run must start");
+
+    assert_eq!(outcome.value["status"], json!("running"));
+    assert_eq!(outcome.value["detached"], json!(true));
+    let run_id = outcome.value["run_id"]
+        .as_str()
+        .expect("run_id must be a string")
+        .to_string();
+    assert!(
+        run_id.starts_with(&format!("flow:{}:", flow.id)),
+        "run_id: {run_id}"
+    );
+
+    // The `running` row is inserted synchronously before the background task is
+    // spawned, so the copilot's immediate `get_flow_run(run_id)` poll finds it.
+    let row = store::get_flow_run(&config, &run_id)
+        .unwrap()
+        .expect("a run row must exist immediately after detaching");
+    assert_eq!(row.flow_id, flow.id);
+}

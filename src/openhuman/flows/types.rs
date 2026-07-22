@@ -328,12 +328,16 @@ pub struct FlowRun {
     /// `"running"` | `"completed"` | `"completed_with_warnings"` |
     /// `"pending_approval"` | `"failed"` | `"cancelled"` (issue G4 — a run
     /// cancelled via `flows_cancel_run`, or a parked `pending_approval` run
-    /// swept by the TTL expiry). `"completed_with_warnings"` (run honesty,
+    /// swept by the TTL expiry) | `"interrupted"` (bug B42 — a run whose future
+    /// was dropped mid-flight, reconciled either by the in-process
+    /// `RunRowFinalizer` drop-guard or the boot-time orphan sweep, so a
+    /// cancelled/timed-out/crashed run always settles to a terminal row instead
+    /// of wedging at `running`). `"completed_with_warnings"` (run honesty,
     /// PR2) is a terminal status like `"completed"`, but at least one settled
     /// [`FlowRunStep`] carries non-empty `diagnostics` (a `=`-binding that
     /// resolved to `null`) even though no step outright errored. All of
-    /// `completed` / `completed_with_warnings` / `failed` / `cancelled` are
-    /// terminal.
+    /// `completed` / `completed_with_warnings` / `failed` / `cancelled` /
+    /// `interrupted` are terminal.
     pub status: String,
     /// RFC3339 timestamp when the run started.
     pub started_at: String,

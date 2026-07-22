@@ -56,7 +56,12 @@ export type FlowRunStatus =
   | 'completed_with_warnings'
   | 'pending_approval'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  // A run whose future was dropped mid-flight (harness tool abort, chat turn
+  // end, timeout, or an app restart), reconciled to a terminal state by the
+  // core's `RunRowFinalizer` drop-guard or its boot-time orphan sweep (bug
+  // B42). Carries a human `error` reason; rendered as a settled, non-active run.
+  | 'interrupted';
 
 /** One reconstructed step of a persisted `FlowRun` (`src/openhuman/flows/types.rs::FlowRunStep`). */
 export interface FlowRunStep {
