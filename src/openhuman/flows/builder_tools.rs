@@ -2264,10 +2264,12 @@ impl Tool for ListAgentProfilesTool {
          field (e.g. researcher, code_executor, crypto_agent). Read-only. Returns \
          a JSON array of { id, name, description, model, tools, tags }. Use this to \
          pick a real agent_ref — a coding step should reference the coding agent, a \
-         research step the researcher — instead of guessing an id. Note: an \
-         agent_ref applies that agent's persona/model to the step; its private \
-         tool loop is a follow-up, so a step still gets tools from the node's own \
-         inline `tools` list for now."
+         research step the researcher — instead of guessing an id. Note: setting \
+         agent_ref runs the step as a REAL agent turn (its own `run_single`), with \
+         the selected specialist's full persona, model, tool loop, and iteration \
+         cap — not just a persona-flavored completion. A plain `agent` node with \
+         no agent_ref only gets the default LLM plus its own inline `tools` list; \
+         it cannot run code, search the web, or use any specialist's tools."
     }
 
     fn parameters_schema(&self) -> Value {
