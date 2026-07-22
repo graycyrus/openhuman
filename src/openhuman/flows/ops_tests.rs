@@ -2609,6 +2609,49 @@ async fn flows_cancel_run_of_a_completed_with_warnings_run_errors() {
 }
 
 #[tokio::test]
+async fn flows_cancel_run_of_an_interrupted_run_errors() {
+    // An `interrupted` run (bug B42 — reconciled by the drop-guard / boot
+    // sweep) is terminal: cancelling it must be a clear error, never fall
+    // through to the not-in-flight path and clobber the row to `"cancelled"`,
+    // discarding the interruption reason it already carries.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // Force the settled row to `interrupted` directly.
+    store::finish_flow_run(
+        &config,
+        &thread_id,
+        "interrupted",
+        &chrono::Utc::now().to_rfc3339(),
+        &[],
+        &[],
+        Some("interrupted mid-flight"),
+    )
+    .unwrap();
+
+    let err = flows_cancel_run(&config, &thread_id)
+        .await
+        .expect_err("cancelling an interrupted run must be a clear error");
+    assert!(err.contains("already terminal"), "got: {err}");
+
+    // And the row must still read back as `interrupted`, not overwritten.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "interrupted");
+    assert_eq!(
+        run_row.value.error.as_deref(),
+        Some("interrupted mid-flight")
+    );
+}
+
+#[tokio::test]
 async fn flows_cancel_run_missing_run_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
