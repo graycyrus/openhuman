@@ -85,6 +85,41 @@ fn default_impl_matches_new() {
     // Both are unit structs — constructing via Default is the cover target.
 }
 
+/// The curated catalog must expose both the plain send action and its
+/// attachment variant, and both must be `Write` scope. The attachment
+/// variant (`GMAIL_SEND_EMAIL_WITH_ATTACHMENT`) is the downstream half of
+/// the B39 storage-URL file-attachment path: without a curated entry the
+/// flow curation gate (`flow_tool_allowed`) rejects it outright, and the
+/// scope must match `GMAIL_SEND_EMAIL` so the autonomy tier gate classifies
+/// it as a side-effecting Network call that still requires approval (never
+/// a scope-free Read that auto-fires).
+#[test]
+fn curated_catalog_includes_send_and_attachment_variant_as_write() {
+    use crate::openhuman::memory_sync::composio::providers::{
+        curated_scope_for, find_curated, ToolScope,
+    };
+
+    let p = GmailProvider::new();
+    let curated = p.curated_tools().expect("GMAIL_CURATED is registered");
+
+    for slug in ["GMAIL_SEND_EMAIL", "GMAIL_SEND_EMAIL_WITH_ATTACHMENT"] {
+        let entry = find_curated(curated, slug)
+            .unwrap_or_else(|| panic!("curated catalog must contain {slug}"));
+        assert_eq!(
+            entry.scope,
+            ToolScope::Write,
+            "{slug} must be Write scope (side-effecting send, approval-gated)"
+        );
+        // The tier gate resolves scope through `curated_scope_for`; pin that
+        // it agrees, so the send never degrades to an auto-firing Read.
+        assert_eq!(
+            curated_scope_for(slug),
+            Some(ToolScope::Write),
+            "{slug} tier-gate scope lookup must resolve to Write"
+        );
+    }
+}
+
 #[test]
 fn epoch_filter_is_preferred_over_day_filter_for_typical_internal_date() {
     // The provider tries `cursor_to_gmail_after_epoch_filter` first
