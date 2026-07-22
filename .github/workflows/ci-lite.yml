@@ -805,6 +805,45 @@ jobs:
       - name: Verify the desktop shell forwards every default-ON core gate
         run: node scripts/ci/check-feature-forwarding.mjs
 
+  vendor-gitlink-guard:
+    name: Vendor Gitlink Guard (no backward submodule rolls)
+    # Only meaningful on a PR, where there is a base branch to compare against.
+    # On push to main there is no base ref; the job is skipped (which the gate
+    # below treats as a pass).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # Need history on both the head and the base branch so the recorded
+          # gitlink SHAs resolve; the submodules are initialized by the guard
+          # itself (per-vendor, so the large tauri-cef fork is never cloned).
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A backward submodule roll keeps a NEW Cargo.toml version requirement
+      # while dragging the vendor/* gitlink to an OLD commit → unsatisfiable
+      # version skew → main stops compiling and every open flows PR goes red.
+      # This is how PR #5114 rolled vendor/tinyagents 2.1.0 -> 1.9.0 (B44). The
+      # compile break was fixed in #5128; this guard is the prevention half.
+      #
+      # Deliberately NOT filtered on `changes`: a stale tree can roll a gitlink
+      # backwards without touching any watched path, and a skipped job counts as
+      # a pass in the gate below. The check is a handful of git fetches.
+      # Pins every branch of the move classifier (equal / forward / backward /
+      # diverged / new) with a synthetic truth table — no repo or network — so a
+      # regression in the decision logic fails here, not silently at review time.
+      - name: Self-test the gitlink move classifier
+        run: node scripts/ci/check-vendor-gitlink.mjs --self-test
+
+      - name: Fetch the PR base branch for gitlink comparison
+        run: git fetch origin "${{ github.base_ref }}" --depth=200
+
+      - name: Verify no vendor/* submodule pointer moved backwards
+        run: node scripts/ci/check-vendor-gitlink.mjs --base "origin/${{ github.base_ref }}"
+
   pester-install:
     name: PowerShell Install Test (Pester)
     needs: [changes]
@@ -872,6 +911,7 @@ jobs:
       - tinycortex-tests
       - orch-ip-gate
       - feature-forwarding-gate
+      - vendor-gitlink-guard
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -891,6 +931,7 @@ jobs:
             ["TinyCortex Memory Tests"]="${{ needs['tinycortex-tests'].result }}"
             ["Orchestration IP Gate"]="${{ needs['orch-ip-gate'].result }}"
             ["Feature Forwarding Gate"]="${{ needs['feature-forwarding-gate'].result }}"
+            ["Vendor Gitlink Guard"]="${{ needs['vendor-gitlink-guard'].result }}"
           )
 
           failed=0

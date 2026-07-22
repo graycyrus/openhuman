@@ -136,6 +136,16 @@ Why submodules matter here:
 
 Those vendored trees are part of the current desktop toolchain. If they are missing, desktop builds and Tauri CLI setup will fail.
 
+> **Keeping vendor gitlinks in sync (avoids breaking `main`).** The superproject
+> records each `vendor/*` submodule as a specific commit (a "gitlink"). After you
+> merge `main` into a branch, always run `git submodule update --init --recursive`
+> and check `git diff origin/main -- vendor/` before pushing — a stale tree can
+> silently roll a gitlink **backwards** to an older commit while `Cargo.toml`
+> still requires the newer version, which makes the whole workspace stop
+> compiling (bug B44). CI enforces this: the **Vendor Gitlink Guard** lane fails
+> any PR that moves a `vendor/*` pointer backwards. You can run it locally with
+> `node scripts/ci/check-vendor-gitlink.mjs`.
+
 ### 3. Configure for development
 
 OpenHuman uses two environment templates:
