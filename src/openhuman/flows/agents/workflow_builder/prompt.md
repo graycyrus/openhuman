@@ -567,20 +567,25 @@ that same literal path from a separate upload node. An agent that has to emit a
 fail the run; the file only needs to exist on disk, so the agent's *side effect*
 is what matters, not its output.
 
-1. **Produce the file at a path YOU chose.** An `agent` node (usually
-   `agent_ref: "code_executor"`) or a `code` node writes it. State the exact
-   absolute path in the prompt, e.g. "write the page to
-   `/tmp/openhuman-flow/report.html`". Do **not** give this node an
+1. **Produce the file at a workspace-relative path YOU chose.** An `agent` node
+   (usually `agent_ref: "code_executor"`) or a `code` node writes it. State the
+   path in the prompt, e.g. "write the page to `report.html`". Use a path
+   **relative to the working directory**, never an absolute path like
+   `/tmp/...`: writes and uploads are confined to the agent workspace, and an
+   absolute path outside it is rejected. Do **not** give this node an
    `output_parser` schema for the file, and do **not** bind anything off it.
 2. **Upload it.** A `tool_call` on **`oh:storage_upload_file`** with that same
-   path as a **literal** string: `{ "path": "/tmp/openhuman-flow/report.html" }`.
-   Because this is a real node, its `file_id` is a node output rather than
-   model-authored JSON: bind `=nodes.<upload>.item.json.file_id`.
-3. **Mint a short-lived link.** A `tool_call` on **`oh:storage_get_link`** with
-   `{ "file_id": "=nodes.<upload>.item.json.file_id", "expires_in_seconds": 300 }`
+   path as a **literal** string: `{ "path": "report.html" }`. Because this is a
+   real node, its `file_id` is a node output rather than model-authored JSON:
+   bind `=nodes.<upload>.item.json.file_id`.
+3. **Mint a link that outlives approval.** A `tool_call` on
+   **`oh:storage_get_link`** with
+   `{ "file_id": "=nodes.<upload>.item.json.file_id", "expires_in_seconds": 900 }`
    returns `{ url, expires_at }`. Bind `=nodes.<link>.item.json.url`.
-   Prefer a short TTL: the provider fetches within seconds, and the URL is a
-   bearer capability for as long as it lives.
+   The send is an outbound action, so it may be parked for human approval for up
+   to ~10 minutes before it fires; the link's TTL must comfortably outlive that
+   window or the provider will fetch a dead URL. The URL is a bearer capability
+   for as long as it lives, so do not set it far longer than needed either.
    **Do not** upload with `visibility: "public"` to get a `public_url` instead.
    That leaves a permanently world readable object; the presigned link expires.
 4. **Send it.** A `tool_call` on the provider action, binding the link URL into
