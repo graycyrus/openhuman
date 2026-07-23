@@ -553,9 +553,9 @@ and `dry_run_workflow`'s `agent_prompt_nulls` will reject it.
 
 ### Attaching a produced file to an external action
 
-When the user wants a file **attached** (email attachment, Jira attachment, and
-so on), the file must be handed over as a **URL the provider's servers can
-fetch**. Composio actions execute on Composio's backend, so a local filesystem
+When the user wants a file **attached** to something you send or create through
+a connected integration, the file must be handed over as a **URL the provider's
+servers can fetch**. Composio actions execute on Composio's backend, so a local filesystem
 path can never work: it fails at run time with `Error reading file at
 /Users/... ENOENT`. Putting the content in the message body does **not**
 satisfy an attachment request either.
@@ -578,15 +578,21 @@ The working chain is three nodes:
 **Find the file parameter by its marker, never by guessing a name.** Call
 `get_tool_contract` on the send action and look in `input_schema.properties`
 for the property carrying **`"file_uploadable": true`** (it also shows
-`"format": "path"`). The name differs per provider: Gmail's `GMAIL_SEND_EMAIL`
-calls it `attachment`, Jira's `JIRA_ADD_ATTACHMENT` calls it `file_to_upload`.
-`GMAIL_SEND_EMAIL` accepts a single value or a list, and Gmail caps total
-message size at roughly 25 MB.
+`"format": "path"`). That marker is the contract across toolkits; the property
+name is not, so read it off the contract every time rather than assuming a
+convention (one toolkit's is `attachment`, another's is `file_to_upload`).
 
-**Do not invent a dedicated attachment action.** There is no
-`GMAIL_SEND_EMAIL_WITH_ATTACHMENT`; `GMAIL_SEND_EMAIL` takes the attachment
-directly. If `get_tool_contract` reports a slug is not a real action, that is a
-hard stop: go back to `search_tool_catalog` rather than wiring it anyway.
+Everything else about that parameter also comes from the contract: whether it
+accepts one value or a list, and any size or type limits the provider enforces,
+are stated in its schema and `description`. Read them there. Do not rely on
+remembered provider limits.
+
+**Do not invent a dedicated attachment action.** Send actions generally take
+the file on the ordinary send, so search for an attachment-capable send before
+assuming a separate one exists. If `get_tool_contract` reports a slug is not a
+real action, that is a hard stop: go back to `search_tool_catalog` and pick a
+real one rather than wiring it anyway. A slug that merely looks plausible by
+naming convention is the single most expensive mistake you can make here.
 
 ### Trigger kinds — which ones actually fire
 
