@@ -6558,3 +6558,33 @@ async fn flows_run_detached_returns_running_run_id_and_inserts_row() {
         .expect("a run row must exist immediately after detaching");
     assert_eq!(row.flow_id, flow.id);
 }
+
+#[tokio::test]
+async fn flows_run_detached_registers_the_run_before_returning_its_id() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = store::create_flow(
+        &config,
+        "detached-cancel-race".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let outcome = flows_run_detached(&config, &flow.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .expect("detached run must start");
+    let run_id = outcome.value["run_id"].as_str().unwrap().to_string();
+
+    // The moment the agent can see this `run_id` it can be cancelled. If
+    // registration happened inside the spawned task instead, this would be
+    // false until the task was first polled — and `flows_cancel_run` would take
+    // its "parked/stale" branch, writing a terminal `cancelled` row and
+    // dropping the checkpoint while the background run went on to execute the
+    // flow's real side effects and overwrite that status.
+    assert!(
+        run_registry::is_in_flight(&run_id),
+        "a detached run must be registered before its run_id is returned"
+    );
+}

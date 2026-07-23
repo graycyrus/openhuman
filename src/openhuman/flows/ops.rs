@@ -3714,6 +3714,9 @@ pub async fn flows_run(
     let thread_id = prepared.thread_id.clone();
     let no_actionable_nodes = prepared.no_actionable_nodes;
 
+    // Register BEFORE the row exists, so a `flows_cancel_run` can never observe
+    // a `running` row that no live run owns (see [`run_flow_body`]'s doc).
+    let (cancel_token, run_guard) = run_registry::register(&thread_id);
     start_flow_run_row(config, &thread_id, flow_id);
     publish_flow_run_started(flow_id, &thread_id);
 
@@ -3725,6 +3728,8 @@ pub async fn flows_run(
         input,
         trigger,
         no_actionable_nodes,
+        cancel_token,
+        run_guard,
     )
     .await
 }
@@ -3756,6 +3761,15 @@ pub async fn flows_run_detached(
     let thread_id = prepared.thread_id.clone();
     let no_actionable_nodes = prepared.no_actionable_nodes;
 
+    // Register BEFORE the `run_id` becomes observable to the agent. The spawned
+    // task below may not be polled for some time, so registering inside it
+    // would leave a window where a `flows_cancel_run` on the returned `run_id`
+    // sees no in-flight run, settles the row `cancelled` + drops the
+    // checkpoint, and the background run then executes the flow's real side
+    // effects anyway and overwrites that terminal status. Registering here
+    // means such a cancel always takes the signalled branch and this run's own
+    // cancellation arm unwinds it. See [`run_flow_body`]'s doc.
+    let (cancel_token, run_guard) = run_registry::register(&thread_id);
     start_flow_run_row(config, &thread_id, flow_id);
     publish_flow_run_started(flow_id, &thread_id);
 
@@ -3763,7 +3777,7 @@ pub async fn flows_run_detached(
         target: "flows",
         flow_id = %flow_id,
         run_id = %thread_id,
-        "[flows] flows_run_detached: spawning background run; returning run_id immediately"
+        "[flows] flows_run_detached: registered + spawning background run; returning run_id immediately"
     );
 
     let config_arc = Arc::new(config.clone());
@@ -3779,6 +3793,8 @@ pub async fn flows_run_detached(
             input,
             trigger,
             no_actionable_nodes,
+            cancel_token,
+            run_guard,
         )
         .await
         {
@@ -3979,9 +3995,21 @@ impl Drop for RunRowFinalizer {
 /// Split out of [`flows_run`] (bugs B41/B42) so the synchronous and detached
 /// entry points share ONE run body — and so a single [`RunRowFinalizer`]
 /// reconciles the row to `"interrupted"` if this future is dropped mid-await
-/// before any terminal write lands. The caller MUST have already inserted the
-/// initial `running` row ([`start_flow_run_row`]) and published
-/// `FlowRunStarted` for `thread_id`.
+/// before any terminal write lands. The caller MUST have already
+/// [`run_registry::register`]ed `thread_id` (handing the token + guard in
+/// here), inserted the initial `running` row ([`start_flow_run_row`]) and
+/// published `FlowRunStarted`.
+///
+/// **Registration is the caller's job on purpose.** It used to happen here, but
+/// on the detached path that left a window: `flows_run_detached` returned the
+/// `run_id` to the agent before the spawned task had registered, so a
+/// `flows_cancel_run` landing in that gap saw `is_in_flight == false`, took the
+/// "parked/stale" branch, wrote a terminal `cancelled` row and dropped the
+/// checkpoint — while this body then started and executed the flow's real
+/// side effects anyway, finally overwriting `cancelled` with its own terminal
+/// status. Registering before the `run_id` is observable makes the cancel
+/// always take the signalled branch instead. `_run_guard` is held for the whole
+/// body and deregisters on any exit, including the early returns below.
 async fn run_flow_body(
     config_arc: Arc<Config>,
     flow: Flow,
@@ -3990,6 +4018,8 @@ async fn run_flow_body(
     input: Value,
     trigger: FlowRunTrigger,
     no_actionable_nodes: bool,
+    cancel_token: tokio_util::sync::CancellationToken,
+    _run_guard: run_registry::RunGuard,
 ) -> Result<RpcOutcome<Value>, String> {
     let config: &Config = config_arc.as_ref();
     let flow_id: &str = flow_id.as_str();
@@ -4039,11 +4069,6 @@ async fn run_flow_body(
             return Err(msg);
         }
     };
-
-    // Register this run as in-flight (issue G4) so a concurrent
-    // `flows_cancel_run` can signal it to abort. The guard deregisters on any
-    // exit from this fn (including the early returns below).
-    let (cancel_token, _run_guard) = run_registry::register(&thread_id);
 
     // Record a failed attempt so `last_run_at`/`last_status` reflect reality
     // (a stop-policy engine/capability failure or a timeout) rather than
@@ -4588,16 +4613,19 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
 ///
 /// 1. **A boot floor.** Only rows whose `started_at` predates
 ///    [`PROCESS_RUN_FLOOR`] are candidates at all, so a row this process
-///    inserted is provably out of scope regardless of registration timing. This
-///    is the guard that closes the TOCTOU window between `start_flow_run_row`
-///    and `run_registry::register` — without it, an external-trigger run
-///    (webhook / channel bus) firing in the exact boot window could be flipped
-///    to `interrupted` **and have its durable checkpoint dropped mid-run**, and
-///    the live run's own terminal write would fix the status but never restore
-///    the checkpoint.
-/// 2. **The in-flight registry.** [`run_registry::is_in_flight`] still gates
-///    each candidate, as defence in depth against clock skew or a row whose
-///    `started_at` was written by a differently-skewed process.
+///    inserted is provably out of scope regardless of registration timing —
+///    which is what the sweep is actually for: rows left by a *prior* process.
+///    Sweeping a live run would not merely mislabel it (its own terminal write
+///    would correct that) — it would `drop_checkpoint` it mid-run, and that is
+///    unrecoverable.
+/// 2. **The in-flight registry.** [`run_registry::is_in_flight`] gates each
+///    surviving candidate. Both run entry points now register **before**
+///    inserting the row, so within this process a `running` row is never
+///    unregistered; this guard covers clock skew and rows stamped by a
+///    differently-skewed process.
+///
+/// The two are deliberately redundant: either alone would be sufficient today,
+/// and neither depends on the other's ordering assumption holding.
 ///
 /// Each swept run also updates the flow summary, announces a terminal
 /// `FlowRunFinished`, and drops its durable checkpoint (a `running` row is never
@@ -4777,12 +4805,15 @@ fn workflow_origin(flow_id: &str, require_approval: bool) -> AgentTurnOrigin {
 /// `started_at < *PROCESS_RUN_FLOOR` provably only ever sees rows left behind by
 /// a *prior* process.
 ///
-/// That closes the TOCTOU window the `run_registry::is_in_flight` guard alone
-/// leaves open: both run entry points insert the `running` row before
-/// `run_flow_body` calls `run_registry::register`, so a genuinely live run is
-/// briefly `running`-but-not-in-flight. Sweeping it in that window would flip a
-/// live run to `interrupted` and — far worse, because the live run's own
-/// terminal write cannot undo it — `drop_checkpoint` it mid-run.
+/// The floor makes that guarantee structural rather than a consequence of
+/// registration ordering. `run_registry::is_in_flight` alone once left a window
+/// — the entry points used to insert the `running` row before `run_flow_body`
+/// registered, so a live run was briefly `running`-but-not-in-flight, and
+/// sweeping it there would `drop_checkpoint` it mid-run (unrecoverable, unlike
+/// the status, which the live run's own terminal write would fix). Registration
+/// has since moved ahead of the insert, closing that window at the source too;
+/// the floor stays because it holds regardless of what future callers do with
+/// that ordering.
 static PROCESS_RUN_FLOOR: LazyLock<String> = LazyLock::new(|| Utc::now().to_rfc3339());
 
 /// Best-effort insert of the initial `"running"` `flow_runs` row. Logged,

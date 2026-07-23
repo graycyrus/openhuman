@@ -121,23 +121,30 @@ pub fn spawn_update_scheduler() {
 /// requirement against the cron scheduler or any agent turn.
 pub fn spawn_flows_boot_reconcile() {
     #[cfg(feature = "flows")]
-    tokio::spawn(async {
-        match crate::openhuman::config::Config::load_or_init().await {
-            Ok(config) => {
-                let swept =
-                    crate::openhuman::flows::ops::sweep_orphaned_running_runs_on_boot(&config)
-                        .await;
-                if swept > 0 {
-                    log::info!(
-                        "[flows] boot sweep reconciled {swept} orphaned running run(s) to 'interrupted'"
-                    );
+    {
+        log::debug!("[flows] boot reconcile: scheduling orphaned-run sweep");
+        tokio::spawn(async {
+            log::debug!("[flows] boot reconcile: loading config");
+            match crate::openhuman::config::Config::load_or_init().await {
+                Ok(config) => {
+                    let swept =
+                        crate::openhuman::flows::ops::sweep_orphaned_running_runs_on_boot(&config)
+                            .await;
+                    // Logged unconditionally: a silent success and a task that
+                    // never ran are otherwise indistinguishable in a boot log.
+                    log::debug!("[flows] boot reconcile: completed; reconciled_runs={swept}");
+                    if swept > 0 {
+                        log::info!(
+                            "[flows] boot sweep reconciled {swept} orphaned running run(s) to 'interrupted'"
+                        );
+                    }
+                }
+                Err(err) => {
+                    log::warn!("[core] config load failed, skipping flows boot reconcile: {err}");
                 }
             }
-            Err(err) => {
-                log::warn!("[core] config load failed, skipping flows boot reconcile: {err}");
-            }
-        }
-    });
+        });
+    }
     #[cfg(not(feature = "flows"))]
     log::debug!("[flows] flows feature disabled at compile time — no boot run reconciliation");
 }
