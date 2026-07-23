@@ -23,7 +23,7 @@ use crate::openhuman::flows::store;
 use crate::openhuman::flows::types::{
     FlowConnection, FlowRunStep, FlowRunTrigger, FlowSuggestion, SuggestionStatus,
 };
-use crate::openhuman::flows::{Flow, FlowRun};
+use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
 use crate::rpc::RpcOutcome;
 
 /// Overall safety bound on a single `flows_run` / `flows_resume`. Individual
@@ -3430,6 +3430,23 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
 
     store::remove_flow(config, id).map_err(|e| e.to_string())?;
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_delete: removed");
+
+    // Best-effort: clear this flow's private memory namespace along with its
+    // row — a deleted flow must not leave stray `flow_memory_remember`
+    // entries or run digests behind. Never fails the delete itself: the flow
+    // row is already gone by this point regardless of what happens here.
+    let memory_namespace = flow_namespace(id);
+    match crate::openhuman::memory::ops::helpers::active_memory_client().await {
+        Ok(client) => {
+            if let Err(e) = client.clear_namespace(&memory_namespace).await {
+                tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: failed to clear flow memory namespace");
+            }
+        }
+        Err(e) => {
+            tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: memory client unavailable — could not clear flow memory namespace");
+        }
+    }
+
     publish_flow_changed(id, "deleted", "system");
     Ok(RpcOutcome::new(
         json!({ "id": id, "removed": true }),

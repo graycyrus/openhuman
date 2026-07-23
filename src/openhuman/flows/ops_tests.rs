@@ -1219,6 +1219,54 @@ async fn flows_delete_unbinds_schedule_cron_job() {
 }
 
 #[tokio::test]
+async fn flows_delete_clears_flow_memory_namespace() {
+    use crate::openhuman::memory::{Memory, MemoryCategory, MemoryTaint};
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    crate::openhuman::memory::global::init(config.workspace_dir.clone())
+        .expect("init test memory client");
+
+    let created = flows_create(&config, "with-memory".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+    let flow_id = created.value.id.clone();
+
+    let client = crate::openhuman::memory::global::client().expect("global client ready");
+    let memory = client.memory_handle();
+    memory
+        .store_with_taint(
+            &flow_namespace(&flow_id),
+            "sent_item_1",
+            "Sent item 1",
+            MemoryCategory::Core,
+            None,
+            MemoryTaint::ExternalSync,
+        )
+        .await
+        .unwrap();
+    assert!(
+        memory
+            .get(&flow_namespace(&flow_id), "sent_item_1")
+            .await
+            .unwrap()
+            .is_some(),
+        "precondition: flow memory entry was stored"
+    );
+
+    flows_delete(&config, &flow_id).await.unwrap();
+
+    assert!(
+        memory
+            .get(&flow_namespace(&flow_id), "sent_item_1")
+            .await
+            .unwrap()
+            .is_none(),
+        "flows_delete must clear the flow's own memory namespace"
+    );
+}
+
+#[tokio::test]
 async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
