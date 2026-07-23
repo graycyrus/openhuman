@@ -108,9 +108,7 @@ impl Tool for MemoryFlavourTool {
         }
 
         let facet = PersonaFacet::parse_loose(flavour_raw).ok_or_else(|| {
-            anyhow::anyhow!(
-                "Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}"
-            )
+            anyhow::anyhow!("Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}")
         })?;
 
         let mc = memory_config_from(&self.config, self.config.workspace_dir.clone());
