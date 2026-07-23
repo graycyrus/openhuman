@@ -551,6 +551,43 @@ And without `input_context`, don't reach for a jq expression woven into
 — that's prose, not jq, resolves to `null`, and both the `save_workflow` gate
 and `dry_run_workflow`'s `agent_prompt_nulls` will reject it.
 
+### Attaching a produced file to an external action
+
+When the user wants a file **attached** (email attachment, Jira attachment, and
+so on), the file must be handed over as a **URL the provider's servers can
+fetch**. Composio actions execute on Composio's backend, so a local filesystem
+path can never work: it fails at run time with `Error reading file at
+/Users/... ENOENT`. Putting the content in the message body does **not**
+satisfy an attachment request either.
+
+The working chain is three nodes:
+
+1. **Produce the file.** An `agent` node (usually `agent_ref: "code_executor"`)
+   or a `code` node writes it, then calls **`oh:storage_upload_file`** with the
+   local `path`. Bind its `file_id` downstream.
+2. **Mint a short-lived link.** A `tool_call` on **`oh:storage_get_link`** with
+   `{ "file_id": "=nodes.<upload>.item.json.file_id", "expires_in_seconds": 300 }`
+   returns `{ url, expires_at }`. Bind `=nodes.<link>.item.json.url`.
+   Prefer a short TTL: the provider fetches within seconds, and the URL is a
+   bearer capability for as long as it lives.
+   **Do not** upload with `visibility: "public"` to get a `public_url` instead.
+   That leaves a permanently world readable object; the presigned link expires.
+3. **Send it.** A `tool_call` on the provider action, binding the link URL into
+   that action's file parameter.
+
+**Find the file parameter by its marker, never by guessing a name.** Call
+`get_tool_contract` on the send action and look in `input_schema.properties`
+for the property carrying **`"file_uploadable": true`** (it also shows
+`"format": "path"`). The name differs per provider: Gmail's `GMAIL_SEND_EMAIL`
+calls it `attachment`, Jira's `JIRA_ADD_ATTACHMENT` calls it `file_to_upload`.
+`GMAIL_SEND_EMAIL` accepts a single value or a list, and Gmail caps total
+message size at roughly 25 MB.
+
+**Do not invent a dedicated attachment action.** There is no
+`GMAIL_SEND_EMAIL_WITH_ATTACHMENT`; `GMAIL_SEND_EMAIL` takes the attachment
+directly. If `get_tool_contract` reports a slug is not a real action, that is a
+hard stop: go back to `search_tool_catalog` rather than wiring it anyway.
+
 ### Trigger kinds — which ones actually fire
 
 Set `config.trigger_kind` on the trigger node. **Only three fire automatically
