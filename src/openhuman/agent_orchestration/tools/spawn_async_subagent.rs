@@ -234,9 +234,11 @@ impl Tool for SpawnAsyncSubagentTool {
         // and the (possibly real, completed) work is silently discarded — the
         // caller sees "Accepted" and never learns the result never arrived.
         // Fail loudly instead: the caller has a synchronous alternative
-        // (`spawn_subagent`, or a `delegate_*` tool, which already self-heals
-        // to blocking dispatch in this situation — see
-        // `dispatch.rs::dispatch_subagent`'s `has_delivery_thread` check).
+        // (`spawn_subagent` with `blocking: true`, or a `delegate_*` tool).
+        // Both of those self-heal to blocking dispatch in this situation
+        // rather than reaching this guard — see the `has_delivery_thread`
+        // checks in `spawn_subagent.rs` and `dispatch.rs::dispatch_subagent`.
+        // Only a *direct* `spawn_async_subagent` call lands here.
         if parent_thread_id.is_none() {
             log::warn!(
                 "[spawn_async_subagent] refusing fire-and-forget spawn with no delivery thread \
@@ -250,7 +252,8 @@ impl Tool for SpawnAsyncSubagentTool {
                  into (this looks like a flow node, CLI, or cron run rather than an interactive \
                  chat turn). Fire-and-forget delegation has nowhere to land its result here and \
                  the sub-agent's work would be silently discarded. Use synchronous delegation \
-                 instead: `spawn_subagent` or a `delegate_*` tool, and await its result directly. \
+                 instead: call `spawn_subagent` with `blocking: true`, or use a `delegate_*` \
+                 tool — both run the sub-agent inline and hand you its output in this turn. \
                  For parallel work, model it as parallel flow nodes rather than background \
                  sub-agents.",
             ));
@@ -1354,8 +1357,47 @@ mod tests {
         assert!(result.is_error);
         let out = result.output();
         assert!(out.contains("no parent chat thread"), "{out}");
+        // The recommended escape hatch must name `blocking: true` — plain
+        // `spawn_subagent` defaults to async and would otherwise be steered
+        // straight back into this same guard.
         assert!(out.contains("spawn_subagent"), "{out}");
+        assert!(out.contains("blocking: true"), "{out}");
         assert!(out.contains("delegate_"), "{out}");
+    }
+
+    /// The positive half of the branch above: with a chat thread bound, the
+    /// guard must NOT fire. This asserts only that the call gets *past* the
+    /// `parent_thread_id.is_none()` check — driving the full spawn/session
+    /// machinery to a successful "Accepted" is out of scope for a unit test,
+    /// so a later failure is acceptable; a "no parent chat thread" failure is
+    /// not. Pins that the guard keys on thread presence and nothing else.
+    #[tokio::test]
+    async fn guard_does_not_fire_when_parent_thread_is_bound() {
+        let _ = AgentDefinitionRegistry::init_global_builtins();
+        let workspace = tempfile::TempDir::new().expect("workspace");
+
+        let result = with_parent_context(parent_context(workspace.path()), async {
+            crate::openhuman::inference::provider::thread_context::with_thread_id(
+                "t-parent",
+                async {
+                    SpawnAsyncSubagentTool::new()
+                        .execute(json!({
+                            "agent_id": "researcher",
+                            "prompt": "investigate x",
+                        }))
+                        .await
+                },
+            )
+            .await
+        })
+        .await
+        .unwrap();
+
+        assert!(
+            !result.output().contains("no parent chat thread"),
+            "guard fired despite a bound parent thread: {}",
+            result.output()
+        );
     }
 
     fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
