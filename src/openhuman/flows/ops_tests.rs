@@ -6378,10 +6378,25 @@ fn seed_running_run(tmp: &TempDir) -> (Config, String, String) {
     )
     .unwrap();
     let run_id = format!("flow:{}:{}", flow.id, uuid::Uuid::new_v4());
-    let started_at = Utc::now().to_rfc3339();
-    store::insert_flow_run(&config, &run_id, &flow.id, &run_id, &started_at).unwrap();
+    // Stamped well before `PROCESS_RUN_FLOOR` so this row models what the boot
+    // sweep actually targets: a `running` row left behind by a *prior* process.
+    // Using `Utc::now()` here would make the sweep tests order-dependent — the
+    // floor is a process-wide `LazyLock`, so a sibling test that ran a real
+    // flow first would push it past a "now" seed and the row would (correctly)
+    // fall out of the candidate set.
+    store::insert_flow_run(
+        &config,
+        &run_id,
+        &flow.id,
+        &run_id,
+        PRIOR_PROCESS_STARTED_AT,
+    )
+    .unwrap();
     (config, flow.id, run_id)
 }
+
+/// A `started_at` that provably predates this process's `PROCESS_RUN_FLOOR`.
+const PRIOR_PROCESS_STARTED_AT: &str = "2020-01-01T00:00:00+00:00";
 
 #[test]
 fn run_row_finalizer_reconciles_orphaned_running_row_to_interrupted_on_drop() {
@@ -6404,6 +6419,20 @@ fn run_row_finalizer_reconciles_orphaned_running_row_to_interrupted_on_drop() {
     assert!(
         row.finished_at.is_some(),
         "an interrupted run must be stamped finished"
+    );
+
+    // The flow-definition summary must track the row, like every other
+    // terminal path — otherwise the runs list keeps advertising the previous
+    // run's status for a flow whose latest run was interrupted.
+    let flow = store::get_flow(&config, &flow_id).unwrap().unwrap();
+    assert_eq!(
+        flow.last_status.as_deref(),
+        Some("interrupted"),
+        "the drop-guard must update the flow summary, not just the run row"
+    );
+    assert!(
+        flow.last_run_at.is_some(),
+        "the drop-guard must stamp last_run_at"
     );
 }
 
@@ -6462,6 +6491,36 @@ async fn boot_sweep_skips_a_run_that_is_live_in_flight() {
 
     let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
     assert_eq!(row.status, "running", "the live run must stay running");
+}
+
+#[tokio::test]
+async fn boot_sweep_skips_a_run_started_after_the_process_floor() {
+    let tmp = TempDir::new().unwrap();
+    let (config, flow_id, _prior_run_id) = seed_running_run(&tmp);
+
+    // A row this process inserted, but NOT yet registered in the run registry —
+    // exactly the TOCTOU window between `start_flow_run_row` and
+    // `run_registry::register`. The `is_in_flight` guard does not cover it; the
+    // `PROCESS_RUN_FLOOR` floor must. Sweeping it would flip a live run to
+    // `interrupted` AND drop its durable checkpoint mid-run.
+    let live_run_id = format!("flow:{flow_id}:{}", uuid::Uuid::new_v4());
+    start_flow_run_row(&config, &live_run_id, &flow_id);
+    assert!(
+        !run_registry::is_in_flight(&live_run_id),
+        "the row must be unregistered for this test to exercise the window"
+    );
+
+    let swept = sweep_orphaned_running_runs_on_boot(&config).await;
+
+    let live = store::get_flow_run(&config, &live_run_id).unwrap().unwrap();
+    assert_eq!(
+        live.status, "running",
+        "a run started by THIS process must never be swept, registered or not"
+    );
+    assert_eq!(
+        swept, 1,
+        "only the prior-process orphan may be reconciled, got {swept}"
+    );
 }
 
 #[tokio::test]

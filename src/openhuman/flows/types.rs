@@ -341,8 +341,10 @@ pub struct FlowRun {
     pub status: String,
     /// RFC3339 timestamp when the run started.
     pub started_at: String,
-    /// RFC3339 timestamp when the run last settled (completed/paused/failed).
-    /// `None` while a run row is still `"running"`.
+    /// RFC3339 timestamp when the run last settled — stamped for every terminal
+    /// status (completed/paused/failed/cancelled/`"interrupted"`; the B42
+    /// drop-guard and boot sweep stamp it exactly like a normal terminal
+    /// write). `None` only while a run row is still `"running"`.
     pub finished_at: Option<String>,
     /// Reconstructed per-node steps (see [`FlowRunStep`]).
     #[serde(default)]
@@ -351,7 +353,11 @@ pub struct FlowRun {
     /// "pending_approval"`; empty otherwise.
     #[serde(default)]
     pub pending_approvals: Vec<String>,
-    /// Error message when `status == "failed"`.
+    /// Human-readable failure reason. Set when `status == "failed"`, and also
+    /// when `status == "interrupted"` (bug B42) — there it carries the
+    /// reconciliation reason (tool abort / chat turn end / app restart) so the
+    /// run-details sidebar can explain *why* the run stopped instead of
+    /// rendering a bare terminal state.
     #[serde(default)]
     pub error: Option<String>,
 }

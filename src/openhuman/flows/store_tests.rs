@@ -826,7 +826,7 @@ fn list_running_run_ids_returns_only_running_rows() {
     )
     .unwrap();
 
-    let mut running = list_running_run_ids(&config).unwrap();
+    let mut running = list_running_run_ids(&config, "2099-01-01T00:00:00Z").unwrap();
     running.sort();
     assert_eq!(
         running,
@@ -835,6 +835,50 @@ fn list_running_run_ids_returns_only_running_rows() {
             ("run-live-2".to_string(), flow.id.clone()),
         ],
         "only the two still-running rows must be listed, not the completed one"
+    );
+}
+
+#[test]
+fn list_running_run_ids_excludes_rows_started_at_or_after_the_floor() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+
+    insert_flow_run(
+        &config,
+        "run-old",
+        &flow.id,
+        "run-old",
+        "2026-01-01T00:00:00Z",
+    )
+    .unwrap();
+    insert_flow_run(
+        &config,
+        "run-at",
+        &flow.id,
+        "run-at",
+        "2026-01-01T00:00:05Z",
+    )
+    .unwrap();
+    insert_flow_run(
+        &config,
+        "run-new",
+        &flow.id,
+        "run-new",
+        "2026-01-01T00:00:09Z",
+    )
+    .unwrap();
+
+    // The floor is exclusive: a row stamped exactly at the boot floor was
+    // inserted by THIS process (`start_flow_run_row` anchors the floor before
+    // stamping), so it must fall outside the candidate set along with newer
+    // rows — otherwise the sweep could interrupt a live run and drop its
+    // checkpoint mid-flight.
+    let running = list_running_run_ids(&config, "2026-01-01T00:00:05Z").unwrap();
+    assert_eq!(
+        running,
+        vec![("run-old".to_string(), flow.id.clone())],
+        "only rows strictly older than the floor are sweep candidates"
     );
 }
 

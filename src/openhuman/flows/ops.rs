@@ -4,7 +4,7 @@
 //! `src/openhuman/cron/ops.rs`.
 
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use chrono::Utc;
 use serde_json::{json, Value};
@@ -3956,6 +3956,20 @@ impl Drop for RunRowFinalizer {
             &[],
             Some(INTERRUPTED_DROP_REASON),
         );
+        // Keep the flow-definition summary in step with the row, exactly as the
+        // success/failure/cancel arms and the boot sweep do — otherwise the
+        // runs list keeps advertising the *previous* run's `last_status` /
+        // `last_run_at` for a flow whose latest run was interrupted.
+        // `record_run` is synchronous, so it is safe in `Drop`.
+        if let Err(e) = store::record_run(&self.config, &self.flow_id, "interrupted") {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %self.flow_id,
+                thread_id = %self.thread_id,
+                error = %e,
+                "[flows] RunRowFinalizer: failed to update flow summary for interrupted run"
+            );
+        }
     }
 }
 
@@ -4570,19 +4584,33 @@ pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
 /// prior process would otherwise stay wedged forever, rendering as a perpetual
 /// blank spinner in the run-details sidebar.
 ///
-/// A row is only reconciled when [`run_registry::is_in_flight`] reports no live
-/// task owns it — so a run that this freshly-booted process has *already*
-/// started (e.g. a schedule trigger that fired during boot) is never swept out
-/// from under itself. Each swept run also updates the flow summary, announces a
-/// terminal `FlowRunFinished`, and drops its durable checkpoint (a `running`
-/// row is never resumable — only `pending_approval` is). Best-effort by
-/// construction: a store error is logged and the sweep returns what it managed.
+/// Two independent guards keep the sweep off a run that **this** process owns:
+///
+/// 1. **A boot floor.** Only rows whose `started_at` predates
+///    [`PROCESS_RUN_FLOOR`] are candidates at all, so a row this process
+///    inserted is provably out of scope regardless of registration timing. This
+///    is the guard that closes the TOCTOU window between `start_flow_run_row`
+///    and `run_registry::register` — without it, an external-trigger run
+///    (webhook / channel bus) firing in the exact boot window could be flipped
+///    to `interrupted` **and have its durable checkpoint dropped mid-run**, and
+///    the live run's own terminal write would fix the status but never restore
+///    the checkpoint.
+/// 2. **The in-flight registry.** [`run_registry::is_in_flight`] still gates
+///    each candidate, as defence in depth against clock skew or a row whose
+///    `started_at` was written by a differently-skewed process.
+///
+/// Each swept run also updates the flow summary, announces a terminal
+/// `FlowRunFinished`, and drops its durable checkpoint (a `running` row is never
+/// resumable — only `pending_approval` is). Best-effort by construction: a store
+/// error is logged and the sweep returns what it managed.
 pub async fn sweep_orphaned_running_runs_on_boot(config: &Config) -> usize {
     let now_str = Utc::now().to_rfc3339();
     const REASON: &str =
         "Run interrupted by an app restart — no live run was executing this row after boot.";
 
-    let candidates = match store::list_running_run_ids(config) {
+    let floor: &str = PROCESS_RUN_FLOOR.as_str();
+    tracing::debug!(target: "flows", floor, "[flows] boot sweep: reconciling only runs started before this process");
+    let candidates = match store::list_running_run_ids(config, floor) {
         Ok(candidates) => candidates,
         Err(e) => {
             tracing::warn!(target: "flows", error = %e, "[flows] boot sweep: failed to list running runs (skipping)");
@@ -4738,10 +4766,32 @@ fn workflow_origin(flow_id: &str, require_approval: bool) -> AgentTurnOrigin {
     }
 }
 
+/// RFC3339 instant at which THIS process first entered the flow-run lifecycle —
+/// the floor the boot orphan sweep (bug B42) uses to bound its candidate set.
+///
+/// Initialized on first touch by whichever comes first: [`start_flow_run_row`]
+/// (which forces it *before* stamping the row it is about to insert) or
+/// [`sweep_orphaned_running_runs_on_boot`]. Either ordering yields the same
+/// invariant — **every `flow_runs` row this process inserts has
+/// `started_at >= *PROCESS_RUN_FLOOR`** — so a sweep restricted to
+/// `started_at < *PROCESS_RUN_FLOOR` provably only ever sees rows left behind by
+/// a *prior* process.
+///
+/// That closes the TOCTOU window the `run_registry::is_in_flight` guard alone
+/// leaves open: both run entry points insert the `running` row before
+/// `run_flow_body` calls `run_registry::register`, so a genuinely live run is
+/// briefly `running`-but-not-in-flight. Sweeping it in that window would flip a
+/// live run to `interrupted` and — far worse, because the live run's own
+/// terminal write cannot undo it — `drop_checkpoint` it mid-run.
+static PROCESS_RUN_FLOOR: LazyLock<String> = LazyLock::new(|| Utc::now().to_rfc3339());
+
 /// Best-effort insert of the initial `"running"` `flow_runs` row. Logged,
 /// never fails the run — run-history persistence is an observability aid,
 /// not a correctness requirement of the run itself.
 fn start_flow_run_row(config: &Config, thread_id: &str, flow_id: &str) {
+    // Anchor the boot-sweep floor BEFORE stamping this row, so this row's
+    // `started_at` can never precede it. See [`PROCESS_RUN_FLOOR`].
+    LazyLock::force(&PROCESS_RUN_FLOOR);
     let started_at = Utc::now().to_rfc3339();
     if let Err(e) = store::insert_flow_run(config, thread_id, flow_id, thread_id, &started_at) {
         tracing::warn!(target: "flows", flow_id, thread_id, error = %e, "[flows] failed to persist flow run start");

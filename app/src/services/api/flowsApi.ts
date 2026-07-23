@@ -92,10 +92,22 @@ export interface FlowRun {
   thread_id: string;
   status: FlowRunStatus;
   started_at: string;
+  /**
+   * RFC3339 timestamp stamped when the run settled — set for every terminal
+   * status, including `'interrupted'` (the drop-guard / boot sweep stamps it
+   * exactly like a normal terminal write). `null`/absent only while the run is
+   * still `'running'`.
+   */
   finished_at?: string | null;
   steps: FlowRunStep[];
   /** Node ids paused awaiting approval when `status === 'pending_approval'`. */
   pending_approvals: string[];
+  /**
+   * Human-readable failure reason. Set for `'failed'` runs and for
+   * `'interrupted'` ones (where it carries the reconciliation reason — tool
+   * abort / turn end / app restart), so the UI can surface *why* a run stopped
+   * rather than showing a bare terminal state.
+   */
   error?: string | null;
 }
 

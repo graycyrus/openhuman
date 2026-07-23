@@ -819,18 +819,34 @@ pub fn expire_parked_runs(
     })
 }
 
-/// Lists the `(id, flow_id)` of every run currently persisted at
-/// `status = 'running'`. Used by the boot-time orphan sweep (bug B42): after a
-/// crash/restart no in-process task is executing these rows, so
+/// Lists the `(id, flow_id)` of every run persisted at `status = 'running'`
+/// whose `started_at` is strictly **before** `started_before` (RFC3339). Used by
+/// the boot-time orphan sweep (bug B42): after a crash/restart no in-process
+/// task is executing these rows, so
 /// [`crate::openhuman::flows::ops::sweep_orphaned_running_runs_on_boot`]
 /// reconciles each one that isn't backed by a live in-flight run to a terminal
 /// `'interrupted'` via [`mark_run_interrupted`].
-pub fn list_running_run_ids(config: &Config) -> Result<Vec<(String, String)>> {
+///
+/// The `started_before` floor is what makes the sweep provably unable to touch
+/// a run **this** process started: the sweep passes the instant this process
+/// first entered the flow-run lifecycle, and every row this process inserts is
+/// stamped at or after that instant. Without it, the sweep's only guard is the
+/// in-flight registry, which a row briefly escapes between `start_flow_run_row`
+/// and `run_registry::register`. `started_at` is a fixed-shape UTC RFC3339
+/// string, so the lexicographic `<` matches chronological order (same
+/// comparison the parked-run TTL sweep already relies on).
+pub fn list_running_run_ids(
+    config: &Config,
+    started_before: &str,
+) -> Result<Vec<(String, String)>> {
     with_connection(config, |conn| {
-        let mut stmt =
-            conn.prepare("SELECT id, flow_id FROM flow_runs WHERE status = 'running'")?;
+        let mut stmt = conn.prepare(
+            "SELECT id, flow_id FROM flow_runs WHERE status = 'running' AND started_at < ?1",
+        )?;
         let rows: Vec<(String, String)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .query_map(params![started_before], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?
             .collect::<rusqlite::Result<_>>()?;
         Ok(rows)
     })

@@ -4146,7 +4146,7 @@ const messages: TranslationMap = {
   'flowRuns.status.pending_approval': 'Menunggu persetujuan',
   'flowRuns.status.failed': 'Gagal',
   'flowRuns.status.cancelled': 'Dibatalkan',
-  'flowRuns.status.interrupted': 'Terputus',
+  'flowRuns.status.interrupted': 'Terhenti',
 
   'flows.page.title': 'Alur Kerja',
   'flows.page.description': 'Otomatisasi tersimpan yang dapat Anda aktifkan, jalankan, dan pantau.',
@@ -4173,7 +4173,7 @@ const messages: TranslationMap = {
   'flows.allRuns.status.pending_approval': 'Menunggu persetujuan',
   'flows.allRuns.status.failed': 'Gagal',
   'flows.allRuns.status.cancelled': 'Dibatalkan',
-  'flows.allRuns.status.interrupted': 'Terputus',
+  'flows.allRuns.status.interrupted': 'Terhenti',
   'flows.list.minutesAgo': '{count} menit lalu',
   'flows.list.hoursAgo': '{count} jam lalu',
   'flows.list.daysAgo': '{count} hari lalu',
