@@ -1632,6 +1632,10 @@ const messages: TranslationMap = {
   'settings.about.releasesDesc':
     'Navegar pelas notas de versão e compilações anteriores no GitHub.',
   'settings.about.openReleases': 'Abrir versões no GitHub',
+  'settings.about.starCta.title': 'Gostando do OpenHuman?',
+  'settings.about.starCta.body': 'Dê uma estrela no GitHub. Assim mais pessoas nos encontram.',
+  'settings.about.starCta.star': 'Marcar com estrela no GitHub',
+  'settings.about.starCta.dismiss': 'Agora não',
   'settings.about.connection': 'Conexão',
   'settings.about.connectionMode': 'Modo',
   'settings.about.connectionModeLocal': 'Local',
@@ -1788,6 +1792,7 @@ const messages: TranslationMap = {
     'Faça login novamente para atualizar sua sessão OpenHuman, ou mude para um provedor de embeddings local ou com sua própria chave.',
   'settings.embeddings.signInAgain': 'Entrar novamente',
   'settings.embeddings.apiKeyLabel': 'Chave API {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Chave de API',
   'settings.embeddings.placeholderStored': '•••••••• (armazenado)',
   'settings.embeddings.placeholderKey': 'Cole sua chave API…',
   'settings.embeddings.keyStoredEncrypted':
@@ -3568,6 +3573,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Não foi possível salvar o fluxo de trabalho. Tente novamente.',
   'chat.flowProposal.enableError':
     'Fluxo de trabalho salvo, mas não foi possível ativá-lo. Tente novamente ou ative-o na página Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Salvo',
+  'chat.flowProposal.viewWorkflow': 'Ver fluxo de trabalho',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Ação',
   'chat.flowProposal.stepKind.httpRequest': 'Pedido web',
@@ -5221,6 +5228,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Isolada (recomendada)',
   'settings.cron.jobs.formSessionMain': 'Sessão principal',
   'settings.cron.jobs.formSessionTarget': 'Sessão de destino',
+  'settings.cron.jobs.formProfile': 'Perfil do agente',
+  'settings.cron.jobs.formProfileNone': 'Sem perfil',
+  'settings.cron.jobs.formProfileHint':
+    'Execute esta tarefa como o perfil selecionado, usando sua alma, memória e espaço de trabalho.',
+  'settings.cron.jobs.profile': 'Perfil',
   'settings.cron.jobs.lastStatus': 'Último status',
   'settings.cron.jobs.loading': 'Carregando tarefas cron...',
   'settings.cron.jobs.loadingRuns': 'Carregando execuções',
@@ -7401,6 +7413,17 @@ const messages: TranslationMap = {
     'Fluxos de trabalho que este perfil pode listar e executar.',
   'settings.profiles.editor.mcpServers': 'Servidores MCP',
   'settings.profiles.editor.mcpServersHint': 'Servidores MCP que este perfil pode acessar.',
+  'settings.profiles.editor.dedicatedMemory': 'Memória dedicada',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Dê a este perfil sua própria memória em vez de compartilhar a memória padrão.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Espaço de trabalho dedicado',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Dê a este perfil seu próprio diretório de trabalho para operações de arquivos e ferramentas.',
+  'settings.profiles.editor.soulMdFile': 'Arquivo SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'Diretório de trabalho',
+  'settings.profiles.editor.skillsDir': 'Diretório de habilidades',
+  'settings.profiles.editor.skillsDirHint':
+    'Os arquivos SKILL.md colocados aqui são privados deste perfil.',
   'settings.profiles.editor.all': 'Todos',
   'settings.profiles.editor.selected': 'Selecionados',
   'settings.profiles.editor.addPlaceholder': 'Digite um identificador e pressione Enter',
@@ -7535,6 +7558,15 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Estado de privacidade',
   'privacy.status.external': 'Fora do dispositivo',
   'privacy.status.local': 'No dispositivo',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Apenas ingerido',
+  'sync.pipeline.storedWithoutVectors': 'Armazenado sem vetores. Pesquisa semântica indisponível.',
+  'sync.pipeline.signInToEnable': 'Inicie sessão para ativar',
+  'sync.pipeline.extractionFailed':
+    'Falha na extração da estrutura de memória. O wiki pode estar incompleto.',
+  'sync.pipeline.treeDegraded':
+    'Árvore de memória degradada. A recuperação pode retornar resultados desatualizados.',
+  'sync.pipeline.viewHealth': 'Ver a saúde da memória',
 };
 
 export default messages;

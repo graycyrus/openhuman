@@ -1595,6 +1595,10 @@ const messages: TranslationMap = {
   'settings.about.releases': 'रिलीज़',
   'settings.about.releasesDesc': 'GitHub पर रिलीज़ नोट्स और पुराने बिल्ड देखें।',
   'settings.about.openReleases': 'GitHub रिलीज़ खोलें',
+  'settings.about.starCta.title': 'OpenHuman पसंद आ रहा है?',
+  'settings.about.starCta.body': 'GitHub पर हमें स्टार दें। इससे और लोग हमें खोज पाते हैं।',
+  'settings.about.starCta.star': 'GitHub पर स्टार करें',
+  'settings.about.starCta.dismiss': 'अभी नहीं',
   'settings.about.connection': 'कनेक्शन',
   'settings.about.connectionMode': 'मोड',
   'settings.about.connectionModeLocal': 'स्थानीय',
@@ -1748,6 +1752,7 @@ const messages: TranslationMap = {
     'अपने OpenHuman सत्र को रीफ़्रेश करने के लिए फिर से साइन इन करें, या स्थानीय/अपनी-कुंजी वाले एम्बेडिंग प्रदाता पर स्विच करें।',
   'settings.embeddings.signInAgain': 'फिर से साइन इन करें',
   'settings.embeddings.apiKeyLabel': '{provider} API कुंजी',
+  'settings.embeddings.apiKeyLabelGeneric': 'API कुंजी',
   'settings.embeddings.placeholderStored': '•••••••• (संग्रहीत)',
   'settings.embeddings.placeholderKey': 'अपनी API कुंजी पेस्ट करें…',
   'settings.embeddings.keyStoredEncrypted':
@@ -3511,6 +3516,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'वर्कफ़्लो सहेजा नहीं जा सका। कृपया फिर से प्रयास करें।',
   'chat.flowProposal.enableError':
     'वर्कफ़्लो सहेजा गया, लेकिन सक्षम नहीं किया जा सका। फिर से प्रयास करें, या Workflows पेज से इसे सक्षम करें।',
+  'chat.flowProposal.savedConfirmation': 'सहेजा गया',
+  'chat.flowProposal.viewWorkflow': 'वर्कफ़्लो देखें',
   'chat.flowProposal.stepKind.agent': 'एजेंट',
   'chat.flowProposal.stepKind.toolCall': 'कार्रवाई',
   'chat.flowProposal.stepKind.httpRequest': 'वेब अनुरोध',
@@ -5145,6 +5152,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'पृथक (अनुशंसित)',
   'settings.cron.jobs.formSessionMain': 'मुख्य सत्र',
   'settings.cron.jobs.formSessionTarget': 'सत्र लक्ष्य',
+  'settings.cron.jobs.formProfile': 'एजेंट प्रोफ़ाइल',
+  'settings.cron.jobs.formProfileNone': 'कोई प्रोफ़ाइल नहीं',
+  'settings.cron.jobs.formProfileHint':
+    'इस कार्य को चयनित प्रोफ़ाइल के रूप में चलाएँ, उसकी पहचान, स्मृति और कार्यस्थान का उपयोग करते हुए।',
+  'settings.cron.jobs.profile': 'प्रोफ़ाइल',
   'settings.cron.jobs.lastStatus': 'आखिरी स्टेटस',
   'settings.cron.jobs.loading': 'Cron jobs लोड हो रही हैं...',
   'settings.cron.jobs.loadingRuns': 'रन लोड हो रहे हैं',
@@ -7277,6 +7289,17 @@ const messages: TranslationMap = {
     'इस प्रोफ़ाइल द्वारा सूचीबद्ध और चलाए जा सकने वाले वर्कफ़्लो।',
   'settings.profiles.editor.mcpServers': 'MCP सर्वर',
   'settings.profiles.editor.mcpServersHint': 'इस प्रोफ़ाइल द्वारा पहुँचने योग्य MCP सर्वर।',
+  'settings.profiles.editor.dedicatedMemory': 'समर्पित मेमोरी',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'डिफ़ॉल्ट मेमोरी साझा करने के बजाय इस प्रोफ़ाइल को अपनी खुद की मेमोरी दें।',
+  'settings.profiles.editor.dedicatedWorkspace': 'समर्पित वर्कस्पेस',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'फ़ाइल और टूल कार्यों के लिए इस प्रोफ़ाइल को अपनी खुद की वर्किंग डायरेक्टरी दें।',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md फ़ाइल',
+  'settings.profiles.editor.workspaceDir': 'वर्कस्पेस डायरेक्टरी',
+  'settings.profiles.editor.skillsDir': 'स्किल निर्देशिका',
+  'settings.profiles.editor.skillsDirHint':
+    'यहाँ रखी गई SKILL.md फ़ाइलें केवल इस प्रोफ़ाइल के लिए निजी हैं।',
   'settings.profiles.editor.all': 'सभी',
   'settings.profiles.editor.selected': 'चयनित',
   'settings.profiles.editor.addPlaceholder': 'आईडी टाइप करें, एंटर दबाएँ',
@@ -7409,6 +7432,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'गोपनीयता स्थिति',
   'privacy.status.external': 'डिवाइस के बाहर',
   'privacy.status.local': 'डिवाइस पर',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'केवल अंतर्ग्रहीत',
+  'sync.pipeline.storedWithoutVectors': 'वेक्टर के बिना संग्रहीत। सिमेंटिक खोज अनुपलब्ध।',
+  'sync.pipeline.signInToEnable': 'सक्षम करने के लिए साइन इन करें',
+  'sync.pipeline.extractionFailed': 'मेमोरी संरचना निष्कर्षण विफल रहा। विकी अपूर्ण हो सकता है।',
+  'sync.pipeline.treeDegraded': 'मेमोरी ट्री अवक्रमित। पुनर्प्राप्ति पुराने परिणाम दे सकती है।',
+  'sync.pipeline.viewHealth': 'मेमोरी स्वास्थ्य देखें',
 };
 
 export default messages;

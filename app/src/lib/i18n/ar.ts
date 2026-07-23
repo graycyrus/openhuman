@@ -1563,6 +1563,11 @@ const messages: TranslationMap = {
   'settings.about.releases': 'الإصدارات',
   'settings.about.releasesDesc': 'تصفح ملاحظات الإصدار والإصدارات السابقة على GitHub.',
   'settings.about.openReleases': 'فتح إصدارات GitHub',
+  'settings.about.starCta.title': 'هل يعجبك OpenHuman؟',
+  'settings.about.starCta.body':
+    'امنحنا نجمة على GitHub. هذا يساعد المزيد من الأشخاص على العثور علينا.',
+  'settings.about.starCta.star': 'ضع نجمة على GitHub',
+  'settings.about.starCta.dismiss': 'ليس الآن',
   'settings.about.connection': 'اتصال',
   'settings.about.connectionMode': 'الوضع',
   'settings.about.connectionModeLocal': 'محلي',
@@ -1714,6 +1719,7 @@ const messages: TranslationMap = {
     'سجّل الدخول مرة أخرى لتحديث جلسة OpenHuman، أو انتقل إلى مزوّد تضمينات محلي أو بمفتاحك الخاص.',
   'settings.embeddings.signInAgain': 'تسجيل الدخول مرة أخرى',
   'settings.embeddings.apiKeyLabel': 'مفتاح API لـ {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'مفتاح API',
   'settings.embeddings.placeholderStored': '•••••••• (مخزن)',
   'settings.embeddings.placeholderKey': 'الصق مفتاح API الخاص بك…',
   'settings.embeddings.keyStoredEncrypted': 'يتم تخزين مفتاح API الخاص بك مشفرًا على هذا الجهاز.',
@@ -3433,6 +3439,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'تعذّر حفظ سير العمل. حاول مرة أخرى.',
   'chat.flowProposal.enableError':
     'تم حفظ سير العمل، لكن تعذّر تفعيله. حاول مرة أخرى، أو فعّله من صفحة سير العمل.',
+  'chat.flowProposal.savedConfirmation': 'تم الحفظ',
+  'chat.flowProposal.viewWorkflow': 'عرض سير العمل',
   'chat.flowProposal.stepKind.agent': 'وكيل',
   'chat.flowProposal.stepKind.toolCall': 'إجراء',
   'chat.flowProposal.stepKind.httpRequest': 'طلب ويب',
@@ -5025,6 +5033,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'معزول (موصى به)',
   'settings.cron.jobs.formSessionMain': 'الجلسة الرئيسية',
   'settings.cron.jobs.formSessionTarget': 'هدف الجلسة',
+  'settings.cron.jobs.formProfile': 'ملف الوكيل',
+  'settings.cron.jobs.formProfileNone': 'بدون ملف',
+  'settings.cron.jobs.formProfileHint':
+    'شغّل هذه المهمة بالملف المحدد، مستخدمًا روحه وذاكرته ومساحة عمله.',
+  'settings.cron.jobs.profile': 'الملف',
   'settings.cron.jobs.lastStatus': 'آخر حالة',
   'settings.cron.jobs.loading': 'جارٍ تحميل مهام cron...',
   'settings.cron.jobs.loadingRuns': 'جارٍ تحميل عمليات التشغيل',
@@ -7116,6 +7129,17 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'سير العمل الذي يمكن لهذا الملف سرده وتشغيله.',
   'settings.profiles.editor.mcpServers': 'خوادم MCP',
   'settings.profiles.editor.mcpServersHint': 'خوادم MCP التي يمكن لهذا الملف الوصول إليها.',
+  'settings.profiles.editor.dedicatedMemory': 'ذاكرة مخصصة',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'امنح هذا الملف ذاكرته الخاصة بدلاً من مشاركة الذاكرة الافتراضية.',
+  'settings.profiles.editor.dedicatedWorkspace': 'مساحة عمل مخصصة',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'امنح هذا الملف مجلد عمل خاص به لعمليات الملفات والأدوات.',
+  'settings.profiles.editor.soulMdFile': 'ملف SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'مجلد مساحة العمل',
+  'settings.profiles.editor.skillsDir': 'دليل المهارات',
+  'settings.profiles.editor.skillsDirHint':
+    'ملفات SKILL.md الموضوعة هنا خاصة بهذا الملف الشخصي وحده.',
   'settings.profiles.editor.all': 'الكل',
   'settings.profiles.editor.selected': 'محدّد',
   'settings.profiles.editor.addPlaceholder': 'اكتب معرّفًا ثم اضغط Enter',
@@ -7243,6 +7267,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'حالة الخصوصية',
   'privacy.status.external': 'خارج الجهاز',
   'privacy.status.local': 'على الجهاز',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'تم الاستيعاب فقط',
+  'sync.pipeline.storedWithoutVectors': 'مخزَّن بدون متجهات. البحث الدلالي غير متاح.',
+  'sync.pipeline.signInToEnable': 'سجّل الدخول للتفعيل',
+  'sync.pipeline.extractionFailed': 'فشل استخراج بنية الذاكرة. قد يكون الويكي غير مكتمل.',
+  'sync.pipeline.treeDegraded': 'شجرة الذاكرة متدهورة. قد يُرجع الاسترجاع نتائج قديمة.',
+  'sync.pipeline.viewHealth': 'عرض حالة الذاكرة',
 };
 
 export default messages;

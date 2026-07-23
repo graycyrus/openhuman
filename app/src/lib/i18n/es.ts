@@ -1634,6 +1634,10 @@ const messages: TranslationMap = {
   'settings.about.releasesDesc':
     'Explora las notas de versión y compilaciones anteriores en GitHub.',
   'settings.about.openReleases': 'Abrir versiones en GitHub',
+  'settings.about.starCta.title': '¿Te gusta OpenHuman?',
+  'settings.about.starCta.body': 'Danos una estrella en GitHub. Así más gente nos encuentra.',
+  'settings.about.starCta.star': 'Danos una estrella en GitHub',
+  'settings.about.starCta.dismiss': 'Ahora no',
   'settings.about.connection': 'Conexión',
   'settings.about.connectionMode': 'Modo',
   'settings.about.connectionModeLocal': 'locales',
@@ -1790,6 +1794,7 @@ const messages: TranslationMap = {
     'Vuelve a iniciar sesión para actualizar tu sesión de OpenHuman, o cambia a un proveedor de embeddings local o con tu propia clave.',
   'settings.embeddings.signInAgain': 'Volver a iniciar sesión',
   'settings.embeddings.apiKeyLabel': 'Clave API de {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Clave de API',
   'settings.embeddings.placeholderStored': '•••••••• (almacenado)',
   'settings.embeddings.placeholderKey': 'Pega tu clave API…',
   'settings.embeddings.keyStoredEncrypted': 'Tu clave API se almacena cifrada en este dispositivo.',
@@ -3576,6 +3581,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'No se pudo guardar el flujo de trabajo. Inténtalo de nuevo.',
   'chat.flowProposal.enableError':
     'Flujo de trabajo guardado, pero no se pudo activar. Inténtalo de nuevo o actívalo desde la página de Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Guardado',
+  'chat.flowProposal.viewWorkflow': 'Ver flujo de trabajo',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Acción',
   'chat.flowProposal.stepKind.httpRequest': 'Solicitud web',
@@ -5239,6 +5246,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Aislada (recomendado)',
   'settings.cron.jobs.formSessionMain': 'Sesión principal',
   'settings.cron.jobs.formSessionTarget': 'Sesión de destino',
+  'settings.cron.jobs.formProfile': 'Perfil del agente',
+  'settings.cron.jobs.formProfileNone': 'Sin perfil',
+  'settings.cron.jobs.formProfileHint':
+    'Ejecuta esta tarea como el perfil seleccionado, usando su alma, memoria y espacio de trabajo.',
+  'settings.cron.jobs.profile': 'Perfil',
   'settings.cron.jobs.lastStatus': 'Último estado',
   'settings.cron.jobs.loading': 'Cargando tareas cron...',
   'settings.cron.jobs.loadingRuns': 'Cargando ejecuciones',
@@ -7434,6 +7446,17 @@ const messages: TranslationMap = {
     'Flujos de trabajo que este perfil puede listar y ejecutar.',
   'settings.profiles.editor.mcpServers': 'Servidores MCP',
   'settings.profiles.editor.mcpServersHint': 'Servidores MCP a los que puede acceder este perfil.',
+  'settings.profiles.editor.dedicatedMemory': 'Memoria dedicada',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Dale a este perfil su propia memoria en lugar de compartir la memoria predeterminada.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Espacio de trabajo dedicado',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Dale a este perfil su propio directorio de trabajo para operaciones de archivos y herramientas.',
+  'settings.profiles.editor.soulMdFile': 'Archivo SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'Directorio de trabajo',
+  'settings.profiles.editor.skillsDir': 'Directorio de habilidades',
+  'settings.profiles.editor.skillsDirHint':
+    'Las habilidades basadas en SKILL.md colocadas aquí son privadas de este perfil.',
   'settings.profiles.editor.all': 'Todos',
   'settings.profiles.editor.selected': 'Seleccionados',
   'settings.profiles.editor.addPlaceholder': 'Escribe un identificador y pulsa Intro',
@@ -7567,6 +7590,16 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Estado de privacidad',
   'privacy.status.external': 'Fuera del dispositivo',
   'privacy.status.local': 'En el dispositivo',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Solo ingerido',
+  'sync.pipeline.storedWithoutVectors':
+    'Almacenado sin vectores. La búsqueda semántica no está disponible.',
+  'sync.pipeline.signInToEnable': 'Inicia sesión para activar',
+  'sync.pipeline.extractionFailed':
+    'Error al extraer la estructura de memoria. Es posible que el wiki esté incompleto.',
+  'sync.pipeline.treeDegraded':
+    'Árbol de memoria degradado. La recuperación puede devolver resultados obsoletos.',
+  'sync.pipeline.viewHealth': 'Ver estado de la memoria',
 };
 
 export default messages;

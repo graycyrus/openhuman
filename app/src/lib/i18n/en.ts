@@ -1807,6 +1807,10 @@ const en: TranslationMap = {
   'settings.about.releases': 'Releases',
   'settings.about.releasesDesc': 'Browse release notes and earlier builds on GitHub.',
   'settings.about.openReleases': 'Open GitHub releases',
+  'settings.about.starCta.title': 'Enjoying OpenHuman?',
+  'settings.about.starCta.body': 'Star us on GitHub. It helps more people find us.',
+  'settings.about.starCta.star': 'Star on GitHub',
+  'settings.about.starCta.dismiss': 'Not now',
   'settings.about.connection': 'Connection',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Local',
@@ -1977,6 +1981,7 @@ const en: TranslationMap = {
     'Sign in again to refresh your OpenHuman session, or switch to a local or bring-your-own embeddings provider.',
   'settings.embeddings.signInAgain': 'Sign in again',
   'settings.embeddings.apiKeyLabel': '{provider} API key',
+  'settings.embeddings.apiKeyLabelGeneric': 'API key',
   'settings.embeddings.placeholderStored': '•••••••• (stored)',
   'settings.embeddings.placeholderKey': 'Paste your API key…',
   'settings.embeddings.keyStoredEncrypted': 'Your API key is stored encrypted on this device.',
@@ -3348,6 +3353,14 @@ const en: TranslationMap = {
   'sync.failedToLoad': 'Failed to load sync status',
   'sync.noContent': 'No content has been synced into memory yet. Connect an integration to start.',
 
+  // Data Sync layered pipeline status (GH-4690) — raw sync ≠ retrieval-ready
+  'sync.pipeline.ingestedOnly': 'Ingested only',
+  'sync.pipeline.storedWithoutVectors': 'Stored without vectors. Semantic search unavailable.',
+  'sync.pipeline.signInToEnable': 'Sign in to enable',
+  'sync.pipeline.extractionFailed': 'Memory structure extraction failed. Wiki may be incomplete.',
+  'sync.pipeline.treeDegraded': 'Memory tree degraded. Retrieval may return stale results.',
+  'sync.pipeline.viewHealth': 'View memory health',
+
   // Memory Sync Schedule (global cadence)
   'memorySyncInterval.title': 'Sync schedule',
   'memorySyncInterval.lastSynced': 'Last synced',
@@ -3917,6 +3930,11 @@ const en: TranslationMap = {
   'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
   'chat.flowProposal.enableError':
     'Workflow saved, but could not enable it. Try again, or enable it from the Workflows page.',
+  // Terminal success state (issue B36): shown once the flow is saved and
+  // enabled, in place of the editable proposal, with a link into the
+  // persisted flow's own canvas.
+  'chat.flowProposal.savedConfirmation': 'Saved',
+  'chat.flowProposal.viewWorkflow': 'View workflow',
   // Plain-language labels for each `tinyflows` node kind, shown as the badge
   // next to each step in the proposal card's step list. Keep names short:
   // they render as small pill badges.
@@ -5853,9 +5871,14 @@ const en: TranslationMap = {
   'settings.cron.jobs.formScheduleRequired': 'Schedule is required',
   'settings.cron.jobs.formScheduleType': 'Schedule type',
   'settings.cron.jobs.formSessionIsolated': 'Isolated (recommended)',
+  'settings.cron.jobs.formProfile': 'Agent profile',
+  'settings.cron.jobs.formProfileNone': 'No profile',
+  'settings.cron.jobs.formProfileHint':
+    'Run this job as the selected profile, using its soul, memory, and workspace.',
   'settings.cron.jobs.formSessionMain': 'Main session',
   'settings.cron.jobs.formSessionTarget': 'Session target',
   'settings.cron.jobs.lastStatus': 'Last status',
+  'settings.cron.jobs.profile': 'Profile',
   'settings.cron.jobs.loading': 'Loading cron jobs...',
   'settings.cron.jobs.loadingRuns': 'Loading runs…',
   'settings.cron.jobs.nextRun': 'Next run',
@@ -7424,6 +7447,17 @@ const en: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'Workflows this profile can list and run.',
   'settings.profiles.editor.mcpServers': 'MCP servers',
   'settings.profiles.editor.mcpServersHint': 'MCP servers this profile can reach.',
+  'settings.profiles.editor.dedicatedMemory': 'Dedicated memory',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Give this profile its own memory instead of sharing the default one.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Dedicated workspace',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Give this profile its own working directory for file and tool operations.',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md file',
+  'settings.profiles.editor.workspaceDir': 'Workspace directory',
+  'settings.profiles.editor.skillsDir': 'Skills directory',
+  'settings.profiles.editor.skillsDirHint':
+    'SKILL.md files placed here are private to this profile.',
   'settings.profiles.editor.all': 'All',
   'settings.profiles.editor.selected': 'Selected',
   'settings.profiles.editor.addPlaceholder': 'Type an id, press Enter',

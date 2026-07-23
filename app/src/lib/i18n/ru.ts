@@ -1615,6 +1615,10 @@ const messages: TranslationMap = {
   'settings.about.releases': 'Релизы',
   'settings.about.releasesDesc': 'Просмотр заметок к релизам и предыдущих сборок на GitHub.',
   'settings.about.openReleases': 'Открыть релизы на GitHub',
+  'settings.about.starCta.title': 'Нравится OpenHuman?',
+  'settings.about.starCta.body': 'Поставьте нам звезду на GitHub. Так нас найдёт больше людей.',
+  'settings.about.starCta.star': 'Поставить звезду на GitHub',
+  'settings.about.starCta.dismiss': 'Не сейчас',
   'settings.about.connection': 'Соединение',
   'settings.about.connectionMode': 'Режим',
   'settings.about.connectionModeLocal': 'Локальный',
@@ -1771,6 +1775,7 @@ const messages: TranslationMap = {
     'Войдите снова, чтобы обновить сеанс OpenHuman, или переключитесь на локального провайдера эмбеддингов либо провайдера с собственным ключом.',
   'settings.embeddings.signInAgain': 'Войти снова',
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'API-ключ',
   'settings.embeddings.placeholderStored': '•••••••• (сохранено)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
   'settings.embeddings.keyStoredEncrypted':
@@ -3540,6 +3545,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Не удалось сохранить рабочий процесс. Попробуйте еще раз.',
   'chat.flowProposal.enableError':
     'Рабочий процесс сохранён, но не удалось его включить. Попробуйте ещё раз или включите его на странице Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Сохранено',
+  'chat.flowProposal.viewWorkflow': 'Просмотреть рабочий процесс',
   'chat.flowProposal.stepKind.agent': 'Агент',
   'chat.flowProposal.stepKind.toolCall': 'Действие',
   'chat.flowProposal.stepKind.httpRequest': 'Веб-запрос',
@@ -5196,6 +5203,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Изолированная (рекомендуется)',
   'settings.cron.jobs.formSessionMain': 'Основная сессия',
   'settings.cron.jobs.formSessionTarget': 'Целевая сессия',
+  'settings.cron.jobs.formProfile': 'Профиль агента',
+  'settings.cron.jobs.formProfileNone': 'Без профиля',
+  'settings.cron.jobs.formProfileHint':
+    'Запускать эту задачу от выбранного профиля, используя его душу, память и рабочее пространство.',
+  'settings.cron.jobs.profile': 'Профиль',
   'settings.cron.jobs.lastStatus': 'Последний статус',
   'settings.cron.jobs.loading': 'Загрузка заданий...',
   'settings.cron.jobs.loadingRuns': 'Загрузка запусков',
@@ -7365,6 +7377,17 @@ const messages: TranslationMap = {
   'settings.profiles.editor.mcpServers': 'Серверы MCP',
   'settings.profiles.editor.mcpServersHint':
     'Серверы MCP, к которым может обращаться этот профиль.',
+  'settings.profiles.editor.dedicatedMemory': 'Выделенная память',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Выделить этому профилю собственную память вместо общей памяти по умолчанию.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Выделенное рабочее пространство',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Выделить этому профилю собственный рабочий каталог для операций с файлами и инструментами.',
+  'settings.profiles.editor.soulMdFile': 'Файл SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'Рабочий каталог',
+  'settings.profiles.editor.skillsDir': 'Каталог навыков',
+  'settings.profiles.editor.skillsDirHint':
+    'Файлы SKILL.md, размещённые здесь, доступны только этому профилю.',
   'settings.profiles.editor.all': 'Все',
   'settings.profiles.editor.selected': 'Выбранные',
   'settings.profiles.editor.addPlaceholder': 'Введите идентификатор и нажмите Enter',
@@ -7495,6 +7518,15 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Состояние конфиденциальности',
   'privacy.status.external': 'Вне устройства',
   'privacy.status.local': 'На устройстве',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Только загружено',
+  'sync.pipeline.storedWithoutVectors': 'Сохранено без векторов. Семантический поиск недоступен.',
+  'sync.pipeline.signInToEnable': 'Войдите, чтобы включить',
+  'sync.pipeline.extractionFailed':
+    'Не удалось извлечь структуру памяти. Вики может быть неполной.',
+  'sync.pipeline.treeDegraded':
+    'Дерево памяти деградировало. Поиск может возвращать устаревшие результаты.',
+  'sync.pipeline.viewHealth': 'Показать состояние памяти',
 };
 
 export default messages;

@@ -1584,6 +1584,11 @@ const messages: TranslationMap = {
   'settings.about.releases': '릴리스',
   'settings.about.releasesDesc': 'GitHub에서 릴리스 노트와 이전 빌드를 찾아보세요.',
   'settings.about.openReleases': 'GitHub 릴리스 열기',
+  'settings.about.starCta.title': 'OpenHuman이 마음에 드시나요?',
+  'settings.about.starCta.body':
+    'GitHub에서 별을 눌러 주세요. 더 많은 사람이 저희를 발견하는 데 도움이 됩니다.',
+  'settings.about.starCta.star': 'GitHub에서 별 누르기',
+  'settings.about.starCta.dismiss': '나중에',
   'settings.about.connection': '연결',
   'settings.about.connectionMode': '모드',
   'settings.about.connectionModeLocal': '로컬',
@@ -1739,6 +1744,7 @@ const messages: TranslationMap = {
     'OpenHuman 세션을 새로 고치려면 다시 로그인하거나, 로컬 또는 자체 키 임베딩 공급자로 전환하세요.',
   'settings.embeddings.signInAgain': '다시 로그인',
   'settings.embeddings.apiKeyLabel': '{provider} API 키',
+  'settings.embeddings.apiKeyLabelGeneric': 'API 키',
   'settings.embeddings.placeholderStored': '•••••••(저장됨)',
   'settings.embeddings.placeholderKey': 'API 키를 붙여넣으세요…',
   'settings.embeddings.keyStoredEncrypted': 'API 키는 이 기기에 암호화되어 저장됩니다.',
@@ -3476,6 +3482,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': '워크플로를 저장할 수 없습니다. 다시 시도하세요.',
   'chat.flowProposal.enableError':
     '워크플로는 저장되었지만 활성화할 수 없습니다. 다시 시도하거나 Workflows 페이지에서 활성화하세요.',
+  'chat.flowProposal.savedConfirmation': '저장됨',
+  'chat.flowProposal.viewWorkflow': '워크플로 보기',
   'chat.flowProposal.stepKind.agent': '에이전트',
   'chat.flowProposal.stepKind.toolCall': '작업',
   'chat.flowProposal.stepKind.httpRequest': '웹 요청',
@@ -5086,6 +5094,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': '격리됨 (권장)',
   'settings.cron.jobs.formSessionMain': '메인 세션',
   'settings.cron.jobs.formSessionTarget': '세션 대상',
+  'settings.cron.jobs.formProfile': '에이전트 프로필',
+  'settings.cron.jobs.formProfileNone': '프로필 없음',
+  'settings.cron.jobs.formProfileHint':
+    '선택한 프로필로 이 작업을 실행하며, 해당 프로필의 정체성, 메모리, 작업 공간을 사용합니다.',
+  'settings.cron.jobs.profile': '프로필',
   'settings.cron.jobs.lastStatus': '마지막 상태',
   'settings.cron.jobs.loading': 'cron 작업 불러오는 중...',
   'settings.cron.jobs.loadingRuns': '실행 기록 불러오는 중',
@@ -7194,6 +7207,16 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': '이 프로필이 나열하고 실행할 수 있는 워크플로.',
   'settings.profiles.editor.mcpServers': 'MCP 서버',
   'settings.profiles.editor.mcpServersHint': '이 프로필이 접근할 수 있는 MCP 서버.',
+  'settings.profiles.editor.dedicatedMemory': '전용 메모리',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    '기본 메모리를 공유하는 대신 이 프로필에 전용 메모리를 부여합니다.',
+  'settings.profiles.editor.dedicatedWorkspace': '전용 작업 공간',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    '파일 및 도구 작업을 위해 이 프로필에 전용 작업 디렉터리를 부여합니다.',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md 파일',
+  'settings.profiles.editor.workspaceDir': '작업 공간 디렉터리',
+  'settings.profiles.editor.skillsDir': '기술 디렉터리',
+  'settings.profiles.editor.skillsDirHint': '여기에 넣은 SKILL.md 파일은 이 프로필에만 적용됩니다.',
   'settings.profiles.editor.all': '전체',
   'settings.profiles.editor.selected': '선택됨',
   'settings.profiles.editor.addPlaceholder': '식별자를 입력하고 Enter를 누르세요',
@@ -7324,6 +7347,14 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': '개인정보 상태',
   'privacy.status.external': '기기 외',
   'privacy.status.local': '기기 내',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': '수집만 완료',
+  'sync.pipeline.storedWithoutVectors': '벡터 없이 저장됨. 의미 검색을 사용할 수 없습니다.',
+  'sync.pipeline.signInToEnable': '사용하려면 로그인하세요',
+  'sync.pipeline.extractionFailed': '메모리 구조 추출에 실패했습니다. 위키가 불완전할 수 있습니다.',
+  'sync.pipeline.treeDegraded':
+    '메모리 트리가 저하되었습니다. 검색이 오래된 결과를 반환할 수 있습니다.',
+  'sync.pipeline.viewHealth': '메모리 상태 보기',
 };
 
 export default messages;

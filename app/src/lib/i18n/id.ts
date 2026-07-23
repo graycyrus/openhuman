@@ -1609,6 +1609,11 @@ const messages: TranslationMap = {
   'settings.about.releases': 'Rilis',
   'settings.about.releasesDesc': 'Telusuri catatan rilis dan build sebelumnya di GitHub.',
   'settings.about.openReleases': 'Buka rilis GitHub',
+  'settings.about.starCta.title': 'Menikmati OpenHuman?',
+  'settings.about.starCta.body':
+    'Beri kami bintang di GitHub. Ini membantu lebih banyak orang menemukan kami.',
+  'settings.about.starCta.star': 'Beri bintang di GitHub',
+  'settings.about.starCta.dismiss': 'Nanti saja',
   'settings.about.connection': 'Koneksi',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Lokal',
@@ -1765,6 +1770,7 @@ const messages: TranslationMap = {
     'Masuk lagi untuk menyegarkan sesi OpenHuman Anda, atau beralih ke penyedia embedding lokal atau bawa-kunci-sendiri.',
   'settings.embeddings.signInAgain': 'Masuk lagi',
   'settings.embeddings.apiKeyLabel': 'Kunci API {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Kunci API',
   'settings.embeddings.placeholderStored': '•••••••• (disimpan)',
   'settings.embeddings.placeholderKey': 'Tempel kunci API Anda…',
   'settings.embeddings.keyStoredEncrypted': 'Kunci API Anda disimpan terenkripsi di perangkat ini.',
@@ -3528,6 +3534,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Alur kerja tidak dapat disimpan. Silakan coba lagi.',
   'chat.flowProposal.enableError':
     'Alur kerja disimpan, tetapi tidak dapat diaktifkan. Coba lagi, atau aktifkan dari halaman Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Tersimpan',
+  'chat.flowProposal.viewWorkflow': 'Lihat alur kerja',
   'chat.flowProposal.stepKind.agent': 'Agen',
   'chat.flowProposal.stepKind.toolCall': 'Tindakan',
   'chat.flowProposal.stepKind.httpRequest': 'Permintaan web',
@@ -5167,6 +5175,11 @@ const messages: TranslationMap = {
   'settings.cron.jobs.formSessionIsolated': 'Terisolasi (disarankan)',
   'settings.cron.jobs.formSessionMain': 'Sesi utama',
   'settings.cron.jobs.formSessionTarget': 'Target sesi',
+  'settings.cron.jobs.formProfile': 'Profil agen',
+  'settings.cron.jobs.formProfileNone': 'Tanpa profil',
+  'settings.cron.jobs.formProfileHint':
+    'Jalankan tugas ini sebagai profil yang dipilih, menggunakan jiwa, memori, dan ruang kerjanya.',
+  'settings.cron.jobs.profile': 'Profil',
   'settings.cron.jobs.lastStatus': 'Status terakhir',
   'settings.cron.jobs.loading': 'Memuat cron job...',
   'settings.cron.jobs.loadingRuns': 'Memuat run',
@@ -7314,6 +7327,17 @@ const messages: TranslationMap = {
     'Alur kerja yang dapat didaftar dan dijalankan profil ini.',
   'settings.profiles.editor.mcpServers': 'Server MCP',
   'settings.profiles.editor.mcpServersHint': 'Server MCP yang dapat dijangkau profil ini.',
+  'settings.profiles.editor.dedicatedMemory': 'Memori khusus',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Berikan profil ini memorinya sendiri alih-alih berbagi memori bawaan.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Ruang kerja khusus',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Berikan profil ini direktori kerjanya sendiri untuk operasi file dan alat.',
+  'settings.profiles.editor.soulMdFile': 'Berkas SOUL.md',
+  'settings.profiles.editor.workspaceDir': 'Direktori ruang kerja',
+  'settings.profiles.editor.skillsDir': 'Direktori keterampilan',
+  'settings.profiles.editor.skillsDirHint':
+    'File SKILL.md yang ditempatkan di sini bersifat pribadi untuk profil ini.',
   'settings.profiles.editor.all': 'Semua',
   'settings.profiles.editor.selected': 'Terpilih',
   'settings.profiles.editor.addPlaceholder': 'Ketik id, tekan Enter',
@@ -7447,6 +7471,14 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Status privasi',
   'privacy.status.external': 'Di luar perangkat',
   'privacy.status.local': 'Di perangkat',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Hanya diserap',
+  'sync.pipeline.storedWithoutVectors': 'Disimpan tanpa vektor. Pencarian semantik tidak tersedia.',
+  'sync.pipeline.signInToEnable': 'Masuk untuk mengaktifkan',
+  'sync.pipeline.extractionFailed': 'Ekstraksi struktur memori gagal. Wiki mungkin tidak lengkap.',
+  'sync.pipeline.treeDegraded':
+    'Pohon memori menurun. Pengambilan mungkin mengembalikan hasil usang.',
+  'sync.pipeline.viewHealth': 'Lihat kesehatan memori',
 };
 
 export default messages;
