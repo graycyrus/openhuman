@@ -560,19 +560,30 @@ path can never work: it fails at run time with `Error reading file at
 /Users/... ENOENT`. Putting the content in the message body does **not**
 satisfy an attachment request either.
 
-The working chain is three nodes:
+The working chain is four nodes. **Keep the file handle out of any agent's
+structured output.** Give the producer a fixed path you choose, then refer to
+that same literal path from a separate upload node. An agent that has to emit a
+`file_id` or `file_path` through `output_parser` is a schema mismatch waiting to
+fail the run; the file only needs to exist on disk, so the agent's *side effect*
+is what matters, not its output.
 
-1. **Produce the file.** An `agent` node (usually `agent_ref: "code_executor"`)
-   or a `code` node writes it, then calls **`oh:storage_upload_file`** with the
-   local `path`. Bind its `file_id` downstream.
-2. **Mint a short-lived link.** A `tool_call` on **`oh:storage_get_link`** with
+1. **Produce the file at a path YOU chose.** An `agent` node (usually
+   `agent_ref: "code_executor"`) or a `code` node writes it. State the exact
+   absolute path in the prompt, e.g. "write the page to
+   `/tmp/openhuman-flow/report.html`". Do **not** give this node an
+   `output_parser` schema for the file, and do **not** bind anything off it.
+2. **Upload it.** A `tool_call` on **`oh:storage_upload_file`** with that same
+   path as a **literal** string: `{ "path": "/tmp/openhuman-flow/report.html" }`.
+   Because this is a real node, its `file_id` is a node output rather than
+   model-authored JSON: bind `=nodes.<upload>.item.json.file_id`.
+3. **Mint a short-lived link.** A `tool_call` on **`oh:storage_get_link`** with
    `{ "file_id": "=nodes.<upload>.item.json.file_id", "expires_in_seconds": 300 }`
    returns `{ url, expires_at }`. Bind `=nodes.<link>.item.json.url`.
    Prefer a short TTL: the provider fetches within seconds, and the URL is a
    bearer capability for as long as it lives.
    **Do not** upload with `visibility: "public"` to get a `public_url` instead.
    That leaves a permanently world readable object; the presigned link expires.
-3. **Send it.** A `tool_call` on the provider action, binding the link URL into
+4. **Send it.** A `tool_call` on the provider action, binding the link URL into
    that action's file parameter.
 
 **Find the file parameter by its marker, never by guessing a name.** Call
