@@ -139,10 +139,7 @@ impl Tool for FlowMemoryRecallTool {
         if flow_id.is_empty() {
             return Err(anyhow::anyhow!("flow_id cannot be empty"));
         }
-        let scope = args
-            .get("scope")
-            .and_then(|v| v.as_str())
-            .unwrap_or("flow");
+        let scope = args.get("scope").and_then(|v| v.as_str()).unwrap_or("flow");
 
         #[allow(clippy::cast_possible_truncation)]
         let limit = args
@@ -547,11 +544,7 @@ mod tests {
 
         // Never lands in another flow's namespace, the shared "flows" scope
         // namespace, or global/user memory.
-        assert!(mem
-            .get(&flow_namespace("f2"), "k")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(mem.get(&flow_namespace("f2"), "k").await.unwrap().is_none());
         assert!(mem.get("global", "k").await.unwrap().is_none());
         assert!(mem
             .get("f1", "k") // raw flow_id, not the derived namespace
@@ -610,9 +603,7 @@ mod tests {
     async fn remember_missing_content_errs() {
         let (_tmp, mem) = test_mem();
         let tool = FlowMemoryRememberTool::new(mem, test_security());
-        let result = tool
-            .execute(json!({"flow_id": "f1", "key": "k"}))
-            .await;
+        let result = tool.execute(json!({"flow_id": "f1", "key": "k"})).await;
         assert!(result.is_err());
     }
 }

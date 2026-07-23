@@ -1227,9 +1227,14 @@ async fn flows_delete_clears_flow_memory_namespace() {
     crate::openhuman::memory::global::init(config.workspace_dir.clone())
         .expect("init test memory client");
 
-    let created = flows_create(&config, "with-memory".to_string(), trigger_only_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "with-memory".to_string(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
     let flow_id = created.value.id.clone();
 
     let client = crate::openhuman::memory::global::client().expect("global client ready");

@@ -670,8 +670,14 @@ mod tests {
 
         let flow = flow_with_trigger_config("f-failed", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
-        store::insert_flow_run(&config, "run-failed", "f-failed", "thread-failed", "2026-01-01T00:00:00Z")
-            .unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-failed",
+            "f-failed",
+            "thread-failed",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
         store::finish_flow_run(
             &config,
             "run-failed",
@@ -757,8 +763,14 @@ mod tests {
 
         let flow = flow_with_trigger_config("f-ok", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
-        store::insert_flow_run(&config, "run-ok", "f-ok", "thread-ok", "2026-01-01T00:00:00Z")
-            .unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-ok",
+            "f-ok",
+            "thread-ok",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
         let step = crate::openhuman::flows::FlowRunStep {
             node_id: "n1".to_string(),
             output: json!({ "sent": 3 }),
@@ -809,8 +821,14 @@ mod tests {
 
         let flow = flow_with_trigger_config("f-warn", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
-        store::insert_flow_run(&config, "run-warn", "f-warn", "thread-warn", "2026-01-01T00:00:00Z")
-            .unwrap();
+        store::insert_flow_run(
+            &config,
+            "run-warn",
+            "f-warn",
+            "thread-warn",
+            "2026-01-01T00:00:00Z",
+        )
+        .unwrap();
         store::finish_flow_run(
             &config,
             "run-warn",
