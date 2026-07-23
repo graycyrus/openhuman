@@ -2371,19 +2371,21 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                 );
                 continue;
             }
-            // A null bound to the OUTPUT of an upstream Composio `tool_call`
-            // node is UNVERIFIABLE in this echo sandbox — the mock renders a
-            // Composio `tool_call` as `{tool, args, connection}` and can NEVER
-            // produce its real output fields (`.item.json.data.<field>`), so a
-            // downstream binding to one resolves `null` here even when the
-            // wiring is perfectly correct. Hard-rejecting it (WS6) would block
-            // a possibly-correct graph from ever being proposed — the exact
-            // false-negative the transcript audit caught. Downgrade to a
-            // debug-logged skip; `dry_run_workflow` remains the surface that
-            // reports it (as an `unverifiable` diagnostic the agent can act on
-            // via get_tool_contract / get_tool_output_sample).
+            // A null bound to the OUTPUT of an upstream Composio-or-native
+            // `tool_call` node is UNVERIFIABLE in this echo sandbox — the mock
+            // renders BOTH a Composio and a native `oh:` `tool_call` as
+            // `{tool, args, connection}` and can NEVER produce their real output
+            // fields (`.item.json.data.<field>` for Composio, `.item.json.<field>`
+            // for a native tool), so a downstream binding to one resolves `null`
+            // here even when the wiring is perfectly correct. Hard-rejecting it
+            // (WS6) would block a possibly-correct graph from ever being proposed
+            // — the exact false-negative the transcript audit caught, and the one
+            // that made this gate reject #5148's own native-attachment chain.
+            // Downgrade to a debug-logged skip; `dry_run_workflow` remains the
+            // surface that reports it (as an `unverifiable` diagnostic the agent
+            // can act on via get_tool_contract / get_tool_output_sample).
             if let Some(upstream) =
-                composio_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
+                mock_opaque_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
             {
                 tracing::debug!(
                     target: "flows",
@@ -2392,7 +2394,7 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                     %field,
                     upstream = %upstream,
                     expression = %diag.expression,
-                    "[flows] required-arg resolvability check: arg binds to a Composio \
+                    "[flows] required-arg resolvability check: arg binds to a Composio-or-native \
                      tool_call's output — UNVERIFIABLE in the echo sandbox (the mock cannot \
                      produce real tool output fields), not rejecting; dry_run_workflow \
                      reports it instead"
@@ -2515,18 +2517,25 @@ fn is_trigger_scoped_expression(
 }
 
 /// If a null-resolved config expression on `node_id` is bound to the OUTPUT of
-/// an upstream **Composio `tool_call`** node (a `tool_call` whose `slug` is a
-/// real Composio action — not `=`-derived, not native `oh:`), returns that
-/// upstream node's id; otherwise `None`.
+/// an upstream **`tool_call`** node whose sandbox output is an opaque echo — a
+/// Composio curated action OR a native `oh:` tool (anything but a `=`-derived
+/// dynamic slug) — returns that upstream node's id; otherwise `None`.
 ///
-/// The dry-run / gate sandbox renders a Composio `tool_call` as a deterministic
-/// echo (`{tool, args, connection}`) and can NEVER produce its real output
-/// fields, so a downstream binding to `.item.json.data.<field>` off such a node
-/// resolves `null` in the sandbox **even when the wiring is correct** — the
-/// binding is UNVERIFIABLE here, not necessarily broken. Callers use this to
-/// tell that honest-uncertainty case apart from a genuinely broken binding
-/// (one wired to an `agent` / `transform` / `code` / trigger upstream, whose
-/// real output the sandbox DOES produce, so a null there IS a real bug).
+/// The dry-run / gate sandbox renders BOTH a Composio `tool_call` and a native
+/// `oh:` `tool_call` as a deterministic echo (`{tool, args, connection}`) and
+/// can NEVER produce their real output fields, so a downstream binding off such
+/// a node (`.item.json.data.<field>` for Composio, or `.item.json.<field>` for
+/// a native tool after `native_tool_payload`'s unwrap) resolves `null` in the
+/// sandbox **even when the wiring is correct** — the binding is UNVERIFIABLE
+/// here, not necessarily broken. Callers use this to tell that honest-
+/// uncertainty case apart from a genuinely broken binding (one wired to an
+/// `agent` / `transform` / `code` / trigger upstream, whose real output the
+/// sandbox DOES produce, so a null there IS a real bug).
+///
+/// The native `oh:` case is why this exists beyond Composio: #5148's guidance
+/// prescribes a `produce -> oh:storage_upload_file -> oh:storage_get_link ->
+/// send` chain where the send binds `=nodes.get_link.item.json.url`; excluding
+/// native upstreams here made the gate hard-reject that exact (correct) chain.
 ///
 /// Handles both addressing forms the engine can trace:
 /// - explicit `=nodes.<id>...` / `=.nodes["<id>"]...` (parsed via
@@ -2536,9 +2545,9 @@ fn is_trigger_scoped_expression(
 ///   ambiguous fan-in is never mis-attributed to a single upstream node.
 ///
 /// Anything else (a `=run...` trigger reference, a jq expression not rooted at
-/// one of the above, or a reference to a non-`tool_call` / native / dynamic
-/// node) returns `None`.
-pub(crate) fn composio_tool_call_upstream_ref<'a>(
+/// one of the above, or a reference to a non-`tool_call` / `=`-dynamic node)
+/// returns `None`.
+pub(crate) fn mock_opaque_tool_call_upstream_ref<'a>(
     expr: &str,
     graph: &'a WorkflowGraph,
     node_id: &str,
@@ -2574,7 +2583,11 @@ pub(crate) fn composio_tool_call_upstream_ref<'a>(
         return None;
     }
     let slug = node.config.get("slug").and_then(Value::as_str)?;
-    if slug.starts_with('=') || slug.starts_with("oh:") {
+    // A `=`-derived slug is a dynamic runtime slug we can't reason about. But a
+    // native `oh:` tool_call IS opaque-echoed by the mock exactly like a
+    // Composio one, so its downstream null is equally unverifiable, not broken —
+    // do NOT exclude it (that exclusion made the gate reject #5148's own chain).
+    if slug.starts_with('=') {
         return None;
     }
     Some(node.id.as_str())
