@@ -442,6 +442,57 @@ pub(crate) fn to_flow_validation_error(
 /// Assumes `graph` is already structurally valid (run
 /// `validate_and_migrate_graph` / `validate_all` first) — these gates check
 /// resolvability/contracts on a compilable graph.
+///
+/// Author-gate for `oh:storage_upload_file`: its literal `path` arg must be
+/// workspace-relative. Uploads are confined to the agent workspace by the
+/// runtime `resolve_upload_path` (a canonicalized path that escapes `action_dir`
+/// is rejected), so an absolute path like `/tmp/report.html` or one climbing out
+/// with `..` cannot work — it fails mid-run at the upload step. The prompt tells
+/// the builder to use a relative path, but the model reliably ignores that and
+/// copies an absolute path from a prior flow's example, so this enforces it in
+/// code (a hard, actionable author-gate) rather than trusting the prose.
+///
+/// Only LITERAL paths are checked: a `=`-expression resolves from upstream data
+/// at runtime and is out of scope here (the runtime check still applies). An
+/// absent `path` is left to the required-arg gate.
+pub(crate) fn validate_upload_paths(graph: &WorkflowGraph) -> Vec<String> {
+    const UPLOAD_SLUG: &str = "oh:storage_upload_file";
+    let mut errors = Vec::new();
+    for node in &graph.nodes {
+        if node.kind != NodeKind::ToolCall {
+            continue;
+        }
+        if node.config.get("slug").and_then(Value::as_str) != Some(UPLOAD_SLUG) {
+            continue;
+        }
+        let Some(raw) = node
+            .config
+            .get("args")
+            .and_then(|a| a.get("path"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        let path = raw.trim();
+        // Dynamic (resolved at runtime) or absent — not a literal we can check here.
+        if path.is_empty() || path.starts_with('=') {
+            continue;
+        }
+        let escapes_via_parent = path.split(['/', '\\']).any(|seg| seg == "..");
+        if std::path::Path::new(path).is_absolute() || escapes_via_parent {
+            errors.push(format!(
+                "Node '{}': `oh:storage_upload_file` path `{path}` must be workspace-relative \
+                 (e.g. `report.html`). Uploads are confined to the agent workspace, so an \
+                 absolute path (`/tmp/...`, `/Users/...`) or one escaping with `..` is rejected \
+                 at run time. Use a relative path, and have the producing node write the file to \
+                 that same relative path.",
+                node.id
+            ));
+        }
+    }
+    errors
+}
+
 pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
     let compatibility_errors = config_aware_engine_compatibility_errors(config, graph);
     if !compatibility_errors.is_empty() {
@@ -451,6 +502,14 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     let binding_errors = validate_binding_resolvability(graph);
     if !binding_errors.is_empty() {
         return binding_errors;
+    }
+    // Cheap, sync: an `oh:storage_upload_file` literal `path` that is absolute or
+    // escapes the workspace. The runtime `resolve_upload_path` rejects it, but the
+    // model reliably ignores the prompt's "use a workspace-relative path" rule and
+    // copies an absolute `/tmp/...` path from prior flows, so enforce it in code.
+    let upload_path_errors = validate_upload_paths(graph);
+    if !upload_path_errors.is_empty() {
+        return upload_path_errors;
     }
     // Cheap: an `agent` node's `agent_ref` that would hit the runtime's
     // `RegistryFallback` "unknown agent_ref" hard error mid-run. Almost always a

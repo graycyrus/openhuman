@@ -3825,6 +3825,48 @@ async fn native_file_attachment_chain_passes_required_arg_resolvability() {
     );
 }
 
+fn upload_graph(path: Value) -> WorkflowGraph {
+    graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "up", "kind": "tool_call", "name": "Upload",
+              "config": { "slug": "oh:storage_upload_file", "args": { "path": path } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "up" } ]
+    }))
+}
+
+#[test]
+fn validate_upload_paths_rejects_an_absolute_path() {
+    // The live-observed bug: the model copies `/tmp/openhuman-flow/report.html`
+    // from a prior flow, which the runtime rejects (uploads are confined to the
+    // workspace). Catch it at author time with an actionable message.
+    let errors = validate_upload_paths(&upload_graph(json!("/tmp/openhuman-flow/report.html")));
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("'up'"), "{}", errors[0]);
+    assert!(errors[0].contains("workspace-relative"), "{}", errors[0]);
+}
+
+#[test]
+fn validate_upload_paths_accepts_a_workspace_relative_path() {
+    assert!(validate_upload_paths(&upload_graph(json!("report.html"))).is_empty());
+    assert!(validate_upload_paths(&upload_graph(json!("out/report.html"))).is_empty());
+}
+
+#[test]
+fn validate_upload_paths_rejects_a_parent_escape() {
+    let errors = validate_upload_paths(&upload_graph(json!("../../etc/passwd")));
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("escaping with `..`"), "{}", errors[0]);
+}
+
+#[test]
+fn validate_upload_paths_ignores_a_dynamic_path_expression() {
+    // A `=`-expression resolves at runtime; the author-gate can't know its value,
+    // so it must not reject it (the runtime check still applies).
+    assert!(validate_upload_paths(&upload_graph(json!("=nodes.prep.item.json.path"))).is_empty());
+}
+
 /// (Codex feedback on PR #4826) This gate sandbox-runs every graph against
 /// `json!({})` as the trigger payload, so a `tool_call` arg wired straight to
 /// the trigger's own data — `"to": "=item.email"` on a node whose only
