@@ -81,8 +81,6 @@ const SENSITIVE_KEYS: &[&str] = &[
     "attachments",
     "file_to_upload",
     "file_url",
-    "url",
-    "link",
     "public_url",
     "signed_url",
     "presigned_url",
@@ -510,8 +508,12 @@ mod tests {
         let args = json!({
             "attachment": "https://files.example.test/f_1?sig=SECRETSIGNATURE",
             "file_to_upload": "https://files.example.test/f_2?sig=ANOTHERSIG",
-            "url": "https://files.example.test/f_3?sig=THIRDSIG",
+            "file_url": "https://files.example.test/f_3?sig=THIRDSIG",
             "public_url": "https://files.example.test/f_4?sig=FOURTHSIG",
+            // A bare `url` (e.g. an `http_request` node's destination, or a
+            // Composio action's benign url arg) is NOT a file-handoff key and
+            // MUST stay visible so the human approver can judge the action.
+            "url": "https://webhook.site/VISIBLE-DESTINATION",
         });
         let red = redact_args(&args);
         let blob = red.to_string();
@@ -527,6 +529,10 @@ mod tests {
                 "presigned link leaked through redaction ({leaked}): {blob}"
             );
         }
+        assert!(
+            blob.contains("webhook.site/VISIBLE-DESTINATION"),
+            "a bare `url` (e.g. an http_request destination) must NOT be redacted: {blob}"
+        );
     }
 
     #[test]

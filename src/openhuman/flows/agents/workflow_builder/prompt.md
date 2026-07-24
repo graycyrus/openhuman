@@ -587,7 +587,7 @@ is what matters, not its output.
    window or the provider will fetch a dead URL. The URL is a bearer capability
    for as long as it lives, so do not set it far longer than needed either.
    **Do not** upload with `visibility: "public"` to get a `public_url` instead.
-   That leaves a permanently world readable object; the presigned link expires.
+   That leaves a permanently world-readable object; the presigned link expires.
 4. **Send it.** A `tool_call` on the provider action, binding the link URL into
    that action's file parameter.
 
