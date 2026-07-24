@@ -282,11 +282,51 @@ const DIGEST_RETENTION_CAP: usize = 50;
 /// a memory-layer hiccup must never retroactively affect run status.
 pub struct FlowRunDigestSubscriber {
     config: Arc<Config>,
+    /// Test-only memory override. In production this is `None` and the digest
+    /// resolves the process-global memory client via [`active_memory_client`].
+    /// The process-global client is a one-shot `OnceLock`, so a unit test
+    /// cannot reliably rebind it to its own tempdir (an earlier test in the
+    /// same binary may already have initialised the singleton — see
+    /// `memory::global`'s own test notes). Injecting a directly-constructed
+    /// [`Memory`] here lets the digest tests write and read back through the
+    /// SAME instance deterministically, exactly as `flows::memory_tools`'
+    /// tests do with `UnifiedMemory::new`.
+    memory_override: Option<Arc<dyn Memory>>,
 }
 
 impl FlowRunDigestSubscriber {
     pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
+        Self {
+            config,
+            memory_override: None,
+        }
+    }
+
+    /// Test constructor: run the digest against an explicitly-provided memory
+    /// instance instead of the process-global client. See [`Self::memory_override`].
+    #[cfg(test)]
+    fn with_memory(config: Arc<Config>, memory: Arc<dyn Memory>) -> Self {
+        Self {
+            config,
+            memory_override: Some(memory),
+        }
+    }
+
+    /// Resolves the memory handle the digest writes to: the injected test
+    /// override when present, else the process-global client
+    /// ([`active_memory_client`]). Returns `None` (best-effort skip) when the
+    /// global client is unavailable.
+    async fn resolve_memory(&self) -> Option<Arc<dyn Memory>> {
+        if let Some(memory) = &self.memory_override {
+            return Some(memory.clone());
+        }
+        match crate::openhuman::memory::ops::helpers::active_memory_client().await {
+            Ok(client) => Some(client.memory_handle()),
+            Err(e) => {
+                tracing::warn!(target: "flows", error = %e, "[flows] digest: memory client unavailable — skipping");
+                None
+            }
+        }
     }
 
     async fn handle_finished(&self, flow_id: &str, run_id: &str, status: &str) {
@@ -321,14 +361,9 @@ impl FlowRunDigestSubscriber {
 
         let digest = render_run_digest(&flow_name, &run);
 
-        let client = match crate::openhuman::memory::ops::helpers::active_memory_client().await {
-            Ok(client) => client,
-            Err(e) => {
-                tracing::warn!(target: "flows", %flow_id, %run_id, error = %e, "[flows] digest: memory client unavailable — skipping");
-                return;
-            }
+        let Some(memory) = self.resolve_memory().await else {
+            return;
         };
-        let memory: Arc<dyn Memory> = client.memory_handle();
         let namespace = flow_namespace(flow_id);
         let digest_key = format!("run_digest:{run_id}");
 
@@ -435,9 +470,23 @@ fn render_run_digest(flow_name: &str, run: &FlowRun) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::embeddings::NoopEmbedding;
     use crate::openhuman::flows::Flow;
+    use crate::openhuman::memory_store::UnifiedMemory;
     use serde_json::json;
     use tinyflows::model::{Node, NodeKind, WorkflowGraph};
+
+    /// A directly-constructed, isolated [`Memory`] for the digest tests — NOT
+    /// the process-global `OnceLock` client. The global is one-shot, so an
+    /// earlier test in the same binary may already have bound it to a different
+    /// workspace, making `global::init(..)` here a silent no-op (see
+    /// `memory::global`'s own test notes). Injecting this instance into the
+    /// subscriber via [`FlowRunDigestSubscriber::with_memory`] makes writes and
+    /// read-backs go through the SAME store deterministically — the same shape
+    /// `flows::memory_tools`' tests use.
+    fn digest_test_memory(tmp: &tempfile::TempDir) -> Arc<dyn Memory> {
+        Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap())
+    }
 
     fn test_config(tmp: &tempfile::TempDir) -> Arc<Config> {
         let config = Config {
@@ -665,8 +714,7 @@ mod tests {
     async fn digest_ignores_failed_run() {
         let tmp = tempfile::TempDir::new().unwrap();
         let config = test_config(&tmp);
-        crate::openhuman::memory::global::init(config.workspace_dir.clone())
-            .expect("init test memory client");
+        let memory = digest_test_memory(&tmp);
 
         let flow = flow_with_trigger_config("f-failed", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
@@ -689,7 +737,7 @@ mod tests {
         )
         .unwrap();
 
-        let sub = FlowRunDigestSubscriber::new(config);
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
         sub.handle(&DomainEvent::FlowRunFinished {
             flow_id: "f-failed".into(),
             run_id: "run-failed".into(),
@@ -697,8 +745,6 @@ mod tests {
         })
         .await;
 
-        let client = crate::openhuman::memory::global::client().expect("global client ready");
-        let memory = client.memory_handle();
         let entry = memory
             .get(&flow_namespace("f-failed"), "run_digest:run-failed")
             .await
@@ -713,8 +759,7 @@ mod tests {
     async fn digest_ignores_cancelled_run() {
         let tmp = tempfile::TempDir::new().unwrap();
         let config = test_config(&tmp);
-        crate::openhuman::memory::global::init(config.workspace_dir.clone())
-            .expect("init test memory client");
+        let memory = digest_test_memory(&tmp);
 
         let flow = flow_with_trigger_config("f-cancelled", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
@@ -737,7 +782,7 @@ mod tests {
         )
         .unwrap();
 
-        let sub = FlowRunDigestSubscriber::new(config);
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
         sub.handle(&DomainEvent::FlowRunFinished {
             flow_id: "f-cancelled".into(),
             run_id: "run-cancelled".into(),
@@ -745,8 +790,6 @@ mod tests {
         })
         .await;
 
-        let client = crate::openhuman::memory::global::client().expect("global client ready");
-        let memory = client.memory_handle();
         let entry = memory
             .get(&flow_namespace("f-cancelled"), "run_digest:run-cancelled")
             .await
@@ -758,8 +801,7 @@ mod tests {
     async fn digest_writes_run_digest_entry_for_completed_run() {
         let tmp = tempfile::TempDir::new().unwrap();
         let config = test_config(&tmp);
-        crate::openhuman::memory::global::init(config.workspace_dir.clone())
-            .expect("init test memory client");
+        let memory = digest_test_memory(&tmp);
 
         let flow = flow_with_trigger_config("f-ok", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
@@ -790,7 +832,7 @@ mod tests {
         )
         .unwrap();
 
-        let sub = FlowRunDigestSubscriber::new(config);
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
         sub.handle(&DomainEvent::FlowRunFinished {
             flow_id: "f-ok".into(),
             run_id: "run-ok".into(),
@@ -798,8 +840,6 @@ mod tests {
         })
         .await;
 
-        let client = crate::openhuman::memory::global::client().expect("global client ready");
-        let memory = client.memory_handle();
         let entry = memory
             .get(&flow_namespace("f-ok"), "run_digest:run-ok")
             .await
@@ -816,8 +856,7 @@ mod tests {
     async fn digest_treats_completed_with_warnings_as_success() {
         let tmp = tempfile::TempDir::new().unwrap();
         let config = test_config(&tmp);
-        crate::openhuman::memory::global::init(config.workspace_dir.clone())
-            .expect("init test memory client");
+        let memory = digest_test_memory(&tmp);
 
         let flow = flow_with_trigger_config("f-warn", true, json!({}));
         store::upsert_flow(&config, &flow).unwrap();
@@ -840,7 +879,7 @@ mod tests {
         )
         .unwrap();
 
-        let sub = FlowRunDigestSubscriber::new(config);
+        let sub = FlowRunDigestSubscriber::with_memory(config, memory.clone());
         sub.handle(&DomainEvent::FlowRunFinished {
             flow_id: "f-warn".into(),
             run_id: "run-warn".into(),
@@ -848,8 +887,6 @@ mod tests {
         })
         .await;
 
-        let client = crate::openhuman::memory::global::client().expect("global client ready");
-        let memory = client.memory_handle();
         let entry = memory
             .get(&flow_namespace("f-warn"), "run_digest:run-warn")
             .await
