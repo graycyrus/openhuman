@@ -1,5 +1,5 @@
 //! Agent tools giving a running flow a private, sandboxed memory namespace
-//! (`flow_<flow_id>` — see [`super::flow_namespace`]).
+//! (`flow_<flow_id>` — see [`flow_namespace`]).
 //!
 //! Motivating use case: a newsletter-digest flow that runs on a schedule
 //! needs to remember which items it already sent so it doesn't re-send them
@@ -11,7 +11,7 @@
 //! **Security invariant (non-negotiable):** there is no code path here by
 //! which a flow can write to — or even name — a namespace other than its
 //! own. [`FlowMemoryRememberTool`] derives the namespace internally via
-//! [`super::flow_namespace`] from the caller-supplied `flow_id`; there is no
+//! [`flow_namespace`] from the caller-supplied `flow_id`; there is no
 //! `namespace` parameter a caller could override. Every write is tainted
 //! [`MemoryTaint::ExternalSync`] (automation output, not user-authored
 //! fact), matching the same taint sync pipelines use for third-party
@@ -25,22 +25,94 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::openhuman::flows::flow_namespace;
+use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, MemoryTaint, RecallOpts};
 use crate::openhuman::security::policy::ToolOperation;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
+/// Returns the flow id the *run itself* is scoped under, when the current
+/// agent turn is executing inside a saved-flow run
+/// (`AgentTurnOrigin::TrustedAutomation { job_id, source: Workflow { .. } }` —
+/// see `flows::ops::workflow_origin`, scoped around every `flows_run` /
+/// `flows_resume`). `job_id` on that variant IS the running flow's id.
+///
+/// **Security invariant:** this is the ONLY trustworthy source of "which flow
+/// is calling". A `flow_id` value handed in as an ordinary tool argument is
+/// model-supplied and can be forged by a prompt-injected caller (or another
+/// agent invoking the tool directly) to name a DIFFERENT flow's namespace.
+/// When this returns `Some`, callers MUST use it — and ignore any
+/// caller-supplied `flow_id` arg — for the `scope: "flow"` / write case.
+/// Callers running outside a flow run (e.g. a chat agent with the tool
+/// wired in some other context) get `None` here and fall back to requiring
+/// the `flow_id` arg, exactly as before this invariant existed.
+fn trusted_flow_id() -> Option<String> {
+    match turn_origin::current() {
+        Some(AgentTurnOrigin::TrustedAutomation {
+            job_id,
+            source: TrustedAutomationSource::Workflow { .. },
+        }) => Some(job_id),
+        _ => None,
+    }
+}
+
+/// Prefix for a flow's private, sandboxed memory namespace (see
+/// [`flow_namespace`]).
+///
+/// **Deviates from the originally specced `"flow:"` (colon) separator —
+/// deliberately.** The `Memory` trait's `UnifiedMemory` backend
+/// (`src/openhuman/memory_store/`) is internally inconsistent about
+/// namespace sanitization: `store_with_taint`/`recall`/`list`/
+/// `MemoryClient::clear_namespace` all route through
+/// `UnifiedMemory::sanitize_namespace`
+/// (`memory_store/namespace_store/init.rs`), which collapses any character
+/// outside `[A-Za-z0-9_/-]` — including `:` — to `_` before touching SQLite.
+/// But `Memory::forget` (`memory_store/memory_trait.rs`) queries
+/// `WHERE namespace = ?1` against the **raw, unsanitized** argument. With a
+/// `"flow:"` prefix, `forget("flow:<id>", key)` would therefore silently
+/// never match the row `store_with_taint` actually persisted as
+/// `"flow_<id>"` — the post-run digest subscriber's retention sweep
+/// (`bus::FlowRunDigestSubscriber`) would then never evict old entries, and
+/// `namespace_summaries()`-based cross-flow listing (`scope: "flows"` in
+/// [`FlowMemoryRecallTool`]) would have to match the sanitized form anyway
+/// since `namespace_summaries` reads the persisted (sanitized) column back
+/// verbatim. Using `"flow_"` (already a fixed point of `sanitize_namespace`,
+/// since flow ids are hyphenated UUIDs — no character in either the prefix
+/// or a flow id ever needs sanitizing) makes every `Memory` method agree
+/// with every other one on the exact namespace string, with no silent
+/// mismatch anywhere. The namespace is still shared-root and
+/// profile-independent exactly as specified — only the separator character
+/// changed.
+///
+/// Re-exported from `flows::mod` as `flows::FLOW_MEMORY_NAMESPACE_PREFIX` —
+/// see that module for why this lives here rather than in `mod.rs` itself.
+pub const FLOW_MEMORY_NAMESPACE_PREFIX: &str = "flow_";
+
+/// Builds a flow's private, profile-independent memory namespace from a
+/// `flow_id`.
+///
+/// **Security invariant:** this is the *only* place in the codebase that may
+/// construct this namespace string. Every caller — the `flow_memory_recall`
+/// / `flow_memory_remember` agent tools below, the post-run digest
+/// subscriber (`bus::FlowRunDigestSubscriber`), and the `flows_delete`
+/// cleanup hook (`ops::flows_delete`) — goes through this function with a
+/// `flow_id`, never with a caller-supplied raw namespace. A flow can
+/// therefore never write to, or be told the name of, any memory namespace
+/// but its own.
+///
+/// Re-exported from `flows::mod` as `flows::flow_namespace`.
+pub fn flow_namespace(flow_id: &str) -> String {
+    format!("{FLOW_MEMORY_NAMESPACE_PREFIX}{flow_id}")
+}
+
 /// The persisted-namespace prefix matching every flow's memory namespace, as
 /// [`Memory::namespace_summaries`] returns it.
 ///
-/// This is intentionally the *same* string as
-/// [`super::FLOW_MEMORY_NAMESPACE_PREFIX`] (see that constant's doc comment
-/// for why the separator is `_` rather than the originally specced `:`) —
-/// kept as a separate, explicitly-named constant here so the "match against
+/// This is intentionally the *same* string as [`FLOW_MEMORY_NAMESPACE_PREFIX`]
+/// — kept as a separate, explicitly-named constant here so the "match against
 /// what recall/list see" intent stays self-evident at each call site,
 /// independent of whether the two ever need to diverge in the future.
-const FLOW_MEMORY_NAMESPACE_LISTED_PREFIX: &str = super::FLOW_MEMORY_NAMESPACE_PREFIX;
+const FLOW_MEMORY_NAMESPACE_LISTED_PREFIX: &str = FLOW_MEMORY_NAMESPACE_PREFIX;
 
 /// Read-only recall over a flow's own memory namespace, or (with
 /// `scope: "flows"`) across every flow's namespace.
@@ -106,7 +178,10 @@ impl Tool for FlowMemoryRecallTool {
                 },
                 "flow_id": {
                     "type": "string",
-                    "description": "The calling flow's id"
+                    "description": "The calling flow's id. Inside a running flow this is informational \
+                     only: the active flow's own id (from the run's trusted origin) is authoritative and \
+                     any value supplied here is ignored. Required only when this tool is invoked outside \
+                     a flow run (e.g. from a chat agent)."
                 },
                 "scope": {
                     "type": "string",
@@ -131,14 +206,35 @@ impl Tool for FlowMemoryRecallTool {
         if query.is_empty() {
             return Err(anyhow::anyhow!("query cannot be empty"));
         }
-        let flow_id = args
-            .get("flow_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing 'flow_id' parameter"))?
-            .trim();
-        if flow_id.is_empty() {
-            return Err(anyhow::anyhow!("flow_id cannot be empty"));
-        }
+
+        let flow_id_arg = args.get("flow_id").and_then(|v| v.as_str()).map(str::trim);
+
+        // SECURITY: inside a running flow, the run's own trusted origin is
+        // the ONLY authoritative source for "which flow is calling" — never
+        // the model-supplied `flow_id` arg. Without this, a prompt-injected
+        // caller could pass a different flow's id and read across the
+        // sandbox boundary the module doc promises. See `trusted_flow_id`.
+        let trusted = trusted_flow_id();
+        let flow_id: String = match &trusted {
+            Some(trusted_id) => {
+                tracing::debug!(
+                    target: "flows",
+                    flow_id = %trusted_id,
+                    "[flows:memory] flow_memory_recall: flow id resolved from the trusted Workflow \
+                     run origin (any model-supplied flow_id arg is ignored)"
+                );
+                trusted_id.clone()
+            }
+            None => {
+                let arg =
+                    flow_id_arg.ok_or_else(|| anyhow::anyhow!("Missing 'flow_id' parameter"))?;
+                if arg.is_empty() {
+                    return Err(anyhow::anyhow!("flow_id cannot be empty"));
+                }
+                arg.to_string()
+            }
+        };
+        let flow_id = flow_id.as_str();
         let scope = args.get("scope").and_then(|v| v.as_str()).unwrap_or("flow");
 
         #[allow(clippy::cast_possible_truncation)]
@@ -242,7 +338,10 @@ impl Tool for FlowMemoryRememberTool {
             "properties": {
                 "flow_id": {
                     "type": "string",
-                    "description": "The calling flow's id"
+                    "description": "The calling flow's id. Inside a running flow this is informational \
+                     only: the active flow's own id (from the run's trusted origin) is authoritative and \
+                     any value supplied here is ignored. Required only when this tool is invoked outside \
+                     a flow run (e.g. from a chat agent)."
                 },
                 "key": {
                     "type": "string",
@@ -266,10 +365,7 @@ impl Tool for FlowMemoryRememberTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let flow_id = args
-            .get("flow_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing 'flow_id' parameter"))?;
+        let flow_id_arg = args.get("flow_id").and_then(|v| v.as_str());
         let key = args
             .get("key")
             .and_then(|v| v.as_str())
@@ -298,10 +394,34 @@ impl Tool for FlowMemoryRememberTool {
             return Ok(ToolResult::error(error));
         }
 
-        let flow_id = flow_id.trim();
-        if flow_id.is_empty() {
-            return Ok(ToolResult::error("flow_id cannot be empty".to_string()));
-        }
+        // SECURITY: resolve the namespace-governing flow id from the run's
+        // trusted origin when available — NEVER from the model-supplied
+        // `flow_id` arg. Without this, a prompt-injected caller (or another
+        // agent invoking this tool directly) could pass a DIFFERENT flow's
+        // id here and poison that flow's private namespace. See
+        // `trusted_flow_id`'s doc comment for the mechanism.
+        let trusted = trusted_flow_id();
+        let flow_id: String = match &trusted {
+            Some(trusted_id) => {
+                tracing::debug!(
+                    target: "flows",
+                    flow_id = %trusted_id,
+                    "[flows:memory] flow_memory_remember: flow id resolved from the trusted Workflow \
+                     run origin (any model-supplied flow_id arg is ignored)"
+                );
+                trusted_id.clone()
+            }
+            None => {
+                let arg =
+                    flow_id_arg.ok_or_else(|| anyhow::anyhow!("Missing 'flow_id' parameter"))?;
+                let trimmed = arg.trim();
+                if trimmed.is_empty() {
+                    return Ok(ToolResult::error("flow_id cannot be empty".to_string()));
+                }
+                trimmed.to_string()
+            }
+        };
+        let flow_id = flow_id.as_str();
         let key = key.trim();
         if key.is_empty() {
             return Ok(ToolResult::error("key cannot be empty".to_string()));
@@ -363,6 +483,20 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let mem = UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap();
         (tmp, Arc::new(mem))
+    }
+
+    // ── flow_namespace / FLOW_MEMORY_NAMESPACE_PREFIX ───────────────
+    // (relocated from `flows::mod` — see that module's re-export comment)
+
+    #[test]
+    fn flow_namespace_uses_the_shared_root_prefix() {
+        assert_eq!(flow_namespace("abc-123"), "flow_abc-123");
+        assert!(flow_namespace("abc-123").starts_with(FLOW_MEMORY_NAMESPACE_PREFIX));
+    }
+
+    #[test]
+    fn flow_namespace_is_distinct_per_flow() {
+        assert_ne!(flow_namespace("a"), flow_namespace("b"));
     }
 
     // ── FlowMemoryRecallTool ────────────────────────────────────────
@@ -548,6 +682,48 @@ mod tests {
         assert!(mem.get("global", "k").await.unwrap().is_none());
         assert!(mem
             .get("f1", "k") // raw flow_id, not the derived namespace
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    /// SECURITY (Fix 1): a running flow's own id — carried by the run's
+    /// `TrustedAutomation { Workflow }` origin — is authoritative. A
+    /// mismatched, model-supplied `flow_id` arg must be silently ignored,
+    /// never allowed to redirect the write into a different flow's
+    /// namespace.
+    #[tokio::test]
+    async fn remember_ignores_mismatched_flow_id_arg_inside_trusted_workflow_run() {
+        let (_tmp, mem) = test_mem();
+        let tool = FlowMemoryRememberTool::new(mem.clone(), test_security());
+
+        let origin = AgentTurnOrigin::TrustedAutomation {
+            job_id: "f-real".to_string(),
+            source: TrustedAutomationSource::Workflow {
+                require_approval: false,
+            },
+        };
+        let result = turn_origin::with_origin(
+            origin,
+            tool.execute(json!({
+                "flow_id": "f-other",
+                "key": "sent_item_1",
+                "content": "Sent item 1"
+            })),
+        )
+        .await
+        .unwrap();
+        assert!(!result.is_error);
+
+        // Landed in the trusted run's own namespace...
+        assert!(mem
+            .get(&flow_namespace("f-real"), "sent_item_1")
+            .await
+            .unwrap()
+            .is_some());
+        // ...and NOT the mismatched, model-supplied namespace.
+        assert!(mem
+            .get(&flow_namespace("f-other"), "sent_item_1")
             .await
             .unwrap()
             .is_none());

@@ -420,6 +420,10 @@ impl EventHandler for FlowRunDigestSubscriber {
     }
 
     fn domains(&self) -> Option<&[&str]> {
+        // `FlowRunFinished` — the only event this subscriber handles — is
+        // itself tagged `"cron"` by `DomainEvent::domain()` (grouped there
+        // with the other flow-run/schedule events), not `"flows"`. This is
+        // matching that tag, not a typo.
         Some(&["cron"])
     }
 

@@ -1221,11 +1221,21 @@ async fn flows_delete_unbinds_schedule_cron_job() {
 #[tokio::test]
 async fn flows_delete_clears_flow_memory_namespace() {
     use crate::openhuman::memory::{Memory, MemoryCategory, MemoryTaint};
+    use crate::openhuman::memory_store::MemoryClient;
 
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    crate::openhuman::memory::global::init(config.workspace_dir.clone())
-        .expect("init test memory client");
+
+    // A directly-constructed `MemoryClient`, injected via `flows_delete_impl`
+    // below, instead of `memory::global` — that singleton is a single
+    // process-wide `OnceLock` any other test in this binary may rebind to
+    // its own tempdir workspace, which would make this test's pass/fail
+    // depend on run order / thread interleaving rather than its own setup.
+    // See `flows_delete_impl`'s doc comment (mirrors
+    // `bus::FlowRunDigestSubscriber::with_memory`'s injection seam).
+    let memory_client: MemoryClientRef =
+        Arc::new(MemoryClient::from_workspace_dir(config.workspace_dir.clone()).unwrap());
+    let memory = memory_client.memory_handle();
 
     let created = flows_create(
         &config,
@@ -1237,8 +1247,6 @@ async fn flows_delete_clears_flow_memory_namespace() {
     .unwrap();
     let flow_id = created.value.id.clone();
 
-    let client = crate::openhuman::memory::global::client().expect("global client ready");
-    let memory = client.memory_handle();
     memory
         .store_with_taint(
             &flow_namespace(&flow_id),
@@ -1256,10 +1264,13 @@ async fn flows_delete_clears_flow_memory_namespace() {
             .await
             .unwrap()
             .is_some(),
-        "precondition: flow memory entry was stored"
+        "precondition: flow memory entry was stored (through the SAME client flows_delete_impl \
+         is about to clear)"
     );
 
-    flows_delete(&config, &flow_id).await.unwrap();
+    flows_delete_impl(&config, &flow_id, Some(memory_client))
+        .await
+        .unwrap();
 
     assert!(
         memory

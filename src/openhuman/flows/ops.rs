@@ -24,6 +24,7 @@ use crate::openhuman::flows::types::{
     FlowConnection, FlowRunStep, FlowRunTrigger, FlowSuggestion, SuggestionStatus,
 };
 use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
+use crate::openhuman::memory_store::MemoryClientRef;
 use crate::rpc::RpcOutcome;
 
 /// Overall safety bound on a single `flows_run` / `flows_resume`. Individual
@@ -3420,6 +3421,24 @@ pub async fn flows_rollback(
 /// itself — `store::remove_flow` below still errors clearly if `id` doesn't
 /// exist.
 pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>, String> {
+    flows_delete_impl(config, id, None).await
+}
+
+/// Backs [`flows_delete`]. `memory_client_override`, when `Some`, is used in
+/// place of the process-global memory client for the namespace-clear step
+/// below — mirrors `bus::FlowRunDigestSubscriber`'s `with_memory` seam.
+///
+/// The process-global client (`memory::global`) is a single shared `OnceLock`
+/// that any test in the binary may rebind to its own tempdir workspace, so a
+/// test asserting this clear step deterministically must not depend on it —
+/// injecting a directly-constructed [`MemoryClientRef`] lets the test seed
+/// and read back through the SAME instance `flows_delete` itself writes to,
+/// with no race against the global.
+async fn flows_delete_impl(
+    config: &Config,
+    id: &str,
+    memory_client_override: Option<MemoryClientRef>,
+) -> Result<RpcOutcome<Value>, String> {
     match store::get_flow(config, id) {
         Ok(Some(flow)) => unbind_trigger(config, &flow),
         Ok(None) => {}
@@ -3436,7 +3455,11 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
     // entries or run digests behind. Never fails the delete itself: the flow
     // row is already gone by this point regardless of what happens here.
     let memory_namespace = flow_namespace(id);
-    match crate::openhuman::memory::ops::helpers::active_memory_client().await {
+    let client_result = match memory_client_override {
+        Some(client) => Ok(client),
+        None => crate::openhuman::memory::ops::helpers::active_memory_client().await,
+    };
+    match client_result {
         Ok(client) => {
             if let Err(e) = client.clear_namespace(&memory_namespace).await {
                 tracing::warn!(target: "flows", flow_id = %id, namespace = %memory_namespace, error = %e, "[flows] flows_delete: failed to clear flow memory namespace");
