@@ -1,7 +1,8 @@
 use crate::openhuman::agent_experience::types::{
-    redact_text, stable_experience_id_for_profile, AgentExperience, ExperienceHit,
+    stable_experience_id_for_profile, AgentExperience, ExperienceHit,
 };
 use crate::openhuman::memory::{Memory, MemoryCategory};
+use crate::openhuman::memory_store::safety::sanitize_text;
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -312,11 +313,44 @@ fn storage_key(id: &str) -> String {
     format!("experience/{}", id.trim())
 }
 
+/// Redact secrets/PII from every captured free-text field before the record is
+/// serialized and stored.
+///
+/// Previously the memory layer's own content scrubber ran over the stored JSON
+/// blob, so any secret in any field was redacted at write time. We now
+/// base64-encode the payload before [`Memory::store`] (so a Luhn-valid
+/// millisecond timestamp can no longer be misread as a credit card and corrupt
+/// the JSON — #5209), which makes that store-time scrub a no-op over the
+/// payload. To preserve the security invariant we must therefore run the SAME
+/// full scrubber ([`memory_store::safety::sanitize_text`] — private-key blocks,
+/// Bearer/`sk-`/Stripe/npm/OAuth secrets, and the full national-ID / phone /
+/// credit-card PII set) over the sensitive free-text fields ourselves, here,
+/// before serialization. A secret placed in any of these is then redacted in
+/// both the stored record and what recall returns.
+///
+/// Scope note: only free-text/description fields are scrubbed. The numeric
+/// timestamp/confidence fields are left untouched — scrubbing structural
+/// numbers is exactly what caused the corruption we fixed. `id` is the storage
+/// key (scrubbing it would desync key vs. content; a secret-bearing key is
+/// rejected up front by the memory layer's `has_likely_secret` guard) and
+/// `profile_id` is a hard partition-filter key, so both are deliberately left
+/// intact.
 fn redact_experience(mut experience: AgentExperience) -> AgentExperience {
-    experience.task_summary = redact_text(&experience.task_summary);
-    experience.lesson = redact_text(&experience.lesson);
-    experience.reuse_hint = redact_text(&experience.reuse_hint);
-    experience.avoid_hint = experience.avoid_hint.map(|hint| redact_text(&hint));
+    fn scrub(value: &str) -> String {
+        sanitize_text(value).value
+    }
+
+    experience.task_fingerprint = scrub(&experience.task_fingerprint);
+    experience.task_summary = scrub(&experience.task_summary);
+    experience.lesson = scrub(&experience.lesson);
+    experience.reuse_hint = scrub(&experience.reuse_hint);
+    experience.avoid_hint = experience.avoid_hint.as_deref().map(scrub);
+    experience.error_class = experience.error_class.as_deref().map(scrub);
+    experience.agent_id = experience.agent_id.as_deref().map(scrub);
+    experience.entrypoint = experience.entrypoint.as_deref().map(scrub);
+    experience.tools_used = experience.tools_used.iter().map(|t| scrub(t)).collect();
+    experience.tool_sequence = experience.tool_sequence.iter().map(|t| scrub(t)).collect();
+    experience.tags = experience.tags.iter().map(|t| scrub(t)).collect();
     experience
 }
 
@@ -524,6 +558,74 @@ mod tests {
         );
         assert_eq!(listed[0].lesson, "Legacy shared deployment guidance");
         assert_eq!(listed[0].created_at_ms, 1_785_148_840_502);
+    }
+
+    /// Security regression for PR #5211 review (P1). Base64-encoding the payload
+    /// makes the memory layer's store-time content scrubber a no-op over the
+    /// stored bytes, so the store must run the full scrubber over free-text
+    /// fields itself before serialization ([`redact_experience`]). A secret in a
+    /// captured free-text field must be redacted in the recalled record (so it
+    /// is neither stored nor returned reversibly), while the numeric timestamp
+    /// survives intact. Exercised over the real `UnifiedMemory` (the store path
+    /// that base64 now shields).
+    #[tokio::test]
+    async fn secrets_in_free_text_are_redacted_before_storage() {
+        use crate::openhuman::embeddings::NoopEmbedding;
+        use crate::openhuman::memory::Memory;
+        use crate::openhuman::memory_store::UnifiedMemory;
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        let memory: Arc<dyn Memory> =
+            Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap());
+        let store = AgentExperienceStore::new(memory);
+
+        let mut experience =
+            sample_experience("exp_secret", "deploy the service", vec![], vec![], 0.9);
+        // Luhn-valid 13-digit ms timestamp; must survive intact (the #5209 fix).
+        experience.created_at_ms = 1_785_148_840_502;
+        experience.lesson =
+            "provider token sk_live_12345678901234567890 then dial +15551234567".into();
+        experience.reuse_hint =
+            "-----BEGIN PRIVATE KEY-----\nMIIabc123\n-----END PRIVATE KEY-----".into();
+        experience.error_class = Some("phone leaked: +15551234567".into());
+
+        store.put(experience).await.unwrap();
+
+        let listed = store.list().await.unwrap();
+        assert_eq!(listed.len(), 1, "record must still parse and round-trip");
+        let recalled = &listed[0];
+
+        // (a) secrets are redacted in the recalled free-text fields.
+        assert!(
+            !recalled.lesson.contains("sk_live_12345678901234567890"),
+            "Stripe key must be redacted, got: {}",
+            recalled.lesson
+        );
+        assert!(
+            !recalled.lesson.contains("+15551234567"),
+            "phone number must be redacted, got: {}",
+            recalled.lesson
+        );
+        assert!(
+            !recalled.reuse_hint.contains("PRIVATE KEY"),
+            "private-key block must be redacted, got: {}",
+            recalled.reuse_hint
+        );
+        assert!(
+            recalled
+                .error_class
+                .as_deref()
+                .is_none_or(|e| !e.contains("+15551234567")),
+            "phone in error_class must be redacted, got: {:?}",
+            recalled.error_class
+        );
+        assert!(
+            recalled.lesson.contains("REDACTED") && recalled.reuse_hint.contains("REDACTED"),
+            "expected redaction markers in scrubbed fields"
+        );
+
+        // (b) the numeric timestamp survives intact and the record parses.
+        assert_eq!(recalled.created_at_ms, 1_785_148_840_502);
     }
 
     #[tokio::test]
