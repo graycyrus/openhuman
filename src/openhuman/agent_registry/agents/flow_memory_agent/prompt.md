@@ -60,3 +60,9 @@ answer the step. Attribute where each fact came from — `(memory)`,
 output next can tell a grounded fact from a gap. If you found nothing
 relevant, say that directly (e.g. "No matching memory, threads, or contacts
 found for <what was asked>.") rather than padding the answer.
+
+**Keep the whole answer short — a few short paragraphs at most (well under
+~4000 characters).** Your output is fed straight into a running flow's
+downstream context, so return the distilled context the step needs, not raw
+dumps: summarize and cite rather than pasting long recalled passages or
+entire threads verbatim. If a source is long, extract the relevant lines.

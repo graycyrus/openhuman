@@ -101,9 +101,13 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     // cases — looping across several retrievals in one turn when the step
     // needs it. Strictly read-only (see agent.toml); `context_scout` remains
     // the right choice only for its structured `[context_bundle]` output.
-    // Not feature-gated: its tool belt has no dependency on the `flows`
-    // feature, so it stays registered (harmlessly unreachable via agent_ref)
-    // even in a slim build without flows.
+    // `#[cfg(feature = "flows")]`: this agent exists only to be routed to from
+    // a flow `agent` node's `config.agent_ref`. With flows compiled out there
+    // is no engine, no `workflow_builder`, and no agent_ref path — it would be
+    // dead registry surface — so gate it like the other flow agents
+    // (`workflow_builder`, `flow_discovery`) and let a slim build drop the
+    // whole flow-specific surface (AGENTS.md compile-time-gate convention).
+    #[cfg(feature = "flows")]
     BuiltinAgent {
         id: "flow_memory_agent",
         toml: include_str!("flow_memory_agent/agent.toml"),
@@ -773,7 +777,11 @@ mod tests {
         for id in [
             "researcher",
             "context_scout",
-            "flow_memory_agent",
+            // NOTE: `flow_memory_agent` is intentionally NOT listed here. It is
+            // a `#[cfg(feature = "flows")]` agent, and an array literal can't
+            // carry a per-element `cfg`; its burst hint is covered by the
+            // gated `flow_memory_agent_is_read_only_worker_with_bounded_memory_belt`
+            // test instead.
             "integrations_agent",
             "tools_agent",
             "crypto_agent",
@@ -1569,6 +1577,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "flows")]
     #[test]
     fn flow_memory_agent_is_read_only_worker_with_bounded_memory_belt() {
         let def = find("flow_memory_agent");

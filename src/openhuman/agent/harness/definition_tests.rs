@@ -368,7 +368,9 @@ fn all_builtin_agent_definitions_have_expected_effective_max_iterations() {
         ("context_scout", 50),
         // #5204: general-purpose read-only flow context/memory retrieval
         // agent — `iteration_policy = "extended"` so it can loop across
-        // several retrievals in one turn.
+        // several retrievals in one turn. `#[cfg(feature = "flows")]`-gated
+        // (like the other flow agents), so this audit entry is too.
+        #[cfg(feature = "flows")]
         ("flow_memory_agent", 50),
         ("integrations_agent", 50),
         // `mcp_agent` is compiled out with the `mcp` feature (#4799).
