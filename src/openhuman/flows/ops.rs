@@ -4454,6 +4454,54 @@ async fn run_flow_body(
     let config: &Config = config_arc.as_ref();
     let flow_id: &str = flow_id.as_str();
 
+    // B45 run-time preflight (design correction — see the "Inference-readiness
+    // check" module doc above): an `agent` node needs a working LLM provider
+    // to run at all, but that is no longer enforced as an author-time gate —
+    // `propose_workflow`/`edit_workflow`/`save_workflow` always succeed now,
+    // so a graph can reach here whose agent node(s) cannot currently complete.
+    // Catch that HERE, before the tinyflows engine (and any upstream
+    // fetch/prep nodes) does real work for nothing, and finalize the run row
+    // as `failed` with a clear, actionable message instead of the opaque,
+    // several-layers-deep "capability error: graph error: capability error:
+    // model error: ... API key not configured for provider" a mid-run failure
+    // surfaces as. Reuses `validate_inference_readiness` — backed by the same
+    // cached evaluation `build_builder_proposal`'s advisory `inference_status`
+    // warns on — so a run right after a proposal/edit reads the cached
+    // negative (`INFERENCE_PROBE_CACHE`) instead of re-probing the network.
+    // Returns an empty `Vec` (no-op here) for a tool_call-only graph, and is
+    // never consulted by `dry_run_workflow` (sandbox runs are exempt by
+    // design — that tool doesn't route through `run_flow_body` at all).
+    let inference_errors = validate_inference_readiness(config, &flow.graph).await;
+    if !inference_errors.is_empty() {
+        let detail = inference_errors.join(" ");
+        let msg = format!("This flow's AI step needs a working AI provider to run. {detail}");
+        tracing::warn!(
+            target: "flows",
+            flow_id,
+            "[flows] run_flow_body: inference-readiness preflight failed — finalizing run as \
+             failed without invoking the engine: {msg}"
+        );
+        if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
+            tracing::warn!(
+                target: "flows",
+                flow_id,
+                error = %rec_err,
+                "[flows] run_flow_body: failed to record failed run (inference preflight)"
+            );
+        }
+        let observed = current_persisted_steps(config, &thread_id);
+        finish_flow_run_row(
+            config,
+            &thread_id,
+            flow_id,
+            "failed",
+            &observed,
+            &[],
+            Some(&msg),
+        );
+        return Err(msg);
+    }
+
     // Recompile to execute — the entry point already compile-checked to fail
     // fast before the running row existed. A failure *now* (after the row was
     // inserted) must finalize the row as failed, never orphan it.
