@@ -1891,8 +1891,15 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
 //   "signed in but no provider API key configured for this account" class of
 //   failure that Layer 1 cannot see. All `agent` nodes in a graph share one
 //   backend session, so this probes once per graph, not once per node, and
-//   caches a successful result for a short TTL so a propose → edit → save
-//   authoring burst doesn't re-probe the network on every call.
+//   caches BOTH a successful and a definitively-negative result for a short
+//   TTL — a propose → edit → save → run authoring/run burst hits the network
+//   at most once per TTL window, whichever way the probe comes back. This is
+//   safe to cache negative because `probe_inference_readiness` (and, beneath
+//   it, `OpenHumanBackendModel::probe_readiness`) already fails OPEN
+//   (`Ok(())`) on anything transient — a timeout, a transport error, a 5xx —
+//   so an `Err` reaching this cache is always the definitive, config-level
+//   "not ready" signal, never a flake that a naive cache would freeze in
+//   place.
 //
 // [`evaluate_inference_readiness`] is the single evaluation both
 // [`validate_inference_readiness`] (the hard gate) and
@@ -1913,10 +1920,16 @@ const INFERENCE_PROBE_CACHE_TTL: std::time::Duration = std::time::Duration::from
 type InferenceProbeCacheKey = (String, std::path::PathBuf);
 
 /// Process-global cache of Layer-2 probe outcomes, keyed by
-/// [`InferenceProbeCacheKey`]. Only a *successful* (`Ok`) entry is ever served
-/// from cache — a rejection is always re-probed, since the point of the probe
-/// is to reflect a just-fixed provider configuration as soon as possible, not
-/// to keep reporting a stale failure.
+/// [`InferenceProbeCacheKey`]. Both `Ok` and `Err` entries are served from
+/// cache within [`INFERENCE_PROBE_CACHE_TTL`] (design correction, B45 —
+/// previously only `Ok` was cached, so a signed-in-but-unconfigured account
+/// re-hit the network on every one of `edit_workflow` / `validate_workflow` /
+/// `propose_workflow` / a run's own preflight in a single authoring turn — up
+/// to 4 network round trips observed in one live judge-flagged turn). A
+/// cached `Err` is still only ever the definitive class (see the module doc
+/// above on fail-open) — a fixed provider becomes visible again at most
+/// `INFERENCE_PROBE_CACHE_TTL` later, or immediately on sign-out/back-in via
+/// [`invalidate_inference_probe_cache_if_signed_out`].
 static INFERENCE_PROBE_CACHE: LazyLock<
     std::sync::Mutex<
         std::collections::HashMap<InferenceProbeCacheKey, (std::time::Instant, Result<(), String>)>,
@@ -1949,11 +1962,12 @@ async fn cached_probe_inference_readiness(role: &str, config: &Config) -> Result
         .get(&key)
         .cloned()
     {
-        if result.is_ok() && checked_at.elapsed() < INFERENCE_PROBE_CACHE_TTL {
+        if checked_at.elapsed() < INFERENCE_PROBE_CACHE_TTL {
             tracing::debug!(
                 target: "flows",
                 role,
-                "[flows] inference-readiness: reusing cached ready probe result"
+                cached_ready = result.is_ok(),
+                "[flows] inference-readiness: reusing cached probe result"
             );
             return result;
         }
