@@ -3389,6 +3389,223 @@ async fn agent_ref_unknown_is_rejected() {
     );
 }
 
+// ── validate_inference_readiness (provider-connectivity author gate, B45) ──
+//
+// An `agent` node needs a working LLM inference provider the same way a
+// `tool_call` node needs a real Composio connection — but no author-time gate
+// previously checked it at all, so a signed-in user with no provider API key
+// configured on the managed backend only found out mid-run. These tests never
+// touch the network AND never install the process-global
+// `test_provider_override` seam (which would race any other test in this
+// binary that also installs it): the "construction succeeds" case points the
+// role at a local runtime (`ollama:...`), which `resolves_to_managed_backend`
+// correctly identifies as non-managed, so `probe_inference_readiness` never
+// reaches for the network; the construction-error case is engineered to fail
+// purely on a config lookup (`resolve_cloud_slug`'s "no cloud provider
+// configured for slug" branch), before any HTTP client is built.
+
+fn seed_app_session_for_gate_test(tmp: &TempDir) {
+    use crate::openhuman::credentials::{
+        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    };
+    // `verify_session_active` reads from `config.config_path.parent()`, which
+    // `test_config` sets to `tmp.path()` itself (distinct from
+    // `tmp.path()/workspace`) — seed the session there.
+    AuthService::new(tmp.path(), false)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "test.session.jwt",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("seed app-session token");
+}
+
+#[tokio::test]
+async fn inference_gate_skips_when_no_agent_nodes() {
+    // A tool_call-only graph never has an inference dependency to check — the
+    // gate must short-circuit to empty without touching sign-in state or the
+    // network at all.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE", "args": { "channel": "#general" } } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn inference_gate_rejects_when_signed_out() {
+    // Layer 1 (sync, sign-in state): a signed-out session must reject every
+    // agent-node graph, named and actionable, without ever reaching the
+    // async probe.
+    let _signed_out = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(true);
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan", "config": { "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(!errors.is_empty(), "a signed-out session must reject");
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.to_ascii_lowercase().contains("signed out")),
+        "error must tell the user they are signed out: {errors:?}"
+    );
+    // `SignedOutTestGuard` restores the prior flag on drop at the end of this
+    // scope — no other test observes this override.
+}
+
+#[tokio::test]
+async fn inference_gate_passes_when_model_constructs() {
+    // Layer 2 (async probe), happy path: the resolved role ("summarization" —
+    // the default for a plain agent node) points at a local runtime
+    // (`ollama:...`), which `probe_inference_readiness` never probes over the
+    // network at all — `resolves_to_managed_backend` is false for a local
+    // provider, so construction succeeding is the whole check (no HTTP, no
+    // process-global test seam, so this can never race another test that
+    // installs `test_provider_override`).
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.memory_provider = Some("ollama:llama3".to_string());
+
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan", "config": { "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[tokio::test]
+async fn inference_gate_surfaces_construction_error() {
+    // Layer 2 (async probe), construction-failure path: the resolved role
+    // ("summarization" — the default for a plain agent node with no pinned
+    // `config.model`) points at a cloud slug that isn't in `cloud_providers`
+    // at all, so `create_chat_model_with_model_id_inner` fails on a pure
+    // config lookup — no test override installed, no network involved — and
+    // the gate must surface that failure, naming the offending node.
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    seed_app_session_for_gate_test(&tmp);
+    config.memory_provider = Some("no_such_slug:some-model".to_string());
+
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan", "config": { "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(!errors.is_empty(), "a construction failure must reject");
+    assert!(
+        errors.iter().any(|e| e.contains("Node 'a'")),
+        "error must name the offending node 'a': {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.contains("no_such_slug") || e.contains("no cloud provider configured")),
+        "error must surface the construction failure detail: {errors:?}"
+    );
+}
+
+#[tokio::test]
+async fn proposal_includes_inference_status_for_agent_graph() {
+    // `build_builder_proposal`'s payload carries the same inference-readiness
+    // evaluation `validate_inference_readiness` gates on, so the UI can render
+    // provider-connectivity state. Since `run_builder_gates` already ran (and
+    // passed) before this field is computed, the only value reachable here is
+    // `"ready"` with no message — this test pins that contract. A local
+    // (`ollama:...`) provider construction is the pass path, matching
+    // `inference_gate_passes_when_model_constructs` — no network, no
+    // process-global test seam.
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.memory_provider = Some("ollama:llama3".to_string());
+
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan", "config": { "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+
+    let payload = build_builder_proposal(
+        &config,
+        "propose_workflow",
+        "agent-flow",
+        &g,
+        false,
+        false,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("proposal must succeed for a well-formed agent graph");
+
+    assert_eq!(payload["inference_status"], json!("ready"));
+    assert!(
+        payload.get("inference_message").is_none(),
+        "a ready status must omit inference_message: {payload:?}"
+    );
+}
+
+#[tokio::test]
+async fn proposal_omits_inference_status_for_tool_call_only_graph() {
+    // A graph with no `agent` node has nothing for this check to evaluate —
+    // the field must be absent entirely, never a meaningless "ready".
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "oh:noop" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "post" } ]
+    }));
+
+    let payload = build_builder_proposal(
+        &config,
+        "propose_workflow",
+        "tool-flow",
+        &g,
+        false,
+        false,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("proposal must succeed for a tool_call-only graph");
+
+    assert!(
+        payload.get("inference_status").is_none(),
+        "a graph with no agent node must omit inference_status: {payload:?}"
+    );
+}
+
 // ── validate_tool_contracts (systemic tool-contract fix, Part 2) ───────────
 //
 // The live-catalog cache is process-global (`LIVE_CATALOG_CACHE`) — every
