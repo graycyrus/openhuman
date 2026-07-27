@@ -73,11 +73,26 @@ fn apply_host_overlay(contract: NodeKindContract) -> NodeKindContract {
              default the path to \"json.data\" (that targets the whole payload container and \
              yields one item) — probe the real array path with get_tool_output_sample instead.",
         ),
+        "memory" => contract
+            .with_note(
+                "scope: \"flow\" reads/writes the SAME per-flow memory namespace the \
+                 flow_memory_recall / flow_memory_remember agent tools use — a memory[remember] \
+                 node and a flow_memory_remember tool call inside an agent node on the same flow \
+                 see each other's writes.",
+            )
+            .with_note(
+                "Canonical dedupe pattern (see the worked example in the memory-node design doc): \
+                 split_out → memory[recall·flow, query=\"=item.id\"] → \
+                 condition(\"=nodes.<id>.item.json.found\") → act on the false branch → \
+                 memory[remember·flow, key=\"=item.id\"] AFTER the action. Remembering after — \
+                 not before — the action means a failed action never falsely marks an item as \
+                 done.",
+            ),
         _ => contract,
     }
 }
 
-/// All 12 node-kind contracts with this host's overlay applied, in
+/// All 13 node-kind contracts with this host's overlay applied, in
 /// [`NODE_KINDS`] order.
 pub fn all_node_kind_contracts() -> Vec<NodeKindContract> {
     tinyflows::catalog::all_contracts()
@@ -87,7 +102,7 @@ pub fn all_node_kind_contracts() -> Vec<NodeKindContract> {
 }
 
 /// The overlaid contract for one node kind, or `None` if `kind` is not one of
-/// the 12.
+/// the 13.
 pub fn node_kind_contract(kind: &str) -> Option<NodeKindContract> {
     tinyflows::catalog::contract_for(kind).map(apply_host_overlay)
 }
@@ -137,12 +152,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn overlay_preserves_all_12_kinds() {
-        assert_eq!(all_node_kind_contracts().len(), 12);
+    fn overlay_preserves_all_13_kinds() {
+        assert_eq!(all_node_kind_contracts().len(), 13);
         for kind in NODE_KINDS {
             assert!(node_kind_contract(kind).is_some(), "missing {kind}");
         }
         assert!(node_kind_contract("not_a_kind").is_none());
+    }
+
+    #[test]
+    fn memory_overlay_adds_flow_memory_coherence_and_dedupe_pattern_facts() {
+        let c = node_kind_contract("memory").unwrap();
+        let notes = c.notes.join("\n");
+        assert!(notes.contains("flow_memory_recall"), "{notes}");
+        assert!(notes.contains("flow_memory_remember"), "{notes}");
+        assert!(notes.contains("split_out"), "{notes}");
     }
 
     #[test]
