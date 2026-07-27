@@ -692,6 +692,19 @@ mod tests {
             "standing prompt must demote context_scout to its narrower structured-bundle \
              niche now that flow_memory_agent is the general route"
         );
+        // Regression (Greptile P1 / CodeRabbit): the generic customer-history
+        // example must route to flow_memory_agent — routing general history
+        // retrieval to context_scout contradicts the rule above and trains the
+        // builder to under-route to flow_memory_agent.
+        assert!(
+            STANDING_PROMPT.contains("asked us before\" → `flow_memory_agent`"),
+            "the generic customer-history example must route to flow_memory_agent"
+        );
+        assert!(
+            !STANDING_PROMPT.contains("asked us before\" → `context_scout`"),
+            "the generic customer-history example must NOT route to context_scout — that \
+             contradicts flow_memory_agent being the general context/history route"
+        );
     }
 
     /// The runtime already gives an `agent_ref` step the selected specialist's

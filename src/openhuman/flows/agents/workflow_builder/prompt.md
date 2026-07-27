@@ -379,8 +379,10 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    `tool_call` slug via `search_tool_catalog`. Examples: "generate an HTML
    report from this data" → `code_executor`; "research our competitors" →
    `researcher`; "draft a reply in the user's tone" → `flow_memory_agent`;
-   "work out what this customer has asked us before" → `context_scout` (see
-   "Reading the user's memory at run time" above).
+   "work out what this customer has asked us before" → `flow_memory_agent`
+   (general context/history retrieval — see "Reading the user's memory at run
+   time" above); reach for `context_scout` only when the step explicitly needs
+   the scout's structured `[context_bundle]` output.
 3. **`tool_call`** — an action. Two flavours by `config.slug`:
    - **Composio app action** — `config.slug` = a real action slug (from
      `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`
