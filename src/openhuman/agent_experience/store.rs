@@ -2,12 +2,53 @@ use crate::openhuman::agent_experience::types::{
     redact_text, stable_experience_id_for_profile, AgentExperience, ExperienceHit,
 };
 use crate::openhuman::memory::{Memory, MemoryCategory};
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 pub const AGENT_EXPERIENCE_NAMESPACE: &str = "agent_experience";
+
+/// Encode a serialized experience so its structured payload survives the memory
+/// layer's free-text content sanitizer.
+///
+/// `Memory::store` runs every document's `content` through the secret/PII
+/// scrubber (`tinycortex … safety::sanitize_text`), whose *bare-numeric* PII
+/// patterns (credit-card via Luhn, CPF, CNPJ) match any 11–19-digit run. A
+/// serialized `AgentExperience` embeds `created_at_ms` / `updated_at_ms` as bare
+/// 13-digit millisecond timestamps, so whenever `now_ms()` happens to be
+/// Luhn-valid (~10% of the time) the scrubber rewrites the number to a
+/// `[REDACTED_PII_*]` token — corrupting the JSON so it no longer parses back on
+/// read. The record then silently vanishes from [`AgentExperienceStore::list`],
+/// making recall non-deterministic run-to-run (issue #5209).
+///
+/// Base64 has no 11+-digit bare-numeric runs (and no `Bearer`/`sk-` literals),
+/// so the sanitizer is a guaranteed no-op over the encoded payload and the
+/// round-trip is lossless. The store still redacts the sensitive free-text
+/// fields itself via [`redact_experience`] before serialization, so this does
+/// not weaken secret handling.
+fn encode_experience_payload(json: &str) -> String {
+    base64::engine::general_purpose::STANDARD.encode(json.as_bytes())
+}
+
+/// Decode a stored experience payload.
+///
+/// New records are base64(JSON) (see [`encode_experience_payload`]); legacy
+/// records are plain JSON. A JSON object starts with `{`, which is not in the
+/// base64 alphabet, so the base64 decode fails cleanly on legacy content and we
+/// fall back to parsing it as plain JSON — no ambiguity, no migration step.
+fn decode_experience_payload(stored: &str) -> Result<AgentExperience, String> {
+    if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(stored.trim()) {
+        if let Ok(text) = std::str::from_utf8(&bytes) {
+            if let Ok(experience) = serde_json::from_str::<AgentExperience>(text) {
+                return Ok(experience);
+            }
+        }
+    }
+    serde_json::from_str::<AgentExperience>(stored)
+        .map_err(|e| format!("parse agent experience: {e}"))
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExperienceQuery {
@@ -82,6 +123,7 @@ impl AgentExperienceStore {
         experience = redact_experience(experience);
 
         let content = serde_json::to_string(&experience).map_err(|e| e.to_string())?;
+        let content = encode_experience_payload(&content);
         self.memory
             .store(
                 AGENT_EXPERIENCE_NAMESPACE,
@@ -106,18 +148,16 @@ impl AgentExperienceStore {
         let mut experiences: Vec<AgentExperience> = entries
             .into_iter()
             .filter(|entry| entry.key.starts_with("experience/"))
-            .filter_map(
-                |entry| match serde_json::from_str::<AgentExperience>(&entry.content) {
-                    Ok(experience) => Some(experience),
-                    Err(err) => {
-                        log::warn!(
-                            "[agent-experience] skipping malformed entry key={}: {err}",
-                            entry.key
-                        );
-                        None
-                    }
-                },
-            )
+            .filter_map(|entry| match decode_experience_payload(&entry.content) {
+                Ok(experience) => Some(experience),
+                Err(err) => {
+                    log::warn!(
+                        "[agent-experience] skipping malformed entry key={}: {err}",
+                        entry.key
+                    );
+                    None
+                }
+            })
             .collect();
 
         experiences.sort_by(|a, b| {
@@ -227,9 +267,7 @@ impl AgentExperienceStore {
             .await
             .map_err(|e| format!("get agent experience: {e:#}"))?;
         match entry {
-            Some(entry) => serde_json::from_str::<AgentExperience>(&entry.content)
-                .map(Some)
-                .map_err(|e| format!("parse agent experience: {e}")),
+            Some(entry) => decode_experience_payload(&entry.content).map(Some),
             None => Ok(None),
         }
     }
@@ -441,6 +479,51 @@ mod tests {
         let listed = store.list().await.unwrap();
         assert_eq!(listed.len(), 1);
         assert!(listed[0].dismissed);
+    }
+
+    /// Regression for #5209. `Memory::store` runs document content through the
+    /// free-text secret/PII sanitizer, whose credit-card (Luhn-gated) pattern
+    /// matches any 13–19-digit run. A serialized experience carries bare 13-digit
+    /// millisecond timestamps, so a Luhn-valid timestamp used to be rewritten to
+    /// a `[REDACTED_PII_*]` token — corrupting the JSON so the record silently
+    /// vanished on read (~10% of writes, whichever `now_ms()` happened to be
+    /// Luhn-valid). Exercised over the *real* `UnifiedMemory` because `MockMemory`
+    /// does not sanitize. `1785148840502` is a Luhn-valid 13-digit ms timestamp;
+    /// `put` preserves a positive `created_at_ms`, so the corruption is forced
+    /// deterministically rather than depending on the wall clock.
+    #[tokio::test]
+    async fn experience_survives_content_sanitizer_with_luhn_valid_timestamp() {
+        use crate::openhuman::embeddings::NoopEmbedding;
+        use crate::openhuman::memory::Memory;
+        use crate::openhuman::memory_store::UnifiedMemory;
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        let memory: Arc<dyn Memory> =
+            Arc::new(UnifiedMemory::new(tmp.path(), Arc::new(NoopEmbedding), None).unwrap());
+        let store = AgentExperienceStore::new(memory);
+
+        let mut experience = sample_experience(
+            "exp_luhn",
+            "Deploy the Rust service safely",
+            vec![],
+            vec![],
+            0.9,
+        );
+        // Luhn-valid 13-digit ms timestamp; preserved by `put` (positive value),
+        // so the vulnerable numeric field is present on every run.
+        experience.created_at_ms = 1_785_148_840_502;
+        experience.lesson = "Legacy shared deployment guidance".into();
+
+        store.put(experience).await.unwrap();
+
+        let listed = store.list().await.unwrap();
+        assert_eq!(
+            listed.len(),
+            1,
+            "experience must survive the memory content sanitizer round-trip"
+        );
+        assert_eq!(listed[0].lesson, "Legacy shared deployment guidance");
+        assert_eq!(listed[0].created_at_ms, 1_785_148_840_502);
     }
 
     #[tokio::test]
