@@ -37,10 +37,7 @@ fn adapter(autonomy: AutonomyLevel) -> (TempDir, OpenHumanMemory) {
 #[tokio::test]
 async fn remember_rejects_user_scope() {
     let (_tmp, adapter) = adapter(AutonomyLevel::Full);
-    let err = adapter
-        .remember("user", "k", json!("v"))
-        .await
-        .unwrap_err();
+    let err = adapter.remember("user", "k", json!("v")).await.unwrap_err();
     assert!(err.to_string().contains("only supports scope \"flow\""));
 }
 
@@ -96,10 +93,7 @@ async fn recall_rejects_unknown_scope() {
 async fn remember_flow_scope_without_trusted_origin_errs() {
     // No `turn_origin::current()` scoped — not running inside a flow.
     let (_tmp, adapter) = adapter(AutonomyLevel::Full);
-    let err = adapter
-        .remember("flow", "k", json!("v"))
-        .await
-        .unwrap_err();
+    let err = adapter.remember("flow", "k", json!("v")).await.unwrap_err();
     assert!(err.to_string().contains("trusted Workflow-scoped origin"));
 }
 
@@ -135,10 +129,7 @@ async fn recall_blocked_in_readonly_autonomy_never_touches_flow_id() {
 #[tokio::test]
 async fn remember_blocked_in_readonly_autonomy() {
     let (_tmp, adapter) = adapter(AutonomyLevel::ReadOnly);
-    let err = adapter
-        .remember("flow", "k", json!("v"))
-        .await
-        .unwrap_err();
+    let err = adapter.remember("flow", "k", json!("v")).await.unwrap_err();
     assert!(err.to_string().contains(POLICY_BLOCKED_MARKER));
 }
 
@@ -179,7 +170,10 @@ async fn flavour_blocked_in_readonly_autonomy_still_reaches_lookup() {
 
 #[test]
 fn value_to_content_keeps_strings_verbatim() {
-    assert_eq!(value_to_content(&json!("already published")), "already published");
+    assert_eq!(
+        value_to_content(&json!("already published")),
+        "already published"
+    );
 }
 
 #[test]

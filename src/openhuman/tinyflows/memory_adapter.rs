@@ -232,7 +232,9 @@ impl MemoryProvider for OpenHumanMemory {
                 memory
                     .recall(query, limit, recall_opts)
                     .await
-                    .map_err(|e| EngineError::Capability(format!("memory node: recall failed: {e}")))?
+                    .map_err(|e| {
+                        EngineError::Capability(format!("memory node: recall failed: {e}"))
+                    })?
             }
             "flow" => {
                 let namespace = self.flow_memory_namespace()?;
@@ -251,7 +253,9 @@ impl MemoryProvider for OpenHumanMemory {
                 memory
                     .recall(query, limit, recall_opts)
                     .await
-                    .map_err(|e| EngineError::Capability(format!("memory node: recall failed: {e}")))?
+                    .map_err(|e| {
+                        EngineError::Capability(format!("memory node: recall failed: {e}"))
+                    })?
             }
             "flows" => {
                 // Read-only, and — via `cross_flow_recall` — confined to the
@@ -268,7 +272,11 @@ impl MemoryProvider for OpenHumanMemory {
                 );
                 cross_flow_recall(&memory, query, limit, min_score)
                     .await
-                    .map_err(|e| EngineError::Capability(format!("memory node: cross-flow recall failed: {e}")))?
+                    .map_err(|e| {
+                        EngineError::Capability(format!(
+                            "memory node: cross-flow recall failed: {e}"
+                        ))
+                    })?
             }
             other => {
                 return Err(EngineError::Capability(format!(
@@ -310,7 +318,9 @@ impl MemoryProvider for OpenHumanMemory {
             }
             Ok(FlavourLookup::NotBuilt(message)) => {
                 tracing::debug!(target: "flows", flavour = slug, "{LOG_PREFIX} flavour: no profile built yet");
-                Ok(json!({ "flavour": slug, "found": false, "profile": Value::Null, "message": message }))
+                Ok(
+                    json!({ "flavour": slug, "found": false, "profile": Value::Null, "message": message }),
+                )
             }
             Ok(FlavourLookup::Failed(message)) => {
                 tracing::warn!(target: "flows", flavour = slug, "{LOG_PREFIX} flavour: lookup failed");
@@ -338,7 +348,9 @@ impl MemoryProvider for OpenHumanMemory {
                 )
             })?
             .people()
-            .map_err(|e| EngineError::Capability(format!("memory node: people store unavailable: {e}")))?;
+            .map_err(|e| {
+                EngineError::Capability(format!("memory node: people store unavailable: {e}"))
+            })?;
 
         const DEFAULT_PEOPLE_LIMIT: usize = 100;
         let outcome = crate::openhuman::people::rpc::handle_list(&store, DEFAULT_PEOPLE_LIMIT)

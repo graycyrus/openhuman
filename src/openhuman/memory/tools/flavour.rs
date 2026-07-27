@@ -91,8 +91,9 @@ pub(crate) fn lookup_flavour(config: &Config, flavour_raw: &str) -> Result<Flavo
         return Err("'flavour' cannot be empty".to_string());
     }
 
-    let facet = PersonaFacet::parse_loose(flavour_raw)
-        .ok_or_else(|| format!("Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}"))?;
+    let facet = PersonaFacet::parse_loose(flavour_raw).ok_or_else(|| {
+        format!("Unknown flavour '{flavour_raw}'. Valid flavours: {VALID_FLAVOURS}")
+    })?;
 
     let mc = memory_config_from(config, config.workspace_dir.clone());
     let scope = facet.tree_scope();
