@@ -259,9 +259,13 @@ impl OpenHumanBackendModel {
 /// account" signal the managed backend returns as an HTTP 400 with body
 /// `{"success":false,"error":"API key not configured for provider","errorCode":"BAD_REQUEST"}`.
 ///
-/// Deliberately narrow: only this exact backend-confirmed client-configuration
-/// class returns `Err` from [`OpenHumanBackendModel::probe_readiness`] — every
-/// other 4xx/5xx/transport failure fails open (see that method's doc).
+/// Deliberately narrow: matches ONLY a 400 whose message contains the specific
+/// `"api key not configured for provider"` phrasing, or (as a `BAD_REQUEST`-
+/// coded tolerance for message wording drift) the narrower `"not configured
+/// for provider"` substring — never a bare `"not configured"`, which an
+/// unrelated 400 (a malformed request naming some other unconfigured field,
+/// a validation error, …) could also contain. Every other 4xx/5xx/transport
+/// failure fails open (see [`OpenHumanBackendModel::probe_readiness`]'s doc).
 fn is_provider_not_configured_error(err: &ProviderError) -> bool {
     if err.status != Some(400) {
         return false;
@@ -272,7 +276,7 @@ fn is_provider_not_configured_error(err: &ProviderError) -> bool {
         .as_deref()
         .is_some_and(|c| c.eq_ignore_ascii_case("BAD_REQUEST"));
     message.contains("api key not configured for provider")
-        || (code_is_bad_request && message.contains("not configured"))
+        || (code_is_bad_request && message.contains("not configured for provider"))
 }
 
 fn resolve_model(model: &str) -> String {
@@ -572,6 +576,45 @@ mod tests {
             status: Some(400),
             code: Some("BAD_REQUEST".to_string()),
             message: "invalid request: messages must not be empty".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(!is_provider_not_configured_error(&err));
+    }
+
+    #[test]
+    fn is_provider_not_configured_error_tolerates_not_configured_for_provider_wording_drift() {
+        // The `code_is_bad_request` branch still matches the narrower
+        // "not configured for provider" substring even when it isn't
+        // introduced by the exact "api key" prefix — tolerance for backend
+        // message wording drift, not a broadening to any "not configured".
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(400),
+            code: Some("BAD_REQUEST".to_string()),
+            message: "credentials not configured for provider 'anthropic'".to_string(),
+            retryable: false,
+            raw: None,
+        };
+        assert!(is_provider_not_configured_error(&err));
+    }
+
+    #[test]
+    fn is_provider_not_configured_error_rejects_generic_not_configured_400() {
+        // Tightened contract (finding D): a 400 `BAD_REQUEST` whose message
+        // contains only the generic word "not configured" — but not the
+        // specific "not configured for provider" phrasing — must fail OPEN,
+        // not be misclassified as the provider-key signal. Otherwise an
+        // unrelated backend validation error ("model X not configured", "this
+        // feature is not configured for your account", …) would falsely
+        // reject a run/proposal as a provider problem.
+        let err = ProviderError {
+            provider: "OpenHuman".to_string(),
+            model: None,
+            status: Some(400),
+            code: Some("BAD_REQUEST".to_string()),
+            message: "webhook target not configured".to_string(),
             retryable: false,
             raw: None,
         };
