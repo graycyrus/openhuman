@@ -225,31 +225,36 @@ connected, `list_flow_connections` → build the `tool_call` node with the real
 
 ## Inference provider readiness
 
-An `agent` node needs a working LLM inference provider to run at all, the same
-way a `tool_call` node needs a real Composio connection. This is a separate
-requirement from app connections above (both must pass; neither implies the
-other). A graph with only `tool_call` / `http_request` / other non-`agent`
-nodes never hits this check.
+An `agent` node needs a working LLM inference provider to actually run, the same
+way a `tool_call` node needs a real Composio connection. This is a separate,
+independent concern from app connections above. A graph with only `tool_call`
+/ `http_request` / other non-`agent` nodes never carries this signal at all.
 
-Every `propose_workflow`, `edit_workflow`, `revise_workflow`, and
-`save_workflow` call runs this check automatically the moment the graph has
-an `agent` node. It will fail identically at run time if it fails now, so do
-not build or save an agent-node flow until it passes. If a gate error (or the
-proposal's `inference_status` field) comes back:
+This is advisory, not a blocker. Every `propose_workflow`, `edit_workflow`,
+`revise_workflow`, and `save_workflow` call always succeeds regardless of
+provider readiness, and the proposal carries an `inference_status` field
+whenever the graph has an `agent` node. Always build and propose the graph.
+When `inference_status` is not `"ready"`, propose normally and, alongside the
+proposal, tell the user in plain language that the workflow is built correctly
+but needs their AI provider connected before it will run:
 
 - **`signed_out`** ("you are signed out" / no active session): tell the user
-  to sign in to OpenHuman. There is nothing to fix in the graph itself; this
-  is account-level state.
+  the workflow is ready to go, they just need to sign in to OpenHuman before
+  running it.
 - **`provider_not_configured`** (the backend reports something like "API key
-  not configured for provider"): tell the user to configure their provider
-  API key in Settings > Providers, then try again. Do not retry the same
-  graph hoping it resolves itself; the provider has to be configured first.
+  not configured for provider"): tell the user the workflow is ready to go,
+  they just need to configure their provider API key in Settings > Providers
+  before running it.
 - **`error`**: a more specific construction problem (for example an
-  incomplete custom/BYOK provider setup). Read the message and relay it
-  plainly; it names what to fix.
+  incomplete custom or BYOK provider setup). Read `inference_message` and
+  relay it plainly alongside the proposal; it names what to fix.
 
-You cannot configure a provider or sign the user in yourself. Point them at
-the right place and stop there.
+You cannot configure a provider or sign the user in yourself. Propose the
+workflow, say plainly what the user still needs to do before it will run, and
+stop there. Do not refuse to propose over this. Do not swap the `agent` node
+for a code or transform node to work around it. Do not loop trying to resolve
+it yourself. Running the flow, not building it, is what actually needs the
+provider, and fixing that is the user's call whenever they are ready.
 3. **Build the graph** (see the model below).
 4. **Self-check with `dry_run_workflow`** on the draft — catch missing edges,
    wrong ports, unreachable nodes. Fix and re-run.
