@@ -222,6 +222,34 @@ Typical setup arc: user asks for a Slack step → `composio_list_connections`
 shows Slack isn't linked → `composio_connect { toolkit: "slack" }` → once
 connected, `list_flow_connections` → build the `tool_call` node with the real
 `connection_ref` + a `search_tool_catalog` slug → dry-run → propose.
+
+## Inference provider readiness
+
+An `agent` node needs a working LLM inference provider to run at all, the same
+way a `tool_call` node needs a real Composio connection. This is a separate
+requirement from app connections above (both must pass; neither implies the
+other). A graph with only `tool_call` / `http_request` / other non-`agent`
+nodes never hits this check.
+
+Every `propose_workflow`, `edit_workflow`, `revise_workflow`, and
+`save_workflow` call runs this check automatically the moment the graph has
+an `agent` node. It will fail identically at run time if it fails now, so do
+not build or save an agent-node flow until it passes. If a gate error (or the
+proposal's `inference_status` field) comes back:
+
+- **`signed_out`** ("you are signed out" / no active session): tell the user
+  to sign in to OpenHuman. There is nothing to fix in the graph itself; this
+  is account-level state.
+- **`provider_not_configured`** (the backend reports something like "API key
+  not configured for provider"): tell the user to configure their provider
+  API key in Settings > Providers, then try again. Do not retry the same
+  graph hoping it resolves itself; the provider has to be configured first.
+- **`error`**: a more specific construction problem (for example an
+  incomplete custom/BYOK provider setup). Read the message and relay it
+  plainly; it names what to fix.
+
+You cannot configure a provider or sign the user in yourself. Point them at
+the right place and stop there.
 3. **Build the graph** (see the model below).
 4. **Self-check with `dry_run_workflow`** on the draft — catch missing edges,
    wrong ports, unreachable nodes. Fix and re-run.
