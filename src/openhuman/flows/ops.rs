@@ -1918,6 +1918,12 @@ const INFERENCE_PROBE_CACHE_TTL: std::time::Duration = std::time::Duration::from
 /// NOT be enough: two different sessions (or two tests) can both resolve the
 /// literal role `"summarization"` to entirely different, unrelated outcomes.
 type InferenceProbeCacheKey = (String, std::path::PathBuf);
+/// A cached probe outcome: when it was taken, and the definitive result.
+type InferenceProbeCacheEntry = (std::time::Instant, Result<(), String>);
+/// The probe cache map, factored out to keep the `static` type readable
+/// (clippy::type-complexity).
+type InferenceProbeCacheMap =
+    std::collections::HashMap<InferenceProbeCacheKey, InferenceProbeCacheEntry>;
 
 /// Process-global cache of Layer-2 probe outcomes, keyed by
 /// [`InferenceProbeCacheKey`]. Both `Ok` and `Err` entries are served from
@@ -1930,11 +1936,8 @@ type InferenceProbeCacheKey = (String, std::path::PathBuf);
 /// above on fail-open) — a fixed provider becomes visible again at most
 /// `INFERENCE_PROBE_CACHE_TTL` later, or immediately on sign-out/back-in via
 /// [`invalidate_inference_probe_cache_if_signed_out`].
-static INFERENCE_PROBE_CACHE: LazyLock<
-    std::sync::Mutex<
-        std::collections::HashMap<InferenceProbeCacheKey, (std::time::Instant, Result<(), String>)>,
-    >,
-> = LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+static INFERENCE_PROBE_CACHE: LazyLock<std::sync::Mutex<InferenceProbeCacheMap>> =
+    LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
 /// Invalidate every cached Layer-2 probe result. Checked defensively on every
 /// call so a signed-out session (whether the initial one or a later
