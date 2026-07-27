@@ -1886,20 +1886,21 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
 //   (`scheduler_gate::is_signed_out`), or no valid `app-session` JWT
 //   (`inference::provider::factory::verify_session_active`, the exact check
 //   every custom-provider construction already gates on).
-// - **Layer 2 (async, cached)** — one cheap real probe against the resolved
+// - **Layer 2 (async, cached)** — one cheap real probe per DISTINCT resolved
 //   role (`inference::provider::probe_inference_readiness`) to catch the
 //   "signed in but no provider API key configured for this account" class of
-//   failure that Layer 1 cannot see. All `agent` nodes in a graph share one
-//   backend session, so this probes once per graph, not once per node, and
-//   caches BOTH a successful and a definitively-negative result for a short
-//   TTL — a propose → edit → save → run authoring/run burst hits the network
-//   at most once per TTL window, whichever way the probe comes back. This is
-//   safe to cache negative because `probe_inference_readiness` (and, beneath
-//   it, `OpenHumanBackendModel::probe_readiness`) already fails OPEN
-//   (`Ok(())`) on anything transient — a timeout, a transport error, a 5xx —
-//   so an `Err` reaching this cache is always the definitive, config-level
-//   "not ready" signal, never a flake that a naive cache would freeze in
-//   place.
+//   failure that Layer 1 cannot see. A graph can mix agent nodes pinned to
+//   different models (e.g. one `hint:reasoning`, one plain `chat`) that route
+//   to different provider configs — each distinct role is probed once, not
+//   once per node, and every probe's result caches BOTH a successful and a
+//   definitively-negative result for a short TTL — a propose → edit → save →
+//   run authoring/run burst hits the network at most once per role per TTL
+//   window, whichever way the probe comes back. This is safe to cache
+//   negative because `probe_inference_readiness` (and, beneath it,
+//   `OpenHumanBackendModel::probe_readiness`) already fails OPEN (`Ok(())`)
+//   on anything transient — a timeout, a transport error, a 5xx — so an
+//   `Err` reaching this cache is always the definitive, config-level "not
+//   ready" signal, never a flake that a naive cache would freeze in place.
 //
 // [`evaluate_inference_readiness`] is the single evaluation both
 // [`validate_inference_readiness`] (the hard gate) and
@@ -1988,20 +1989,61 @@ async fn cached_probe_inference_readiness(role: &str, config: &Config) -> Result
 /// The workload role an `agent` node's completion effectively runs on —
 /// mirrors the exact mapping `OpenHumanLlm::complete` (`tinyflows/caps.rs`)
 /// applies, so this probe checks the same route the node will actually
-/// dispatch to at run time. A node with no pinned `config.model` runs on
-/// caps.rs's own default role (`"summarization"`, its fallback absent a
-/// `role` field on the completion request).
-fn agent_node_role(node: &tinyflows::model::Node) -> &'static str {
+/// dispatch to at run time. Precedence (findings A+B on this gate):
+///
+/// 1. Node `config.model` — a managed tier or `hint:*` alias, translated via
+///    [`role_for_model_tier`](crate::openhuman::inference::provider::role_for_model_tier).
+/// 2. A static (non-`=`) `agent_ref` whose custom
+///    [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+///    itself pins a `model` (e.g. `hint:reasoning`) — resolved the same way
+///    [`OpenHumanAgentRunner::run_via_harness`](crate::openhuman::tinyflows::caps::OpenHumanAgentRunner)
+///    does via `resolve_node_model(&request, entry_model)`, using the same
+///    sync, config-only accessor
+///    ([`find_custom_in_config`](crate::openhuman::agent_registry::find_custom_in_config))
+///    it calls.
+/// 3. Otherwise, caps.rs's own default role (`"summarization"`, its fallback
+///    absent a `role` field on the completion request).
+///
+/// A static `agent_ref` that instead resolves to a shipped/TOML harness
+/// `AgentDefinition` (`AgentRoute::Harness`) can *also* pin a model via
+/// `ModelSpec::Exact`/`ModelSpec::Hint` — but `ModelSpec::Inherit` (the
+/// default) resolves against the *parent* agent's live model at spawn time,
+/// which this static, pre-run gate has no parent turn to read. Resolving only
+/// the Exact/Hint cases here — while silently mis-defaulting every
+/// `Inherit`-using definition — would be a half-correct, fragile lookup, so
+/// this case falls back to the default role rather than guess.
+/// TODO(B45): resolve agent_ref-pinned model for harness `AgentDefinition`s
+/// once a parent-model-free resolution path exists.
+fn agent_node_role(config: &Config, node: &tinyflows::model::Node) -> &'static str {
     let pinned_model = node
         .config
         .get("model")
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|s| !s.is_empty());
-    match pinned_model {
-        Some(model) => crate::openhuman::inference::provider::role_for_model_tier(model),
-        None => "summarization",
+    if let Some(model) = pinned_model {
+        return crate::openhuman::inference::provider::role_for_model_tier(model);
     }
+
+    let static_agent_ref = node
+        .config
+        .get("agent_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with('='));
+    if let Some(agent_ref) = static_agent_ref {
+        if let Some(entry_model) =
+            crate::openhuman::agent_registry::find_custom_in_config(config, agent_ref)
+                .and_then(|entry| entry.model)
+        {
+            let entry_model = entry_model.trim();
+            if !entry_model.is_empty() {
+                return crate::openhuman::inference::provider::role_for_model_tier(entry_model);
+            }
+        }
+    }
+
+    "summarization"
 }
 
 /// Classifies an inference-readiness failure message into the fixed wire
@@ -2041,13 +2083,22 @@ struct InferenceReadinessEvaluation {
 
 /// Evaluate the B45 provider-connectivity gate for `graph`.
 ///
-/// Returns `None` when the graph has no `agent` node subject to the check — a
-/// dynamic `=`-derived `agent_ref` is excluded (mirrors the `=`-skip pattern in
-/// [`validate_connection_refs`] at its `slug.starts_with('=')` check): its
-/// actual route is not knowable statically, so there is nothing to probe.
-/// Both the gate and the proposal payload treat `None` as "not applicable", so
-/// a tool_call-only (or all-dynamic-agent_ref) flow never pays this check's
-/// cost.
+/// Returns `None` when the graph has no `agent` node at all — a tool_call-only
+/// graph never pays this check's cost. A dynamic `=`-derived `agent_ref` node
+/// is still in scope (finding C): its concrete route is not knowable
+/// statically, so its exact per-model role can't be resolved, but the node
+/// still means "this graph runs inference" — it stays in scope for Layer 1
+/// (signed-out/session) and gets a default-role Layer 2 probe. Only the
+/// per-model role resolution is skipped for such a node, never the whole
+/// check.
+///
+/// Every DISTINCT role across the graph's applicable `agent` nodes is probed
+/// (findings A+B): Layer 1 (signed-out/session) runs once for the whole
+/// graph — every agent node shares one backend session — then Layer 2 runs
+/// once per distinct role (via [`cached_probe_inference_readiness`], so a
+/// role already probed elsewhere in this process within the TTL is served
+/// from cache). `status`/`message` report `provider_not_configured`/`error`
+/// if ANY role's probe fails, naming every offending node and role.
 async fn evaluate_inference_readiness(
     config: &Config,
     graph: &WorkflowGraph,
@@ -2056,18 +2107,12 @@ async fn evaluate_inference_readiness(
         .nodes
         .iter()
         .filter(|node| node.kind == NodeKind::Agent)
-        .filter(|node| {
-            !node
-                .config
-                .get("agent_ref")
-                .and_then(Value::as_str)
-                .is_some_and(|agent_ref| agent_ref.trim().starts_with('='))
-        })
         .collect();
 
     let first_node = *agent_nodes.first()?;
 
-    // Layer 1: signed-out is the cheapest, most decisive check.
+    // Layer 1: signed-out is the cheapest, most decisive check. Session-wide
+    // — checked once for the whole graph, not per node/role.
     if crate::openhuman::scheduler_gate::is_signed_out() {
         tracing::debug!(
             target: "flows",
@@ -2111,30 +2156,69 @@ async fn evaluate_inference_readiness(
         });
     }
 
-    // Layer 2: one cached async probe, shared by every agent node in the
-    // graph (they all share the same backend session).
-    let role = agent_node_role(first_node);
-    tracing::debug!(
-        target: "flows",
-        node = %first_node.id,
-        role,
-        "[flows] inference-readiness: probing managed-backend/role readiness"
-    );
-    match cached_probe_inference_readiness(role, config).await {
-        Ok(()) => Some(InferenceReadinessEvaluation {
+    // Layer 2: each node's effective role, grouped so every DISTINCT role is
+    // probed exactly once (a graph with several agent nodes pinning the same
+    // role must not pay the network/cache-lookup cost twice). `BTreeMap` for
+    // deterministic iteration/message ordering (test-friendly, and stable
+    // prose across runs).
+    let mut nodes_by_role: std::collections::BTreeMap<&'static str, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for node in &agent_nodes {
+        let role = agent_node_role(config, node);
+        nodes_by_role.entry(role).or_default().push(node.id.clone());
+    }
+
+    let mut failures: Vec<(&'static str, String, Vec<String>)> = Vec::new();
+    for (role, node_ids) in &nodes_by_role {
+        tracing::debug!(
+            target: "flows",
+            nodes = ?node_ids,
+            role,
+            "[flows] inference-readiness: probing managed-backend/role readiness"
+        );
+        if let Err(msg) = cached_probe_inference_readiness(role, config).await {
+            tracing::warn!(
+                target: "flows",
+                nodes = ?node_ids,
+                role,
+                "[flows] inference-readiness: probe rejected — {msg}"
+            );
+            failures.push((role, msg, node_ids.clone()));
+        }
+    }
+
+    if failures.is_empty() {
+        return Some(InferenceReadinessEvaluation {
             status: "ready",
             message: None,
             node_id: None,
-        }),
-        Err(msg) => {
-            let status = classify_inference_error_message(&msg);
-            tracing::warn!(
-                target: "flows",
-                node = %first_node.id,
-                role,
-                status,
-                "[flows] inference-readiness: probe rejected — {msg}"
-            );
+        });
+    }
+
+    // Defensive ordering matches `classify_inference_error_message`'s own doc:
+    // `signed_out` (unlikely to reach Layer 2, given the Layer 1 check above,
+    // but a race is not impossible) outranks `provider_not_configured`, which
+    // outranks the generic `error` bucket.
+    let statuses: Vec<&'static str> = failures
+        .iter()
+        .map(|(_, msg, _)| classify_inference_error_message(msg))
+        .collect();
+    let status = if statuses.contains(&"signed_out") {
+        "signed_out"
+    } else if statuses.contains(&"provider_not_configured") {
+        "provider_not_configured"
+    } else {
+        "error"
+    };
+
+    // Single failing role naming a single node: keep the original flat
+    // message shape (no node-list preamble) so the existing single-node
+    // contract/tests read exactly as before. Anything broader (several
+    // failing roles, or one role shared by several nodes) names every
+    // offending node/role explicitly, since a flat message can no longer
+    // unambiguously point at "the" offending node.
+    if let [(_role, msg, node_ids)] = failures.as_slice() {
+        if let [node_id] = node_ids.as_slice() {
             let message = if status == "provider_not_configured" {
                 format!(
                     "This flow's agent step needs a working AI provider, but the provider \
@@ -2144,13 +2228,43 @@ async fn evaluate_inference_readiness(
             } else {
                 format!("This flow's agent step needs a working AI provider: {msg}")
             };
-            Some(InferenceReadinessEvaluation {
+            return Some(InferenceReadinessEvaluation {
                 status,
                 message: Some(message),
-                node_id: Some(first_node.id.clone()),
-            })
+                node_id: Some(node_id.clone()),
+            });
         }
     }
+
+    let message = failures
+        .iter()
+        .map(|(role, msg, node_ids)| {
+            let nodes = node_ids
+                .iter()
+                .map(|id| format!("'{id}'"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let role_status = classify_inference_error_message(msg);
+            if role_status == "provider_not_configured" {
+                format!(
+                    "Node(s) {nodes} (role `{role}`): the provider returned: '{msg}'. Configure \
+                     your provider API key in OpenHuman Settings > Providers, then try again."
+                )
+            } else {
+                format!("Node(s) {nodes} (role `{role}`): {msg}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    Some(InferenceReadinessEvaluation {
+        status,
+        message: Some(format!(
+            "This flow has {} agent step(s) that need a working AI provider:\n\n{message}",
+            failures.len()
+        )),
+        node_id: None,
+    })
 }
 
 /// The B45 provider-connectivity check as a gate-shaped `Vec<String>`: empty

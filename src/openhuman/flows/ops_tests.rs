@@ -3575,6 +3575,146 @@ async fn inference_gate_surfaces_construction_error() {
     );
 }
 
+// ── multi-role agent-node graphs (findings A+B, P1) ─────────────────────────
+//
+// Previously `evaluate_inference_readiness` collected every applicable
+// `agent` node but derived the Layer-2 probe role from ONLY the graph's
+// first node — a second (or later) node pinned to a different `config.model`
+// (and therefore routed to a different, possibly broken, provider) was never
+// probed at all. These tests wire each role to its own pure-config-lookup
+// failure (no network, no test-provider-override seam) so a bug that skips a
+// role would show up as a falsely-empty `errors` list.
+
+#[test]
+fn agent_node_role_prefers_custom_registry_entry_model_pin_over_default() {
+    // Finding A/B: a node with no per-node `config.model` but a STATIC
+    // (non-`=`) `agent_ref` naming a custom registry entry that itself pins a
+    // model (e.g. `hint:reasoning`) must resolve to THAT role — the same
+    // precedence `OpenHumanAgentRunner::run_via_harness` applies via
+    // `resolve_node_model(&request, entry_model)`, reusing the same sync,
+    // config-only accessor (`find_custom_in_config`) it calls.
+    use crate::openhuman::agent_registry::types::{AgentRegistryEntry, AgentRegistrySource};
+
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.agent_registry.entries.push(AgentRegistryEntry {
+        id: "researcher_custom".to_string(),
+        name: "Researcher".to_string(),
+        description: "does research".to_string(),
+        source: AgentRegistrySource::Custom,
+        enabled: true,
+        model: Some("hint:reasoning".to_string()),
+        system_prompt: None,
+        tool_allowlist: Vec::new(),
+        tool_denylist: Vec::new(),
+        subagents: Default::default(),
+        tags: Vec::new(),
+        metadata: Value::Null,
+    });
+
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Research",
+              "config": { "agent_ref": "researcher_custom", "prompt": "go" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+    let node = g.nodes.iter().find(|n| n.id == "a").expect("node 'a'");
+    assert_eq!(
+        agent_node_role(&config, node),
+        "reasoning",
+        "the custom registry entry's `hint:reasoning` pin must win over the default role"
+    );
+}
+
+#[tokio::test]
+async fn inference_gate_probes_every_distinct_agent_node_role() {
+    // A graph with TWO `agent` nodes, each pinned (via `config.model`) to a
+    // DIFFERENT role — `chat` and `reasoning` — each wired to its own broken
+    // provider slug for that specific role's config knob
+    // (`chat_provider`/`reasoning_provider`). If the gate only probed the
+    // first node's role (the pre-fix bug), the second node's broken
+    // `reasoning` provider would never be checked and this graph would
+    // incorrectly pass. Both failures must be named.
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    seed_app_session_for_gate_test(&tmp);
+    config.chat_provider = Some("no_such_chat_slug:some-model".to_string());
+    config.reasoning_provider = Some("no_such_reasoning_slug:some-model".to_string());
+
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Chat step",
+              "config": { "prompt": "chat", "model": "chat-v1" } },
+            { "id": "b", "kind": "agent", "name": "Reasoning step",
+              "config": { "prompt": "reason", "model": "reasoning-v1" } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "a" },
+            { "from_node": "a", "to_node": "b" }
+        ]
+    }));
+
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(
+        !errors.is_empty(),
+        "both roles are broken, the gate must reject"
+    );
+    let combined = errors.join("\n");
+    assert!(
+        combined.contains("'a'") && combined.contains("no_such_chat_slug"),
+        "the `chat` role's failure (node 'a') must be named: {combined}"
+    );
+    assert!(
+        combined.contains("'b'") && combined.contains("no_such_reasoning_slug"),
+        "the `reasoning` role's failure (node 'b') must be named — this is the exact \
+         regression the pre-fix \"probe only the first node's role\" bug would have hidden: \
+         {combined}"
+    );
+}
+
+// ── dynamic agent_ref still gets the Layer-1 check (finding C, P2) ─────────
+
+#[tokio::test]
+async fn inference_gate_reports_signed_out_for_dynamic_agent_ref_only_graph() {
+    // Finding C: a graph whose only `agent` node has a DYNAMIC (`=`-derived)
+    // `agent_ref` still means "this graph runs inference" at run time — it
+    // must stay in scope for Layer 1 (signed-out/session), even though its
+    // exact per-model role can't be resolved statically. Previously the
+    // dynamic-ref filter excluded such nodes entirely, so a graph made up
+    // only of them returned `None` (no readiness signal at all) and a
+    // signed-out session went completely unreported.
+    let _signed_out = crate::openhuman::scheduler_gate::SignedOutTestGuard::set(true);
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Dynamic",
+              "config": { "agent_ref": "=nodes.t.item.agent_choice", "prompt": "go" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    }));
+
+    let errors = validate_inference_readiness(&config, &g).await;
+    assert!(
+        !errors.is_empty(),
+        "a signed-out session must still be reported even though the only agent node's \
+         agent_ref is dynamic: {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.to_ascii_lowercase().contains("signed out")),
+        "{errors:?}"
+    );
+    // `SignedOutTestGuard` restores the prior flag on drop at the end of this
+    // scope — no other test observes this override.
+}
+
 #[tokio::test]
 async fn proposal_includes_inference_status_for_agent_graph() {
     // `build_builder_proposal`'s payload carries the same inference-readiness
