@@ -14,6 +14,10 @@ import { useWorkflowBuilderChat, type WorkflowBuilderSendResult } from './useWor
 const buildWorkflow = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({ buildWorkflow }));
 
+// Stop button cancels the in-flight turn via the shared chat cancel primitive.
+const chatCancel = vi.hoisted(() => vi.fn());
+vi.mock('../services/chatService', () => ({ chatCancel }));
+
 // Socket status is configurable per test (reset to 'connected' in beforeEach)
 // so the no-op/`skipped` path (socket not connected) can be exercised.
 const socketStatus = vi.hoisted(() => ({ current: 'connected' as string }));
@@ -73,6 +77,7 @@ const okResult = (over: Partial<BuilderTurnResult> = {}): BuilderTurnResult => (
 describe('useWorkflowBuilderChat', () => {
   beforeEach(() => {
     buildWorkflow.mockReset().mockResolvedValue(okResult());
+    chatCancel.mockReset().mockResolvedValue(true);
     socketStatus.current = 'connected';
     selectorState.proposals = {};
     selectorState.messagesByThreadId = {};
@@ -706,6 +711,53 @@ describe('useWorkflowBuilderChat', () => {
 
       expect(result.current.error).toBe(THREAD_NOT_FOUND_MESSAGE);
       expect(result.current.threadId).toBeNull();
+    });
+  });
+
+  describe('stop (Stop button)', () => {
+    it('cancels the in-flight builder turn via chatCancel and clears sending', async () => {
+      let resolveBuild: (v: BuilderTurnResult) => void = () => {};
+      buildWorkflow.mockReset().mockImplementation(
+        () =>
+          new Promise<BuilderTurnResult>(res => {
+            resolveBuild = res;
+          })
+      );
+
+      const { result } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+
+      // Kick off a turn but do NOT await it — it stays in flight, so `sending`
+      // is true and the composer shows the Stop button.
+      let sendPromise: Promise<WorkflowBuilderSendResult> | undefined;
+      act(() => {
+        sendPromise = result.current.send({
+          displayText: 'hi',
+          request: { mode: 'create', instruction: 'x' },
+        });
+      });
+      await waitFor(() => expect(result.current.sending).toBe(true));
+
+      // Hitting Stop cancels the turn on the copilot's own thread (same
+      // primitive the main chat's Stop uses) and flips `sending` off.
+      await act(async () => {
+        result.current.stop();
+      });
+      expect(chatCancel).toHaveBeenCalledWith('builder-1');
+      await waitFor(() => expect(result.current.sending).toBe(false));
+
+      // Settle the underlying RPC so no promise dangles past the test.
+      await act(async () => {
+        resolveBuild(okResult());
+        await sendPromise;
+      });
+    });
+
+    it('is a no-op when nothing is in flight', async () => {
+      const { result } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+      await act(async () => {
+        result.current.stop();
+      });
+      expect(chatCancel).not.toHaveBeenCalled();
     });
   });
 });

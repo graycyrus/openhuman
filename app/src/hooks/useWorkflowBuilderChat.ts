@@ -32,6 +32,7 @@ import {
   type BuilderTurnResult,
   buildWorkflow,
 } from '../services/api/flowsApi';
+import { chatCancel } from '../services/chatService';
 import {
   beginInferenceTurn,
   clearWorkflowProposalForThread,
@@ -178,6 +179,13 @@ export interface UseWorkflowBuilderChat {
    * knows whether the instruction is still unresolved.
    */
   send: (params: WorkflowBuilderSendParams) => Promise<WorkflowBuilderSendResult>;
+  /**
+   * Cancel the in-flight builder turn for the current thread. The copilot's
+   * Send button morphs into a Stop button while `sending` is true (mirrors the
+   * main chat's `handleStopGeneration`); clicking it calls this. No-op when
+   * there is no bound thread or nothing is in flight.
+   */
+  stop: () => void;
   /** Clear the current proposal (e.g. after Accept/Reject) without persisting. */
   clearProposal: () => void;
 }
@@ -489,6 +497,25 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
     [dispatch, localSending, socketStatus, threadId]
   );
 
+  const stop = useCallback(() => {
+    if (!threadId) {
+      log('stop: no bound thread — noop');
+      return;
+    }
+    if (!localSending) {
+      log('stop: nothing in flight — noop');
+      return;
+    }
+    log('stop: cancelling builder turn thread=%s', threadId);
+    // Same primitive the main chat's Stop button uses (channel_web_cancel).
+    // Flip `localSending` off on a confirmed cancel for immediate button
+    // feedback; the in-flight `send` promise also clears it in its finally.
+    void chatCancel(threadId).then(cancelled => {
+      log('stop: chatCancel thread=%s ok=%s', threadId, cancelled);
+      if (cancelled) setLocalSending(false);
+    });
+  }, [threadId, localSending]);
+
   const clearProposal = useCallback(() => {
     if (threadId) dispatch(clearWorkflowProposalForThread({ threadId }));
   }, [dispatch, threadId]);
@@ -506,6 +533,7 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
     liveResponse,
     error,
     send,
+    stop,
     clearProposal,
   };
 }
