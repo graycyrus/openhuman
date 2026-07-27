@@ -519,14 +519,22 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     if !agent_ref_errors.is_empty() {
         return agent_ref_errors;
     }
-    // Async, cached: an `agent` node whose completion cannot currently reach a
-    // working LLM provider (issue B45) — signed out, or (managed backend)
-    // signed in but no provider API key configured for the account. See the
-    // "Inference-readiness gate" section below for the two-layer design.
-    let inference_readiness_errors = validate_inference_readiness(config, graph).await;
-    if !inference_readiness_errors.is_empty() {
-        return inference_readiness_errors;
-    }
+    // NOTE (B45 design correction, judge finding on live run 104aab90):
+    // provider-connectivity (issue B45 — signed out, or a managed-backend
+    // account with no provider API key configured) is deliberately NOT a
+    // hard author gate here. It used to reject `propose_workflow` /
+    // `edit_workflow` outright, which meant a graph whose only problem was
+    // "not runnable yet" could never even be SHOWN to the user — the copilot
+    // detected the problem, could not propose past it, and trailed off with
+    // no proposal at all. `evaluate_inference_readiness` still runs (see
+    // `build_builder_proposal` below) and surfaces `inference_status` /
+    // `inference_message` as an ADVISORY warning on the proposal payload, so
+    // authoring always succeeds and the UI can render a "connect your
+    // provider" nudge alongside the built workflow. The hard rejection moved
+    // to run time instead — see `validate_inference_readiness`'s use in
+    // `run_flow_body`, which fails a real run cleanly before the engine
+    // executes rather than blocking the author from ever seeing the graph.
+    //
     // Async, live connection list: a tool_call whose `connection_ref` names the
     // wrong toolkit for its slug, or a connection id the user doesn't actually
     // have (WS3 — the transcript bug where a TIKTOK connection id was wired onto
@@ -729,13 +737,18 @@ pub(crate) async fn build_builder_proposal(
     // toolkits this graph needs and whether they're connected, so it can render
     // "Connect <toolkit>" CTAs instead of a bare gate error later.
     let required_connections = compute_required_connections(config, graph).await;
-    // B45: the same LLM-provider-connectivity evaluation `validate_inference_readiness`
-    // gates on, surfaced onto the proposal so the UI can render provider-connectivity
-    // state (e.g. a "Connect a provider" CTA) alongside the toolkit-connection CTAs
-    // above. By construction this only ever observes `None` (no applicable agent
-    // node) or `"ready"` here, since `run_builder_gates` above already rejected and
-    // returned early on any other outcome — computed via the shared evaluator (not
-    // re-derived) so the gate and this payload field can never disagree.
+    // B45 (design correction): the LLM-provider-connectivity evaluation is
+    // ADVISORY here, never a rejection — `run_builder_gates` above no longer
+    // includes it (that used to hard-block `propose_workflow`/`edit_workflow`
+    // on a graph the copilot couldn't then show the user at all — judge
+    // finding on live run 104aab90). So `evaluation.status` here can
+    // legitimately be `"ready"`, `"signed_out"`, `"provider_not_configured"`,
+    // or `"error"` — the UI renders a "Connect a provider" / "Sign in" CTA
+    // for the non-ready cases, alongside the toolkit-connection CTAs above.
+    // The graph is proposed regardless of this value. Computed via the same
+    // shared, cached evaluator the run-time preflight (`validate_inference_readiness`
+    // in `run_flow_body`) consumes, so a run right after this proposal reads
+    // the cached result instead of re-probing the network.
     let inference_readiness = evaluate_inference_readiness(config, graph).await;
     let graph_value = serde_json::to_value(graph).map_err(|e| e.to_string())?;
 
@@ -1833,20 +1846,39 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inference-readiness gate: provider-connectivity author gate (issue B45)
+// Inference-readiness check: provider-connectivity (issue B45)
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // An `agent` node's completion (`OpenHumanLlm::complete` in
 // `tinyflows/caps.rs`) resolves a chat model exactly like every other
-// inference caller in this host — but no author-time gate previously
-// inspected that resolution at all. `compute_required_connections` only walks
-// `tool_call` Composio nodes; an `agent` node's own hard dependency, a working
-// LLM provider, went completely unchecked. The confirmed failure: a signed-in
+// inference caller in this host — but no check previously inspected that
+// resolution at all. `compute_required_connections` only walks `tool_call`
+// Composio nodes; an `agent` node's own hard dependency, a working LLM
+// provider, went completely unchecked. The confirmed failure: a signed-in
 // user whose managed-backend account has no provider API key configured gets
 // an HTTP 400 `{"success":false,"error":"API key not configured for
 // provider","errorCode":"BAD_REQUEST"}` — but only mid-run, wrapped several
 // layers deep as `capability error: graph error: capability error: model
-// error: ...`. This gate moves that discovery to propose/edit/save time.
+// error: ...`.
+//
+// **Design correction (judge finding on live run 104aab90 — see git log for
+// the full writeup):** this was originally wired in as a HARD author gate
+// (`run_builder_gates`), rejecting `propose_workflow`/`edit_workflow`
+// outright. In practice that meant a graph whose only problem was "the user
+// hasn't configured a provider yet" could never be proposed at all — the
+// copilot detected `provider_not_configured`, tried to propose anyway, was
+// blocked, and trailed off with no workflow shown to the user. The correct
+// placement is:
+//
+// - **Author time (`build_builder_proposal`)** — ADVISORY ONLY. Authoring
+//   always succeeds; `evaluate_inference_readiness`'s result rides along on
+//   the proposal payload as `inference_status`/`inference_message` so the UI
+//   can render a "connect your provider" nudge next to the built workflow.
+// - **Run time (`run_flow_body`)** — HARD gate. A real run (never
+//   `dry_run_workflow`, which is a sandbox) checks readiness before invoking
+//   the tinyflows engine and fails the run row cleanly with an actionable
+//   message if the graph's agent node(s) can't currently reach a provider —
+//   see `validate_inference_readiness`'s call site in `run_flow_body`.
 //
 // Two layers, cheapest and most decisive first:
 //
@@ -2104,10 +2136,16 @@ async fn evaluate_inference_readiness(
     }
 }
 
-/// Author-time hard gate for the B45 provider-connectivity check: rejects a
-/// graph whose `agent` node(s) cannot currently reach a working LLM provider,
-/// naming the offending node. See the module doc above for the two-layer
-/// design.
+/// The B45 provider-connectivity check as a gate-shaped `Vec<String>`: empty
+/// when the graph's `agent` node(s) (if any) can currently reach a working
+/// LLM provider, otherwise the offending node's error, naming it.
+///
+/// **No longer wired into `run_builder_gates`** (design correction — see the
+/// module doc above): authoring is never blocked by this. Its one production
+/// caller is `run_flow_body`'s run-time preflight, which fails a real run
+/// cleanly before the tinyflows engine executes rather than hard-blocking the
+/// author from proposing/saving the graph in the first place. See the module
+/// doc above for the two-layer evaluation design.
 pub(crate) async fn validate_inference_readiness(
     config: &Config,
     graph: &WorkflowGraph,
