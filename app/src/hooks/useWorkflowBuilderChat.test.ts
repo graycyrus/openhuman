@@ -12,11 +12,13 @@ import { useWorkflowBuilderChat, type WorkflowBuilderSendResult } from './useWor
 
 // The hook now runs the builder server-side via `openhuman.flows_build`.
 const buildWorkflow = vi.hoisted(() => vi.fn());
-vi.mock('../services/api/flowsApi', () => ({ buildWorkflow }));
-
-// Stop button cancels the in-flight turn via the shared chat cancel primitive.
-const chatCancel = vi.hoisted(() => vi.fn());
-vi.mock('../services/chatService', () => ({ chatCancel }));
+// Stop button cancels the in-flight turn via `openhuman.flows_build_cancel`
+// (the RPC that actually signals the running agent turn to stop — unlike the
+// shared `chatCancel`/`channel_web_cancel` primitive, which silently no-ops
+// for a `flows_build` turn since it runs inline and is never registered
+// anywhere that primitive looks).
+const flowsBuildCancel = vi.hoisted(() => vi.fn());
+vi.mock('../services/api/flowsApi', () => ({ buildWorkflow, flowsBuildCancel }));
 
 // Socket status is configurable per test (reset to 'connected' in beforeEach)
 // so the no-op/`skipped` path (socket not connected) can be exercised.
@@ -77,7 +79,7 @@ const okResult = (over: Partial<BuilderTurnResult> = {}): BuilderTurnResult => (
 describe('useWorkflowBuilderChat', () => {
   beforeEach(() => {
     buildWorkflow.mockReset().mockResolvedValue(okResult());
-    chatCancel.mockReset().mockResolvedValue(true);
+    flowsBuildCancel.mockReset().mockResolvedValue(true);
     socketStatus.current = 'connected';
     selectorState.proposals = {};
     selectorState.messagesByThreadId = {};
@@ -715,7 +717,7 @@ describe('useWorkflowBuilderChat', () => {
   });
 
   describe('stop (Stop button)', () => {
-    it('cancels the in-flight builder turn via chatCancel and clears sending', async () => {
+    it('cancels the in-flight builder turn via flowsBuildCancel; sending clears once the RPC settles', async () => {
       let resolveBuild: (v: BuilderTurnResult) => void = () => {};
       buildWorkflow.mockReset().mockImplementation(
         () =>
@@ -737,19 +739,25 @@ describe('useWorkflowBuilderChat', () => {
       });
       await waitFor(() => expect(result.current.sending).toBe(true));
 
-      // Hitting Stop cancels the turn on the copilot's own thread (same
-      // primitive the main chat's Stop uses) and flips `sending` off.
+      // Hitting Stop signals the server to actually cancel the running
+      // `workflow_builder` turn on the copilot's dedicated thread.
       await act(async () => {
         result.current.stop();
       });
-      expect(chatCancel).toHaveBeenCalledWith('builder-1');
-      await waitFor(() => expect(result.current.sending).toBe(false));
+      expect(flowsBuildCancel).toHaveBeenCalledWith('builder-1');
+      // `stop()` does NOT eagerly clear `sending` — with real cancellation the
+      // in-flight `buildWorkflow` call this triggered now returns promptly, and
+      // its own `finally` is the single place that clears `sending` (avoids the
+      // early-clear race the review bots flagged).
+      expect(result.current.sending).toBe(true);
 
-      // Settle the underlying RPC so no promise dangles past the test.
+      // The server-side cancel makes the in-flight `buildWorkflow` call settle
+      // promptly — once it does, `send`'s `finally` clears `sending`.
       await act(async () => {
         resolveBuild(okResult());
         await sendPromise;
       });
+      expect(result.current.sending).toBe(false);
     });
 
     it('is a no-op when nothing is in flight', async () => {
@@ -757,7 +765,78 @@ describe('useWorkflowBuilderChat', () => {
       await act(async () => {
         result.current.stop();
       });
-      expect(chatCancel).not.toHaveBeenCalled();
+      expect(flowsBuildCancel).not.toHaveBeenCalled();
+    });
+
+    it("re-send race: an earlier (Stop-cancelled) send settling does not clear a newer send's `sending` flag (attempt guard)", async () => {
+      // Regression test for the P2/Major re-send race the review bots
+      // flagged. `send()` normally can't dispatch a second turn while
+      // `sending` is already `true` (the `if (localSending)` guard at its
+      // top) — but that guard reads `localSending` from the closure `send`
+      // was memoized with on the LAST commit, so two `send()` calls fired
+      // back-to-back in the same synchronous tick (e.g. a fast double-click
+      // on Send, or clicking Send again immediately after Stop before the
+      // button has re-rendered) both observe the stale pre-turn value and
+      // both dispatch — exactly the overlap the attempt guard exists to
+      // survive: WITHOUT it, whichever of the two `buildWorkflow` calls
+      // settles FIRST would unconditionally clear `sending` in its `finally`,
+      // even while the other one is still genuinely in flight.
+      let resolveA: (v: BuilderTurnResult) => void = () => {};
+      let resolveB: (v: BuilderTurnResult) => void = () => {};
+      buildWorkflow
+        .mockReset()
+        .mockImplementationOnce(
+          () =>
+            new Promise<BuilderTurnResult>(res => {
+              resolveA = res;
+            })
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise<BuilderTurnResult>(res => {
+              resolveB = res;
+            })
+        );
+
+      const { result } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+
+      // Fire A then, in the SAME synchronous batch (no `await` in between, no
+      // re-render has committed yet), fire B — both dispatch.
+      let sendAPromise: Promise<WorkflowBuilderSendResult> | undefined;
+      let sendBPromise: Promise<WorkflowBuilderSendResult> | undefined;
+      act(() => {
+        sendAPromise = result.current.send({
+          displayText: 'first',
+          request: { mode: 'create', instruction: 'a' },
+        });
+        sendBPromise = result.current.send({
+          displayText: 'second',
+          request: { mode: 'create', instruction: 'b' },
+        });
+      });
+      // Both calls already made their (stale-closure) `if (localSending)`
+      // decision synchronously above, before either awaited anything — the
+      // `waitFor` below just lets those already-decided calls' pending
+      // microtasks (e.g. the `addMessageLocal` dispatch) drain through to
+      // their `buildWorkflow` call.
+      await waitFor(() => expect(buildWorkflow).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.sending).toBe(true));
+
+      // A (the earlier/superseded attempt) settles first — e.g. it was the
+      // one the user hit Stop on. WITHOUT the attempt guard this would clear
+      // `sending` even though B is still genuinely in flight.
+      await act(async () => {
+        resolveA(okResult());
+        await sendAPromise;
+      });
+      expect(result.current.sending).toBe(true);
+
+      // B (the latest attempt) settling is what actually clears `sending`.
+      await act(async () => {
+        resolveB(okResult());
+        await sendBPromise;
+      });
+      expect(result.current.sending).toBe(false);
     });
   });
 });
