@@ -95,6 +95,21 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::crypto_agent::prompt::build,
         graph_fn: None,
     },
+    // General-purpose read-only context/memory retrieval specialist for
+    // automation flows. A flow `agent` node routes here via `config.agent_ref`
+    // for ANY context/style/history/people need — not a fixed list of
+    // cases — looping across several retrievals in one turn when the step
+    // needs it. Strictly read-only (see agent.toml); `context_scout` remains
+    // the right choice only for its structured `[context_bundle]` output.
+    // Not feature-gated: its tool belt has no dependency on the `flows`
+    // feature, so it stays registered (harmlessly unreachable via agent_ref)
+    // even in a slim build without flows.
+    BuiltinAgent {
+        id: "flow_memory_agent",
+        toml: include_str!("flow_memory_agent/agent.toml"),
+        prompt_fn: super::flow_memory_agent::prompt::build,
+        graph_fn: None,
+    },
     BuiltinAgent {
         id: "markets_agent",
         toml: include_str!("markets_agent/agent.toml"),
@@ -758,6 +773,7 @@ mod tests {
         for id in [
             "researcher",
             "context_scout",
+            "flow_memory_agent",
             "integrations_agent",
             "tools_agent",
             "crypto_agent",
@@ -1550,6 +1566,80 @@ mod tests {
         assert!(
             def.subagents.is_empty(),
             "context_scout is a leaf and must not list subagents"
+        );
+    }
+
+    #[test]
+    fn flow_memory_agent_is_read_only_worker_with_bounded_memory_belt() {
+        let def = find("flow_memory_agent");
+        assert_eq!(def.agent_tier, AgentTier::Worker);
+        assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+        assert!(
+            matches!(&def.model, ModelSpec::Hint(h) if h == "burst"),
+            "flow_memory_agent must spawn on the burst tier, got {:?}",
+            def.model
+        );
+        // Bundle cap — load-bearing for the flow's context budget.
+        assert_eq!(def.max_result_chars, Some(4000));
+        // Keeps goals/profile + long-term memory so it can ground retrieval
+        // in who the user is and what they want.
+        assert!(
+            !def.omit_profile,
+            "flow_memory_agent needs PROFILE.md (goals)"
+        );
+        assert!(!def.omit_memory_md, "flow_memory_agent needs MEMORY.md");
+        // Strictly bounded read-only memory/context belt — exactly 8 tools,
+        // no more, no less.
+        match &def.tools {
+            ToolScope::Named(tools) => {
+                let expected = [
+                    "memory_recall",
+                    "memory_hybrid_search",
+                    "memory_flavour",
+                    "people_list",
+                    "transcript_search",
+                    "thread_list",
+                    "thread_read",
+                    "thread_message_list",
+                ];
+                for required in expected {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "flow_memory_agent needs read-only belt tool `{required}`"
+                    );
+                }
+                assert_eq!(
+                    tools.len(),
+                    expected.len(),
+                    "flow_memory_agent scope must be EXACTLY the bounded read-only \
+                     memory belt (got {tools:?})"
+                );
+                for forbidden in [
+                    // `memory_tree` bundles a write mode (`ingest_document`)
+                    // under a ReadOnly-declared wrapper — must never be
+                    // reachable by this auto-run, prompt-injectable agent.
+                    "memory_tree",
+                    "memory_store",
+                    "update_memory_md",
+                    "shell",
+                    "file_write",
+                    "spawn_subagent",
+                    "web_search_tool",
+                    "web_fetch",
+                ] {
+                    assert!(
+                        !tools.iter().any(|t| t == forbidden),
+                        "flow_memory_agent must NOT have `{forbidden}` — it only \
+                         retrieves memory/context"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("flow_memory_agent must have a Named tool scope"),
+        }
+        // Worker leaf: no onward delegation.
+        assert!(
+            def.subagents.is_empty(),
+            "flow_memory_agent is a leaf and must not list subagents"
         );
     }
 
