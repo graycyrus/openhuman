@@ -99,8 +99,9 @@ export function describeNode(
       if (operation === 'people') return 'Looks up people memory';
       if (operation === 'remember') return 'Remembers a value in this workflow';
       if (operation === 'forget') return 'Forgets a value from this workflow';
-      // recall / search
       const scoped = scope ? ` (${scope})` : '';
+      if (operation === 'search') return `Searches memory${scoped}`;
+      // recall
       return `Recalls memory${scoped}`;
     }
     default:

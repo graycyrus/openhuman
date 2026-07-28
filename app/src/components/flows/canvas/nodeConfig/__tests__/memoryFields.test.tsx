@@ -99,4 +99,20 @@ describe('MemoryForm', () => {
     fireEvent.change(screen.getByTestId('node-config-memory-limit'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ limit: undefined });
   });
+
+  it('emits min_score as a number as it is typed', () => {
+    const { onChange } = renderMemoryForm({ operation: 'recall' });
+    fireEvent.change(screen.getByTestId('node-config-memory-min-score'), {
+      target: { value: '0.5' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ min_score: 0.5 });
+  });
+
+  it('emits undefined for min_score when the field is cleared back to empty', () => {
+    // Start from an already-populated `min_score` so clearing it is a genuine
+    // DOM value change (a fresh controlled input already renders blank).
+    const { onChange } = renderMemoryForm({ operation: 'recall', min_score: 0.5 });
+    fireEvent.change(screen.getByTestId('node-config-memory-min-score'), { target: { value: '' } });
+    expect(onChange).toHaveBeenLastCalledWith({ min_score: undefined });
+  });
 });

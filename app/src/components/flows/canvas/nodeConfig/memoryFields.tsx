@@ -31,7 +31,6 @@ import {
   ExpressionField,
   NumberField,
   SelectField,
-  TextField,
 } from './nodeConfigFields';
 import type { UpstreamExpressionOption } from './upstreamOptions';
 
@@ -39,6 +38,22 @@ const log = createDebug('app:flows:nodeConfig:memory');
 
 const MEMORY_OPERATIONS = ['recall', 'search', 'flavour', 'people', 'remember', 'forget'] as const;
 type MemoryOperation = (typeof MEMORY_OPERATIONS)[number];
+
+/**
+ * The seven persona facets the `flavour` operation's `memory_flavour` engine
+ * reader (`src/openhuman/memory/tools/flavour.rs`) accepts — any other slug
+ * returns "Unknown flavour". Rendered as a dropdown rather than free text so
+ * an author can't type an invalid slug (e.g. `email-tone`) in the first place.
+ */
+const MEMORY_FLAVOURS = [
+  'communication',
+  'coding_style',
+  'stack',
+  'workflow',
+  'environment',
+  'directives',
+  'anti_preferences',
+] as const;
 
 /** Operations that read/write at a `scope`. `flavour` and `people` don't take one. */
 const SCOPED_OPERATIONS = new Set<MemoryOperation>(['recall', 'search', 'remember', 'forget']);
@@ -157,13 +172,16 @@ export function MemoryForm({ config, onChange, upstreamOptions }: MemoryFormProp
       )}
 
       {operation === 'flavour' && (
-        <TextField
+        <SelectField
           label={t('flows.nodeConfig.memory.flavourLabel')}
           hint={t('flows.nodeConfig.memory.flavourHint')}
-          value={configString(config, 'flavour')}
+          value={configString(config, 'flavour') || MEMORY_FLAVOURS[0]}
           onChange={v => onChange({ flavour: v })}
-          placeholder="email-tone"
           testId="node-config-memory-flavour"
+          options={MEMORY_FLAVOURS.map(facet => ({
+            value: facet,
+            label: t(`flows.nodeConfig.memory.flavour_${facet}`),
+          }))}
         />
       )}
 
