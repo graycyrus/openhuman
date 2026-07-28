@@ -475,6 +475,14 @@ fn config_hint(node: &Node) -> Option<String> {
             .and_then(Value::as_str)
             .map(|p| format!("path: {p}")),
         NodeKind::SubWorkflow => Some("embedded sub-workflow".to_string()),
+        NodeKind::Memory => {
+            let operation = cfg.get("operation").and_then(Value::as_str).unwrap_or("?");
+            let hint = match cfg.get("scope").and_then(Value::as_str) {
+                Some(scope) => format!("{operation} · {scope}"),
+                None => operation.to_string(),
+            };
+            Some(truncate_hint(&hint))
+        }
         NodeKind::Merge | NodeKind::OutputParser | NodeKind::Trigger => None,
     }
 }

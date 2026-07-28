@@ -364,7 +364,7 @@ impl MemoryProvider for OpenHumanMemory {
 
         tracing::debug!(
             target: "flows",
-            result_count = shaped.get("people").and_then(Value::as_array).map_or(0, Vec::len),
+            result_count = shaped.get("people").and_then(serde_json::Value::as_array).map_or(0, Vec::len),
             "{LOG_PREFIX} people: done"
         );
         Ok(shaped)
