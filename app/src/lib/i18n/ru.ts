@@ -4375,6 +4375,19 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Исходный код',
 
+  'flows.enableApproval.title': 'Разрешить этому рабочему процессу действовать?',
+  'flows.enableApproval.intro':
+    'Этому рабочему процессу нужно ваше разрешение на действия ниже. Одобрение действует только для этого рабочего процесса.',
+  'flows.enableApproval.approveAll': 'Одобрить всё',
+  'flows.enableApproval.deny': 'Отклонить',
+  'flows.enableApproval.granting': 'Одобрение…',
+  'flows.enableApproval.error': 'Не удалось сохранить одобрения. Попробуйте ещё раз.',
+  'flows.enableApproval.blockedHint': 'Заблокировано настройками доступа агента.',
+  'flows.enableApproval.dynamicHint':
+    'Определяется во время выполнения; при необходимости спросит вас.',
+  'flows.enableApproval.agentHint':
+    'Этот шаг ИИ может отдельно запросить разрешение на свои действия.',
+  'flows.enableApproval.deniedDisabled': 'Сохранено, но рабочий процесс остался выключенным.',
   'flows.chooser.title': 'Создать рабочий процесс',
   'flows.chooser.subtitle': 'Выберите, с чего начать.',
   'flows.chooser.scratchTitle': 'Начать с нуля',

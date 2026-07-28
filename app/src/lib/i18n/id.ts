@@ -4348,6 +4348,19 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Kode sumber',
 
+  'flows.enableApproval.title': 'Izinkan alur kerja ini bertindak?',
+  'flows.enableApproval.intro':
+    'Alur kerja ini memerlukan izin Anda untuk tindakan di bawah. Persetujuan hanya berlaku untuk alur kerja ini.',
+  'flows.enableApproval.approveAll': 'Setujui semua',
+  'flows.enableApproval.deny': 'Tolak',
+  'flows.enableApproval.granting': 'Menyetujui…',
+  'flows.enableApproval.error': 'Tidak dapat menyimpan persetujuan. Silakan coba lagi.',
+  'flows.enableApproval.blockedHint': 'Diblokir oleh pengaturan akses agen Anda.',
+  'flows.enableApproval.dynamicHint':
+    'Ditentukan saat alur kerja berjalan; akan bertanya jika diperlukan.',
+  'flows.enableApproval.agentHint':
+    'Langkah AI ini mungkin meminta izin terpisah untuk tindakannya sendiri.',
+  'flows.enableApproval.deniedDisabled': 'Tersimpan, tetapi alur kerja tetap dinonaktifkan.',
   'flows.chooser.title': 'Buat alur kerja',
   'flows.chooser.subtitle': 'Pilih cara Anda ingin memulai.',
   'flows.chooser.scratchTitle': 'Mulai dari awal',

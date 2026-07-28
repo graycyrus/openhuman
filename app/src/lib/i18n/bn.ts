@@ -4334,6 +4334,18 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'সোর্স কোড',
 
+  'flows.enableApproval.title': 'এই ওয়ার্কফ্লোকে কাজ করার অনুমতি দেবেন?',
+  'flows.enableApproval.intro':
+    'নিচের কাজগুলোর জন্য এই ওয়ার্কফ্লোর আপনার অনুমতি দরকার। অনুমোদন শুধু এই ওয়ার্কফ্লোর জন্য প্রযোজ্য।',
+  'flows.enableApproval.approveAll': 'সব অনুমোদন করুন',
+  'flows.enableApproval.deny': 'প্রত্যাখ্যান',
+  'flows.enableApproval.granting': 'অনুমোদন করা হচ্ছে…',
+  'flows.enableApproval.error': 'অনুমোদনগুলো সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+  'flows.enableApproval.blockedHint': 'আপনার এজেন্ট অ্যাক্সেস সেটিংস দ্বারা অবরুদ্ধ।',
+  'flows.enableApproval.dynamicHint':
+    'ওয়ার্কফ্লো চলার সময় নির্ধারিত হয়; প্রয়োজনে আপনাকে জিজ্ঞাসা করবে।',
+  'flows.enableApproval.agentHint': 'এই AI ধাপটি নিজের কাজের জন্য আলাদাভাবে অনুমতি চাইতে পারে।',
+  'flows.enableApproval.deniedDisabled': 'সংরক্ষিত হয়েছে, তবে ওয়ার্কফ্লোটি বন্ধ রাখা হয়েছে।',
   'flows.chooser.title': 'ওয়ার্কফ্লো তৈরি করুন',
   'flows.chooser.subtitle': 'আপনি কীভাবে শুরু করতে চান তা বেছে নিন।',
   'flows.chooser.scratchTitle': 'একদম শুরু থেকে',

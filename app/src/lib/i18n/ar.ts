@@ -4227,6 +4227,17 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'الكود المصدري',
 
+  'flows.enableApproval.title': 'هل تسمح لسير العمل هذا بالتنفيذ؟',
+  'flows.enableApproval.intro':
+    'يحتاج سير العمل هذا إلى إذنك للإجراءات أدناه. تنطبق الموافقة على سير العمل هذا فقط.',
+  'flows.enableApproval.approveAll': 'الموافقة على الكل',
+  'flows.enableApproval.deny': 'رفض',
+  'flows.enableApproval.granting': 'جارٍ الموافقة…',
+  'flows.enableApproval.error': 'تعذر حفظ الموافقات. يرجى المحاولة مرة أخرى.',
+  'flows.enableApproval.blockedHint': 'محظور بموجب إعدادات وصول الوكيل لديك.',
+  'flows.enableApproval.dynamicHint': 'يُحدد أثناء تشغيل سير العمل، وسيطلب إذنك عند الحاجة.',
+  'flows.enableApproval.agentHint': 'قد تطلب خطوة الذكاء الاصطناعي هذه إذنًا منفصلًا لإجراءاتها.',
+  'flows.enableApproval.deniedDisabled': 'تم الحفظ، لكن سير العمل بقي متوقفًا.',
   'flows.chooser.title': 'إنشاء سير عمل',
   'flows.chooser.subtitle': 'اختر كيف تريد أن تبدأ.',
   'flows.chooser.scratchTitle': 'ابدأ من الصفر',

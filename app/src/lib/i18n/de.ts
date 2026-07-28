@@ -4456,6 +4456,19 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Quellcode',
 
+  'flows.enableApproval.title': 'Darf dieser Workflow Aktionen ausführen?',
+  'flows.enableApproval.intro':
+    'Dieser Workflow benötigt deine Erlaubnis für die folgenden Aktionen. Die Freigabe gilt nur für diesen Workflow.',
+  'flows.enableApproval.approveAll': 'Alle freigeben',
+  'flows.enableApproval.deny': 'Ablehnen',
+  'flows.enableApproval.granting': 'Wird freigegeben…',
+  'flows.enableApproval.error':
+    'Die Freigaben konnten nicht gespeichert werden. Bitte erneut versuchen.',
+  'flows.enableApproval.blockedHint': 'Durch deine Agentenzugriffs-Einstellungen blockiert.',
+  'flows.enableApproval.dynamicHint': 'Wird zur Laufzeit bestimmt; bei Bedarf wirst du gefragt.',
+  'flows.enableApproval.agentHint':
+    'Dieser KI-Schritt kann für eigene Aktionen separat nachfragen.',
+  'flows.enableApproval.deniedDisabled': 'Gespeichert, aber der Workflow bleibt ausgeschaltet.',
   'flows.chooser.title': 'Workflow erstellen',
   'flows.chooser.subtitle': 'Wählen Sie, wie Sie beginnen möchten.',
   'flows.chooser.scratchTitle': 'Bei null anfangen',
