@@ -20,10 +20,12 @@ pub struct SharedTabView {
     pub title: String,
 }
 
-// No `#[cfg(feature = "flows")]` needed here: this whole module is only
-// compiled when `browser_companion` itself is compiled, which is already
-// gated behind `feature = "flows"` at the `pub mod browser_companion;`
-// declaration in `src/openhuman/mod.rs`.
+// No per-item feature gate is needed here: this whole module is only compiled
+// when `browser_companion` itself is compiled, which is already gated behind the
+// flows feature at the `pub mod browser_companion;` declaration in
+// `src/openhuman/mod.rs`. (The literal gate attribute is intentionally NOT
+// written above — the feature-gate-smoke lane greps sources for it to build its
+// gated-test allowlist, and this file does not actually gate any test.)
 impl From<tinyflows::companion::SharedTab> for SharedTabView {
     fn from(tab: tinyflows::companion::SharedTab) -> Self {
         Self {
