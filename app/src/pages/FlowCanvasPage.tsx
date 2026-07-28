@@ -617,10 +617,17 @@ function FlowEditor({
   const preauthNavRef = useRef<string | null>(null);
   const preauth = useFlowPreauthorization({
     onSettled: useCallback(
-      (_outcome: 'no-card' | 'approved' | 'denied', settledFlowId: string) => {
+      (outcome: 'no-card' | 'approved' | 'denied', settledFlowId: string) => {
         if (preauthNavRef.current === settledFlowId) {
           preauthNavRef.current = null;
+          log(
+            'preauth settled outcome=%s id=%s — firing deferred draft navigation',
+            outcome,
+            settledFlowId
+          );
           navigate(`/flows/${settledFlowId}`, { replace: true });
+        } else {
+          log('preauth settled outcome=%s id=%s — no deferred navigation', outcome, settledFlowId);
         }
       },
       [navigate]
@@ -641,14 +648,29 @@ function FlowEditor({
     async (next: WorkflowGraph) => {
       const result = await handleSave(next, undefined, undefined, true);
       if (result.wasDraft) {
-        const cardShown = await preauth.checkAfterSave(result.flowId, result.flowEnabled);
+        let cardShown = false;
+        try {
+          cardShown = await preauth.checkAfterSave(result.flowId, result.flowEnabled);
+        } catch (err) {
+          // The flow is already persisted — on failure we must still
+          // navigate, or `isDraft` stays true and a Save retry would call
+          // `createFlow` again, duplicating the flow (same guard as
+          // `handleAcceptProposal`'s enable arm).
+          log('save: pre-authorization check failed id=%s err=%o', result.flowId, err);
+        }
         if (cardShown) {
+          log('save: preauth card shown id=%s — deferring draft navigation', result.flowId);
           preauthNavRef.current = result.flowId;
         } else {
+          log('save: no preauth card id=%s — navigating to flow route', result.flowId);
           navigate(`/flows/${result.flowId}`, { replace: true });
         }
       } else {
-        void preauth.checkAfterSave(result.flowId, result.flowEnabled);
+        preauth
+          .checkAfterSave(result.flowId, result.flowEnabled)
+          .catch(err =>
+            log('save: pre-authorization check failed id=%s err=%o', result.flowId, err)
+          );
       }
     },
     [handleSave, preauth, navigate]

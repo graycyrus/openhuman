@@ -146,6 +146,11 @@ export default function FlowsPage() {
           // directly when no grants are missing, otherwise surfaces the
           // consolidated card and defers the enable to "Approve all".
           const enabledNow = await preauth.beginEnable(flow.id);
+          log(
+            'toggle: id=%s beginEnable settled enabledNow=%s (false = preauth card shown)',
+            flow.id,
+            enabledNow
+          );
           if (enabledNow) {
             const result = await listFlows();
             setFlows(result);

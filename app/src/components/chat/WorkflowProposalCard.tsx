@@ -224,6 +224,7 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
         setErrorMsg(t('flows.enableApproval.deniedDisabled'));
         return;
       }
+      log('preauthorization approved — flow %s armed, completing card', flowId);
       markSourceMessageConsumed();
       markCompleted(flowId);
       onSaved?.();
@@ -267,7 +268,9 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
       // Enable through the pre-authorization check: enables directly when no
       // grants are missing, otherwise the card renders below and the enable
       // waits for "Approve all" (settled via the hook's onSettled above).
+      log('save: routing enable through pre-authorization check id=%s', flowId);
       const enabledNow = await preauth.beginEnable(flowId);
+      log('save: beginEnable settled id=%s enabledNow=%s', flowId, enabledNow);
       setSaving(false);
       if (enabledNow) {
         markSourceMessageConsumed();

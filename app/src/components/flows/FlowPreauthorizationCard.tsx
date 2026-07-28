@@ -69,7 +69,7 @@ export const FlowPreauthorizationCard: React.FC<Props> = ({
               const informational = entry.kind !== 'approvable';
               return (
                 <li
-                  key={`${entry.kind}:${entry.tool_name ?? entry.node_id}`}
+                  key={entry.node_id}
                   data-testid={`flow-preauth-row-${entry.kind}`}
                   className={`flex items-start gap-2 rounded-lg border px-2.5 py-1.5 ${
                     informational

@@ -1065,14 +1065,36 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
             ],
-            outputs: vec![FieldSchema {
-                name: "manifest",
-                ty: TypeSchema::Json,
-                comment:
-                    "{ entries: [{kind, node_id, tool_name?, label, class?}], missing: [string], \
-                     already_trusted: [string], gate_installed: bool }.",
-                required: true,
-            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "entries",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                    comment:
+                        "One per relevant node/tool: {kind: approvable|blocked|dynamic|agent, \
+                         node_id, tool_name?, label, class?}.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "missing",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Approvable trust keys the flow does not yet hold.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "already_trusted",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Approvable trust keys already granted to this flow.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "gate_installed",
+                    ty: TypeSchema::Bool,
+                    comment:
+                        "False when the approval gate is disabled — nothing ever prompts, so \
+                         missing is empty by definition.",
+                    required: true,
+                },
+            ],
         },
         "required_connections" => ControllerSchema {
             namespace: "flows",
