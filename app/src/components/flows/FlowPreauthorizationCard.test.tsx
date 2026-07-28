@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ApprovalManifestEntry } from '../../services/api/flowsApi';
-import { FlowPreauthorizationCard } from './FlowPreauthorizationCard';
+import { FlowPreauthorizationCard, FlowPreauthorizationOverlay } from './FlowPreauthorizationCard';
 
 const ENTRIES: ApprovalManifestEntry[] = [
   {
@@ -94,5 +94,21 @@ describe('FlowPreauthorizationCard', () => {
     expect(
       screen.getByText(/Could not save the approvals\. Please try again\./)
     ).toBeInTheDocument();
+  });
+});
+
+describe('FlowPreauthorizationOverlay', () => {
+  it('wraps the card in a full-screen overlay for page contexts', () => {
+    render(
+      <FlowPreauthorizationOverlay
+        entries={ENTRIES}
+        busy={false}
+        onApproveAll={vi.fn()}
+        onDeny={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('flow-preauthorization-overlay')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-preauthorization-card')).toBeInTheDocument();
   });
 });

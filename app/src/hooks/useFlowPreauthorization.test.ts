@@ -180,6 +180,39 @@ describe('useFlowPreauthorization', () => {
     expect(getApprovalManifest).not.toHaveBeenCalled();
   });
 
+  it('checkAfterSave skips the card (not the save) when the manifest RPC errors', async () => {
+    vi.mocked(getApprovalManifest).mockRejectedValue(new Error('manifest down'));
+    const { result } = renderHook(() => useFlowPreauthorization());
+
+    let shown = true;
+    await act(async () => {
+      shown = await result.current.checkAfterSave('flow-1', true);
+    });
+
+    // The flow is already saved and enabled; a broken manifest must not
+    // block or revert that — the runtime gate still parks per-node.
+    expect(shown).toBe(false);
+    expect(result.current.pending).toBeNull();
+  });
+
+  it('deny failure keeps the card up with an error key', async () => {
+    vi.mocked(getApprovalManifest).mockResolvedValue(MISSING_TWO);
+    vi.mocked(setFlowEnabled).mockRejectedValue(new Error('disable failed'));
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useFlowPreauthorization({ onSettled }));
+
+    await act(async () => {
+      await result.current.beginEnable('flow-1');
+    });
+    await act(async () => {
+      await result.current.deny();
+    });
+
+    expect(result.current.pending).not.toBeNull();
+    expect(result.current.errorKey).toBe('flows.enableApproval.error');
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
   it('checkAfterSave surfaces a no-enable card for an already-enabled flow', async () => {
     vi.mocked(getApprovalManifest).mockResolvedValue(MISSING_TWO);
     const { result } = renderHook(() => useFlowPreauthorization());
