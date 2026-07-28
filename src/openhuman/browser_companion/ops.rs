@@ -75,6 +75,22 @@ fn runtime() -> &'static Mutex<CompanionRuntime> {
     RUNTIME.get_or_init(|| Mutex::new(CompanionRuntime::empty()))
 }
 
+/// Runs `f` against the live server, but ONLY when the relay is genuinely
+/// running — first reaping any listener task that has already exited. Returns
+/// `None` when the relay is not running (never started, stopped, or its
+/// `serve()` died), so every public runtime observation honors listener
+/// liveness rather than reading a stale `server` handle directly.
+fn with_live_server<T>(f: impl FnOnce(&CompanionServer) -> T) -> Option<T> {
+    let mut guard = runtime()
+        .lock()
+        .expect("browser_companion runtime poisoned");
+    guard.reap_if_dead();
+    if !guard.is_running() {
+        return None;
+    }
+    guard.server.as_ref().map(f)
+}
+
 fn workflows_dir(config: &Config) -> std::path::PathBuf {
     config
         .workspace_dir
@@ -209,10 +225,7 @@ pub async fn stop_companion_server() {
 /// paired extension, for later flows wiring (Stage C3). `None` when the
 /// relay is not running.
 pub fn browser_relay() -> Option<Arc<dyn BrowserRelay>> {
-    let guard = runtime()
-        .lock()
-        .expect("browser_companion runtime poisoned");
-    guard.server.as_ref().map(CompanionServer::browser_relay)
+    with_live_server(CompanionServer::browser_relay)
 }
 
 /// Binds a workflow run to an explicitly-shared browser tab so that run's
@@ -226,24 +239,20 @@ pub fn browser_relay() -> Option<Arc<dyn BrowserRelay>> {
 /// tab isn't one the extension has explicitly shared — `tab_not_shared`).
 pub fn bind_run(run_id: &str, tab_id: u64) -> anyhow::Result<()> {
     log::debug!("{LOG_PREFIX} bind_run: entry run_id={run_id} tab_id={tab_id}");
-    let guard = runtime()
-        .lock()
-        .expect("browser_companion runtime poisoned");
-    let Some(server) = guard.server.as_ref() else {
+    let Some(result) = with_live_server(|server| server.bind_run(run_id.to_string(), tab_id))
+    else {
         log::warn!("{LOG_PREFIX} bind_run: relay not running; cannot bind run_id={run_id}");
         return Err(anyhow::anyhow!(
             "browser companion relay is not running; cannot bind run '{run_id}' to tab {tab_id}"
         ));
     };
-    server
-        .bind_run(run_id.to_string(), tab_id)
-        .map_err(|error| {
-            log::warn!(
-                "{LOG_PREFIX} bind_run: CompanionServer::bind_run failed run_id={run_id} \
+    result.map_err(|error| {
+        log::warn!(
+            "{LOG_PREFIX} bind_run: CompanionServer::bind_run failed run_id={run_id} \
              tab_id={tab_id}: {error}"
-            );
-            anyhow::anyhow!("failed to bind run '{run_id}' to browser tab {tab_id}: {error}")
-        })?;
+        );
+        anyhow::anyhow!("failed to bind run '{run_id}' to browser tab {tab_id}: {error}")
+    })?;
     log::info!("{LOG_PREFIX} bind_run: bound run_id={run_id} tab_id={tab_id}");
     Ok(())
 }
@@ -253,28 +262,17 @@ pub fn bind_run(run_id: &str, tab_id: u64) -> anyhow::Result<()> {
 /// idempotent, mirroring `tinyflows::companion::CompanionServer::unbind_run`.
 pub fn unbind_run(run_id: &str) {
     log::debug!("{LOG_PREFIX} unbind_run: entry run_id={run_id}");
-    let guard = runtime()
-        .lock()
-        .expect("browser_companion runtime poisoned");
-    let Some(server) = guard.server.as_ref() else {
+    if with_live_server(|server| server.unbind_run(run_id)).is_none() {
         log::debug!("{LOG_PREFIX} unbind_run: relay not running; no-op");
         return;
-    };
-    server.unbind_run(run_id);
+    }
     log::debug!("{LOG_PREFIX} unbind_run: unbound run_id={run_id} (no-op if it wasn't bound)");
 }
 
 /// Whether a paired extension currently holds an authenticated relay
 /// session. Always `false` when the relay is not running.
 pub fn is_extension_connected() -> bool {
-    let guard = runtime()
-        .lock()
-        .expect("browser_companion runtime poisoned");
-    guard
-        .server
-        .as_ref()
-        .map(CompanionServer::is_extension_connected)
-        .unwrap_or(false)
+    with_live_server(CompanionServer::is_extension_connected).unwrap_or(false)
 }
 
 /// Current lifecycle + pairing snapshot.
@@ -285,14 +283,13 @@ pub fn companion_status(config: &Config) -> BrowserCompanionStatus {
     // Don't report a relay whose listener task already died as running.
     guard.reap_if_dead();
     let running = guard.is_running();
-    let extension_connected = guard
-        .server
-        .as_ref()
+    // Only observe the server when it's genuinely running — consistent with the
+    // public accessors, which all gate on liveness via `with_live_server`.
+    let live_server = running.then(|| guard.server.as_ref()).flatten();
+    let extension_connected = live_server
         .map(CompanionServer::is_extension_connected)
         .unwrap_or(false);
-    let shared_tabs: Vec<_> = guard
-        .server
-        .as_ref()
+    let shared_tabs: Vec<_> = live_server
         .map(|server| server.shared_tabs().into_iter().map(Into::into).collect())
         .unwrap_or_default();
 
