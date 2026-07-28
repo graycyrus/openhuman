@@ -768,6 +768,51 @@ describe('useWorkflowBuilderChat', () => {
       expect(flowsBuildCancel).not.toHaveBeenCalled();
     });
 
+    it('is a no-op before a thread is bound (never sent)', async () => {
+      // No seed thread id and no send() yet, so threadId is null: stop() hits
+      // the no-bound-thread guard and never calls the cancel RPC.
+      const { result } = renderHook(() => useWorkflowBuilderChat());
+      expect(result.current.threadId).toBeNull();
+      await act(async () => {
+        result.current.stop();
+      });
+      expect(flowsBuildCancel).not.toHaveBeenCalled();
+    });
+
+    it('swallows a rejected cancel RPC without an unhandled rejection', async () => {
+      let resolveBuild: (v: BuilderTurnResult) => void = () => {};
+      buildWorkflow.mockReset().mockImplementation(
+        () =>
+          new Promise<BuilderTurnResult>(res => {
+            resolveBuild = res;
+          })
+      );
+      flowsBuildCancel.mockRejectedValue(new Error('cancel rpc down'));
+
+      const { result } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+      let sendPromise: Promise<WorkflowBuilderSendResult> | undefined;
+      act(() => {
+        sendPromise = result.current.send({
+          displayText: 'hi',
+          request: { mode: 'create', instruction: 'x' },
+        });
+      });
+      await waitFor(() => expect(result.current.sending).toBe(true));
+
+      // Stop with a cancel RPC that rejects: the fire-and-forget `.catch` must
+      // handle it (no throw, no unhandled rejection).
+      await act(async () => {
+        result.current.stop();
+      });
+      expect(flowsBuildCancel).toHaveBeenCalledWith('builder-1');
+
+      // Settle the underlying build so no promise dangles past the test.
+      await act(async () => {
+        resolveBuild(okResult());
+        await sendPromise;
+      });
+    });
+
     it("re-send race: an earlier (Stop-cancelled) send settling does not clear a newer send's `sending` flag (attempt guard)", async () => {
       // Regression test for the P2/Major re-send race the review bots
       // flagged. `send()` normally can't dispatch a second turn while
