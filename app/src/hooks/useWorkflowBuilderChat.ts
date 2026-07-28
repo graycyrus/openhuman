@@ -553,9 +553,16 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
     // (gated by the attempt guard above) is the single place `sending` is
     // cleared — clearing it here too would race that settle and could clear
     // a NEWER turn's `sending` if the user re-sent immediately after Stop.
-    void flowsBuildCancel(threadId).then(cancelled => {
-      log('stop: flowsBuildCancel thread=%s cancelled=%s', threadId, cancelled);
-    });
+    void flowsBuildCancel(threadId)
+      .then(cancelled => {
+        log('stop: flowsBuildCancel thread=%s cancelled=%s', threadId, cancelled);
+      })
+      .catch(err => {
+        // Fire-and-forget: a rejected cancel (network/RPC failure) must not
+        // become an unhandled rejection. The in-flight turn's own settle still
+        // clears `sending`; we just log the failed cancel attempt.
+        log('stop: flowsBuildCancel failed thread=%s err=%o', threadId, err);
+      });
   }, [threadId, localSending]);
 
   const clearProposal = useCallback(() => {
