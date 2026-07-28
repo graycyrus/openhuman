@@ -74,10 +74,10 @@ impl Tool for ProposeWorkflowTool {
          forget; config.scope for recall/remember/forget: \"user\" is READ-ONLY, \"flow\" is \
          this flow's own memory and the ONLY scope remember/forget may target, \"flows\" is \
          cross-flow READ-ONLY; config.query for recall/search; config.flavour for the flavour \
-         slug; config.key/config.value for remember/forget. Canonical dedupe pattern: split_out \
-         → memory[recall·flow, query=\"=item.id\"] → condition(\"=nodes.<id>.item.json.found\") \
-         → act on the false branch → memory[remember·flow, key=\"=item.id\"] AFTER the action, \
-         so a failed action never marks an item as done). If \
+         slug; config.key/config.value for remember/forget. Place remember AFTER the real \
+         action it records, never before, so a failed action never marks an item as done. \
+         Exact \"process each item once\" dedup is not reliably expressible via semantic \
+         recall — don't improvise a recall/condition dedupe graph). If \
          validation fails, fix the graph and call this tool again."
     }
 

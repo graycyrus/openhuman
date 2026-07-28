@@ -65,8 +65,8 @@ const USER_NAMESPACE: &str = tinycortex::memory::GLOBAL_NAMESPACE;
 /// security contract; see [`super::caps::OpenHumanAgentRunner`] for the
 /// sibling adapter this one's tier-gate wiring mirrors.
 pub struct OpenHumanMemory {
-    pub config: Arc<Config>,
-    pub security: Arc<SecurityPolicy>,
+    pub(crate) config: Arc<Config>,
+    pub(crate) security: Arc<SecurityPolicy>,
 }
 
 impl OpenHumanMemory {
@@ -187,10 +187,12 @@ impl OpenHumanMemory {
 #[async_trait]
 impl MemoryProvider for OpenHumanMemory {
     /// Backs both `recall` and `search` (`opts.operation` distinguishes them
-    /// purely for the returned envelope's `operation` field — both currently
-    /// route through the same [`Memory::recall`] call; there is no separate
-    /// hybrid-search path reachable through the generic `Arc<dyn Memory>`
-    /// trait object this adapter holds).
+    /// only for the `tracing::debug!` logs below — [`Self::shape_recall_result`]
+    /// returns `{ scope, query, results }` with no `operation` field, so the
+    /// two ops are otherwise indistinguishable in the response; both
+    /// currently route through the same [`Memory::recall`] call, as there is
+    /// no separate hybrid-search path reachable through the generic
+    /// `Arc<dyn Memory>` trait object this adapter holds).
     async fn recall(&self, scope: &str, query: &str, opts: Value) -> Result<Value> {
         let operation: &str = opts
             .get("operation")
@@ -397,9 +399,11 @@ impl MemoryProvider for OpenHumanMemory {
             ));
         }
 
-        let action = json!({ "operation": "remember", "scope": scope, "key": key });
-        self.tier_gate_write("remember", &action).await?;
-
+        // Secret check MUST run before the tier gate / HITL approval prompt
+        // below: `tier_gate_write` can park the run for human approval
+        // (`gate_call_for_tier`), and a likely-secret value must be refused
+        // up front rather than spend that approval round-trip on a write
+        // that was always going to be rejected (review fix — see #5227).
         let content = value_to_content(&value);
         if crate::openhuman::memory_store::safety::has_likely_secret(&content) {
             tracing::warn!(
@@ -412,6 +416,9 @@ impl MemoryProvider for OpenHumanMemory {
                 "memory node: refusing to store content that looks like a secret".to_string(),
             ));
         }
+
+        let action = json!({ "operation": "remember", "scope": scope, "key": key });
+        self.tier_gate_write("remember", &action).await?;
 
         let namespace = self.flow_memory_namespace()?;
         let memory = self.memory().await?;

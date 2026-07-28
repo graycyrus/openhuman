@@ -409,21 +409,20 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    "remembers across runs" actually means for a workflow. A `memory` node with
    `operation: "remember"`/`"forget"` + `scope: "flow"` reads/writes a sandbox
    namespace unique to that saved flow (never the user's memory, never another
-   flow's). The headline use case is dedupe — "don't re-send an item this flow
-   already processed" — via the canonical pattern:
-   ```
-   trigger → tool_call (fetch candidates) → split_out (one item per candidate)
-     → memory [recall · flow, query="=item.id"]
-     → condition ("=nodes.<mem_id>.item.json.results[0].id == item.id")
-         ├─ found  → (skip — already handled)
-         └─ not found → …the real action (send/publish/notify)…
-                      → memory [remember · flow, key="=item.id", value="=item"]
-   ```
-   **Always place the `remember` AFTER the real action, never before** — if
-   the action fails, the item was never marked done, so the next run retries
-   it instead of silently skipping it. If the user asks for a workflow that
-   "remembers" something, this is the mechanism: build it with a `memory`
+   flow's). **Always place the `remember` AFTER the real action, never before**
+   — if the action fails, the item was never marked done, so the next run
+   retries it instead of silently skipping it. If the user asks for a workflow
+   that "remembers" something, this is the mechanism: build it with a `memory`
    node at `scope: "flow"`, not by claiming memory writes are unavailable.
+
+   **Exact "process each item once" dedup is NOT reliably expressible this
+   way.** Semantic `recall` ranks results by similarity, not exact key
+   membership, so there is no sound `recall → condition` pattern that
+   correctly answers "have I already handled this exact item" — don't
+   improvise one. A dedicated dedup primitive is deferred to a future
+   iteration; until it lands, tell the user the workflow can't guarantee
+   exactly-once processing rather than shipping a graph that looks like it
+   dedupes but doesn't.
 
    Use memory reads sparingly — only when the workflow genuinely needs the
    user's context, rather than hardcoding what memory already holds.
@@ -594,28 +593,26 @@ an agent turn itself.
     should dedupe against each other.
 - **`config.query`** (`=`-bindable, required for `recall`/`search`, optional
   for `people`) — the lookup query.
-- **`config.flavour`** (required for `flavour`) — an ask/persona/style slug,
-  e.g. `"email-tone"`.
+- **`config.flavour`** (required for `flavour`) — a persona facet slug: one of
+  `communication` · `coding_style` · `stack` · `workflow` · `environment` ·
+  `directives` · `anti_preferences`, e.g. `"communication"`.
 - **`config.key`** / **`config.value`** (`=`-bindable, required for
   `remember`/`forget`) — the memory key to write/delete, and the value to
   store.
 - **`config.limit`** / **`config.min_score`** (optional, `recall`/`search`) —
   cap the result count / relevance floor.
 
-**The canonical dedupe pattern** (a scheduled digest that must not re-send an
-item it already processed):
-```
-split_out → memory [recall · flow, query="=item.id"]
-  → condition ("=nodes.<mem_id>.item.json.results[0].id == item.id")
-      ├─ found     → (skip)
-      └─ not found → …the real action… → memory [remember · flow, key="=item.id"]
-```
-Put `remember` **after** the real action, not before — a failed action must
-never be mistaken for a completed one on the next run. See the `agent` node
-kind's "Reading the user's memory at run time" section above for how this
-node relates to `tool_call oh:memory_recall` and `flow_memory_agent` — all
-three are valid; `memory` is the right choice specifically when a
-non-reasoning node needs to branch on the result.
+**Dedup is out of scope for this node.** Exact "have I already processed this
+item" membership checks are not reliably expressible via semantic `recall` —
+`results` is similarity-ranked, not an exact-match lookup, so a
+`recall → condition` graph cannot safely gate on it. Don't author one; a
+dedicated dedup primitive is deferred to a future iteration. Put `remember`
+**after** the real action it records, not before — a failed action must never
+be mistaken for a completed one on the next run. See the `agent` node kind's
+"Reading the user's memory at run time" section above for how this node
+relates to `tool_call oh:memory_recall` and `flow_memory_agent` — all three
+are valid; `memory` is the right choice specifically when a non-reasoning node
+needs to branch on the result.
 
 ### Expressions: the `=` / jq convention
 

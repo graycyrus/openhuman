@@ -97,6 +97,57 @@ async fn remember_flow_scope_without_trusted_origin_errs() {
     assert!(err.to_string().contains("trusted Workflow-scoped origin"));
 }
 
+// ── secret check runs BEFORE the HITL approval gate (P1 review fix) ──
+
+/// Regression for the review finding that `has_likely_secret` ran AFTER
+/// `tier_gate_write` (which can park the run for human approval via
+/// `gate_call_for_tier`) — a user could approve a write that then silently
+/// failed the secret heuristic, wasting the approval round-trip.
+///
+/// This is asserted indirectly but unambiguously: with NO trusted
+/// `TrustedAutomation { Workflow }` origin scoped, `remember`'s later steps
+/// (the tier-gate write summary is fine, but `flow_memory_namespace` —
+/// reached only AFTER the tier gate — requires one and errors
+/// `"trusted Workflow-scoped origin"` if missing, see
+/// `remember_flow_scope_without_trusted_origin_errs` above). If the secret
+/// check now runs strictly first, a secret-shaped value must fail with the
+/// secret-rejection message instead of ever reaching that later trusted-origin
+/// check — proving the reject happens before both the approval gate AND the
+/// flow-id resolution that follows it.
+#[tokio::test]
+async fn remember_rejects_secret_before_reaching_trusted_origin_or_approval_gate() {
+    let (_tmp, adapter) = adapter(AutonomyLevel::Full);
+    let err = adapter
+        .remember("flow", "k", json!("api_key=abc123"))
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("looks like a secret"),
+        "expected the secret rejection to fire first, got: {err}"
+    );
+    assert!(
+        !err.to_string().contains("trusted Workflow-scoped origin"),
+        "secret check must short-circuit before flow-id/approval resolution, got: {err}"
+    );
+}
+
+/// Same proof under `Supervised` autonomy, where `CommandClass::Write` is
+/// `GateDecision::Prompt` and — with a real `ApprovalGate` installed —
+/// `tier_gate_write` would park for human approval. The secret rejection
+/// must still win the race: it never even calls into the tier gate.
+#[tokio::test]
+async fn remember_rejects_secret_under_supervised_autonomy_without_approval_round_trip() {
+    let (_tmp, adapter) = adapter(AutonomyLevel::Supervised);
+    let err = adapter
+        .remember("flow", "k", json!("Bearer abcdefghijklmnopqrstuvwxyz"))
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("looks like a secret"),
+        "expected the secret rejection to fire before any approval prompt, got: {err}"
+    );
+}
+
 #[tokio::test]
 async fn recall_flow_scope_without_trusted_origin_errs() {
     let (_tmp, adapter) = adapter(AutonomyLevel::Full);
