@@ -7163,19 +7163,18 @@ pub async fn compute_approval_manifest(config: &Config, graph: &WorkflowGraph) -
                     _ => {}
                 }
             }
-            NodeKind::Agent => {
+            NodeKind::Agent
                 if node
                     .config
                     .get("agent_ref")
                     .and_then(Value::as_str)
-                    .is_some_and(|r| !r.trim().is_empty())
-                {
-                    entries.push(json!({
-                        "kind": "agent",
-                        "node_id": node.id,
-                        "label": "AI step — may ask for permission for its own actions",
-                    }));
-                }
+                    .is_some_and(|r| !r.trim().is_empty()) =>
+            {
+                entries.push(json!({
+                    "kind": "agent",
+                    "node_id": node.id,
+                    "label": "AI step — may ask for permission for its own actions",
+                }));
             }
             _ => {}
         }
