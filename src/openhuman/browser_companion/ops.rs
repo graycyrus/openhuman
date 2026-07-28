@@ -27,6 +27,11 @@ const CAPS_STATE_NAMESPACE: &str = "browser-companion";
 struct CompanionRuntime {
     server: Option<CompanionServer>,
     task: Option<tokio::task::JoinHandle<()>>,
+    /// The extension id the running relay was actually started with. This is
+    /// the authoritative source for status + restart — NOT `Config`, which may
+    /// hold a stale/default value after an unpersisted `pair` (Stage E persists
+    /// it; until then only the runtime knows the live id).
+    active_extension_id: Option<String>,
 }
 
 impl CompanionRuntime {
@@ -34,6 +39,32 @@ impl CompanionRuntime {
         Self {
             server: None,
             task: None,
+            active_extension_id: None,
+        }
+    }
+
+    /// True only when a server is stored AND its listener task is still alive.
+    /// A task that already finished means `serve()` exited (e.g. the internal
+    /// bind failed) — so a stored `server` alone must NOT be reported running.
+    fn is_running(&self) -> bool {
+        self.server.is_some() && self.task.as_ref().is_some_and(|task| !task.is_finished())
+    }
+
+    /// Drops a server whose listener task has already exited, so a later start
+    /// is not blocked by dead state left behind by a failed `serve()`.
+    fn reap_if_dead(&mut self) {
+        if self.server.is_some()
+            && self
+                .task
+                .as_ref()
+                .is_some_and(tokio::task::JoinHandle::is_finished)
+        {
+            log::warn!(
+                "{LOG_PREFIX} reap_if_dead: listener task exited unexpectedly; clearing stale runtime state"
+            );
+            self.server = None;
+            self.task = None;
+            self.active_extension_id = None;
         }
     }
 }
@@ -74,10 +105,13 @@ pub async fn start_companion_server(config: &Config) -> anyhow::Result<()> {
 /// enabled-gate must go through [`start_companion_server`].
 async fn start_with_extension_id(config: &Config, extension_id: String) -> anyhow::Result<()> {
     {
-        let guard = runtime()
+        let mut guard = runtime()
             .lock()
             .expect("browser_companion runtime poisoned");
-        if guard.server.is_some() {
+        // A previous `serve()` may have exited (bind failure); clear that dead
+        // state so it does not masquerade as "already running" and block us.
+        guard.reap_if_dead();
+        if guard.is_running() {
             log::debug!("{LOG_PREFIX} start_with_extension_id: already running; no-op");
             return Ok(());
         }
@@ -106,6 +140,10 @@ async fn start_with_extension_id(config: &Config, extension_id: String) -> anyho
     })?;
 
     let capabilities = build_capabilities(Arc::new(config.clone()), CAPS_STATE_NAMESPACE);
+
+    // Keep the id we started with as the authoritative active id (Config may
+    // not yet hold it — `pair` doesn't persist until Stage E).
+    let active_extension_id = extension_id.clone();
 
     let server_config = CompanionServerConfig {
         policy,
@@ -136,6 +174,7 @@ async fn start_with_extension_id(config: &Config, extension_id: String) -> anyho
         .expect("browser_companion runtime poisoned");
     guard.server = Some(server);
     guard.task = Some(task);
+    guard.active_extension_id = Some(active_extension_id);
     log::info!("{LOG_PREFIX} start_with_extension_id: relay started bind_addr={bind_addr}");
     Ok(())
 }
@@ -147,6 +186,7 @@ pub async fn stop_companion_server() {
         let mut guard = runtime()
             .lock()
             .expect("browser_companion runtime poisoned");
+        guard.active_extension_id = None;
         (guard.server.take(), guard.task.take())
     };
 
@@ -157,7 +197,11 @@ pub async fn stop_companion_server() {
 
     if let Some(task) = task {
         task.abort();
-        log::info!("{LOG_PREFIX} stop_companion_server: relay task aborted");
+        // Await the aborted task so its `TcpListener` is actually dropped before
+        // we return. Without this, an immediate pair/rotate restart can lose the
+        // race to re-bind the same loopback port (`Address already in use`).
+        let _ = task.await;
+        log::info!("{LOG_PREFIX} stop_companion_server: relay task aborted and joined");
     }
 }
 
@@ -235,34 +279,35 @@ pub fn is_extension_connected() -> bool {
 
 /// Current lifecycle + pairing snapshot.
 pub fn companion_status(config: &Config) -> BrowserCompanionStatus {
-    let guard = runtime()
+    let mut guard = runtime()
         .lock()
         .expect("browser_companion runtime poisoned");
-    let running = guard.server.is_some();
+    // Don't report a relay whose listener task already died as running.
+    guard.reap_if_dead();
+    let running = guard.is_running();
     let extension_connected = guard
         .server
         .as_ref()
         .map(CompanionServer::is_extension_connected)
         .unwrap_or(false);
-    let shared_tabs = guard
+    let shared_tabs: Vec<_> = guard
         .server
         .as_ref()
         .map(|server| server.shared_tabs().into_iter().map(Into::into).collect())
         .unwrap_or_default();
 
-    let paired_extension_id = if config.browser_companion.extension_id.is_empty() {
-        None
-    } else {
+    // Prefer the id the running relay was actually started with (the live
+    // truth); fall back to Config only when nothing is running (Stage E will
+    // persist the paired id so it survives a restart).
+    let paired_extension_id = guard.active_extension_id.clone().or_else(|| {
         Some(config.browser_companion.extension_id.clone())
-    };
+            .filter(|extension_id| !extension_id.is_empty())
+    });
     let relay_url = running.then(|| relay_url(config.browser_companion.port));
 
     log::debug!(
         "{LOG_PREFIX} companion_status: running={running} extension_connected={extension_connected} shared_tab_count={}",
-        {
-            let count: &Vec<_> = &shared_tabs;
-            count.len()
-        }
+        shared_tabs.len()
     );
 
     BrowserCompanionStatus {
@@ -278,12 +323,12 @@ pub fn companion_status(config: &Config) -> BrowserCompanionStatus {
 /// (rather than whatever is currently persisted in `config`) and returns the
 /// relay URL + current pairing secret.
 ///
-/// `config.browser_companion.extension_id` is **not** mutated here — the
-/// caller of a future RPC handler is responsible for persisting the new
-/// `extension_id` via `config.update_*` (see `TODO(stage-E)`). This
-/// increment only needs the relay itself to come up bound to the new id, so
-/// `extension_id` is threaded straight into [`start_with_extension_id`]
-/// instead of round-tripping through a mutated config copy.
+/// `config.browser_companion.extension_id` is **not** mutated here (Stage E
+/// persists it via `config.update_*` — see `TODO(stage-E)`). The live id is
+/// instead retained in `CompanionRuntime::active_extension_id`, which
+/// [`companion_status`] and [`rotate_secret`] read as the authoritative
+/// source — so status and secret-rotation stay correct across an unpersisted
+/// pair, not just until the next process restart.
 pub async fn pair(config: &Config, extension_id: String) -> anyhow::Result<PairingInfo> {
     log::info!(
         "{LOG_PREFIX} pair: entry extension_id_len={}",
@@ -338,15 +383,22 @@ pub async fn rotate_secret(config: &Config) -> anyhow::Result<PairingInfo> {
         anyhow::anyhow!("failed to rotate pairing secret: {error}")
     })?;
 
-    let was_running = {
-        let guard = runtime()
+    // Capture the live extension id BEFORE stopping so the restart rebinds to
+    // the same id — NOT `config.extension_id`, which may be stale/default after
+    // an unpersisted `pair`. Restarting via `start_companion_server` would also
+    // wrongly re-check `config.enabled` and no-op after such a pair.
+    let active_extension_id = {
+        let mut guard = runtime()
             .lock()
             .expect("browser_companion runtime poisoned");
-        guard.server.is_some()
+        guard.reap_if_dead();
+        guard
+            .is_running()
+            .then(|| guard.active_extension_id.clone().unwrap_or_default())
     };
-    if was_running {
+    if let Some(extension_id) = active_extension_id {
         stop_companion_server().await;
-        start_companion_server(config).await?;
+        start_with_extension_id(config, extension_id).await?;
         log::info!("{LOG_PREFIX} rotate_secret: relay restarted with rotated secret");
     }
 
@@ -369,15 +421,16 @@ mod tests {
 
     #[test]
     fn status_reports_no_paired_extension_for_default_config() {
-        // Deliberately does not assert `status.running`: the lifecycle test
-        // below shares the process-wide runtime static and may be running
-        // concurrently. `paired_extension_id` is derived purely from
-        // `config`, so it's deterministic regardless of runtime state.
         let tmp = tempfile::tempdir().expect("tempdir");
         let config = test_config(tmp.path().to_path_buf());
-        let status = companion_status(&config);
-        assert_eq!(status.paired_extension_id, None);
         assert!(!config.browser_companion.enabled);
+        // `paired_extension_id` now falls back to `config` ONLY when the shared
+        // runtime static is idle (it prefers the running relay's live active
+        // id). Guard on idle so the lifecycle test (which may run concurrently
+        // with a relay up) can't make this flake.
+        if browser_relay().is_none() {
+            assert_eq!(companion_status(&config).paired_extension_id, None);
+        }
     }
 
     #[test]
@@ -385,11 +438,14 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let mut config = test_config(tmp.path().to_path_buf());
         config.browser_companion.extension_id = "abcdefghijklmnopabcdefghijklmnop".to_string();
-        let status = companion_status(&config);
-        assert_eq!(
-            status.paired_extension_id,
-            Some("abcdefghijklmnopabcdefghijklmnop".to_string())
-        );
+        // Same idle-guard rationale as above: the config fallback is only the
+        // reported value when no relay (with its own active id) is running.
+        if browser_relay().is_none() {
+            assert_eq!(
+                companion_status(&config).paired_extension_id,
+                Some("abcdefghijklmnopabcdefghijklmnop".to_string())
+            );
+        }
     }
 
     #[test]
@@ -477,6 +533,37 @@ mod tests {
             "no extension has connected yet"
         );
         assert!(status.shared_tabs.is_empty());
+        // The running relay's active id is reported from the runtime (the live
+        // authoritative source), matching what we started with.
+        assert_eq!(
+            status.paired_extension_id.as_deref(),
+            Some("abcdefghijklmnopabcdefghijklmnop")
+        );
+
+        // Re-pair with a DIFFERENT id: status must reflect the new id even
+        // though `config` still holds the old one and is never mutated — the
+        // runtime's active id is authoritative. Regression for the lost-id bug.
+        let new_id = "ponmlkjihgfedcbaponmlkjihgfedcba";
+        let info = pair(&config, new_id.to_string())
+            .await
+            .expect("pair should restart the relay with the new id");
+        assert!(info.relay_url.starts_with("ws://127.0.0.1:"));
+        let paired = companion_status(&config);
+        assert!(paired.running, "relay should still be running after pair");
+        assert_eq!(paired.paired_extension_id.as_deref(), Some(new_id));
+
+        // Rotate the secret: the relay must stay running (restarted with the
+        // active id, not the disabled/stale config) and return a fresh secret.
+        // Regression for "rotate stops but never restarts after an unpersisted
+        // pair".
+        let rotated = rotate_secret(&config)
+            .await
+            .expect("rotate_secret should restart the running relay");
+        assert!(!rotated.pairing_secret.is_empty());
+        assert!(
+            companion_status(&config).running,
+            "relay should still be running after rotate_secret"
+        );
 
         // bind_run/unbind_run while the relay is running (still the only test
         // in this file exercising the shared runtime static with a real

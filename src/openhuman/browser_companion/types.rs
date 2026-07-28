@@ -63,3 +63,31 @@ pub struct PairingInfo {
     /// The freshly (re)generated pairing secret, exposed exactly once here.
     pub pairing_secret: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_tab_view_preserves_public_fields_and_drops_generation() {
+        let tab = tinyflows::companion::SharedTab {
+            id: 42,
+            window_id: 7,
+            url: "https://example.com/checkout".to_string(),
+            title: "Checkout".to_string(),
+            // `generation` is a relay-internal freshness counter that must NOT
+            // surface to callers — the mapping deliberately drops it.
+            generation: 99,
+        };
+
+        let view: SharedTabView = tab.into();
+
+        assert_eq!(view.id, 42);
+        assert_eq!(view.window_id, 7);
+        assert_eq!(view.url, "https://example.com/checkout");
+        assert_eq!(view.title, "Checkout");
+        // `SharedTabView` structurally has no `generation` field, so there is
+        // nothing internal to leak — asserting the four public fields above is
+        // the whole contract.
+    }
+}
