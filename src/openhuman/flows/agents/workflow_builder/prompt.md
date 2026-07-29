@@ -498,6 +498,22 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
    - **Native OpenHuman tool** — `config.slug` = `oh:<tool_name>` (e.g.
      `oh:web_search`) to call one of the assistant's own built-in tools (search,
      media generation, files, …). No `connection_ref`. Args go in `config.args`.
+   - **Browser automation** (`config.slug` = `browser`): drives the user's own
+     shared Chrome tab through the paired browser-companion extension. No
+     `connection_ref` (it is a built-in capability, not a Composio toolkit).
+     `config.args` MUST carry an `"action"` set to one of: open, snapshot,
+     click, fill, type, get_text, get_title, get_url, screenshot, wait, press,
+     hover, scroll, is_visible, close, find. Include that action's own fields
+     (open needs `url`; click / get_text / is_visible need `selector`; fill
+     needs `selector` + `value`; type needs `text`). Bind a downstream node off
+     a read action (get_text / get_url / snapshot) as
+     `=nodes.<id>.item.json.data.<field>`. A browser node runs only when the
+     user has the extension paired AND a tab shared at run time, so if they have
+     not set that up, say so (Settings then Browser Companion) rather than
+     assuming it works. Discover availability with `list_connectable_toolkits`:
+     `browser` appears there with `type: "builtin"` and a live `connected` flag.
+     Only wire a browser node when the workflow genuinely needs to read or act
+     on a live web page.
 4. **`http_request`** — `config.method` + `config.url`, optional `headers` /
    `body`; `config.connection_ref` = an `http_cred:<name>` for auth.
 5. **`code`** — `config.language` (`"javascript"` | `"python"`) + `config.source`.
