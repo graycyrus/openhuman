@@ -17,8 +17,8 @@ use crate::openhuman::flows::{flow_namespace, Flow, FlowRun};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryTaint};
 use async_trait::async_trait;
 use serde_json::Value;
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, LazyLock, Mutex};
 use tinyflows::model::{NodeKind, TriggerKind};
 use tinyflows::nodes::control_flow::dedup as dedup_node;
 
@@ -512,13 +512,121 @@ fn render_run_digest(flow_name: &str, run: &FlowRun) -> String {
 /// lost); a failed release degrades to "stays tentative", which the `dedup`
 /// node treats as unseen anyway since it only ever consults `committed` —
 /// neither failure mode risks silently dropping an item.
+///
+/// **Commit atomicity (issue #5265, CodeRabbit "Major" on the dedup engine
+/// PR):** the per-node commit itself is a read-modify-write
+/// (`load(committed) → union(tentative) → store(committed) → delete
+/// (tentative)`), not a compare-and-swap. Two overlapping `FlowRunFinished`
+/// events for the SAME `flow_id` (e.g. a scheduled run and a manual re-run
+/// racing each other) could otherwise interleave their read-modify-writes
+/// and have the second writer's `store(committed)` clobber the first
+/// writer's union, silently losing that run's committed keys
+/// (last-writer-wins). [`handle_finished`](Self::handle_finished) closes
+/// that DURABLE half of the race by serializing all of a given flow's
+/// dedup-node settlement through a per-`flow_id` lock (see
+/// [`FLOW_COMMIT_LOCKS`]) — different flows never contend. This does NOT
+/// fix the node-side half: the `dedup` node's own in-run `StateStore`
+/// read-modify-write (a single run unioning its own newly-seen items into
+/// `tentative`) is a separate, still-open limitation documented on
+/// `tinyflows::nodes::control_flow::dedup`'s side; a full CAS-based
+/// `StateStore` is deferred.
 pub struct DedupCommitSubscriber {
     config: Arc<Config>,
+    /// Test-only instrumentation — see [`CommitTestHooks`]. Always `None` in
+    /// production (`DedupCommitSubscriber::new`).
+    #[cfg(test)]
+    test_hooks: Option<Arc<CommitTestHooks>>,
+}
+
+/// Process-global registry of per-flow commit locks (issue #5265). Keyed by
+/// `flow_id` so unrelated flows never contend with each other; the shared
+/// `tokio::sync::Mutex<()>` per key lets [`DedupCommitSubscriber::
+/// handle_finished`] hold a guard across its whole (synchronous)
+/// read-modify-write section for that flow. Mirrors the same
+/// `LazyLock<Mutex<HashMap<K, Arc<tokio::sync::Mutex<()>>>>>` keyed-lock
+/// idiom `update_memory_md`'s `WORKSPACE_WRITE_LOCKS` uses for an analogous
+/// read-modify-write race (#4458) — grepped for an existing pattern before
+/// adding this one; that's the closest match in the crate.
+///
+/// Deliberately unbounded, matching that precedent: flow ids are bounded in
+/// practice (a user's saved flow set), so an evicting map would be
+/// complexity this doesn't need yet.
+static FLOW_COMMIT_LOCKS: LazyLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Returns (creating if needed) the shared async commit lock for `flow_id`.
+fn flow_commit_lock(flow_id: &str) -> Arc<tokio::sync::Mutex<()>> {
+    let mut map = FLOW_COMMIT_LOCKS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    Arc::clone(
+        map.entry(flow_id.to_string())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))),
+    )
+}
+
+/// Test-only scheduling/witness hooks for proving [`FLOW_COMMIT_LOCKS`]'
+/// mutual exclusion. Deliberately **instance-scoped** (owned by one
+/// [`DedupCommitSubscriber`], via [`DedupCommitSubscriber::with_test_hooks`])
+/// rather than a process-global static: cargo's test harness runs different
+/// `#[tokio::test]` functions concurrently on separate OS threads, and a
+/// global counter would have unrelated tests' ordinary (unarmed,
+/// effectively-instant) commits interleave with — and pollute — a
+/// concurrency test's high-water-mark measurement purely by scheduling
+/// chance. Scoping the hooks to one test's own `Arc` means only tasks that
+/// share that specific subscriber instance can ever touch its counters.
+#[cfg(test)]
+#[derive(Default)]
+struct CommitTestHooks {
+    delay_ms: std::sync::atomic::AtomicU64,
+    concurrent: std::sync::atomic::AtomicUsize,
+    max_concurrent: std::sync::atomic::AtomicUsize,
 }
 
 impl DedupCommitSubscriber {
     pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
+        Self {
+            config,
+            #[cfg(test)]
+            test_hooks: None,
+        }
+    }
+
+    /// Test constructor: attaches [`CommitTestHooks`] so a test can arm a
+    /// delay inside the commit critical section and observe how many
+    /// `handle_finished` calls were concurrently inside it.
+    #[cfg(test)]
+    fn with_test_hooks(config: Arc<Config>, hooks: Arc<CommitTestHooks>) -> Self {
+        Self {
+            config,
+            test_hooks: Some(hooks),
+        }
+    }
+
+    /// No-op unless [`Self::with_test_hooks`] attached hooks — awaited right
+    /// after `handle_finished` acquires the per-flow commit lock, while
+    /// still holding it. This is what makes it possible to force two
+    /// spawned tasks to genuinely interleave on a single-threaded test
+    /// executor (there are no other `.await` points inside the
+    /// commit/release critical section to give the executor a chance to
+    /// poll a contending task) — a test can then prove the lock, not
+    /// accidental scheduling luck, is what serializes two overlapping
+    /// `FlowRunFinished` events for the same flow. Compiles to an empty
+    /// async fn body (zero-cost) in non-test builds.
+    async fn maybe_test_delay(&self) {
+        #[cfg(test)]
+        if let Some(hooks) = &self.test_hooks {
+            use std::sync::atomic::Ordering;
+            let now = hooks.concurrent.fetch_add(1, Ordering::SeqCst) + 1;
+            hooks.max_concurrent.fetch_max(now, Ordering::SeqCst);
+
+            let ms = hooks.delay_ms.load(Ordering::SeqCst);
+            if ms > 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            }
+
+            hooks.concurrent.fetch_sub(1, Ordering::SeqCst);
+        }
     }
 
     /// The node ids of every `dedup` node in `flow_id`'s saved graph, or an
@@ -560,6 +668,17 @@ impl DedupCommitSubscriber {
             "[dedup-commit] settling dedup nodes for finished run"
         );
 
+        // Serialize this flow's settlement against any other overlapping
+        // `FlowRunFinished` handling for the SAME flow_id — held across the
+        // whole read-modify-write loop below so two overlapping runs can
+        // never interleave their load(committed)+union(tentative)+
+        // store(committed) and lose one run's keys. See `FLOW_COMMIT_LOCKS`
+        // docs for the full race this closes.
+        let lock = flow_commit_lock(flow_id);
+        let lock_guard = lock.lock().await;
+        tracing::trace!(target: "flows", %flow_id, %run_id, "[dedup-commit] acquired per-flow commit lock");
+        self.maybe_test_delay().await;
+
         let namespace = format!("flow:{flow_id}");
         for node_id in node_ids {
             if success {
@@ -568,6 +687,9 @@ impl DedupCommitSubscriber {
                 self.release(&namespace, &node_id, flow_id, run_id);
             }
         }
+
+        drop(lock_guard);
+        tracing::trace!(target: "flows", %flow_id, %run_id, "[dedup-commit] released per-flow commit lock");
     }
 
     /// Success path: union this node's `tentative` set into `committed`, then
@@ -1432,6 +1554,173 @@ mod tests {
                 .unwrap()
                 .unwrap(),
             json!(["b"])
+        );
+    }
+
+    // ── per-flow commit serialization (issue #5265) ───────────────────
+    //
+    // CodeRabbit "Major" on the dedup engine PR: the commit's
+    // load(committed)+union(tentative)+store(committed) is a
+    // read-modify-write, not a CAS. Two overlapping `FlowRunFinished`
+    // events for the SAME flow could otherwise interleave and have the
+    // second writer's store clobber the first writer's union, silently
+    // losing that run's committed keys. `handle_finished` now serializes
+    // settlement per `flow_id` via `FLOW_COMMIT_LOCKS`.
+    //
+    // Two tests, deliberately split:
+    //
+    // - `..._never_runs_two_commits_for_the_same_flow_concurrently` spawns a
+    //   burst of genuinely overlapping `FlowRunFinished` events for the SAME
+    //   flow_id and proves the LOCK itself provides mutual exclusion (the
+    //   high-water mark of concurrently-active critical sections never
+    //   exceeds 1) — this is the "spawn two tasks contending on the same
+    //   flow_id" case.
+    // - `..._serial_commits_for_the_same_flow_accumulate_via_union` proves
+    //   the property that mutual exclusion protects: settling run after run
+    //   for the same node never clobbers an earlier run's committed keys —
+    //   each contributes to the union.
+    //
+    // These are split rather than combined into one "two runs with two
+    // different tentative sets, truly concurrently, assert union" test
+    // because `tentative` is a single shared KV row per node (not
+    // per-run) — forcing two *different* tentative contents to both survive
+    // a genuinely simultaneous read would require injecting a write from
+    // outside `handle_finished` in the middle of its critical section, which
+    // instead exercises the SEPARATE, still-open node-side race (the
+    // `dedup` node's own in-run `tentative` read-modify-write, documented on
+    // `DedupCommitSubscriber` above as explicitly NOT fixed by this lock).
+    // Together, the two tests below establish the same guarantee end to
+    // end: the lock enforces serialization (test 1), and serialization is
+    // sufficient for correctness (test 2).
+
+    #[tokio::test]
+    async fn dedup_commit_never_runs_two_commits_for_the_same_flow_concurrently() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = flow_with_dedup_node("f-race", "dd");
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let namespace = dedup_state_namespace("f-race");
+        store::kv_set(&config, &namespace, "dedup:dd:tentative", &json!(["seed"])).unwrap();
+
+        // Arm the test-only scheduling hook (see `CommitTestHooks`): every
+        // `handle_finished` call sleeps briefly while holding the per-flow
+        // lock, and records how many calls are concurrently inside that
+        // window. Instance-scoped (not a global static) so this doesn't
+        // interfere with — or get polluted by — unrelated tests that cargo
+        // runs concurrently on other threads. Without a correctly-scoped
+        // lock, a burst of overlapping `FlowRunFinished` events for the SAME
+        // flow_id would pile up inside the critical section together
+        // instead of queuing.
+        let hooks = Arc::new(CommitTestHooks::default());
+        hooks
+            .delay_ms
+            .store(20, std::sync::atomic::Ordering::SeqCst);
+
+        let sub = Arc::new(DedupCommitSubscriber::with_test_hooks(
+            config.clone(),
+            hooks.clone(),
+        ));
+        let mut handles = Vec::new();
+        for i in 0..5 {
+            let sub = sub.clone();
+            handles.push(tokio::spawn(async move {
+                sub.handle(&DomainEvent::FlowRunFinished {
+                    flow_id: "f-race".into(),
+                    run_id: format!("run-{i}"),
+                    status: "completed".into(),
+                })
+                .await;
+            }));
+        }
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        assert_eq!(
+            hooks.concurrent.load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "every critical-section entry must have a matching exit"
+        );
+        assert_eq!(
+            hooks
+                .max_concurrent
+                .load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "the per-flow lock must serialize overlapping FlowRunFinished handling for the \
+             same flow_id — at most one commit critical section may be active at a time"
+        );
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_serial_commits_for_the_same_flow_accumulate_via_union() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = flow_with_dedup_node("f-serial", "dd");
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let namespace = dedup_state_namespace("f-serial");
+        let sub = DedupCommitSubscriber::new(config.clone());
+
+        // Run A finishes, having tentatively seen "a".
+        store::kv_set(&config, &namespace, "dedup:dd:tentative", &json!(["a"])).unwrap();
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-serial".into(),
+            run_id: "run-a".into(),
+            status: "completed".into(),
+        })
+        .await;
+
+        // Run B finishes later, having independently tentatively seen "b".
+        // The per-flow lock (proven by the concurrency test above) is what
+        // guarantees two overlapping runs' `FlowRunFinished` handling
+        // reduces to exactly this serialized order in practice — so this is
+        // the correctness property that mutual exclusion is protecting.
+        store::kv_set(&config, &namespace, "dedup:dd:tentative", &json!(["b"])).unwrap();
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-serial".into(),
+            run_id: "run-b".into(),
+            status: "completed".into(),
+        })
+        .await;
+
+        let committed = store::kv_get(&config, &namespace, "dedup:dd:committed")
+            .unwrap()
+            .expect("committed key must exist after both runs settle");
+        let mut committed: Vec<&str> = committed
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        committed.sort_unstable();
+        assert_eq!(
+            committed,
+            vec!["a", "b"],
+            "settling run B must not clobber run A's already-committed keys — committed is a \
+             running union across every run that has settled, never a last-writer-wins overwrite"
+        );
+        assert!(
+            store::kv_get(&config, &namespace, "dedup:dd:tentative")
+                .unwrap()
+                .is_none(),
+            "tentative must be cleared after each successful commit"
+        );
+    }
+
+    #[test]
+    fn flow_commit_lock_returns_the_same_arc_for_the_same_flow_id_and_differs_across_flows() {
+        let a1 = flow_commit_lock("f-lock-a");
+        let a2 = flow_commit_lock("f-lock-a");
+        assert!(
+            Arc::ptr_eq(&a1, &a2),
+            "the same flow_id must share one lock instance"
+        );
+
+        let b = flow_commit_lock("f-lock-b");
+        assert!(
+            !Arc::ptr_eq(&a1, &b),
+            "different flow_ids must not contend on the same lock"
         );
     }
 }
