@@ -43,6 +43,7 @@ import {
   listFlows,
   runFlow,
   setFlowEnabled,
+  updateFlow,
 } from '../services/api/flowsApi';
 import type { ToastNotification } from '../types/intelligence';
 import WorkflowDiscoveriesPage from './WorkflowDiscoveriesPage';
@@ -51,7 +52,7 @@ import WorkflowRunsPage from './WorkflowRunsPage';
 const log = createDebug('app:flows');
 
 /** Which single row + action currently has a request in flight, if any. */
-type BusyKey = `toggle:${string}` | `run:${string}`;
+type BusyKey = `toggle:${string}` | `expose:${string}` | `run:${string}`;
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -137,6 +138,32 @@ export default function FlowsPage() {
     [busyKey]
   );
 
+  /**
+   * Flips a saved flow's "expose to browser extension" setting (Browser
+   * Companion Part 2 / E3d) via `flows_update`. Mirrors `handleToggle`'s
+   * request-then-refresh shape (no local optimistic flip — the row re-renders
+   * off the server's echoed `Flow` once the RPC resolves).
+   */
+  const handleToggleExpose = useCallback(
+    async (flow: Flow) => {
+      if (busyKey) return;
+      const key: BusyKey = `expose:${flow.id}`;
+      setBusyKey(key);
+      setError(null);
+      log('toggle expose: id=%s next=%s', flow.id, !flow.expose_to_browser);
+      try {
+        const updated = await updateFlow(flow.id, { exposeToBrowser: !flow.expose_to_browser });
+        setFlows(prev => prev.map(f => (f.id === updated.id ? updated : f)));
+      } catch (err) {
+        log('toggle expose failed: id=%s err=%o', flow.id, err);
+        setError(errorMessage(err));
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [busyKey]
+  );
+
   const handleRun = useCallback(
     async (flow: Flow) => {
       if (busyKey) return;
@@ -166,6 +193,7 @@ export default function FlowsPage() {
 
   const busyFor = (flow: Flow): FlowListRowBusy => {
     if (busyKey === `toggle:${flow.id}`) return 'toggle';
+    if (busyKey === `expose:${flow.id}`) return 'expose';
     if (busyKey === `run:${flow.id}`) return 'run';
     return null;
   };
@@ -509,6 +537,7 @@ export default function FlowsPage() {
                   flow={flow}
                   busy={busyFor(flow)}
                   onToggle={f => void handleToggle(f)}
+                  onToggleExpose={f => void handleToggleExpose(f)}
                   onRun={f => void handleRun(f)}
                   onViewRuns={handleViewRuns}
                   onView={handleView}

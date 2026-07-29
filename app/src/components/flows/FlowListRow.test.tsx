@@ -4,8 +4,10 @@
  * last-run/never-run text (including the localized relative-time strings),
  * that the toggle/Run/View runs controls call back with the row's `Flow`,
  * that the flow name itself is the "View" affordance that opens the read-only
- * Workflow Canvas (issue B5b.1), and that the overflow menu routes
- * Export/Duplicate/Delete.
+ * Workflow Canvas (issue B5b.1), that the overflow menu routes
+ * Export/Duplicate/Delete, and that the "expose to browser extension" switch
+ * (Browser Companion Part 2 / E3d) reflects `expose_to_browser` and calls
+ * `onToggleExpose`.
  */
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,6 +27,7 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
     last_run_at: null,
     last_status: null,
     require_approval: false,
+    expose_to_browser: false,
     ...overrides,
   };
 }
@@ -34,6 +37,7 @@ function renderRow(overrides: Partial<FlowListRowProps> = {}) {
   const props: FlowListRowProps = {
     flow: makeFlow(),
     onToggle: vi.fn(),
+    onToggleExpose: vi.fn(),
     onRun: vi.fn(),
     onViewRuns: vi.fn(),
     onView: vi.fn(),
@@ -93,6 +97,33 @@ describe('FlowListRow', () => {
     const { onToggle } = renderRow();
     fireEvent.click(screen.getByTestId('flow-toggle-flow-1'));
     expect(onToggle).toHaveBeenCalledWith(makeFlow());
+  });
+
+  it('reflects the expose-to-browser state on its own switch', () => {
+    renderRow({ flow: makeFlow({ expose_to_browser: true }) });
+    expect(screen.getByTestId('flow-expose-toggle-flow-1')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+  });
+
+  it('reflects the not-exposed state on the expose-to-browser switch', () => {
+    renderRow({ flow: makeFlow({ expose_to_browser: false }) });
+    expect(screen.getByTestId('flow-expose-toggle-flow-1')).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+  });
+
+  it('calls onToggleExpose with the flow when the expose-to-browser switch is clicked', () => {
+    const { onToggleExpose } = renderRow();
+    fireEvent.click(screen.getByTestId('flow-expose-toggle-flow-1'));
+    expect(onToggleExpose).toHaveBeenCalledWith(makeFlow());
+  });
+
+  it('disables the expose-to-browser switch while busy=expose', () => {
+    renderRow({ busy: 'expose' });
+    expect(screen.getByTestId('flow-expose-toggle-flow-1')).toBeDisabled();
   });
 
   it('calls onRun with the flow when the Run button is clicked', () => {

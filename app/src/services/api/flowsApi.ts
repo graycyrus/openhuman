@@ -149,6 +149,12 @@ export interface Flow {
   last_status: string | null;
   /** "Require approval for outbound actions" toggle (issue B2). */
   require_approval: boolean;
+  /**
+   * "Expose to browser extension" toggle (Browser Companion Part 2 / E3b/E3d):
+   * lets the paired Chrome extension's side panel list and trigger this flow.
+   * Defaults `false` server-side when omitted.
+   */
+  expose_to_browser: boolean;
 }
 
 /**
@@ -239,6 +245,12 @@ interface FlowUpdate {
   name?: string;
   graph?: unknown;
   requireApproval?: boolean;
+  /**
+   * "Expose to browser extension" toggle (Browser Companion Part 2 / E3b/E3d)
+   * — mirrors {@link requireApproval}: omitted leaves the flow's current
+   * value untouched, `true`/`false` sets it explicitly.
+   */
+  exposeToBrowser?: boolean;
   /**
    * Optimistic-concurrency token: the flow's `updated_at` as last observed. If
    * the flow changed since, the update is refused with a {@link FlowVersionConflict}
@@ -576,16 +588,18 @@ export async function duplicateFlow(id: string): Promise<Flow> {
  */
 export async function updateFlow(id: string, update: FlowUpdate): Promise<Flow> {
   log(
-    'updateFlow: request id=%s name=%s graph=%s requireApproval=%s',
+    'updateFlow: request id=%s name=%s graph=%s requireApproval=%s exposeToBrowser=%s',
     id,
     update.name ?? '(unchanged)',
     update.graph === undefined ? '(unchanged)' : 'present',
-    update.requireApproval ?? 'unchanged'
+    update.requireApproval ?? 'unchanged',
+    update.exposeToBrowser ?? 'unchanged'
   );
   const params: Record<string, unknown> = { id };
   if (update.name !== undefined) params.name = update.name;
   if (update.graph !== undefined) params.graph = update.graph;
   if (update.requireApproval !== undefined) params.require_approval = update.requireApproval;
+  if (update.exposeToBrowser !== undefined) params.expose_to_browser = update.exposeToBrowser;
   if (update.expectedVersion !== undefined) params.expected_version = update.expectedVersion;
   if (update.strict !== undefined) params.strict = update.strict;
   const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_update', params });

@@ -79,6 +79,7 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
     last_run_at: null,
     last_status: null,
     require_approval: false,
+    expose_to_browser: false,
     ...overrides,
   };
 }

@@ -1,7 +1,9 @@
 /**
  * FlowsPage (issue B5a / B5a.1 / B5b.1) — the Workflows list page. Asserts
  * the loading/empty/error/list states, that toggling a flow calls
- * `setFlowEnabled` and refreshes the row, that Run fires `runFlow`, shows a
+ * `setFlowEnabled` and refreshes the row, that toggling "expose to browser
+ * extension" calls `updateFlow` with `exposeToBrowser` and refreshes the row
+ * (Browser Companion Part 2 / E3d), that Run fires `runFlow`, shows a
  * "Workflow started" toast, and refetches the list, that "View runs" opens
  * `FlowRunsDrawer` for the clicked flow, that clicking a flow's name
  * navigates to its read-only Workflow Canvas (`/flows/:id`, issue B5b.1),
@@ -19,6 +21,7 @@ import FlowsPage from './FlowsPage';
 
 const listFlows = vi.hoisted(() => vi.fn());
 const setFlowEnabled = vi.hoisted(() => vi.fn());
+const updateFlow = vi.hoisted(() => vi.fn());
 const runFlow = vi.hoisted(() => vi.fn());
 const listFlowRuns = vi.hoisted(() => vi.fn());
 const createFlow = vi.hoisted(() => vi.fn());
@@ -33,6 +36,7 @@ const markSuggestionBuilt = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({
   listFlows,
   setFlowEnabled,
+  updateFlow,
   runFlow,
   listFlowRuns,
   createFlow,
@@ -65,6 +69,7 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
     last_run_at: null,
     last_status: null,
     require_approval: false,
+    expose_to_browser: false,
     ...overrides,
   };
 }
@@ -134,6 +139,25 @@ describe('FlowsPage', () => {
     // The toggle is a SettingsSwitch (role=switch) now; state is conveyed via aria-checked.
     await waitFor(() =>
       expect(screen.getByTestId('flow-toggle-flow-1')).toHaveAttribute('aria-checked', 'false')
+    );
+  });
+
+  it('toggles expose-to-browser via updateFlow and reflects the updated state', async () => {
+    listFlows.mockResolvedValue([makeFlow({ expose_to_browser: false })]);
+    updateFlow.mockResolvedValue(makeFlow({ expose_to_browser: true }));
+    renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-expose-toggle-flow-1')).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByTestId('flow-expose-toggle-flow-1'));
+
+    expect(updateFlow).toHaveBeenCalledWith('flow-1', { exposeToBrowser: true });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-expose-toggle-flow-1')).toHaveAttribute(
+        'aria-checked',
+        'true'
+      )
     );
   });
 

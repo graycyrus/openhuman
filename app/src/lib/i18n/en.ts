@@ -4648,6 +4648,9 @@ const en: TranslationMap = {
   'flows.list.toggleEnabled': 'Enable workflow',
   'flows.list.enabled': 'Enabled',
   'flows.list.paused': 'Paused',
+  'flows.list.exposeToBrowser': 'Expose to browser extension',
+  'flows.list.exposeToBrowserHint':
+    "Let the OpenHuman browser extension's side panel list and trigger this workflow.",
   'flows.list.runStarted': 'Workflow started',
   'flows.list.view': 'View workflow',
   'flows.list.export': 'Export',

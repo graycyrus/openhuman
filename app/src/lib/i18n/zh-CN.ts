@@ -3885,6 +3885,8 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': '启用工作流',
   'flows.list.enabled': '已启用',
   'flows.list.paused': '已暂停',
+  'flows.list.exposeToBrowser': '开放给浏览器扩展',
+  'flows.list.exposeToBrowserHint': '允许 OpenHuman 浏览器扩展的侧边栏列出并触发此工作流。',
   'flows.list.runStarted': '工作流已启动',
   'flows.runs.title': '{name} 的运行记录',
   'flows.runs.titleFallback': '工作流运行记录',

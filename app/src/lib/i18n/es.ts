@@ -4169,6 +4169,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'Habilitar flujo de trabajo',
   'flows.list.enabled': 'Habilitado',
   'flows.list.paused': 'Pausado',
+  'flows.list.exposeToBrowser': 'Exponer a la extensión del navegador',
+  'flows.list.exposeToBrowserHint':
+    'Permite que el panel lateral de la extensión de navegador de OpenHuman muestre y active este flujo de trabajo.',
   'flows.list.runStarted': 'Flujo de trabajo iniciado',
   'flows.runs.title': 'Ejecuciones de {name}',
   'flows.runs.titleFallback': 'Ejecuciones del flujo de trabajo',

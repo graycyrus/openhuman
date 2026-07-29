@@ -16,6 +16,7 @@ import {
   resumeFlow,
   runFlow,
   setFlowEnabled,
+  updateFlow,
 } from './flowsApi';
 
 const mockCallCoreRpc = vi.fn();
@@ -257,6 +258,7 @@ describe('flowsApi', () => {
       last_run_at: null,
       last_status: null,
       require_approval: false,
+      expose_to_browser: false,
     };
 
     it('calls openhuman.flows_list with no params', async () => {
@@ -294,6 +296,7 @@ describe('flowsApi', () => {
         last_run_at: null,
         last_status: null,
         require_approval: false,
+        expose_to_browser: false,
       };
       mockCallCoreRpc.mockResolvedValue(cliEnvelope(flow));
 
@@ -310,6 +313,55 @@ describe('flowsApi', () => {
       mockCallCoreRpc.mockRejectedValue(new Error('flow not found'));
 
       await expect(setFlowEnabled('missing', true)).rejects.toThrow('flow not found');
+    });
+  });
+
+  describe('updateFlow', () => {
+    const flow = {
+      id: 'flow-1',
+      name: 'Demo flow',
+      enabled: true,
+      graph: {},
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      last_run_at: null,
+      last_status: null,
+      require_approval: false,
+      expose_to_browser: true,
+    };
+
+    it('maps exposeToBrowser to the expose_to_browser param, mirroring requireApproval', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(flow));
+
+      const result = await updateFlow('flow-1', {
+        requireApproval: true,
+        exposeToBrowser: true,
+      });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_update',
+        params: { id: 'flow-1', require_approval: true, expose_to_browser: true },
+      });
+      expect(result).toEqual(flow);
+    });
+
+    it('omits expose_to_browser from the params when not provided', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(flow));
+
+      await updateFlow('flow-1', { name: 'Renamed' });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_update',
+        params: { id: 'flow-1', name: 'Renamed' },
+      });
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('flow not found'));
+
+      await expect(updateFlow('missing', { exposeToBrowser: true })).rejects.toThrow(
+        'flow not found'
+      );
     });
   });
 

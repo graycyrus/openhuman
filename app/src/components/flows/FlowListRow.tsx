@@ -22,6 +22,14 @@
  * prominent, discoverable element and "view this flow's graph" is the most
  * natural action to hang off it — "View runs" and "Run" stay distinct
  * actions in the button row below.
+ *
+ * "Expose to browser extension" (Browser Companion Part 2 / E3d) sits right
+ * beside the enable/disable switch as a second `SettingsSwitch` — it's a
+ * persistent per-flow setting, same rationale as `enabled`. There's no
+ * existing "Require approval" control on a saved flow's row to pair it with
+ * (that policy is only set at creation/proposal-accept time — see
+ * `FlowCanvasPage`'s `requireApproval` handling), so this mirrors the
+ * `enabled` toggle's placement and interaction pattern instead.
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { Flow } from '../../services/api/flowsApi';
@@ -38,7 +46,7 @@ function PlayIcon() {
 }
 
 /** Which of this row's actions currently has a request in flight, if any. */
-export type FlowListRowBusy = 'toggle' | 'run' | null;
+export type FlowListRowBusy = 'toggle' | 'expose' | 'run' | null;
 
 /** Matches `useT()`'s `t` signature (`I18nContextValue['t']` isn't exported). */
 type TFn = (key: string, fallback?: string) => string;
@@ -46,6 +54,8 @@ type TFn = (key: string, fallback?: string) => string;
 export interface FlowListRowProps {
   flow: Flow;
   onToggle: (flow: Flow) => void;
+  /** Flips this flow's "expose to browser extension" setting (Browser Companion Part 2 / E3d). */
+  onToggleExpose: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
   onViewRuns: (flow: Flow) => void;
   /** Opens the read-only Workflow Canvas for this flow (issue B5b.1). */
@@ -87,6 +97,7 @@ function capitalize(value: string): string {
 const FlowListRow = ({
   flow,
   onToggle,
+  onToggleExpose,
   onRun,
   onViewRuns,
   onView,
@@ -97,6 +108,7 @@ const FlowListRow = ({
 }: FlowListRowProps) => {
   const { t } = useT();
   const toggleBusy = busy === 'toggle';
+  const exposeBusy = busy === 'expose';
   const runBusy = busy === 'run';
 
   const lastRunLabel =
@@ -134,6 +146,21 @@ const FlowListRow = ({
           aria-label={t('flows.list.toggleEnabled')}
           data-testid={`flow-toggle-${flow.id}`}
         />
+        {/* "Expose to browser extension" (Browser Companion Part 2 / E3d) — a
+            persistent per-flow setting, so it's a second SettingsSwitch right
+            beside the enable/disable toggle rather than a one-off action. The
+            wrapping `title` carries the hover description since the row has
+            no room for inline label text. */}
+        <div title={t('flows.list.exposeToBrowserHint')}>
+          <SettingsSwitch
+            id={`flow-expose-switch-${flow.id}`}
+            checked={flow.expose_to_browser}
+            onCheckedChange={() => onToggleExpose(flow)}
+            disabled={exposeBusy}
+            aria-label={t('flows.list.exposeToBrowser')}
+            data-testid={`flow-expose-toggle-${flow.id}`}
+          />
+        </div>
         <Button
           type="button"
           variant="primary"

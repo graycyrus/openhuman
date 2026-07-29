@@ -4152,6 +4152,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'Włącz przepływ pracy',
   'flows.list.enabled': 'Włączony',
   'flows.list.paused': 'Wstrzymany',
+  'flows.list.exposeToBrowser': 'Udostępnij rozszerzeniu przeglądarki',
+  'flows.list.exposeToBrowserHint':
+    'Pozwala panelowi bocznemu rozszerzenia przeglądarki OpenHuman wyświetlać i uruchamiać ten przepływ pracy.',
   'flows.list.runStarted': 'Przepływ pracy uruchomiony',
   'flows.runs.title': 'Przebiegi dla {name}',
   'flows.runs.titleFallback': 'Przebiegi przepływu pracy',

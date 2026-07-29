@@ -4134,6 +4134,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'Включить рабочий процесс',
   'flows.list.enabled': 'Включён',
   'flows.list.paused': 'Приостановлен',
+  'flows.list.exposeToBrowser': 'Открыть доступ расширению браузера',
+  'flows.list.exposeToBrowserHint':
+    'Позволяет боковой панели расширения браузера OpenHuman отображать и запускать этот рабочий процесс.',
   'flows.list.runStarted': 'Рабочий процесс запущен',
   'flows.runs.title': 'Запуски для {name}',
   'flows.runs.titleFallback': 'Запуски рабочего процесса',

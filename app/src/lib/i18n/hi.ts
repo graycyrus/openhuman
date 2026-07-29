@@ -4097,6 +4097,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'वर्कफ़्लो सक्षम करें',
   'flows.list.enabled': 'सक्षम',
   'flows.list.paused': 'रोका गया',
+  'flows.list.exposeToBrowser': 'ब्राउज़र एक्सटेंशन के लिए उपलब्ध कराएं',
+  'flows.list.exposeToBrowserHint':
+    'OpenHuman ब्राउज़र एक्सटेंशन के साइड पैनल को यह वर्कफ़्लो सूचीबद्ध करने और चलाने की अनुमति दें।',
   'flows.list.runStarted': 'वर्कफ़्लो शुरू हुआ',
   'flows.runs.title': '{name} के लिए रन',
   'flows.runs.titleFallback': 'वर्कफ़्लो रन',

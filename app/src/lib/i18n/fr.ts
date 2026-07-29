@@ -4196,6 +4196,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'Activer le workflow',
   'flows.list.enabled': 'Activé',
   'flows.list.paused': 'En pause',
+  'flows.list.exposeToBrowser': "Exposer à l'extension du navigateur",
+  'flows.list.exposeToBrowserHint':
+    "Permet au panneau latéral de l'extension de navigateur OpenHuman de lister et de déclencher ce workflow.",
   'flows.list.runStarted': 'Workflow démarré',
   'flows.runs.title': 'Exécutions de {name}',
   'flows.runs.titleFallback': 'Exécutions du workflow',

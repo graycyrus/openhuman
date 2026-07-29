@@ -4004,6 +4004,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'تفعيل سير العمل',
   'flows.list.enabled': 'مفعّل',
   'flows.list.paused': 'متوقف مؤقتًا',
+  'flows.list.exposeToBrowser': 'إتاحة الوصول لملحق المتصفح',
+  'flows.list.exposeToBrowserHint':
+    'للسماح للوحة الجانبية في ملحق OpenHuman للمتصفح بعرض سير العمل هذا وتشغيله.',
   'flows.list.runStarted': 'بدأ تشغيل سير العمل',
   'flows.runs.title': 'عمليات التشغيل لـ {name}',
   'flows.runs.titleFallback': 'عمليات تشغيل سير العمل',

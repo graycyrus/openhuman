@@ -4099,6 +4099,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'ওয়ার্কফ্লো সক্ষম করুন',
   'flows.list.enabled': 'সক্ষম',
   'flows.list.paused': 'বিরতি দেওয়া',
+  'flows.list.exposeToBrowser': 'ব্রাউজার এক্সটেনশনে প্রকাশ করুন',
+  'flows.list.exposeToBrowserHint':
+    'OpenHuman ব্রাউজার এক্সটেনশনের সাইড প্যানেলে এই ওয়ার্কফ্লো তালিকাভুক্ত ও চালু করার অনুমতি দিন।',
   'flows.list.runStarted': 'ওয়ার্কফ্লো শুরু হয়েছে',
   'flows.runs.title': '{name}-এর জন্য রান',
   'flows.runs.titleFallback': 'ওয়ার্কফ্লো রান',

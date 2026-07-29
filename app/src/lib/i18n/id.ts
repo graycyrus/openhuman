@@ -4113,6 +4113,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': 'Aktifkan alur kerja',
   'flows.list.enabled': 'Aktif',
   'flows.list.paused': 'Dijeda',
+  'flows.list.exposeToBrowser': 'Tampilkan ke ekstensi peramban',
+  'flows.list.exposeToBrowserHint':
+    'Izinkan panel samping ekstensi peramban OpenHuman menampilkan dan menjalankan alur kerja ini.',
   'flows.list.runStarted': 'Alur kerja dimulai',
   'flows.runs.title': 'Proses untuk {name}',
   'flows.runs.titleFallback': 'Proses alur kerja',

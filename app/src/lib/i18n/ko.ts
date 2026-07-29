@@ -4054,6 +4054,9 @@ const messages: TranslationMap = {
   'flows.list.toggleEnabled': '워크플로 활성화',
   'flows.list.enabled': '활성화됨',
   'flows.list.paused': '일시 중지됨',
+  'flows.list.exposeToBrowser': '브라우저 확장 프로그램에 노출',
+  'flows.list.exposeToBrowserHint':
+    'OpenHuman 브라우저 확장 프로그램의 사이드 패널에서 이 워크플로를 나열하고 실행할 수 있도록 합니다.',
   'flows.list.runStarted': '워크플로가 시작되었습니다',
   'flows.runs.title': '{name}의 실행 기록',
   'flows.runs.titleFallback': '워크플로 실행 기록',
