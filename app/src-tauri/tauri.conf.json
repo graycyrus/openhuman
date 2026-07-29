@@ -48,7 +48,8 @@
     ],
     "resources": [
       "../../src/openhuman/agent/prompts",
-      "recipes/**/*"
+      "recipes/**/*",
+      "../../vendor/tinyflows/extension/dist"
     ],
     "linux": {
       "deb": {

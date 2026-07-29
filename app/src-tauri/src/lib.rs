@@ -36,6 +36,11 @@ mod app_update;
 // Artifact export commands (#2779, #3162) — both cross-platform
 // (macOS/Windows/Linux): native Save-As dialog (rfd) + Downloads copy.
 mod artifact_commands;
+// Bundled Chrome extension for the Browser Companion feature — resolves the
+// `bundle.resources`-shipped `vendor/tinyflows/extension/dist` payload,
+// materializes it to a stable app-data path, and helps the user load it
+// unpacked into Chrome.
+mod browser_companion_commands;
 mod cdp;
 // macOS/Linux only: depends on the `nix` crate (a `cfg(unix)` dependency) and
 // resolves a platform cache path that is only defined for those targets. On
@@ -3913,7 +3918,10 @@ pub fn run() {
             mcp_commands::mcp_open_client_config,
             loopback_oauth::start_loopback_oauth_listener,
             loopback_oauth::stop_loopback_oauth_listener,
-            claude_code::claude_code_login_launch
+            claude_code::claude_code_login_launch,
+            browser_companion_commands::browser_companion_extension_path,
+            browser_companion_commands::browser_companion_reveal_extension,
+            browser_companion_commands::browser_companion_open_chrome_extensions
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
