@@ -2,8 +2,9 @@
 //! TinyFlows `CompanionServer` (loopback WebSocket relay to the Chrome
 //! extension) and its pairing secret.
 //!
-//! Increment 1 scope: lifecycle + pairing only. No RPC controllers and no
-//! flows wiring yet — those land in later stages. See
+//! The `browser_companion.*` RPC controller surface (`schemas.rs`) delegates
+//! to the functions here; [`persist_settings`] is the config-persistence
+//! primitive those handlers call before mutating runtime state. See
 //! `src/openhuman/browser_companion/mod.rs` for the module overview.
 
 use std::sync::{Arc, Mutex, OnceLock};
@@ -28,9 +29,10 @@ struct CompanionRuntime {
     server: Option<CompanionServer>,
     task: Option<tokio::task::JoinHandle<()>>,
     /// The extension id the running relay was actually started with. This is
-    /// the authoritative source for status + restart — NOT `Config`, which may
-    /// hold a stale/default value after an unpersisted `pair` (Stage E persists
-    /// it; until then only the runtime knows the live id).
+    /// the authoritative source for status + restart — NOT `Config`, in case
+    /// some caller of the lower-level [`pair`]/[`unpair`] fns bypasses the
+    /// persisting RPC handlers in `schemas.rs` (which call [`persist_settings`]
+    /// first) and leaves `Config` stale relative to the live runtime.
     active_extension_id: Option<String>,
 }
 
@@ -316,23 +318,75 @@ pub fn companion_status(config: &Config) -> BrowserCompanionStatus {
     }
 }
 
+/// Partial update to the persisted `[browser_companion]` config section,
+/// applied by [`persist_settings`]. Each `None` field is left unchanged —
+/// mirrors the `*SettingsPatch` convention used across `config::ops`
+/// (e.g. `config::ops::AutonomySettingsPatch`, `config::ops::MeetSettingsPatch`).
+#[derive(Debug, Clone, Default)]
+pub struct BrowserCompanionSettingsPatch {
+    pub enabled: Option<bool>,
+    pub port: Option<u16>,
+    pub extension_id: Option<String>,
+}
+
+/// Persists a partial update to `[browser_companion]` onto disk, reusing the
+/// same load→mutate→`config.save()` primitive as every other settings
+/// surface (`config::ops::apply_autonomy_settings`,
+/// `config::ops::apply_meet_settings`, …) — see `AGENTS.md`'s config-RPC
+/// notes. Called by the `browser_companion.*` RPC handlers (`schemas.rs`)
+/// BEFORE they act on the runtime, so `enabled`/`port`/`extension_id` survive
+/// a core restart. This is the persistence half of the former
+/// `TODO(stage-E)` markers on [`pair`]/[`unpair`].
+pub async fn persist_settings(
+    config: &mut Config,
+    patch: BrowserCompanionSettingsPatch,
+) -> anyhow::Result<()> {
+    log::debug!(
+        "{LOG_PREFIX} persist_settings: entry enabled={:?} port={:?} extension_id_set={}",
+        patch.enabled,
+        patch.port,
+        patch.extension_id.is_some()
+    );
+
+    if let Some(enabled) = patch.enabled {
+        config.browser_companion.enabled = enabled;
+    }
+    if let Some(port) = patch.port {
+        config.browser_companion.port = port;
+    }
+    if let Some(extension_id) = patch.extension_id {
+        config.browser_companion.extension_id = extension_id;
+    }
+
+    config.save().await.map_err(|error| {
+        log::warn!("{LOG_PREFIX} persist_settings: config save failed: {error}");
+        anyhow::anyhow!("failed to persist browser_companion settings: {error}")
+    })?;
+
+    log::info!(
+        "{LOG_PREFIX} persist_settings: saved to {}",
+        config.config_path.display()
+    );
+    Ok(())
+}
+
 /// Pairs a new extension id: restarts the relay bound to `extension_id`
 /// (rather than whatever is currently persisted in `config`) and returns the
 /// relay URL + current pairing secret.
 ///
-/// `config.browser_companion.extension_id` is **not** mutated here (Stage E
-/// persists it via `config.update_*` — see `TODO(stage-E)`). The live id is
-/// instead retained in `CompanionRuntime::active_extension_id`, which
-/// [`companion_status`] and [`rotate_secret`] read as the authoritative
-/// source — so status and secret-rotation stay correct across an unpersisted
-/// pair, not just until the next process restart.
+/// `config.browser_companion.extension_id` is **not** mutated here — the
+/// `browser_companion.pair` RPC handler (`schemas.rs::handle_pair`) persists
+/// it via [`persist_settings`] BEFORE calling this function, so the value
+/// survives a core restart. This function still treats
+/// `CompanionRuntime::active_extension_id` as the authoritative *live* source
+/// (read by [`companion_status`] and [`rotate_secret`]), because a caller of
+/// this lower-level fn directly (e.g. a future test or internal caller) may
+/// not have gone through the persisting RPC path.
 pub async fn pair(config: &Config, extension_id: String) -> anyhow::Result<PairingInfo> {
     log::info!(
         "{LOG_PREFIX} pair: entry extension_id_len={}",
         extension_id.len()
     );
-    // TODO(stage-E): persist `browser_companion.extension_id` via a
-    // `config.update_*` RPC once the RPC surface for this domain lands.
 
     stop_companion_server().await;
     start_with_extension_id(config, extension_id).await?;
@@ -353,11 +407,11 @@ pub async fn pair(config: &Config, extension_id: String) -> anyhow::Result<Pairi
 /// Clears the pairing (rotates the secret, invalidating the old one) and
 /// stops the relay.
 ///
-/// Same in-memory-only caveat as [`pair`] applies to persisting a cleared
-/// `extension_id` — see `TODO(stage-E)`.
+/// Same as [`pair`]: the `browser_companion.unpair` RPC handler
+/// (`schemas.rs::handle_unpair`) persists the cleared `extension_id` via
+/// [`persist_settings`] before calling this function.
 pub async fn unpair(config: &Config) -> anyhow::Result<()> {
     log::info!("{LOG_PREFIX} unpair: entry");
-    // TODO(stage-E): persist the cleared `extension_id` via `config.update_*`.
 
     let secret_store = resolve_secret_store(config)?;
     secret_store.rotate().map_err(|error| {
@@ -412,6 +466,17 @@ mod tests {
     fn test_config(workspace_dir: std::path::PathBuf) -> Config {
         Config {
             workspace_dir,
+            ..Config::default()
+        }
+    }
+
+    /// Like [`test_config`], but also points `config_path` at a file inside
+    /// the same tempdir so `Config::save()` (called by [`persist_settings`])
+    /// writes there instead of a real user config path.
+    fn persistable_test_config(tmp: &std::path::Path) -> Config {
+        Config {
+            workspace_dir: tmp.join("workspace"),
+            config_path: tmp.join("config.toml"),
             ..Config::default()
         }
     }
@@ -577,5 +642,120 @@ mod tests {
 
         let status = companion_status(&config);
         assert!(!status.running, "relay should report stopped after stop");
+    }
+
+    // ── persist_settings ──────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn persist_settings_writes_extension_id_to_disk() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut config = persistable_test_config(tmp.path());
+
+        persist_settings(
+            &mut config,
+            BrowserCompanionSettingsPatch {
+                extension_id: Some("abcdefghijklmnopabcdefghijklmnop".to_string()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("persist_settings should succeed");
+
+        assert_eq!(
+            config.browser_companion.extension_id,
+            "abcdefghijklmnopabcdefghijklmnop"
+        );
+
+        let on_disk = tokio::fs::read_to_string(&config.config_path)
+            .await
+            .expect("config file should have been written");
+        assert!(
+            on_disk.contains("abcdefghijklmnopabcdefghijklmnop"),
+            "expected saved TOML to contain the paired extension_id, got:\n{on_disk}"
+        );
+    }
+
+    #[tokio::test]
+    async fn persist_settings_clears_extension_id() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut config = persistable_test_config(tmp.path());
+        config.browser_companion.extension_id = "abcdefghijklmnopabcdefghijklmnop".to_string();
+
+        persist_settings(
+            &mut config,
+            BrowserCompanionSettingsPatch {
+                extension_id: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("persist_settings should succeed");
+
+        assert!(config.browser_companion.extension_id.is_empty());
+
+        let on_disk = tokio::fs::read_to_string(&config.config_path)
+            .await
+            .expect("config file should have been written");
+        assert!(
+            !on_disk.contains("abcdefghijklmnopabcdefghijklmnop"),
+            "expected the cleared extension_id to no longer be on disk, got:\n{on_disk}"
+        );
+    }
+
+    #[tokio::test]
+    async fn persist_settings_flips_enabled_and_port() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut config = persistable_test_config(tmp.path());
+        assert!(!config.browser_companion.enabled);
+
+        persist_settings(
+            &mut config,
+            BrowserCompanionSettingsPatch {
+                enabled: Some(true),
+                port: Some(40123),
+                extension_id: None,
+            },
+        )
+        .await
+        .expect("persist_settings should succeed");
+
+        assert!(config.browser_companion.enabled);
+        assert_eq!(config.browser_companion.port, 40123);
+
+        let on_disk = tokio::fs::read_to_string(&config.config_path)
+            .await
+            .expect("config file should have been written");
+        assert!(on_disk.contains("port = 40123"), "{on_disk}");
+
+        // disable() persists the flip back — the same round trip a
+        // `browser_companion.disable` RPC call performs.
+        persist_settings(
+            &mut config,
+            BrowserCompanionSettingsPatch {
+                enabled: Some(false),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("persist_settings should succeed");
+        assert!(!config.browser_companion.enabled);
+    }
+
+    #[tokio::test]
+    async fn persist_settings_no_op_patch_leaves_config_unchanged_but_still_saves() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut config = persistable_test_config(tmp.path());
+        let prior = config.browser_companion.clone();
+
+        persist_settings(&mut config, BrowserCompanionSettingsPatch::default())
+            .await
+            .expect("persist_settings should succeed even with an empty patch");
+
+        assert_eq!(config.browser_companion.enabled, prior.enabled);
+        assert_eq!(config.browser_companion.port, prior.port);
+        assert_eq!(config.browser_companion.extension_id, prior.extension_id);
+        // The config file must exist even for a no-op patch — `enable`/`disable`
+        // handlers always call through `persist_settings` unconditionally.
+        assert!(config.config_path.exists());
     }
 }

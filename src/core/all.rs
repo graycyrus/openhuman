@@ -248,6 +248,15 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Flows,
         crate::openhuman::flows::all_flows_registered_controllers(),
     );
+    // Browser Companion relay: pairing, lifecycle, and status (rides the same
+    // `tinyflows` dependency as `flows`, gated with the same feature — see
+    // `src/openhuman/browser_companion/mod.rs`).
+    #[cfg(feature = "flows")]
+    push(
+        &mut controllers,
+        DomainGroup::Flows,
+        crate::openhuman::browser_companion::all_browser_companion_registered_controllers(),
+    );
     // Proactive task ingestion from external tools (github/notion/linear/clickup)
     push(
         &mut controllers,
@@ -868,6 +877,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         ),
         "cron" => Some("Manage scheduled jobs and run history."),
         "flows" => Some("Create, store, and run automation workflows."),
+        "browser_companion" => Some(
+            "Chrome browser-companion relay: pairing, status, and lifecycle.",
+        ),
         "dashboard" => Some(
             "Operator-facing dashboard aggregations: per-model health comparison rows.",
         ),

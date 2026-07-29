@@ -2,8 +2,8 @@
 //! `CompanionServer` — a loopback WebSocket relay the Chrome extension
 //! connects to so native workflow runs can drive/observe the user's browser.
 //!
-//! **Increment 1 scope** (this module): server lifecycle (start/stop),
-//! pairing (pair/unpair/rotate secret), and status reporting.
+//! **Increment 1 scope**: server lifecycle (start/stop), pairing
+//! (pair/unpair/rotate secret), and status reporting.
 //!
 //! **Increment 2** added [`bind_run`]/[`unbind_run`] (Stage C3 — flows
 //! wiring): `src/openhuman/flows/ops.rs` calls these around a real
@@ -11,8 +11,15 @@
 //! `tool_call { slug: "browser" }` node, binding the run's `thread_id` to the
 //! caller-selected shared tab so its `slug:"browser"` calls (routed through
 //! [`browser_relay`] wrapped in `tinyflows::browser::RoutingToolInvoker`) are
-//! authorized. No RPC controllers (`browser_companion.*`) yet — that still
-//! lands in a later stage.
+//! authorized.
+//!
+//! **Increment 3 (Part 2 / Stage E1)** adds the `browser_companion.*`
+//! JSON-RPC controller surface ([`schemas`], re-exported below) —
+//! `status`/`enable`/`disable`/`pair`/`unpair`/`rotate_secret` — plus config
+//! persistence of `enabled`/`port`/`extension_id` via
+//! [`ops::persist_settings`], removing the earlier `TODO(stage-E)` markers on
+//! [`pair`]/[`unpair`]. No frontend, Tauri, or extension-inbound-trigger work
+//! yet — those remain later increments.
 //!
 //! Entirely gated behind the existing `flows` Cargo feature — this domain
 //! rides the same `tinyflows` dependency as `openhuman::flows` /
@@ -26,12 +33,18 @@
 //! selected by `ServiceSet::companion_relay`.
 
 mod ops;
+mod schemas;
 mod store;
 mod types;
 
 pub use ops::{
-    bind_run, browser_relay, companion_status, is_extension_connected, pair, rotate_secret,
-    start_companion_server, stop_companion_server, unbind_run, unpair,
+    bind_run, browser_relay, companion_status, is_extension_connected, pair, persist_settings,
+    rotate_secret, start_companion_server, stop_companion_server, unbind_run, unpair,
+    BrowserCompanionSettingsPatch,
+};
+pub use schemas::{
+    all_controller_schemas as all_browser_companion_controller_schemas,
+    all_registered_controllers as all_browser_companion_registered_controllers,
 };
 pub use types::{BrowserCompanionStatus, PairingInfo, SharedTabView};
 

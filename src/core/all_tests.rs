@@ -1096,6 +1096,32 @@ fn flows_controllers_absent_when_feature_off() {
     );
 }
 
+/// The `browser_companion` namespace (Part 2 / Stage E1) rides the same
+/// `flows` feature gate as `flows` itself — see
+/// `src/openhuman/browser_companion/mod.rs`. Paired with
+/// `browser_companion_controllers_absent_when_feature_off` below to pin both
+/// directions.
+#[cfg(feature = "flows")]
+#[test]
+fn browser_companion_controllers_registered_when_feature_on() {
+    assert_eq!(
+        group_for_namespace("browser_companion"),
+        Some(DomainGroup::Flows),
+        "browser_companion must register under DomainGroup::Flows when the `flows` feature is on"
+    );
+}
+
+#[cfg(not(feature = "flows"))]
+#[test]
+fn browser_companion_controllers_absent_when_feature_off() {
+    assert_eq!(
+        group_for_namespace("browser_companion"),
+        None,
+        "browser_companion must not register when the `flows` feature is off \
+         (unknown-method over /rpc, omitted from /schema)"
+    );
+}
+
 /// All three Meet namespaces register when the `meet` feature is on (#4800).
 ///
 /// Paired with `meet_controllers_absent_when_feature_off` below: together they
