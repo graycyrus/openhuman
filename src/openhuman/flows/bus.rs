@@ -19,7 +19,8 @@ use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use tinyflows::model::TriggerKind;
+use tinyflows::model::{NodeKind, TriggerKind};
+use tinyflows::nodes::control_flow::dedup as dedup_node;
 
 /// Reads `trigger_kind` from a flow's trigger node config, deserializing into
 /// `tinyflows::model::TriggerKind`. Returns `None` when the flow doesn't have
@@ -471,6 +472,233 @@ fn render_run_digest(flow_name: &str, run: &FlowRun) -> String {
     truncate_chars(&out, DIGEST_MAX_CHARS)
 }
 
+/// Listens for `DomainEvent::FlowRunFinished` and settles every `dedup` node
+/// in the finished flow's graph — the host half of the commit-on-success
+/// exactly-once contract the tinyflows `dedup` node depends on (issue #5263
+/// PR2; the filter half — `DedupNode` — is PR1, already in `vendor/tinyflows`;
+/// see `tinyflows::nodes::control_flow::dedup`'s module docs for the full
+/// two-sided contract this subscriber implements).
+///
+/// For every `dedup` node found in the flow's saved graph:
+/// - **Success** (`"completed"` / `"completed_with_warnings"`): unions the
+///   node's `tentative` key set into its `committed` set, then clears
+///   `tentative`. `completed_with_warnings` counts as success — the run
+///   reached a terminal, non-retried outcome, so the items it processed are
+///   genuinely done even if some non-fatal step warned.
+/// - **Anything else** (`"failed"` / `"cancelled"` / `"interrupted"`, or any
+///   future/unrecognized status string): clears `tentative` only, leaving
+///   `committed` untouched, so the released keys are exactly as unseen as
+///   before this run and the flow's next run reprocesses them. An
+///   unrecognized status is deliberately treated as failure, not success —
+///   "retry an already-done item" is always safe, "silently mark an
+///   uncertain outcome as done" is not.
+///
+/// `StateStore` exposes no prefix-scan, so the only way to know which
+/// `dedup:<node_id>:*` keys exist for a flow is to derive `<node_id>` from
+/// the flow's own saved graph — this subscriber loads `flow_id`'s graph on
+/// every event rather than trying to infer node ids from the event itself.
+///
+/// Reuses the exact same per-flow `StateStore` namespace
+/// (`"flow:<flow_id>"`, see `tinyflows::caps::build_capabilities` in
+/// `src/openhuman/tinyflows/caps.rs`) the engine's `FlowStateStore` hands the
+/// `dedup` node during the run — that collision with the node's own keys is
+/// the entire point.
+///
+/// Best-effort throughout: every failure here is logged via `tracing::warn!`
+/// and swallowed, never propagated — by the time this subscriber observes
+/// `FlowRunFinished`, the run has already settled its own `flow_runs` row, so
+/// a state-store hiccup here must never retroactively affect run status. A
+/// failed commit degrades to "retry next run" (an item is reprocessed, never
+/// lost); a failed release degrades to "stays tentative", which the `dedup`
+/// node treats as unseen anyway since it only ever consults `committed` —
+/// neither failure mode risks silently dropping an item.
+pub struct DedupCommitSubscriber {
+    config: Arc<Config>,
+}
+
+impl DedupCommitSubscriber {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+
+    /// The node ids of every `dedup` node in `flow_id`'s saved graph, or an
+    /// empty vec (logged, not propagated) if the flow can't be loaded — a
+    /// flow deleted between run-finish and this handler firing, or a
+    /// transient store error, both degrade to "nothing to settle" rather than
+    /// panicking the event bus.
+    fn dedup_node_ids(&self, flow_id: &str) -> Vec<String> {
+        match store::get_flow(&self.config, flow_id) {
+            Ok(Some(flow)) => flow
+                .graph
+                .nodes
+                .iter()
+                .filter(|n| n.kind == NodeKind::Dedup)
+                .map(|n| n.id.clone())
+                .collect(),
+            Ok(None) => {
+                tracing::debug!(target: "flows", %flow_id, "[dedup-commit] flow no longer exists — skipping");
+                Vec::new()
+            }
+            Err(e) => {
+                tracing::warn!(target: "flows", %flow_id, error = %e, "[dedup-commit] failed to load flow graph — skipping");
+                Vec::new()
+            }
+        }
+    }
+
+    async fn handle_finished(&self, flow_id: &str, run_id: &str, status: &str) {
+        let node_ids = self.dedup_node_ids(flow_id);
+        if node_ids.is_empty() {
+            tracing::trace!(target: "flows", %flow_id, %run_id, %status, "[dedup-commit] no dedup nodes in this flow — nothing to settle");
+            return;
+        }
+
+        let success = matches!(status, "completed" | "completed_with_warnings");
+        tracing::debug!(
+            target: "flows", %flow_id, %run_id, %status, success,
+            dedup_node_count = node_ids.len(),
+            "[dedup-commit] settling dedup nodes for finished run"
+        );
+
+        let namespace = format!("flow:{flow_id}");
+        for node_id in node_ids {
+            if success {
+                self.commit(&namespace, &node_id, flow_id, run_id);
+            } else {
+                self.release(&namespace, &node_id, flow_id, run_id);
+            }
+        }
+    }
+
+    /// Success path: union this node's `tentative` set into `committed`, then
+    /// clear `tentative`.
+    fn commit(&self, namespace: &str, node_id: &str, flow_id: &str, run_id: &str) {
+        let tentative_key = dedup_node::tentative_key(node_id);
+        let committed_key = dedup_node::committed_key(node_id);
+
+        let tentative = load_key_set(&self.config, namespace, &tentative_key);
+        if tentative.is_empty() {
+            tracing::trace!(target: "flows", %flow_id, %run_id, node_id, "[dedup-commit] no tentative keys — nothing to commit");
+            return;
+        }
+
+        let mut committed = load_key_set(&self.config, namespace, &committed_key);
+        let added = tentative
+            .iter()
+            .filter(|k| committed.insert((*k).clone()))
+            .count();
+
+        if let Err(e) = store_key_set(&self.config, namespace, &committed_key, &committed) {
+            tracing::warn!(
+                target: "flows", %flow_id, %run_id, node_id, error = %e,
+                "[dedup-commit] failed to write committed set — tentative left in place, will \
+                 retry the commit on this node's next successful run"
+            );
+            return;
+        }
+        tracing::debug!(
+            target: "flows", %flow_id, %run_id, node_id, added, committed_len = committed.len(),
+            "[dedup-commit] committed tentative keys"
+        );
+
+        if let Err(e) = store::kv_delete(&self.config, namespace, &tentative_key) {
+            tracing::warn!(
+                target: "flows", %flow_id, %run_id, node_id, error = %e,
+                "[dedup-commit] committed but failed to clear tentative — harmless: the next \
+                 run's dedup load will re-union the same, now-already-committed keys (committed \
+                 is a set, so re-adding them is a no-op)"
+            );
+        }
+    }
+
+    /// Failure path: clear `tentative` only, leaving `committed` untouched so
+    /// the released keys retry on the flow's next run.
+    fn release(&self, namespace: &str, node_id: &str, flow_id: &str, run_id: &str) {
+        let released =
+            load_key_set(&self.config, namespace, &dedup_node::tentative_key(node_id)).len();
+        if released == 0 {
+            tracing::trace!(target: "flows", %flow_id, %run_id, node_id, "[dedup-commit] no tentative keys — nothing to release");
+            return;
+        }
+        match store::kv_delete(&self.config, namespace, &dedup_node::tentative_key(node_id)) {
+            Ok(()) => tracing::debug!(
+                target: "flows", %flow_id, %run_id, node_id, released,
+                "[dedup-commit] released tentative keys — will retry next run"
+            ),
+            Err(e) => tracing::warn!(
+                target: "flows", %flow_id, %run_id, node_id, error = %e,
+                "[dedup-commit] failed to release tentative — those keys remain tentative until \
+                 a future successful commit reconciles them (harmless: committed stays untouched \
+                 either way, so no item is ever wrongly marked done)"
+            ),
+        }
+    }
+}
+
+#[async_trait]
+impl EventHandler for DedupCommitSubscriber {
+    fn name(&self) -> &str {
+        "flows::dedup_commit"
+    }
+
+    fn domains(&self) -> Option<&[&str]> {
+        // Same reasoning as `FlowRunDigestSubscriber::domains` just above:
+        // `FlowRunFinished` is tagged `"cron"` by `DomainEvent::domain()`.
+        Some(&["cron"])
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        if let DomainEvent::FlowRunFinished {
+            flow_id,
+            run_id,
+            status,
+        } = event
+        {
+            self.handle_finished(flow_id, run_id, status).await;
+        }
+    }
+}
+
+/// Loads a `dedup` node's key set (stored as a JSON array of strings) from
+/// the flow-state KV table. Mirrors
+/// `tinyflows::nodes::control_flow::dedup`'s own key-set loader: a missing
+/// key, a non-array value, or an array with non-string elements all degrade
+/// to an empty set rather than an error — a first run against a fresh store
+/// has nothing recorded yet, which is not a fault.
+fn load_key_set(config: &Config, namespace: &str, key: &str) -> HashSet<String> {
+    match store::kv_get(config, namespace, key) {
+        Ok(Some(value)) => value
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        Ok(None) => HashSet::new(),
+        Err(e) => {
+            tracing::warn!(target: "flows", %namespace, key, error = %e, "[dedup-commit] failed to load key set — treating as empty");
+            HashSet::new()
+        }
+    }
+}
+
+/// Persists `set` under `key` as a JSON array of strings, sorted for a
+/// stable, diffable on-disk representation (membership is exact-match either
+/// way, so sort order carries no semantic meaning).
+fn store_key_set(
+    config: &Config,
+    namespace: &str,
+    key: &str,
+    set: &HashSet<String>,
+) -> anyhow::Result<()> {
+    let mut keys: Vec<String> = set.iter().cloned().collect();
+    keys.sort_unstable();
+    let value = Value::Array(keys.into_iter().map(Value::String).collect());
+    store::kv_set(config, namespace, key, &value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,6 +750,38 @@ mod tests {
             enabled,
             graph: WorkflowGraph {
                 nodes: vec![trigger_node(trigger_config)],
+                ..Default::default()
+            },
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+            last_run_at: None,
+            last_status: None,
+            require_approval: false,
+        }
+    }
+
+    fn dedup_node(id: &str) -> Node {
+        Node {
+            id: id.to_string(),
+            kind: NodeKind::Dedup,
+            type_version: 1,
+            name: id.to_string(),
+            config: json!({ "key": "=item.id" }),
+            ports: Vec::new(),
+            position: None,
+        }
+    }
+
+    /// A saved flow with a `trigger` node plus one `dedup` node with id
+    /// `dedup_id` — the minimal graph [`DedupCommitSubscriber::dedup_node_ids`]
+    /// needs to find something to settle.
+    fn flow_with_dedup_node(id: &str, dedup_id: &str) -> Flow {
+        Flow {
+            id: id.to_string(),
+            name: id.to_string(),
+            enabled: true,
+            graph: WorkflowGraph {
+                nodes: vec![trigger_node(json!({})), dedup_node(dedup_id)],
                 ..Default::default()
             },
             created_at: "2026-01-01T00:00:00Z".to_string(),
@@ -934,5 +1194,244 @@ mod tests {
         assert!(digest.contains("completed"));
         assert!(digest.contains("n1"));
         assert!(digest.chars().count() <= DIGEST_MAX_CHARS);
+    }
+
+    // ── DedupCommitSubscriber ────────────────────────────────────────
+
+    fn dedup_state_namespace(flow_id: &str) -> String {
+        // MUST match `tinyflows::build_capabilities`'s `state_namespace`
+        // (`src/openhuman/tinyflows/caps.rs`) — this test asserts the
+        // subscriber collides with the SAME keys the engine's `dedup` node
+        // itself reads/writes, not just "some" namespace.
+        format!("flow:{flow_id}")
+    }
+
+    #[test]
+    fn dedup_commit_name_and_domains_are_stable() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = DedupCommitSubscriber::new(test_config(&tmp));
+        assert_eq!(sub.name(), "flows::dedup_commit");
+        assert_eq!(sub.domains(), Some(&["cron"][..]));
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_ignores_unrelated_events() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = DedupCommitSubscriber::new(test_config(&tmp));
+        // Must not panic for any event other than `FlowRunFinished`.
+        sub.handle(&DomainEvent::CronJobTriggered {
+            job_id: "j1".into(),
+            job_name: "test".into(),
+            job_type: "shell".into(),
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_flow_with_no_dedup_nodes_is_a_noop() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = flow_with_trigger_config("f-no-dedup", true, json!({}));
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let sub = DedupCommitSubscriber::new(config);
+        // Must not panic when the flow has no `dedup` node at all.
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-no-dedup".into(),
+            run_id: "run-1".into(),
+            status: "completed".into(),
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_unions_tentative_into_committed_and_clears_tentative_on_success() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = flow_with_dedup_node("f-ok", "dd");
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let namespace = dedup_state_namespace("f-ok");
+        store::kv_set(&config, &namespace, "dedup:dd:committed", &json!(["a"])).unwrap();
+        store::kv_set(
+            &config,
+            &namespace,
+            "dedup:dd:tentative",
+            &json!(["b", "c"]),
+        )
+        .unwrap();
+
+        let sub = DedupCommitSubscriber::new(config.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-ok".into(),
+            run_id: "run-ok".into(),
+            status: "completed".into(),
+        })
+        .await;
+
+        let committed = store::kv_get(&config, &namespace, "dedup:dd:committed")
+            .unwrap()
+            .expect("committed key must still exist");
+        let mut committed: Vec<&str> = committed
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        committed.sort_unstable();
+        assert_eq!(committed, vec!["a", "b", "c"], "committed = union");
+
+        assert!(
+            store::kv_get(&config, &namespace, "dedup:dd:tentative")
+                .unwrap()
+                .is_none(),
+            "tentative must be cleared after a successful commit"
+        );
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_treats_completed_with_warnings_as_success() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = flow_with_dedup_node("f-warn", "dd");
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let namespace = dedup_state_namespace("f-warn");
+        store::kv_set(&config, &namespace, "dedup:dd:tentative", &json!(["x"])).unwrap();
+
+        let sub = DedupCommitSubscriber::new(config.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-warn".into(),
+            run_id: "run-warn".into(),
+            status: "completed_with_warnings".into(),
+        })
+        .await;
+
+        let committed = store::kv_get(&config, &namespace, "dedup:dd:committed")
+            .unwrap()
+            .expect("completed_with_warnings must still commit");
+        assert_eq!(committed, json!(["x"]));
+        assert!(store::kv_get(&config, &namespace, "dedup:dd:tentative")
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_releases_tentative_without_touching_committed_on_failure() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = flow_with_dedup_node("f-failed", "dd");
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let namespace = dedup_state_namespace("f-failed");
+        store::kv_set(&config, &namespace, "dedup:dd:committed", &json!(["a"])).unwrap();
+        store::kv_set(&config, &namespace, "dedup:dd:tentative", &json!(["b"])).unwrap();
+
+        let sub = DedupCommitSubscriber::new(config.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-failed".into(),
+            run_id: "run-failed".into(),
+            status: "failed".into(),
+        })
+        .await;
+
+        assert_eq!(
+            store::kv_get(&config, &namespace, "dedup:dd:committed")
+                .unwrap()
+                .unwrap(),
+            json!(["a"]),
+            "committed must be untouched by a failed run"
+        );
+        assert!(
+            store::kv_get(&config, &namespace, "dedup:dd:tentative")
+                .unwrap()
+                .is_none(),
+            "tentative must be released (cleared) on failure so the item retries"
+        );
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_releases_tentative_on_cancelled_and_interrupted() {
+        for status in ["cancelled", "interrupted"] {
+            let tmp = tempfile::TempDir::new().unwrap();
+            let config = test_config(&tmp);
+            let flow_id = format!("f-{status}");
+            let flow = flow_with_dedup_node(&flow_id, "dd");
+            store::upsert_flow(&config, &flow).unwrap();
+
+            let namespace = dedup_state_namespace(&flow_id);
+            store::kv_set(&config, &namespace, "dedup:dd:tentative", &json!(["z"])).unwrap();
+
+            let sub = DedupCommitSubscriber::new(config.clone());
+            sub.handle(&DomainEvent::FlowRunFinished {
+                flow_id: flow_id.clone(),
+                run_id: format!("run-{status}"),
+                status: status.to_string(),
+            })
+            .await;
+
+            assert!(
+                store::kv_get(&config, &namespace, "dedup:dd:committed")
+                    .unwrap()
+                    .is_none(),
+                "status {status} must never commit"
+            );
+            assert!(
+                store::kv_get(&config, &namespace, "dedup:dd:tentative")
+                    .unwrap()
+                    .is_none(),
+                "status {status} must release tentative"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn dedup_commit_two_dedup_nodes_settle_independently() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = test_config(&tmp);
+        let flow = Flow {
+            id: "f-multi".to_string(),
+            name: "f-multi".to_string(),
+            enabled: true,
+            graph: WorkflowGraph {
+                nodes: vec![
+                    trigger_node(json!({})),
+                    dedup_node("dd1"),
+                    dedup_node("dd2"),
+                ],
+                ..Default::default()
+            },
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+            last_run_at: None,
+            last_status: None,
+            require_approval: false,
+        };
+        store::upsert_flow(&config, &flow).unwrap();
+
+        let namespace = dedup_state_namespace("f-multi");
+        store::kv_set(&config, &namespace, "dedup:dd1:tentative", &json!(["a"])).unwrap();
+        store::kv_set(&config, &namespace, "dedup:dd2:tentative", &json!(["b"])).unwrap();
+
+        let sub = DedupCommitSubscriber::new(config.clone());
+        sub.handle(&DomainEvent::FlowRunFinished {
+            flow_id: "f-multi".into(),
+            run_id: "run-multi".into(),
+            status: "completed".into(),
+        })
+        .await;
+
+        assert_eq!(
+            store::kv_get(&config, &namespace, "dedup:dd1:committed")
+                .unwrap()
+                .unwrap(),
+            json!(["a"])
+        );
+        assert_eq!(
+            store::kv_get(&config, &namespace, "dedup:dd2:committed")
+                .unwrap()
+                .unwrap(),
+            json!(["b"])
+        );
     }
 }
