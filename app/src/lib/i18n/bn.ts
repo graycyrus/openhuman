@@ -4197,6 +4197,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'রূপান্তর',
   'flows.nodeKind.output_parser': 'আউটপুট পার্সার',
   'flows.nodeKind.sub_workflow': 'সাব-ওয়ার্কফ্লো',
+  'flows.nodeKind.memory': 'মেমরি',
   'flows.palette.title': 'নোড',
   'flows.palette.addNode': '{kind} নোড যোগ করুন',
   'flows.editor.save': 'সংরক্ষণ করুন',
@@ -4336,6 +4337,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'সোর্স কোড',
+  'flows.nodeConfig.memory.operationLabel': 'অপারেশন',
+  'flows.nodeConfig.memory.operation_recall': 'পুনরুদ্ধার',
+  'flows.nodeConfig.memory.operation_search': 'অনুসন্ধান',
+  'flows.nodeConfig.memory.operation_flavour': 'ধরন',
+  'flows.nodeConfig.memory.operation_people': 'ব্যক্তি',
+  'flows.nodeConfig.memory.operation_remember': 'মনে রাখুন',
+  'flows.nodeConfig.memory.operation_forget': 'ভুলে যান',
+  'flows.nodeConfig.memory.scopeLabel': 'পরিধি',
+  'flows.nodeConfig.memory.scopeHint': 'এই মেমরিটি কোথায় খুঁজতে হবে।',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'শুধু এই ওয়ার্কফ্লোর মধ্যেই লেখার অনুমতি আছে, আপনার ব্যক্তিগত মেমরিতে কখনও নয়।',
+  'flows.nodeConfig.memory.scope_user': 'আপনি (শুধু পড়ার জন্য)',
+  'flows.nodeConfig.memory.scope_flow': 'এই ওয়ার্কফ্লো',
+  'flows.nodeConfig.memory.scope_flows': 'সব ওয়ার্কফ্লো (শুধু পড়ার জন্য)',
+  'flows.nodeConfig.memory.queryLabel': 'কোয়েরি',
+  'flows.nodeConfig.memory.queryOptionalHint': 'ঐচ্ছিক: মানুষ খোঁজার পরিধি সংকুচিত করে।',
+  'flows.nodeConfig.memory.flavourLabel': 'ধরন',
+  'flows.nodeConfig.memory.flavourHint': 'কোন ব্যক্তিত্ব দিক পড়তে হবে, যেমন communication।',
+  'flows.nodeConfig.memory.flavour_communication': 'যোগাযোগ',
+  'flows.nodeConfig.memory.flavour_coding_style': 'কোডিং শৈলী',
+  'flows.nodeConfig.memory.flavour_stack': 'প্রযুক্তি স্ট্যাক',
+  'flows.nodeConfig.memory.flavour_workflow': 'কর্মপ্রবাহ',
+  'flows.nodeConfig.memory.flavour_environment': 'পরিবেশ',
+  'flows.nodeConfig.memory.flavour_directives': 'নির্দেশনা',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'অপছন্দসমূহ',
+  'flows.nodeConfig.memory.keyLabel': 'কী',
+  'flows.nodeConfig.memory.valueLabel': 'মান',
+  'flows.nodeConfig.memory.limitLabel': 'সীমা',
+  'flows.nodeConfig.memory.limitHint': 'সর্বোচ্চ ফলাফল সংখ্যা।',
+  'flows.nodeConfig.memory.minScoreLabel': 'সর্বনিম্ন স্কোর',
+  'flows.nodeConfig.memory.minScoreHint': '০ থেকে ১ পর্যন্ত প্রাসঙ্গিকতার থ্রেশহোল্ড।',
 
   'flows.chooser.title': 'ওয়ার্কফ্লো তৈরি করুন',
   'flows.chooser.subtitle': 'আপনি কীভাবে শুরু করতে চান তা বেছে নিন।',
@@ -4589,6 +4621,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'সাইন-ইন অবস্থা অজানা',
   'settings.ai.claudeCode.connectedNotSignedIn': 'সংযুক্ত · সাইন-ইন করা হয়নি',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'claude CLI যে মডেল আইডি গ্রহণ করে: একটি উপনাম (sonnet, opus) বা পূর্ণ নাম (claude-sonnet-4-5)। এটি হুবহু claude --model-এ পাঠানো হয়, তাই sonnet-4-5-এর মতো বিপণন নাম গ্রহণ করা হয় না।',
   'settings.ai.claudeCode.modalDescription':
     'চ্যাট, এজেন্টিক ও যুক্তিনির্ভর কাজগুলো আপনার স্থানীয়ভাবে ইনস্টল করা Claude Code CLI-এর মাধ্যমে রুট করে। কোনো API কী লাগে না: এটি CLI-এর নিজস্ব লগইন ব্যবহার করে।',
   'settings.ai.claudeCode.close': 'বন্ধ করুন',
@@ -4708,6 +4742,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} মডেল আইডি',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'একটি মডেল নির্বাচন করুন...',
+  'settings.ai.deploymentNameLabel': 'ডিপ্লয়মেন্টের নাম',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Azure AI Foundry-তে আপনি যে ডিপ্লয়মেন্টের নাম সেট করেছেন তা লিখুন। এটি মডেল আইডি নয়।',
+  'settings.ai.deploymentNameLegacyHint':
+    'এই মানটি প্রদানকারীর তালিকার বেস মডেল আইডির সঙ্গে মেলে। Azure ডিপ্লয়মেন্টের নাম দিয়ে অনুরোধ পাঠায়, তাই নিশ্চিত করুন এটি আপনার ডিপ্লয়মেন্টের নাম।',
+  'settings.ai.deploymentNameProviderHint':
+    'Azure এন্ডপয়েন্ট শনাক্ত হয়েছে। এই প্রদানকারী নির্বাচন করার পর মডেল ফিল্ডে আপনার ডিপ্লয়মেন্টের নাম দিন।',
+  'settings.ai.chooseModelFromList': 'তালিকা থেকে বেছে নিন',
+  'settings.ai.enterModelIdManuallyAction': 'ম্যানুয়ালি মডেল আইডি লিখুন',
+  'settings.ai.enterDeploymentNameManuallyAction': 'ম্যানুয়ালি ডিপ্লয়মেন্ট নাম লিখুন',
+  'settings.ai.probeFailedHint':
+    'এই প্রদানকারীর মডেল তালিকা আমরা পড়তে পারিনি। ওই তালিকা কেবল ড্রপডাউন ভরাট করে, তাই আপনি এখনও প্রদানকারী যোগ করে নিজেই মডেল বা ডিপ্লয়মেন্টের নাম লিখতে পারেন।',
+  'settings.ai.probeFailedAddAnyway': 'যাচাই না করেই যোগ করুন',
+  'settings.ai.azureV1EndpointHint':
+    'Azure-এর জন্য v1 বেস URL ব্যবহার করুন: https://YOUR-RESOURCE.openai.azure.com/openai/v1। পুরোনো রিসোর্স URL কোনো মডেল তালিকা দেয় না এবং ভিন্ন প্রমাণীকরণ হেডার আশা করে।',
   'settings.ai.temperatureOverride': 'তাপমাত্রা ওভাররাইড',
   'settings.ai.temperatureOverrideSlider': 'তাপমাত্রা ওভাররাইড (স্লাইডার)',
   'settings.ai.temperatureOverrideValue': 'তাপমাত্রা ওভাররাইড (মান)',
@@ -4717,6 +4767,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'এই মডেল ছবি গ্রহণ করলে সক্ষম করুন। এই মডেল নির্বাচিত থাকলে চ্যাটে ছবি সংযুক্ত করতে দেয়।',
   'settings.ai.testFailed': 'পরীক্ষা ব্যর্থ হয়েছে',
+  'settings.ai.providerTest.authRejected':
+    "কী সংরক্ষণ করা হয়েছে, কিন্তু '{slug}' সেটি প্রত্যাখ্যান করেছে। দেখুন আপনি পুরো কী পেস্ট করেছেন কি না এবং সেটি প্রদানকারীর ড্যাশবোর্ডে এখনও সক্রিয় কি না।",
+  'settings.ai.providerTest.modelNotRecognized':
+    "কী সংরক্ষণ ও গৃহীত হয়েছে, কিন্তু '{slug}' নির্বাচিত মডেলটি চিনতে পারছে না। এই প্রদানকারী সত্যিই দেয় এমন একটি মডেল আইডি বেছে নিন (এর ডিফল্ট মডেল প্রদানকারীর এন্ট্রিতে সেট করা হয়)।",
+  'settings.ai.providerTest.quotaOrBilling':
+    "কী সংরক্ষণ ও গৃহীত হয়েছে, কিন্তু '{slug}' কোটা বা বিলিংয়ের কারণে অনুরোধটি প্রত্যাখ্যান করেছে। প্রদানকারীর কাছে আপনার অ্যাকাউন্ট ব্যালেন্স ও ব্যবহারের সীমা দেখুন।",
+  'settings.ai.providerTest.endpointNotFound':
+    "কী সংরক্ষণ করা হয়েছে, কিন্তু '{slug}' এর জন্য কনফিগার করা এন্ডপয়েন্ট 404 ফেরত দিয়েছে। বেস URL দেখুন: OpenAI-সঙ্গতিপূর্ণ প্রদানকারীর সাধারণত '/v1' প্রত্যয় প্রয়োজন (যেমন https://api.openai.com/v1)।",
+  'settings.ai.providerTest.timeout':
+    "কী সংরক্ষণ করা হয়েছে, কিন্তু '{slug}' সময়মতো সাড়া দেয়নি। এন্ডপয়েন্ট URL ও আপনার নেটওয়ার্ক দেখে আবার পরীক্ষা করুন।",
+  'settings.ai.providerTest.emptyReply':
+    "কী সংরক্ষণ করা হয়েছে, কিন্তু '{slug}' পরীক্ষামূলক প্রম্পটে খালি উত্তর ফেরত দিয়েছে। এই প্রদানকারীর জন্য কনফিগার করা মডেল আইডি দেখুন।",
+  'settings.ai.providerTest.unknown':
+    "কী সংরক্ষণ করা হয়েছে, কিন্তু '{slug}' এ পরীক্ষামূলক কল ব্যর্থ হয়েছে। প্রদানকারীর স্ট্যাটাস পৃষ্ঠা ও এন্ডপয়েন্ট URL দেখে আবার পরীক্ষা করুন।",
   'settings.ai.testingModel': 'পরীক্ষার মডেল...',
   'settings.ai.modelResponse': 'মডেল প্রতিক্রিয়া',
   'settings.ai.providerWithValue': 'প্রদানকারী: {value}',

@@ -4194,6 +4194,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'रूपांतरण',
   'flows.nodeKind.output_parser': 'आउटपुट पार्सर',
   'flows.nodeKind.sub_workflow': 'सब-वर्कफ़्लो',
+  'flows.nodeKind.memory': 'मेमोरी',
   'flows.palette.title': 'नोड',
   'flows.palette.addNode': '{kind} नोड जोड़ें',
   'flows.editor.save': 'सहेजें',
@@ -4333,6 +4334,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'सोर्स कोड',
+  'flows.nodeConfig.memory.operationLabel': 'ऑपरेशन',
+  'flows.nodeConfig.memory.operation_recall': 'याद करें',
+  'flows.nodeConfig.memory.operation_search': 'खोजें',
+  'flows.nodeConfig.memory.operation_flavour': 'शैली',
+  'flows.nodeConfig.memory.operation_people': 'लोग',
+  'flows.nodeConfig.memory.operation_remember': 'याद रखें',
+  'flows.nodeConfig.memory.operation_forget': 'भूल जाएँ',
+  'flows.nodeConfig.memory.scopeLabel': 'दायरा',
+  'flows.nodeConfig.memory.scopeHint': 'यह मेमोरी कहाँ खोजनी है।',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'लिखने की अनुमति केवल इसी वर्कफ़्लो के भीतर है, आपकी निजी मेमोरी में कभी नहीं।',
+  'flows.nodeConfig.memory.scope_user': 'आप (केवल पढ़ने के लिए)',
+  'flows.nodeConfig.memory.scope_flow': 'यह वर्कफ़्लो',
+  'flows.nodeConfig.memory.scope_flows': 'सभी वर्कफ़्लो (केवल पढ़ने के लिए)',
+  'flows.nodeConfig.memory.queryLabel': 'क्वेरी',
+  'flows.nodeConfig.memory.queryOptionalHint': 'वैकल्पिक: लोगों की खोज को सीमित करता है।',
+  'flows.nodeConfig.memory.flavourLabel': 'शैली',
+  'flows.nodeConfig.memory.flavourHint': 'कौन सा व्यक्तित्व पहलू पढ़ना है, जैसे communication।',
+  'flows.nodeConfig.memory.flavour_communication': 'संचार',
+  'flows.nodeConfig.memory.flavour_coding_style': 'कोडिंग शैली',
+  'flows.nodeConfig.memory.flavour_stack': 'तकनीकी स्टैक',
+  'flows.nodeConfig.memory.flavour_workflow': 'वर्कफ़्लो',
+  'flows.nodeConfig.memory.flavour_environment': 'वातावरण',
+  'flows.nodeConfig.memory.flavour_directives': 'निर्देश',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'नापसंद',
+  'flows.nodeConfig.memory.keyLabel': 'कुंजी',
+  'flows.nodeConfig.memory.valueLabel': 'मान',
+  'flows.nodeConfig.memory.limitLabel': 'सीमा',
+  'flows.nodeConfig.memory.limitHint': 'अधिकतम परिणामों की संख्या।',
+  'flows.nodeConfig.memory.minScoreLabel': 'न्यूनतम स्कोर',
+  'flows.nodeConfig.memory.minScoreHint': '0 से 1 तक की प्रासंगिकता सीमा।',
 
   'flows.chooser.title': 'वर्कफ़्लो बनाएँ',
   'flows.chooser.subtitle': 'चुनें कि आप कैसे शुरू करना चाहते हैं।',
@@ -4586,6 +4618,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'साइन-इन स्थिति अज्ञात',
   'settings.ai.claudeCode.connectedNotSignedIn': 'कनेक्टेड · साइन इन नहीं',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'ऐसी मॉडल आईडी जिसे claude CLI स्वीकार करता है: एक उपनाम (sonnet, opus) या पूरा नाम (claude-sonnet-4-5)। इसे ज्यों का त्यों claude --model को भेजा जाता है, इसलिए sonnet-4-5 जैसे मार्केटिंग नाम अस्वीकार हो जाते हैं।',
   'settings.ai.claudeCode.modalDescription':
     'चैट, एजेंटिक और रीज़निंग कार्यभार को आपके स्थानीय रूप से इंस्टॉल किए गए Claude Code CLI के माध्यम से रूट करता है। कोई API कुंजी नहीं: यह CLI के अपने लॉगिन का उपयोग करता है।',
   'settings.ai.claudeCode.close': 'बंद करें',
@@ -4708,6 +4742,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} मॉडल आईडी',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'एक मॉडल चुनें...',
+  'settings.ai.deploymentNameLabel': 'परिनियोजन नाम',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Azure AI Foundry में आपके द्वारा सेट किया गया परिनियोजन नाम दर्ज करें। यह मॉडल आईडी नहीं है।',
+  'settings.ai.deploymentNameLegacyHint':
+    'यह मान प्रदाता सूची की आधार मॉडल आईडी से मेल खाता है। Azure अनुरोधों को परिनियोजन नाम से भेजता है, इसलिए पुष्टि करें कि यह आपके परिनियोजन का नाम है।',
+  'settings.ai.deploymentNameProviderHint':
+    'Azure एंडपॉइंट मिला। यह प्रदाता चुनने के बाद मॉडल फ़ील्ड में अपना परिनियोजन नाम दर्ज करें।',
+  'settings.ai.chooseModelFromList': 'सूची से चुनें',
+  'settings.ai.enterModelIdManuallyAction': 'मॉडल आईडी मैन्युअल रूप से दर्ज करें',
+  'settings.ai.enterDeploymentNameManuallyAction': 'डिप्लॉयमेंट नाम मैन्युअल रूप से दर्ज करें',
+  'settings.ai.probeFailedHint':
+    'हम इस प्रदाता की मॉडल सूची नहीं पढ़ सके। वह सूची केवल ड्रॉपडाउन भरती है, इसलिए आप प्रदाता को फिर भी जोड़ सकते हैं और मॉडल या डिप्लॉयमेंट का नाम खुद लिख सकते हैं।',
+  'settings.ai.probeFailedAddAnyway': 'सत्यापन के बिना जोड़ें',
+  'settings.ai.azureV1EndpointHint':
+    'Azure के लिए v1 बेस URL का उपयोग करें: https://YOUR-RESOURCE.openai.azure.com/openai/v1. पुराना रिसोर्स URL मॉडल सूची नहीं देता और अलग प्रमाणीकरण हेडर की अपेक्षा करता है।',
   'settings.ai.temperatureOverride': 'तापमान ओवरराइड',
   'settings.ai.temperatureOverrideSlider': 'तापमान ओवरराइड (स्लाइडर)',
   'settings.ai.temperatureOverrideValue': 'तापमान ओवरराइड (मान)',
@@ -4717,6 +4767,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'यदि यह मॉडल छवियाँ स्वीकार करता है तो सक्षम करें। यह मॉडल चुने जाने पर चैट में छवियाँ संलग्न करने देता है।',
   'settings.ai.testFailed': 'परीक्षण विफल रहा',
+  'settings.ai.providerTest.authRejected':
+    "कुंजी सहेज दी गई, लेकिन '{slug}' ने इसे अस्वीकार कर दिया। जाँचें कि आपने पूरी कुंजी चिपकाई है और वह प्रदाता के डैशबोर्ड में अब भी सक्रिय है।",
+  'settings.ai.providerTest.modelNotRecognized':
+    "कुंजी सहेजी और स्वीकार की गई, लेकिन '{slug}' चयनित मॉडल को नहीं पहचानता। ऐसा मॉडल आईडी चुनें जो यह प्रदाता वास्तव में देता है (इसका डिफ़ॉल्ट मॉडल प्रदाता प्रविष्टि में सेट होता है)।",
+  'settings.ai.providerTest.quotaOrBilling':
+    "कुंजी सहेजी और स्वीकार की गई, लेकिन '{slug}' ने कोटा या बिलिंग कारणों से अनुरोध ठुकरा दिया। प्रदाता के पास अपना खाता शेष और उपयोग सीमाएँ देखें।",
+  'settings.ai.providerTest.endpointNotFound':
+    "कुंजी सहेज दी गई, लेकिन '{slug}' के लिए कॉन्फ़िगर किए गए एंडपॉइंट ने 404 लौटाया। बेस URL जाँचें: OpenAI-संगत प्रदाता को आम तौर पर '/v1' प्रत्यय चाहिए (जैसे https://api.openai.com/v1)।",
+  'settings.ai.providerTest.timeout':
+    "कुंजी सहेज दी गई, लेकिन '{slug}' ने समय पर उत्तर नहीं दिया। एंडपॉइंट URL और अपना नेटवर्क जाँचें, फिर दोबारा परीक्षण करें।",
+  'settings.ai.providerTest.emptyReply':
+    "कुंजी सहेज दी गई, लेकिन '{slug}' ने परीक्षण संकेत पर खाली उत्तर लौटाया। इस प्रदाता के लिए कॉन्फ़िगर किया गया मॉडल आईडी जाँचें।",
+  'settings.ai.providerTest.unknown':
+    "कुंजी सहेज दी गई, लेकिन '{slug}' पर परीक्षण कॉल विफल रही। प्रदाता का स्थिति पृष्ठ और एंडपॉइंट URL जाँचें, फिर दोबारा परीक्षण करें।",
   'settings.ai.testingModel': 'परीक्षण मॉडल...',
   'settings.ai.modelResponse': 'मॉडल प्रतिक्रिया',
   'settings.ai.providerWithValue': 'प्रदाता: {value}',

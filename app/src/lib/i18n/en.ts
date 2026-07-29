@@ -4744,7 +4744,7 @@ const en: TranslationMap = {
   'flows.copilot.continueBuilding': 'Continue building',
 
   // ── Workflow Canvas (issue B5b.1): the read-only graph view of a saved
-  // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node
+  // flow at /flows/:id. `flows.nodeKind.*` labels the 13 tinyflows node
   // kinds (`tinyflows::model::NodeKind`) shown in each canvas node card.
   'flows.canvas.title': 'Workflow',
   'flows.canvas.loading': 'Loading workflow…',
@@ -4769,6 +4769,7 @@ const en: TranslationMap = {
   'flows.nodeKind.transform': 'Transform',
   'flows.nodeKind.output_parser': 'Output parser',
   'flows.nodeKind.sub_workflow': 'Sub-workflow',
+  'flows.nodeKind.memory': 'Memory',
 
   // ── Editable Workflow Canvas (issue B5b.2 / Phase 3a): the node palette
   // and editor toolbar layered on top of the read-only canvas above.
@@ -4920,6 +4921,38 @@ const en: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Source',
+  // `memory` node (issue #5226): recall/search/flavour/people read; remember/forget write.
+  'flows.nodeConfig.memory.operationLabel': 'Operation',
+  'flows.nodeConfig.memory.operation_recall': 'Recall',
+  'flows.nodeConfig.memory.operation_search': 'Search',
+  'flows.nodeConfig.memory.operation_flavour': 'Flavour',
+  'flows.nodeConfig.memory.operation_people': 'People',
+  'flows.nodeConfig.memory.operation_remember': 'Remember',
+  'flows.nodeConfig.memory.operation_forget': 'Forget',
+  'flows.nodeConfig.memory.scopeLabel': 'Scope',
+  'flows.nodeConfig.memory.scopeHint': 'Where to look for this memory.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'Writes are only allowed within this workflow, never to your personal memory.',
+  'flows.nodeConfig.memory.scope_user': 'You (read-only)',
+  'flows.nodeConfig.memory.scope_flow': 'This workflow',
+  'flows.nodeConfig.memory.scope_flows': 'All workflows (read-only)',
+  'flows.nodeConfig.memory.queryLabel': 'Query',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Optional: narrows the people lookup.',
+  'flows.nodeConfig.memory.flavourLabel': 'Flavour',
+  'flows.nodeConfig.memory.flavourHint': 'Which persona facet to read, e.g. communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Communication',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Coding style',
+  'flows.nodeConfig.memory.flavour_stack': 'Stack',
+  'flows.nodeConfig.memory.flavour_workflow': 'Workflow',
+  'flows.nodeConfig.memory.flavour_environment': 'Environment',
+  'flows.nodeConfig.memory.flavour_directives': 'Directives',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Anti-preferences',
+  'flows.nodeConfig.memory.keyLabel': 'Key',
+  'flows.nodeConfig.memory.valueLabel': 'Value',
+  'flows.nodeConfig.memory.limitLabel': 'Limit',
+  'flows.nodeConfig.memory.limitHint': 'Maximum number of results.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Minimum score',
+  'flows.nodeConfig.memory.minScoreHint': 'Relevance threshold from 0 to 1.',
 
   // Phase 4a "New workflow" chooser + Phase 4c templates gallery. The chooser
   // offers scratch / template / describe; the gallery lists the curated
@@ -5175,6 +5208,8 @@ const en: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'Sign-in state unknown',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Connected · not signed in',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'A model id the claude CLI accepts: an alias (sonnet, opus) or a full name (claude-sonnet-4-5). It is passed verbatim to claude --model, so marketing strings like sonnet-4-5 are rejected.',
   'settings.ai.claudeCode.modalDescription':
     "Routes chat, agentic and reasoning workloads through your locally-installed Claude Code CLI. No API key: it uses the CLI's own login.",
   'settings.ai.claudeCode.close': 'Close',
@@ -5296,6 +5331,22 @@ const en: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} model id',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Select a model...',
+  'settings.ai.deploymentNameLabel': 'Deployment name',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Enter the deployment name you set in Azure AI Foundry. This is not the model ID.',
+  'settings.ai.deploymentNameLegacyHint':
+    'This matches a base model ID from the provider catalog. Azure routes by deployment name, so confirm this is the name you gave your deployment.',
+  'settings.ai.deploymentNameProviderHint':
+    'Azure endpoint detected. Set your deployment name in the model field after choosing this provider.',
+  'settings.ai.chooseModelFromList': 'Choose from list',
+  'settings.ai.enterModelIdManuallyAction': 'Enter model ID manually',
+  'settings.ai.enterDeploymentNameManuallyAction': 'Enter deployment name manually',
+  'settings.ai.probeFailedHint':
+    'We could not read this provider’s model list. That list only fills the dropdown, so you can still add the provider and type the model or deployment name yourself.',
+  'settings.ai.probeFailedAddAnyway': 'Add without verifying',
+  'settings.ai.azureV1EndpointHint':
+    'For Azure, use the v1 base URL: https://YOUR-RESOURCE.openai.azure.com/openai/v1. The older resource URL does not serve a model list and expects a different auth header.',
   'settings.ai.temperatureOverride': 'Temperature override',
   'settings.ai.temperatureOverrideSlider': 'Temperature override (slider)',
   'settings.ai.temperatureOverrideValue': 'Temperature override (value)',
@@ -5305,6 +5356,20 @@ const en: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Enable if this model accepts images. Lets the chat composer attach images when this model is selected.',
   'settings.ai.testFailed': 'Test failed',
+  'settings.ai.providerTest.authRejected':
+    "The key was saved, but '{slug}' rejected it. Check that you pasted the whole key and that it is still active in the provider's dashboard.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "The key was saved and accepted, but '{slug}' does not recognise the selected model. Pick a model id this provider actually serves (its default model is set on the provider entry).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "The key was saved and accepted, but '{slug}' refused the request for quota or billing reasons. Check your account balance and rate limits with the provider.",
+  'settings.ai.providerTest.endpointNotFound':
+    "The key was saved, but the configured endpoint for '{slug}' returned 404. Check the base URL: an OpenAI-compatible provider usually needs the '/v1' suffix (e.g. https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "The key was saved, but '{slug}' did not respond in time. Check the endpoint URL and your network, then test again.",
+  'settings.ai.providerTest.emptyReply':
+    "The key was saved, but '{slug}' returned an empty response to a test prompt. Check the model id configured for this provider.",
+  'settings.ai.providerTest.unknown':
+    "The key was saved, but a test call to '{slug}' failed. Check the provider's status page and the endpoint URL, then test again.",
   'settings.ai.testingModel': 'Testing model...',
   'settings.ai.modelResponse': 'Model response',
   'settings.ai.providerWithValue': 'Provider: {value}',

@@ -4147,6 +4147,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': '변환',
   'flows.nodeKind.output_parser': '출력 파서',
   'flows.nodeKind.sub_workflow': '하위 워크플로',
+  'flows.nodeKind.memory': '메모리',
   'flows.palette.title': '노드',
   'flows.palette.addNode': '{kind} 노드 추가',
   'flows.editor.save': '저장',
@@ -4284,6 +4285,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': '소스 코드',
+  'flows.nodeConfig.memory.operationLabel': '작업',
+  'flows.nodeConfig.memory.operation_recall': '회상',
+  'flows.nodeConfig.memory.operation_search': '검색',
+  'flows.nodeConfig.memory.operation_flavour': '스타일',
+  'flows.nodeConfig.memory.operation_people': '사람',
+  'flows.nodeConfig.memory.operation_remember': '기억하기',
+  'flows.nodeConfig.memory.operation_forget': '잊기',
+  'flows.nodeConfig.memory.scopeLabel': '범위',
+  'flows.nodeConfig.memory.scopeHint': '이 메모리를 어디에서 찾을지 지정합니다.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    '쓰기는 이 워크플로 내에서만 허용되며, 개인 메모리에는 절대 저장되지 않습니다.',
+  'flows.nodeConfig.memory.scope_user': '나 (읽기 전용)',
+  'flows.nodeConfig.memory.scope_flow': '이 워크플로',
+  'flows.nodeConfig.memory.scope_flows': '모든 워크플로 (읽기 전용)',
+  'flows.nodeConfig.memory.queryLabel': '쿼리',
+  'flows.nodeConfig.memory.queryOptionalHint': '선택 사항: 사람 조회 범위를 좁힙니다.',
+  'flows.nodeConfig.memory.flavourLabel': '스타일',
+  'flows.nodeConfig.memory.flavourHint': '읽어올 페르소나 특성입니다. 예: communication.',
+  'flows.nodeConfig.memory.flavour_communication': '커뮤니케이션',
+  'flows.nodeConfig.memory.flavour_coding_style': '코딩 스타일',
+  'flows.nodeConfig.memory.flavour_stack': '기술 스택',
+  'flows.nodeConfig.memory.flavour_workflow': '워크플로',
+  'flows.nodeConfig.memory.flavour_environment': '환경',
+  'flows.nodeConfig.memory.flavour_directives': '지시사항',
+  'flows.nodeConfig.memory.flavour_anti_preferences': '비선호 항목',
+  'flows.nodeConfig.memory.keyLabel': '키',
+  'flows.nodeConfig.memory.valueLabel': '값',
+  'flows.nodeConfig.memory.limitLabel': '제한',
+  'flows.nodeConfig.memory.limitHint': '최대 결과 수입니다.',
+  'flows.nodeConfig.memory.minScoreLabel': '최소 점수',
+  'flows.nodeConfig.memory.minScoreHint': '0에서 1 사이의 관련성 임곗값입니다.',
 
   'flows.chooser.title': '워크플로 만들기',
   'flows.chooser.subtitle': '시작 방법을 선택하세요.',
@@ -4536,6 +4568,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': '로그인 상태 알 수 없음',
   'settings.ai.claudeCode.connectedNotSignedIn': '연결됨 · 로그인되지 않음',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'claude CLI가 허용하는 모델 ID입니다. 별칭(sonnet, opus) 또는 전체 이름(claude-sonnet-4-5)을 쓸 수 있습니다. 값은 claude --model에 그대로 전달되므로 sonnet-4-5 같은 마케팅 이름은 거부됩니다.',
   'settings.ai.claudeCode.modalDescription':
     '채팅, 에이전트, 추론 작업을 로컬에 설치된 Claude Code CLI를 통해 라우팅합니다. API 키가 필요 없으며 CLI 자체 로그인을 사용합니다.',
   'settings.ai.claudeCode.close': '닫기',
@@ -4654,6 +4688,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} 모델 ID',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': '모델 선택...',
+  'settings.ai.deploymentNameLabel': '배포 이름',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Azure AI Foundry에서 설정한 배포 이름을 입력하세요. 모델 ID가 아닙니다.',
+  'settings.ai.deploymentNameLegacyHint':
+    '이 값은 공급자 카탈로그의 기본 모델 ID와 일치합니다. Azure는 배포 이름으로 요청을 라우팅하므로 배포에 지정한 이름인지 확인하세요.',
+  'settings.ai.deploymentNameProviderHint':
+    'Azure 엔드포인트가 감지되었습니다. 이 공급자를 선택한 후 모델 필드에 배포 이름을 설정하세요.',
+  'settings.ai.chooseModelFromList': '목록에서 선택',
+  'settings.ai.enterModelIdManuallyAction': '모델 ID 수동 입력',
+  'settings.ai.enterDeploymentNameManuallyAction': '배포 이름 수동 입력',
+  'settings.ai.probeFailedHint':
+    '이 제공업체의 모델 목록을 읽지 못했습니다. 그 목록은 드롭다운을 채우는 용도일 뿐이므로, 제공업체를 그대로 추가한 뒤 모델 또는 배포 이름을 직접 입력해도 됩니다.',
+  'settings.ai.probeFailedAddAnyway': '확인 없이 추가',
+  'settings.ai.azureV1EndpointHint':
+    'Azure에서는 v1 기본 URL을 사용하세요: https://YOUR-RESOURCE.openai.azure.com/openai/v1. 이전 리소스 URL은 모델 목록을 제공하지 않으며 다른 인증 헤더를 요구합니다.',
   'settings.ai.temperatureOverride': '온도 재정의',
   'settings.ai.temperatureOverrideSlider': '온도 재정의(슬라이더)',
   'settings.ai.temperatureOverrideValue': '온도 재정의(값)',
@@ -4663,6 +4713,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     '이 모델이 이미지를 지원하면 활성화하세요. 이 모델을 선택하면 채팅 작성기에서 이미지를 첨부할 수 있습니다.',
   'settings.ai.testFailed': '테스트 실패',
+  'settings.ai.providerTest.authRejected':
+    "키는 저장되었지만 '{slug}'에서 거부했습니다. 키 전체를 붙여넣었는지, 제공업체 대시보드에서 아직 활성 상태인지 확인하세요.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "키는 저장되어 승인되었지만 '{slug}'에서 선택한 모델을 인식하지 못합니다. 이 제공업체가 실제로 제공하는 모델 ID를 선택하세요(기본 모델은 제공업체 항목에서 설정합니다).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "키는 저장되어 승인되었지만 '{slug}'에서 할당량 또는 결제 문제로 요청을 거부했습니다. 제공업체에서 계정 잔액과 사용 한도를 확인하세요.",
+  'settings.ai.providerTest.endpointNotFound':
+    "키는 저장되었지만 '{slug}'에 설정된 엔드포인트가 404를 반환했습니다. 기본 URL을 확인하세요. OpenAI 호환 제공업체는 보통 '/v1' 접미사가 필요합니다(예: https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "키는 저장되었지만 '{slug}'가 제때 응답하지 않았습니다. 엔드포인트 URL과 네트워크를 확인한 뒤 다시 테스트하세요.",
+  'settings.ai.providerTest.emptyReply':
+    "키는 저장되었지만 '{slug}'가 테스트 프롬프트에 빈 응답을 반환했습니다. 이 제공업체에 설정된 모델 ID를 확인하세요.",
+  'settings.ai.providerTest.unknown':
+    "키는 저장되었지만 '{slug}'에 대한 테스트 호출이 실패했습니다. 제공업체의 상태 페이지와 엔드포인트 URL을 확인한 뒤 다시 테스트하세요.",
   'settings.ai.testingModel': '모델 테스트 중...',
   'settings.ai.modelResponse': '모델 응답',
   'settings.ai.providerWithValue': '공급자: {value}',

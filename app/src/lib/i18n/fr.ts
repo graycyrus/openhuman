@@ -4294,6 +4294,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformation',
   'flows.nodeKind.output_parser': 'Analyseur de sortie',
   'flows.nodeKind.sub_workflow': 'Sous-workflow',
+  'flows.nodeKind.memory': 'Mémoire',
   'flows.palette.title': 'Nœuds',
   'flows.palette.addNode': 'Ajouter un nœud {kind}',
   'flows.editor.save': 'Enregistrer',
@@ -4438,6 +4439,38 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Code source',
+  'flows.nodeConfig.memory.operationLabel': 'Opération',
+  'flows.nodeConfig.memory.operation_recall': 'Rappel',
+  'flows.nodeConfig.memory.operation_search': 'Recherche',
+  'flows.nodeConfig.memory.operation_flavour': 'Style',
+  'flows.nodeConfig.memory.operation_people': 'Personnes',
+  'flows.nodeConfig.memory.operation_remember': 'Mémoriser',
+  'flows.nodeConfig.memory.operation_forget': 'Oublier',
+  'flows.nodeConfig.memory.scopeLabel': 'Portée',
+  'flows.nodeConfig.memory.scopeHint': 'Où chercher cette mémoire.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    "L'écriture n'est autorisée qu'au sein de ce workflow, jamais dans votre mémoire personnelle.",
+  'flows.nodeConfig.memory.scope_user': 'Vous (lecture seule)',
+  'flows.nodeConfig.memory.scope_flow': 'Ce workflow',
+  'flows.nodeConfig.memory.scope_flows': 'Tous les workflows (lecture seule)',
+  'flows.nodeConfig.memory.queryLabel': 'Requête',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Optionnel: affine la recherche de personnes.',
+  'flows.nodeConfig.memory.flavourLabel': 'Style',
+  'flows.nodeConfig.memory.flavourHint':
+    'Quelle facette de la persona lire, par exemple communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Communication',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Style de code',
+  'flows.nodeConfig.memory.flavour_stack': 'Stack technique',
+  'flows.nodeConfig.memory.flavour_workflow': 'Flux de travail',
+  'flows.nodeConfig.memory.flavour_environment': 'Environnement',
+  'flows.nodeConfig.memory.flavour_directives': 'Directives',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Préférences négatives',
+  'flows.nodeConfig.memory.keyLabel': 'Clé',
+  'flows.nodeConfig.memory.valueLabel': 'Valeur',
+  'flows.nodeConfig.memory.limitLabel': 'Limite',
+  'flows.nodeConfig.memory.limitHint': 'Nombre maximal de résultats.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Score minimal',
+  'flows.nodeConfig.memory.minScoreHint': 'Seuil de pertinence de 0 à 1.',
 
   'flows.chooser.title': 'Créer un workflow',
   'flows.chooser.subtitle': 'Choisissez comment commencer.',
@@ -4693,6 +4726,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'État de connexion inconnu',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Connecté · non authentifié',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'Un identifiant de modèle accepté par la CLI claude : un alias (sonnet, opus) ou un nom complet (claude-sonnet-4-5). Il est transmis tel quel à claude --model, donc les noms commerciaux comme sonnet-4-5 sont refusés.',
   'settings.ai.claudeCode.modalDescription':
     'Achemine les tâches de chat, agentiques et de raisonnement via votre Claude Code CLI installée localement. Aucune clé API: elle utilise sa propre connexion.',
   'settings.ai.claudeCode.close': 'Fermer',
@@ -4818,6 +4853,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} identifiant du modèle',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Sélectionnez un modèle...',
+  'settings.ai.deploymentNameLabel': 'Nom du déploiement',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    "Saisissez le nom du déploiement que vous avez défini dans Azure AI Foundry. Ce n'est pas l'identifiant du modèle.",
+  'settings.ai.deploymentNameLegacyHint':
+    "Cette valeur correspond à un identifiant de modèle de base du catalogue du fournisseur. Azure achemine les requêtes par nom de déploiement, confirmez donc qu'il s'agit bien du nom de votre déploiement.",
+  'settings.ai.deploymentNameProviderHint':
+    'Point de terminaison Azure détecté. Définissez le nom de votre déploiement dans le champ du modèle après avoir choisi ce fournisseur.',
+  'settings.ai.chooseModelFromList': 'Choisir dans la liste',
+  'settings.ai.enterModelIdManuallyAction': "Saisir l'identifiant du modèle manuellement",
+  'settings.ai.enterDeploymentNameManuallyAction': 'Saisir le nom du déploiement manuellement',
+  'settings.ai.probeFailedHint':
+    "Nous n'avons pas pu lire la liste des modèles de ce fournisseur. Cette liste ne sert qu'à remplir le menu déroulant : vous pouvez donc quand même ajouter le fournisseur et saisir vous-même le nom du modèle ou du déploiement.",
+  'settings.ai.probeFailedAddAnyway': 'Ajouter sans vérifier',
+  'settings.ai.azureV1EndpointHint':
+    "Pour Azure, utilisez l'URL de base v1 : https://YOUR-RESOURCE.openai.azure.com/openai/v1. L'ancienne URL de ressource ne fournit pas de liste de modèles et attend un autre en-tête d'authentification.",
   'settings.ai.temperatureOverride': 'Température override',
   'settings.ai.temperatureOverrideSlider': 'Override de température (curseur)',
   'settings.ai.temperatureOverrideValue': 'Override de température (valeur)',
@@ -4827,6 +4878,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Activez si ce modèle accepte les images. Permet de joindre des images dans le chat lorsque ce modèle est sélectionné.',
   'settings.ai.testFailed': 'Test échoué',
+  'settings.ai.providerTest.authRejected':
+    "La clé a été enregistrée, mais '{slug}' l'a refusée. Vérifiez que vous avez collé la clé entière et qu'elle est toujours active dans le tableau de bord du fournisseur.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "La clé a été enregistrée et acceptée, mais '{slug}' ne reconnaît pas le modèle sélectionné. Choisissez un identifiant de modèle réellement proposé par ce fournisseur (son modèle par défaut est défini sur la fiche du fournisseur).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "La clé a été enregistrée et acceptée, mais '{slug}' a refusé la requête pour des raisons de quota ou de facturation. Vérifiez le solde de votre compte et vos limites auprès du fournisseur.",
+  'settings.ai.providerTest.endpointNotFound':
+    "La clé a été enregistrée, mais le point de terminaison configuré pour '{slug}' a renvoyé une erreur 404. Vérifiez l'URL de base : un fournisseur compatible OpenAI nécessite généralement le suffixe '/v1' (par exemple https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "La clé a été enregistrée, mais '{slug}' n'a pas répondu à temps. Vérifiez l'URL du point de terminaison et votre réseau, puis réessayez.",
+  'settings.ai.providerTest.emptyReply':
+    "La clé a été enregistrée, mais '{slug}' a renvoyé une réponse vide à une invite de test. Vérifiez l'identifiant de modèle configuré pour ce fournisseur.",
+  'settings.ai.providerTest.unknown':
+    "La clé a été enregistrée, mais un appel de test vers '{slug}' a échoué. Vérifiez la page d'état du fournisseur et l'URL du point de terminaison, puis réessayez.",
   'settings.ai.testingModel': 'Modèle de test...',
   'settings.ai.modelResponse': 'Réponse du modèle',
   'settings.ai.providerWithValue': 'Fournisseur : {value}',

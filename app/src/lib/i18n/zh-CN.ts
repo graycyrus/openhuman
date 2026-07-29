@@ -3974,6 +3974,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': '转换',
   'flows.nodeKind.output_parser': '输出解析器',
   'flows.nodeKind.sub_workflow': '子工作流',
+  'flows.nodeKind.memory': '记忆',
   'flows.palette.title': '节点',
   'flows.palette.addNode': '添加{kind}节点',
   'flows.editor.save': '保存',
@@ -4105,6 +4106,36 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': '源代码',
+  'flows.nodeConfig.memory.operationLabel': '操作',
+  'flows.nodeConfig.memory.operation_recall': '回忆',
+  'flows.nodeConfig.memory.operation_search': '搜索',
+  'flows.nodeConfig.memory.operation_flavour': '风格',
+  'flows.nodeConfig.memory.operation_people': '人物',
+  'flows.nodeConfig.memory.operation_remember': '记住',
+  'flows.nodeConfig.memory.operation_forget': '忘记',
+  'flows.nodeConfig.memory.scopeLabel': '范围',
+  'flows.nodeConfig.memory.scopeHint': '在哪里查找这条记忆。',
+  'flows.nodeConfig.memory.scopeWriteHint': '写入仅允许在此工作流内进行，绝不会写入你的个人记忆。',
+  'flows.nodeConfig.memory.scope_user': '你（只读）',
+  'flows.nodeConfig.memory.scope_flow': '此工作流',
+  'flows.nodeConfig.memory.scope_flows': '所有工作流（只读）',
+  'flows.nodeConfig.memory.queryLabel': '查询',
+  'flows.nodeConfig.memory.queryOptionalHint': '可选：缩小人物查找范围。',
+  'flows.nodeConfig.memory.flavourLabel': '风格',
+  'flows.nodeConfig.memory.flavourHint': '要读取哪个人格面向，例如 communication。',
+  'flows.nodeConfig.memory.flavour_communication': '沟通',
+  'flows.nodeConfig.memory.flavour_coding_style': '编码风格',
+  'flows.nodeConfig.memory.flavour_stack': '技术栈',
+  'flows.nodeConfig.memory.flavour_workflow': '工作流程',
+  'flows.nodeConfig.memory.flavour_environment': '环境',
+  'flows.nodeConfig.memory.flavour_directives': '指令',
+  'flows.nodeConfig.memory.flavour_anti_preferences': '负向偏好',
+  'flows.nodeConfig.memory.keyLabel': '键',
+  'flows.nodeConfig.memory.valueLabel': '值',
+  'flows.nodeConfig.memory.limitLabel': '数量上限',
+  'flows.nodeConfig.memory.limitHint': '返回结果的最大数量。',
+  'flows.nodeConfig.memory.minScoreLabel': '最低分数',
+  'flows.nodeConfig.memory.minScoreHint': '相关性阈值，范围为 0 到 1。',
 
   'flows.chooser.title': '创建工作流',
   'flows.chooser.subtitle': '选择你想要的开始方式。',
@@ -4342,6 +4373,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': '登录状态未知',
   'settings.ai.claudeCode.connectedNotSignedIn': '已连接 · 未登录',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'claude 命令行接受的模型 ID：别名（sonnet、opus）或完整名称（claude-sonnet-4-5）。该值会原样传给 claude --model，因此 sonnet-4-5 这类营销名称会被拒绝。',
   'settings.ai.claudeCode.modalDescription':
     '通过你本地安装的 Claude Code CLI 路由聊天、智能体和推理任务。无需 API 密钥：它使用 CLI 自身的登录。',
   'settings.ai.claudeCode.close': '关闭',
@@ -4450,6 +4483,21 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} 型号 ID',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': '选择型号...',
+  'settings.ai.deploymentNameLabel': '部署名称',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp': '请输入您在 Azure AI Foundry 中设置的部署名称。这不是模型 ID。',
+  'settings.ai.deploymentNameLegacyHint':
+    '此值与提供商目录中的基础模型 ID 相同。Azure 按部署名称路由请求，请确认这是您为部署指定的名称。',
+  'settings.ai.deploymentNameProviderHint':
+    '已检测到 Azure 端点。选择此提供商后，请在模型字段中设置部署名称。',
+  'settings.ai.chooseModelFromList': '从列表中选择',
+  'settings.ai.enterModelIdManuallyAction': '手动输入模型 ID',
+  'settings.ai.enterDeploymentNameManuallyAction': '手动输入部署名称',
+  'settings.ai.probeFailedHint':
+    '我们无法读取该提供方的模型列表。该列表只用于填充下拉菜单，你仍然可以添加该提供方，并自行输入模型或部署名称。',
+  'settings.ai.probeFailedAddAnyway': '不验证直接添加',
+  'settings.ai.azureV1EndpointHint':
+    '在 Azure 上请使用 v1 基础地址：https://YOUR-RESOURCE.openai.azure.com/openai/v1。旧的资源地址不提供模型列表，并且需要不同的认证请求头。',
   'settings.ai.temperatureOverride': '温度超控',
   'settings.ai.temperatureOverrideSlider': '温度超控（滑块）',
   'settings.ai.temperatureOverrideValue': '温度超控（值）',
@@ -4457,6 +4505,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVision': '支持视觉（图像输入）',
   'settings.ai.modelVisionDesc': '如果此模型接受图像，请启用。选择此模型后可在聊天框中附加图像。',
   'settings.ai.testFailed': '测试失败',
+  'settings.ai.providerTest.authRejected':
+    "密钥已保存，但 '{slug}' 拒绝了它。请确认你粘贴了完整的密钥，并且它在服务商后台仍然有效。",
+  'settings.ai.providerTest.modelNotRecognized':
+    "密钥已保存并通过验证，但 '{slug}' 无法识别所选模型。请选择该服务商确实提供的模型 ID（默认模型在服务商条目中设置）。",
+  'settings.ai.providerTest.quotaOrBilling':
+    "密钥已保存并通过验证，但 '{slug}' 因配额或账单原因拒绝了请求。请在服务商处查看账户余额和速率限制。",
+  'settings.ai.providerTest.endpointNotFound':
+    "密钥已保存，但为 '{slug}' 配置的接口地址返回了 404。请检查基础 URL：兼容 OpenAI 的服务商通常需要 '/v1' 后缀（例如 https://api.openai.com/v1）。",
+  'settings.ai.providerTest.timeout':
+    "密钥已保存，但 '{slug}' 未在规定时间内响应。请检查接口地址和网络后重新测试。",
+  'settings.ai.providerTest.emptyReply':
+    "密钥已保存，但 '{slug}' 对测试提示返回了空响应。请检查为该服务商配置的模型 ID。",
+  'settings.ai.providerTest.unknown':
+    "密钥已保存，但对 '{slug}' 的测试调用失败。请查看该服务商的状态页面和接口地址后重新测试。",
   'settings.ai.testingModel': '测试模型...',
   'settings.ai.modelResponse': '模型响应',
   'settings.ai.providerWithValue': '提供者：{value}',

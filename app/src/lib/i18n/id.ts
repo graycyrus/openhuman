@@ -4210,6 +4210,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformasi',
   'flows.nodeKind.output_parser': 'Pengurai keluaran',
   'flows.nodeKind.sub_workflow': 'Sub-alur kerja',
+  'flows.nodeKind.memory': 'Memori',
   'flows.palette.title': 'Simpul',
   'flows.palette.addNode': 'Tambah simpul {kind}',
   'flows.editor.save': 'Simpan',
@@ -4350,6 +4351,38 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Kode sumber',
+  'flows.nodeConfig.memory.operationLabel': 'Operasi',
+  'flows.nodeConfig.memory.operation_recall': 'Ingat kembali',
+  'flows.nodeConfig.memory.operation_search': 'Cari',
+  'flows.nodeConfig.memory.operation_flavour': 'Gaya',
+  'flows.nodeConfig.memory.operation_people': 'Orang',
+  'flows.nodeConfig.memory.operation_remember': 'Simpan',
+  'flows.nodeConfig.memory.operation_forget': 'Lupakan',
+  'flows.nodeConfig.memory.scopeLabel': 'Cakupan',
+  'flows.nodeConfig.memory.scopeHint': 'Tempat mencari memori ini.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'Penulisan hanya diizinkan dalam alur kerja ini, tidak pernah ke memori pribadi Anda.',
+  'flows.nodeConfig.memory.scope_user': 'Anda (hanya baca)',
+  'flows.nodeConfig.memory.scope_flow': 'Alur kerja ini',
+  'flows.nodeConfig.memory.scope_flows': 'Semua alur kerja (hanya baca)',
+  'flows.nodeConfig.memory.queryLabel': 'Kueri',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Opsional: mempersempit pencarian orang.',
+  'flows.nodeConfig.memory.flavourLabel': 'Gaya',
+  'flows.nodeConfig.memory.flavourHint':
+    'Facet persona mana yang akan dibaca, misalnya communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Komunikasi',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Gaya coding',
+  'flows.nodeConfig.memory.flavour_stack': 'Stack teknologi',
+  'flows.nodeConfig.memory.flavour_workflow': 'Alur kerja',
+  'flows.nodeConfig.memory.flavour_environment': 'Lingkungan',
+  'flows.nodeConfig.memory.flavour_directives': 'Arahan',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Preferensi negatif',
+  'flows.nodeConfig.memory.keyLabel': 'Kunci',
+  'flows.nodeConfig.memory.valueLabel': 'Nilai',
+  'flows.nodeConfig.memory.limitLabel': 'Batas',
+  'flows.nodeConfig.memory.limitHint': 'Jumlah maksimum hasil.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Skor minimum',
+  'flows.nodeConfig.memory.minScoreHint': 'Ambang batas relevansi dari 0 hingga 1.',
 
   'flows.chooser.title': 'Buat alur kerja',
   'flows.chooser.subtitle': 'Pilih cara Anda ingin memulai.',
@@ -4603,6 +4636,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'Status masuk tidak diketahui',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Terhubung · belum masuk',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'ID model yang diterima CLI claude: sebuah alias (sonnet, opus) atau nama lengkap (claude-sonnet-4-5). Nilainya diteruskan apa adanya ke claude --model, sehingga nama pemasaran seperti sonnet-4-5 akan ditolak.',
   'settings.ai.claudeCode.modalDescription':
     'Merutekan beban kerja obrolan, agentik, dan penalaran melalui Claude Code CLI yang terpasang secara lokal. Tanpa kunci API: menggunakan login milik CLI itu sendiri.',
   'settings.ai.claudeCode.close': 'Tutup',
@@ -4725,6 +4760,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} ID model',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Pilih model...',
+  'settings.ai.deploymentNameLabel': 'Nama penerapan',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Masukkan nama penerapan yang Anda atur di Azure AI Foundry. Ini bukan ID model.',
+  'settings.ai.deploymentNameLegacyHint':
+    'Nilai ini cocok dengan ID model dasar dari katalog penyedia. Azure merutekan permintaan berdasarkan nama penerapan, jadi pastikan ini adalah nama yang Anda berikan untuk penerapan Anda.',
+  'settings.ai.deploymentNameProviderHint':
+    'Endpoint Azure terdeteksi. Atur nama penerapan Anda di bidang model setelah memilih penyedia ini.',
+  'settings.ai.chooseModelFromList': 'Pilih dari daftar',
+  'settings.ai.enterModelIdManuallyAction': 'Masukkan ID model secara manual',
+  'settings.ai.enterDeploymentNameManuallyAction': 'Masukkan nama penerapan secara manual',
+  'settings.ai.probeFailedHint':
+    'Kami tidak dapat membaca daftar model penyedia ini. Daftar itu hanya mengisi menu dropdown, jadi Anda tetap bisa menambahkan penyedia dan mengetik sendiri nama model atau penerapannya.',
+  'settings.ai.probeFailedAddAnyway': 'Tambahkan tanpa verifikasi',
+  'settings.ai.azureV1EndpointHint':
+    'Untuk Azure, gunakan URL dasar v1: https://YOUR-RESOURCE.openai.azure.com/openai/v1. URL sumber daya yang lama tidak menyediakan daftar model dan mengharapkan header autentikasi yang berbeda.',
   'settings.ai.temperatureOverride': 'Penggantian suhu',
   'settings.ai.temperatureOverrideSlider': 'Penggantian suhu (slider)',
   'settings.ai.temperatureOverrideValue': 'Penggantian suhu (nilai)',
@@ -4734,6 +4785,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Aktifkan jika model ini menerima gambar. Memungkinkan penyusun obrolan melampirkan gambar saat model ini dipilih.',
   'settings.ai.testFailed': 'Pengujian gagal',
+  'settings.ai.providerTest.authRejected':
+    "Kunci sudah disimpan, tetapi '{slug}' menolaknya. Pastikan Anda menempelkan kunci secara utuh dan kunci itu masih aktif di dasbor penyedia.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "Kunci sudah disimpan dan diterima, tetapi '{slug}' tidak mengenali model yang dipilih. Pilih id model yang benar-benar disediakan penyedia ini (model bawaannya diatur pada entri penyedia).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "Kunci sudah disimpan dan diterima, tetapi '{slug}' menolak permintaan karena alasan kuota atau penagihan. Periksa saldo akun dan batas penggunaan Anda pada penyedia.",
+  'settings.ai.providerTest.endpointNotFound':
+    "Kunci sudah disimpan, tetapi endpoint yang dikonfigurasi untuk '{slug}' mengembalikan 404. Periksa URL dasar: penyedia yang kompatibel dengan OpenAI biasanya memerlukan akhiran '/v1' (misalnya https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "Kunci sudah disimpan, tetapi '{slug}' tidak merespons tepat waktu. Periksa URL endpoint dan jaringan Anda, lalu uji lagi.",
+  'settings.ai.providerTest.emptyReply':
+    "Kunci sudah disimpan, tetapi '{slug}' mengembalikan respons kosong untuk prompt uji. Periksa id model yang dikonfigurasi untuk penyedia ini.",
+  'settings.ai.providerTest.unknown':
+    "Kunci sudah disimpan, tetapi panggilan uji ke '{slug}' gagal. Periksa halaman status penyedia dan URL endpoint, lalu uji lagi.",
   'settings.ai.testingModel': 'Pengujian model...',
   'settings.ai.modelResponse': 'Respons model',
   'settings.ai.providerWithValue': 'Penyedia: {value}',
