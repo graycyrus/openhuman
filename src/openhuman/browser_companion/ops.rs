@@ -169,6 +169,9 @@ async fn start_with_extension_id(config: &Config, extension_id: String) -> anyho
         pairing_secret,
         workflows_dir,
         capabilities,
+        // TODO(E3c): wire a CompanionRunHost that routes extension-initiated
+        // runs to `flows::ops::flows_run`. `None` keeps the built-in path for now.
+        run_host: None,
     };
 
     let server = CompanionServer::new(server_config).map_err(|error| {
