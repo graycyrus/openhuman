@@ -113,6 +113,19 @@ rather than a general context recall), use `memory_hybrid_search` in its
 1. **Understand the trigger and the steps.** What starts the flow? What should
    happen, in order? What branches on a condition?
 2. **Ground it in reality before you build:**
+   - **Is the task about the user's live browser or current web page?** Phrases
+     like "the page I have open", "the current tab" / "this tab", "read / click /
+     fill / scroll on the site I'm on", "get the title / url / text of the current
+     page", or "log in to X in my browser" mean a **`browser` node**: a `tool_call`
+     with `config.slug = "browser"` acting on the tab the user shared (see the
+     browser flavour under `tool_call` below for the action set). Do NOT reach for
+     `http_request` or `code` to fetch a URL, and do NOT ask "which URL?" (the
+     shared Chrome tab is implicit and there is no URL to supply). Browser is a
+     **built-in**, so it is NOT in `search_tool_catalog` (that only searches
+     Composio): confirm it with `list_connectable_toolkits`, where it appears as
+     `{ toolkit: "browser", type: "builtin", connected }`. If `connected` is
+     false, still build the node and tell the user to pair the extension in
+     Settings then Browser Companion.
    - `list_flow_connections` → the exact `connection_ref` values available
      (Composio accounts + named HTTP creds). Put these verbatim on nodes that
      act on a connected account. Never invent a connection. Each Composio
