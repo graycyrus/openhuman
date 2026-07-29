@@ -40,7 +40,13 @@ impl From<tinyflows::companion::SharedTab> for SharedTabView {
 /// Current lifecycle + pairing snapshot of the Browser Companion relay.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct BrowserCompanionStatus {
-    /// Whether the loopback `CompanionServer` is currently running.
+    /// Whether the companion is enabled in config (the user's intent). This is
+    /// distinct from `running`: the relay cannot actually bind until an
+    /// extension is paired, so `enabled == true` while `running == false` is the
+    /// normal "enabled but not yet paired" state. The Settings toggle binds to
+    /// THIS, not `running`, so it doesn't snap back off before pairing.
+    pub enabled: bool,
+    /// Whether the loopback `CompanionServer` is currently running (bound).
     pub running: bool,
     /// Whether a paired extension currently holds an authenticated relay
     /// session. Always `false` when `running` is `false`.

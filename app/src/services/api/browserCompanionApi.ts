@@ -49,6 +49,13 @@ export interface BrowserCompanionSharedTab {
  * Deliberately never carries the pairing secret.
  */
 export interface BrowserCompanionStatus {
+  /**
+   * Whether the companion is enabled in config (the user's intent) — distinct
+   * from `running`. The relay cannot bind until an extension is paired, so
+   * `enabled: true` with `running: false` is the normal "enabled, not yet
+   * paired" state. The Settings toggle binds to this, not `running`.
+   */
+  enabled: boolean;
   running: boolean;
   /** Always `false` when `running` is `false`. */
   extension_connected: boolean;

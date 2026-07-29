@@ -52,6 +52,20 @@ vi.mock('../hooks/useSettingsNavigation', () => ({
 import BrowserCompanionPanel from './BrowserCompanionPanel';
 
 const IDLE_STATUS: BrowserCompanionStatus = {
+  enabled: false,
+  running: false,
+  extension_connected: false,
+  paired_extension_id: null,
+  relay_url: null,
+  shared_tabs: [],
+};
+
+// Enabled but not yet paired: the relay can't bind without an extension id, so
+// this is the normal post-enable / pre-pair state. The pairing + install
+// controls MUST be visible here (regression against the deadlock where they
+// were gated on `running`).
+const ENABLED_NOT_RUNNING_STATUS: BrowserCompanionStatus = {
+  enabled: true,
   running: false,
   extension_connected: false,
   paired_extension_id: null,
@@ -60,6 +74,7 @@ const IDLE_STATUS: BrowserCompanionStatus = {
 };
 
 const RUNNING_DISCONNECTED_STATUS: BrowserCompanionStatus = {
+  enabled: true,
   running: true,
   extension_connected: false,
   paired_extension_id: null,
@@ -68,6 +83,7 @@ const RUNNING_DISCONNECTED_STATUS: BrowserCompanionStatus = {
 };
 
 const RUNNING_CONNECTED_STATUS: BrowserCompanionStatus = {
+  enabled: true,
   running: true,
   extension_connected: true,
   paired_extension_id: 'abcdefghijklmnopabcdefghijklmnop',
@@ -106,9 +122,25 @@ describe('BrowserCompanionPanel', () => {
 
     expect(await screen.findByText('Stopped')).toBeInTheDocument();
     expect(screen.getByText('Not connected')).toBeInTheDocument();
-    // Pairing/shared-tabs sections only render once the relay is running.
+    // Pairing/shared-tabs sections only render once the companion is ENABLED.
     expect(screen.queryByText('Pairing')).not.toBeInTheDocument();
     expect(screen.queryByText('Shared tabs')).not.toBeInTheDocument();
+  });
+
+  it('enabled but not running still shows the pairing + install controls', async () => {
+    // Regression for the deadlock: enabling can't start the relay until an
+    // extension is paired, so the pairing controls must be reachable while the
+    // relay is still Stopped — otherwise there is no way to ever pair.
+    hoisted.getBrowserCompanionStatus.mockResolvedValue(ENABLED_NOT_RUNNING_STATUS);
+
+    renderWithProviders(<BrowserCompanionPanel />);
+
+    expect(await screen.findByText('Stopped')).toBeInTheDocument();
+    expect(screen.getByText('Pairing')).toBeInTheDocument();
+    expect(screen.getByText('Install extension')).toBeInTheDocument();
+    // The enable toggle reflects the persisted `enabled`, not `running`, so it
+    // reads ON here even though the relay is Stopped.
+    expect(screen.getByRole('switch', { name: 'Enable Browser Companion' })).toBeChecked();
   });
 
   it('renders running + disconnected: pairing section shown, no token yet', async () => {

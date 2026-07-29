@@ -22,6 +22,7 @@ function cliEnvelope<T>(
 }
 
 const idleStatus: BrowserCompanionStatus = {
+  enabled: false,
   running: false,
   extension_connected: false,
   paired_extension_id: null,
@@ -30,6 +31,7 @@ const idleStatus: BrowserCompanionStatus = {
 };
 
 const runningStatus: BrowserCompanionStatus = {
+  enabled: true,
   running: true,
   extension_connected: true,
   paired_extension_id: 'abcdefghijklmnopabcdefghijklmnop',

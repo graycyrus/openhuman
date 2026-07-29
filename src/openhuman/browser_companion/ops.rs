@@ -330,6 +330,7 @@ pub fn companion_status(config: &Config) -> BrowserCompanionStatus {
     );
 
     BrowserCompanionStatus {
+        enabled: config.browser_companion.enabled,
         running,
         extension_connected,
         paired_extension_id,

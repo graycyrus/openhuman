@@ -236,6 +236,7 @@ const BrowserCompanionPanel = () => {
     }
   };
 
+  const enabled = status?.enabled ?? false;
   const running = status?.running ?? false;
   const extensionConnected = status?.extension_connected ?? false;
   const relayUrl = status?.relay_url ?? pairing?.relay_url ?? null;
@@ -284,7 +285,7 @@ const BrowserCompanionPanel = () => {
               control={
                 <SettingsSwitch
                   id="switch-browser-companion-enabled"
-                  checked={running}
+                  checked={enabled}
                   onCheckedChange={next => void handleToggleEnabled(next)}
                   disabled={isTogglingEnabled}
                   aria-label={t('settings.browserCompanion.enableLabel')}
@@ -300,8 +301,12 @@ const BrowserCompanionPanel = () => {
             </div>
           </SettingsSection>
 
-          {/* Pairing (only meaningful once the relay is running) */}
-          {running && (
+          {/* Pairing — available once ENABLED (not once running): the relay
+              cannot start until an extension is paired here, so gating this on
+              `running` would deadlock (can't pair without running, can't run
+              without pairing). The relay URL + secret rows below only populate
+              after a successful pair starts the relay. */}
+          {enabled && (
             <SettingsSection
               title={t('settings.browserCompanion.pairingTitle')}
               description={t('settings.browserCompanion.pairingDesc')}>
