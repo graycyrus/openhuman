@@ -4252,6 +4252,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformação',
   'flows.nodeKind.output_parser': 'Analisador de saída',
   'flows.nodeKind.sub_workflow': 'Subfluxo de trabalho',
+  'flows.nodeKind.memory': 'Memória',
   'flows.palette.title': 'Nós',
   'flows.palette.addNode': 'Adicionar nó {kind}',
   'flows.editor.save': 'Salvar',
@@ -4394,6 +4395,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Código-fonte',
+  'flows.nodeConfig.memory.operationLabel': 'Operação',
+  'flows.nodeConfig.memory.operation_recall': 'Recordar',
+  'flows.nodeConfig.memory.operation_search': 'Pesquisar',
+  'flows.nodeConfig.memory.operation_flavour': 'Estilo',
+  'flows.nodeConfig.memory.operation_people': 'Pessoas',
+  'flows.nodeConfig.memory.operation_remember': 'Lembrar',
+  'flows.nodeConfig.memory.operation_forget': 'Esquecer',
+  'flows.nodeConfig.memory.scopeLabel': 'Escopo',
+  'flows.nodeConfig.memory.scopeHint': 'Onde procurar esta memória.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'A escrita só é permitida dentro deste fluxo de trabalho, nunca na sua memória pessoal.',
+  'flows.nodeConfig.memory.scope_user': 'Você (somente leitura)',
+  'flows.nodeConfig.memory.scope_flow': 'Este fluxo de trabalho',
+  'flows.nodeConfig.memory.scope_flows': 'Todos os fluxos de trabalho (somente leitura)',
+  'flows.nodeConfig.memory.queryLabel': 'Consulta',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Opcional: restringe a busca de pessoas.',
+  'flows.nodeConfig.memory.flavourLabel': 'Estilo',
+  'flows.nodeConfig.memory.flavourHint': 'Qual faceta da persona ler, por exemplo communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Comunicação',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Estilo de código',
+  'flows.nodeConfig.memory.flavour_stack': 'Stack técnica',
+  'flows.nodeConfig.memory.flavour_workflow': 'Fluxo de trabalho',
+  'flows.nodeConfig.memory.flavour_environment': 'Ambiente',
+  'flows.nodeConfig.memory.flavour_directives': 'Diretrizes',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Preferências negativas',
+  'flows.nodeConfig.memory.keyLabel': 'Chave',
+  'flows.nodeConfig.memory.valueLabel': 'Valor',
+  'flows.nodeConfig.memory.limitLabel': 'Limite',
+  'flows.nodeConfig.memory.limitHint': 'Número máximo de resultados.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Pontuação mínima',
+  'flows.nodeConfig.memory.minScoreHint': 'Limite de relevância de 0 a 1.',
 
   'flows.enableApproval.title': 'Permitir que este fluxo de trabalho aja?',
   'flows.enableApproval.intro':
@@ -4662,6 +4694,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'Estado de login desconhecido',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Conectado · não autenticado',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'Um ID de modelo aceito pela CLI claude: um alias (sonnet, opus) ou um nome completo (claude-sonnet-4-5). Ele é repassado sem alterações para claude --model, portanto nomes comerciais como sonnet-4-5 são recusados.',
   'settings.ai.claudeCode.modalDescription':
     'Encaminha cargas de chat, agênticas e de raciocínio pela sua Claude Code CLI instalada localmente. Sem chave de API: usa o próprio login da CLI.',
   'settings.ai.claudeCode.close': 'Fechar',
@@ -4785,6 +4819,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} ID do modelo',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Selecione um modelo...',
+  'settings.ai.deploymentNameLabel': 'Nome da implantação',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Digite o nome da implantação que você definiu no Azure AI Foundry. Este não é o ID do modelo.',
+  'settings.ai.deploymentNameLegacyHint':
+    'Este valor corresponde a um ID de modelo base do catálogo do provedor. O Azure roteia as solicitações pelo nome da implantação, portanto confirme que este é o nome que você deu à sua implantação.',
+  'settings.ai.deploymentNameProviderHint':
+    'Endpoint do Azure detectado. Defina o nome da sua implantação no campo do modelo depois de escolher este provedor.',
+  'settings.ai.chooseModelFromList': 'Escolher da lista',
+  'settings.ai.enterModelIdManuallyAction': 'Inserir o ID do modelo manualmente',
+  'settings.ai.enterDeploymentNameManuallyAction': 'Inserir o nome da implantação manualmente',
+  'settings.ai.probeFailedHint':
+    'Não foi possível ler a lista de modelos deste provedor. Essa lista só preenche o menu suspenso, portanto você ainda pode adicionar o provedor e digitar o nome do modelo ou da implantação.',
+  'settings.ai.probeFailedAddAnyway': 'Adicionar sem verificar',
+  'settings.ai.azureV1EndpointHint':
+    'No Azure, use o URL base v1: https://YOUR-RESOURCE.openai.azure.com/openai/v1. O URL de recurso antigo não fornece uma lista de modelos e espera outro cabeçalho de autenticação.',
   'settings.ai.temperatureOverride': 'Substituição de temperatura',
   'settings.ai.temperatureOverrideSlider': 'Substituição de temperatura (controle deslizante)',
   'settings.ai.temperatureOverrideValue': 'Substituição de temperatura (valor)',
@@ -4794,6 +4844,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Ative se este modelo aceitar imagens. Permite anexar imagens no chat quando este modelo está selecionado.',
   'settings.ai.testFailed': 'Teste falhou',
+  'settings.ai.providerTest.authRejected':
+    "A chave foi salva, mas '{slug}' a recusou. Verifique se você colou a chave inteira e se ela continua ativa no painel do provedor.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "A chave foi salva e aceita, mas '{slug}' não reconhece o modelo selecionado. Escolha um id de modelo que este provedor realmente ofereça (o modelo padrão é definido no registro do provedor).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "A chave foi salva e aceita, mas '{slug}' recusou a solicitação por motivos de cota ou faturamento. Verifique o saldo da sua conta e os limites de uso com o provedor.",
+  'settings.ai.providerTest.endpointNotFound':
+    "A chave foi salva, mas o endpoint configurado para '{slug}' retornou 404. Verifique a URL base: um provedor compatível com OpenAI normalmente precisa do sufixo '/v1' (por exemplo, https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "A chave foi salva, mas '{slug}' não respondeu a tempo. Verifique a URL do endpoint e sua rede e teste novamente.",
+  'settings.ai.providerTest.emptyReply':
+    "A chave foi salva, mas '{slug}' retornou uma resposta vazia a um prompt de teste. Verifique o id do modelo configurado para este provedor.",
+  'settings.ai.providerTest.unknown':
+    "A chave foi salva, mas uma chamada de teste para '{slug}' falhou. Verifique a página de status do provedor e a URL do endpoint e teste novamente.",
   'settings.ai.testingModel': 'Modelo de teste...',
   'settings.ai.modelResponse': 'Resposta do modelo',
   'settings.ai.providerWithValue': 'Provedor: {value}',

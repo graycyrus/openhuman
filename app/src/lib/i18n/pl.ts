@@ -4248,6 +4248,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformacja',
   'flows.nodeKind.output_parser': 'Parser wyjścia',
   'flows.nodeKind.sub_workflow': 'Podprzepływ pracy',
+  'flows.nodeKind.memory': 'Pamięć',
   'flows.palette.title': 'Węzły',
   'flows.palette.addNode': 'Dodaj węzeł {kind}',
   'flows.editor.save': 'Zapisz',
@@ -4390,6 +4391,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Kod źródłowy',
+  'flows.nodeConfig.memory.operationLabel': 'Operacja',
+  'flows.nodeConfig.memory.operation_recall': 'Przywołanie',
+  'flows.nodeConfig.memory.operation_search': 'Wyszukiwanie',
+  'flows.nodeConfig.memory.operation_flavour': 'Styl',
+  'flows.nodeConfig.memory.operation_people': 'Osoby',
+  'flows.nodeConfig.memory.operation_remember': 'Zapamiętaj',
+  'flows.nodeConfig.memory.operation_forget': 'Zapomnij',
+  'flows.nodeConfig.memory.scopeLabel': 'Zakres',
+  'flows.nodeConfig.memory.scopeHint': 'Gdzie szukać tej pamięci.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'Zapis jest dozwolony wyłącznie w obrębie tego przepływu pracy, nigdy w pamięci osobistej.',
+  'flows.nodeConfig.memory.scope_user': 'Ty (tylko do odczytu)',
+  'flows.nodeConfig.memory.scope_flow': 'Ten przepływ pracy',
+  'flows.nodeConfig.memory.scope_flows': 'Wszystkie przepływy pracy (tylko do odczytu)',
+  'flows.nodeConfig.memory.queryLabel': 'Zapytanie',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Opcjonalnie: zawęża wyszukiwanie osób.',
+  'flows.nodeConfig.memory.flavourLabel': 'Styl',
+  'flows.nodeConfig.memory.flavourHint': 'Który aspekt persony odczytać, np. communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Komunikacja',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Styl kodowania',
+  'flows.nodeConfig.memory.flavour_stack': 'Stos technologiczny',
+  'flows.nodeConfig.memory.flavour_workflow': 'Przepływ pracy',
+  'flows.nodeConfig.memory.flavour_environment': 'Środowisko',
+  'flows.nodeConfig.memory.flavour_directives': 'Wytyczne',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Preferencje negatywne',
+  'flows.nodeConfig.memory.keyLabel': 'Klucz',
+  'flows.nodeConfig.memory.valueLabel': 'Wartość',
+  'flows.nodeConfig.memory.limitLabel': 'Limit',
+  'flows.nodeConfig.memory.limitHint': 'Maksymalna liczba wyników.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Minimalny wynik',
+  'flows.nodeConfig.memory.minScoreHint': 'Próg trafności od 0 do 1.',
 
   'flows.enableApproval.title': 'Zezwolić temu przepływowi pracy na działanie?',
   'flows.enableApproval.intro':
@@ -4665,6 +4697,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'Nieznany stan logowania',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Połączono · nie zalogowano',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'Identyfikator modelu akceptowany przez CLI claude: alias (sonnet, opus) albo pełna nazwa (claude-sonnet-4-5). Jest przekazywany bez zmian do claude --model, więc nazwy marketingowe takie jak sonnet-4-5 są odrzucane.',
   'settings.ai.claudeCode.modalDescription':
     'Kieruje zadania czatu, agentowe i wnioskowania przez lokalnie zainstalowane Claude Code CLI. Bez klucza API: używa własnego logowania CLI.',
   'settings.ai.claudeCode.close': 'Zamknij',
@@ -4788,6 +4822,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': 'ID modelu {slug}',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Wybierz model...',
+  'settings.ai.deploymentNameLabel': 'Nazwa wdrożenia',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Wprowadź nazwę wdrożenia ustawioną w Azure AI Foundry. To nie jest identyfikator modelu.',
+  'settings.ai.deploymentNameLegacyHint':
+    'Ta wartość odpowiada identyfikatorowi modelu bazowego z katalogu dostawcy. Azure kieruje żądania według nazwy wdrożenia, więc potwierdź, że jest to nazwa nadana Twojemu wdrożeniu.',
+  'settings.ai.deploymentNameProviderHint':
+    'Wykryto punkt końcowy Azure. Ustaw nazwę wdrożenia w polu modelu po wybraniu tego dostawcy.',
+  'settings.ai.chooseModelFromList': 'Wybierz z listy',
+  'settings.ai.enterModelIdManuallyAction': 'Wpisz identyfikator modelu ręcznie',
+  'settings.ai.enterDeploymentNameManuallyAction': 'Wpisz nazwę wdrożenia ręcznie',
+  'settings.ai.probeFailedHint':
+    'Nie udało się odczytać listy modeli tego dostawcy. Ta lista wypełnia tylko listę rozwijaną, więc nadal możesz dodać dostawcę i samodzielnie wpisać nazwę modelu lub wdrożenia.',
+  'settings.ai.probeFailedAddAnyway': 'Dodaj bez weryfikacji',
+  'settings.ai.azureV1EndpointHint':
+    'W przypadku Azure użyj bazowego adresu v1: https://YOUR-RESOURCE.openai.azure.com/openai/v1. Starszy adres zasobu nie udostępnia listy modeli i oczekuje innego nagłówka uwierzytelniania.',
   'settings.ai.temperatureOverride': 'Nadpisanie temperatury',
   'settings.ai.temperatureOverrideSlider': 'Nadpisanie temperatury (suwak)',
   'settings.ai.temperatureOverrideValue': 'Nadpisanie temperatury (wartość)',
@@ -4797,6 +4847,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Włącz, jeśli ten model akceptuje obrazy. Pozwala dołączać obrazy w czacie, gdy ten model jest wybrany.',
   'settings.ai.testFailed': 'Test nie powiódł się',
+  'settings.ai.providerTest.authRejected':
+    "Klucz został zapisany, ale '{slug}' go odrzucił. Sprawdź, czy wkleiłeś cały klucz i czy nadal jest aktywny w panelu dostawcy.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "Klucz został zapisany i zaakceptowany, ale '{slug}' nie rozpoznaje wybranego modelu. Wybierz identyfikator modelu, który ten dostawca faktycznie udostępnia (model domyślny ustawia się we wpisie dostawcy).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "Klucz został zapisany i zaakceptowany, ale '{slug}' odrzucił żądanie z powodu limitu lub rozliczeń. Sprawdź saldo konta i limity u dostawcy.",
+  'settings.ai.providerTest.endpointNotFound':
+    "Klucz został zapisany, ale skonfigurowany endpoint dla '{slug}' zwrócił 404. Sprawdź adres bazowy: dostawca zgodny z OpenAI zwykle wymaga przyrostka '/v1' (na przykład https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "Klucz został zapisany, ale '{slug}' nie odpowiedział na czas. Sprawdź adres endpointu i sieć, a następnie przetestuj ponownie.",
+  'settings.ai.providerTest.emptyReply':
+    "Klucz został zapisany, ale '{slug}' zwrócił pustą odpowiedź na zapytanie testowe. Sprawdź identyfikator modelu skonfigurowany dla tego dostawcy.",
+  'settings.ai.providerTest.unknown':
+    "Klucz został zapisany, ale wywołanie testowe do '{slug}' nie powiodło się. Sprawdź stronę statusu dostawcy i adres endpointu, a następnie przetestuj ponownie.",
   'settings.ai.testingModel': 'Testowanie modelu...',
   'settings.ai.modelResponse': 'Odpowiedź modelu',
   'settings.ai.providerWithValue': 'Dostawca: {value}',

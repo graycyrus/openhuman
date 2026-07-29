@@ -4092,6 +4092,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'التحويل',
   'flows.nodeKind.output_parser': 'محلل المخرجات',
   'flows.nodeKind.sub_workflow': 'سير عمل فرعي',
+  'flows.nodeKind.memory': 'الذاكرة',
   'flows.palette.title': 'العقد',
   'flows.palette.addNode': 'إضافة عقدة {kind}',
   'flows.editor.save': 'حفظ',
@@ -4226,6 +4227,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'الكود المصدري',
+  'flows.nodeConfig.memory.operationLabel': 'العملية',
+  'flows.nodeConfig.memory.operation_recall': 'استرجاع',
+  'flows.nodeConfig.memory.operation_search': 'بحث',
+  'flows.nodeConfig.memory.operation_flavour': 'النمط',
+  'flows.nodeConfig.memory.operation_people': 'الأشخاص',
+  'flows.nodeConfig.memory.operation_remember': 'تذكر',
+  'flows.nodeConfig.memory.operation_forget': 'نسيان',
+  'flows.nodeConfig.memory.scopeLabel': 'النطاق',
+  'flows.nodeConfig.memory.scopeHint': 'مكان البحث عن هذه الذاكرة.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'يُسمح بالكتابة داخل سير العمل هذا فقط، وليس أبدًا في ذاكرتك الشخصية.',
+  'flows.nodeConfig.memory.scope_user': 'أنت (للقراءة فقط)',
+  'flows.nodeConfig.memory.scope_flow': 'سير العمل هذا',
+  'flows.nodeConfig.memory.scope_flows': 'كل سير العمل (للقراءة فقط)',
+  'flows.nodeConfig.memory.queryLabel': 'الاستعلام',
+  'flows.nodeConfig.memory.queryOptionalHint': 'اختياري: يضيّق نطاق البحث عن الأشخاص.',
+  'flows.nodeConfig.memory.flavourLabel': 'النمط',
+  'flows.nodeConfig.memory.flavourHint': 'أي جانب من ملف الشخصية يجب قراءته، مثل communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'التواصل',
+  'flows.nodeConfig.memory.flavour_coding_style': 'أسلوب البرمجة',
+  'flows.nodeConfig.memory.flavour_stack': 'التقنيات المستخدمة',
+  'flows.nodeConfig.memory.flavour_workflow': 'سير العمل',
+  'flows.nodeConfig.memory.flavour_environment': 'البيئة',
+  'flows.nodeConfig.memory.flavour_directives': 'التوجيهات',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'التفضيلات السلبية',
+  'flows.nodeConfig.memory.keyLabel': 'المفتاح',
+  'flows.nodeConfig.memory.valueLabel': 'القيمة',
+  'flows.nodeConfig.memory.limitLabel': 'الحد الأقصى',
+  'flows.nodeConfig.memory.limitHint': 'أقصى عدد من النتائج.',
+  'flows.nodeConfig.memory.minScoreLabel': 'الحد الأدنى للنتيجة',
+  'flows.nodeConfig.memory.minScoreHint': 'عتبة الصلة من 0 إلى 1.',
 
   'flows.enableApproval.title': 'هل تسمح لسير العمل هذا بالتنفيذ؟',
   'flows.enableApproval.intro':
@@ -4483,6 +4515,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'حالة تسجيل الدخول غير معروفة',
   'settings.ai.claudeCode.connectedNotSignedIn': 'متصل · لم يتم تسجيل الدخول',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'معرّف نموذج تقبله أداة claude: اسم مختصر (sonnet أو opus) أو اسم كامل (claude-sonnet-4-5). يُمرَّر كما هو إلى claude --model، لذا تُرفض الصيغ التسويقية مثل sonnet-4-5.',
   'settings.ai.claudeCode.modalDescription':
     'يوجّه أعباء المحادثة والمهام الوكيلة والاستدلال عبر واجهة Claude Code CLI المثبَّتة محليًا. لا حاجة لمفتاح API: فهي تستخدم تسجيل الدخول الخاص بها.',
   'settings.ai.claudeCode.close': 'إغلاق',
@@ -4602,6 +4636,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} معرف النموذج',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'حدد نموذجًا...',
+  'settings.ai.deploymentNameLabel': 'اسم النشر',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'أدخل اسم النشر الذي حددته في Azure AI Foundry. هذا ليس معرف النموذج.',
+  'settings.ai.deploymentNameLegacyHint':
+    'تطابق هذه القيمة معرف نموذج أساسي من كتالوج المزود. يوجه Azure الطلبات حسب اسم النشر، لذا تأكد من أن هذا هو الاسم الذي منحته لعملية النشر.',
+  'settings.ai.deploymentNameProviderHint':
+    'تم اكتشاف نقطة نهاية Azure. حدد اسم النشر في حقل النموذج بعد اختيار هذا المزود.',
+  'settings.ai.chooseModelFromList': 'اختر من القائمة',
+  'settings.ai.enterModelIdManuallyAction': 'أدخل معرف النموذج يدويًا',
+  'settings.ai.enterDeploymentNameManuallyAction': 'أدخل اسم النشر يدويًا',
+  'settings.ai.probeFailedHint':
+    'تعذّر علينا قراءة قائمة النماذج لدى هذا المزوّد. تلك القائمة تملأ القائمة المنسدلة فقط، لذا لا يزال بإمكانك إضافة المزوّد وكتابة اسم النموذج أو النشر بنفسك.',
+  'settings.ai.probeFailedAddAnyway': 'أضِف دون التحقق',
+  'settings.ai.azureV1EndpointHint':
+    'مع Azure استخدم عنوان الإصدار v1‏: https://YOUR-RESOURCE.openai.azure.com/openai/v1. لا يوفّر عنوان المورد الأقدم قائمة نماذج ويتوقّع ترويسة مصادقة مختلفة.',
   'settings.ai.temperatureOverride': 'تجاوز درجة الحرارة',
   'settings.ai.temperatureOverrideSlider': 'تجاوز درجة الحرارة (شريط التمرير)',
   'settings.ai.temperatureOverrideValue': 'تجاوز درجة الحرارة (القيمة)',
@@ -4611,6 +4661,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'فعّل هذا إذا كان النموذج يقبل الصور. يتيح لمربع الدردشة إرفاق الصور عند اختيار هذا النموذج.',
   'settings.ai.testFailed': 'فشل الاختبار',
+  'settings.ai.providerTest.authRejected':
+    "تم حفظ المفتاح، لكن '{slug}' رفضه. تأكد من لصق المفتاح كاملاً ومن أنه ما زال نشطاً في لوحة تحكم المزوّد.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "تم حفظ المفتاح وقبوله، لكن '{slug}' لا يتعرف على النموذج المحدد. اختر معرّف نموذج يقدمه هذا المزوّد فعلياً (يُضبط نموذجه الافتراضي في إدخال المزوّد).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "تم حفظ المفتاح وقبوله، لكن '{slug}' رفض الطلب لأسباب تتعلق بالحصة أو الفوترة. تحقق من رصيد حسابك وحدود الاستخدام لدى المزوّد.",
+  'settings.ai.providerTest.endpointNotFound':
+    "تم حفظ المفتاح، لكن نقطة النهاية المهيأة لـ '{slug}' أعادت 404. تحقق من عنوان URL الأساسي: عادةً ما يحتاج المزوّد المتوافق مع OpenAI إلى اللاحقة '/v1' (مثل https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "تم حفظ المفتاح، لكن '{slug}' لم يستجب في الوقت المحدد. تحقق من عنوان نقطة النهاية ومن شبكتك ثم أعد الاختبار.",
+  'settings.ai.providerTest.emptyReply':
+    "تم حفظ المفتاح، لكن '{slug}' أعاد رداً فارغاً على رسالة اختبار. تحقق من معرّف النموذج المهيأ لهذا المزوّد.",
+  'settings.ai.providerTest.unknown':
+    "تم حفظ المفتاح، لكن فشل استدعاء اختباري إلى '{slug}'. تحقق من صفحة حالة المزوّد ومن عنوان نقطة النهاية ثم أعد الاختبار.",
   'settings.ai.testingModel': 'نموذج الاختبار...',
   'settings.ai.modelResponse': 'استجابة النموذج',
   'settings.ai.providerWithValue': 'الموفر: {value}',

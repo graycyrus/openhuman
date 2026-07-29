@@ -4230,6 +4230,7 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Преобразование',
   'flows.nodeKind.output_parser': 'Парсер вывода',
   'flows.nodeKind.sub_workflow': 'Подпроцесс',
+  'flows.nodeKind.memory': 'Память',
   'flows.palette.title': 'Узлы',
   'flows.palette.addNode': 'Добавить узел {kind}',
   'flows.editor.save': 'Сохранить',
@@ -4374,6 +4375,37 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Исходный код',
+  'flows.nodeConfig.memory.operationLabel': 'Операция',
+  'flows.nodeConfig.memory.operation_recall': 'Вспомнить',
+  'flows.nodeConfig.memory.operation_search': 'Поиск',
+  'flows.nodeConfig.memory.operation_flavour': 'Стиль',
+  'flows.nodeConfig.memory.operation_people': 'Люди',
+  'flows.nodeConfig.memory.operation_remember': 'Запомнить',
+  'flows.nodeConfig.memory.operation_forget': 'Забыть',
+  'flows.nodeConfig.memory.scopeLabel': 'Область',
+  'flows.nodeConfig.memory.scopeHint': 'Где искать эту память.',
+  'flows.nodeConfig.memory.scopeWriteHint':
+    'Запись разрешена только в пределах этого рабочего процесса, но никогда в вашей личной памяти.',
+  'flows.nodeConfig.memory.scope_user': 'Вы (только чтение)',
+  'flows.nodeConfig.memory.scope_flow': 'Этот рабочий процесс',
+  'flows.nodeConfig.memory.scope_flows': 'Все рабочие процессы (только чтение)',
+  'flows.nodeConfig.memory.queryLabel': 'Запрос',
+  'flows.nodeConfig.memory.queryOptionalHint': 'Необязательно: сужает поиск людей.',
+  'flows.nodeConfig.memory.flavourLabel': 'Стиль',
+  'flows.nodeConfig.memory.flavourHint': 'Какую грань личности прочитать, например communication.',
+  'flows.nodeConfig.memory.flavour_communication': 'Общение',
+  'flows.nodeConfig.memory.flavour_coding_style': 'Стиль кода',
+  'flows.nodeConfig.memory.flavour_stack': 'Технологический стек',
+  'flows.nodeConfig.memory.flavour_workflow': 'Рабочий процесс',
+  'flows.nodeConfig.memory.flavour_environment': 'Окружение',
+  'flows.nodeConfig.memory.flavour_directives': 'Директивы',
+  'flows.nodeConfig.memory.flavour_anti_preferences': 'Нежелательные предпочтения',
+  'flows.nodeConfig.memory.keyLabel': 'Ключ',
+  'flows.nodeConfig.memory.valueLabel': 'Значение',
+  'flows.nodeConfig.memory.limitLabel': 'Лимит',
+  'flows.nodeConfig.memory.limitHint': 'Максимальное количество результатов.',
+  'flows.nodeConfig.memory.minScoreLabel': 'Минимальная оценка',
+  'flows.nodeConfig.memory.minScoreHint': 'Порог релевантности от 0 до 1.',
 
   'flows.enableApproval.title': 'Разрешить этому рабочему процессу действовать?',
   'flows.enableApproval.intro':
@@ -4638,6 +4670,8 @@ const messages: TranslationMap = {
   'settings.ai.claudeCode.signInUnknown': 'Состояние входа неизвестно',
   'settings.ai.claudeCode.connectedNotSignedIn': 'Подключено · вход не выполнен',
   'settings.ai.claudeCode.modalTitle': 'Claude Code CLI',
+  'settings.ai.claudeCode.modelHelp':
+    'Идентификатор модели, который принимает CLI claude: псевдоним (sonnet, opus) или полное имя (claude-sonnet-4-5). Значение передаётся в claude --model без изменений, поэтому маркетинговые названия вроде sonnet-4-5 отклоняются.',
   'settings.ai.claudeCode.modalDescription':
     'Направляет задачи чата, агентные и рассуждающие нагрузки через локально установленный Claude Code CLI. Без ключа API: используется собственный вход CLI.',
   'settings.ai.claudeCode.close': 'Закрыть',
@@ -4762,6 +4796,22 @@ const messages: TranslationMap = {
   'settings.ai.modelIdPlaceholderForProvider': '{slug} идентификатор модели',
   'settings.ai.modelIdPlaceholder': 'model-id',
   'settings.ai.selectModel': 'Выберите модель...',
+  'settings.ai.deploymentNameLabel': 'Имя развёртывания',
+  'settings.ai.deploymentNamePlaceholder': 'my-gpt-deployment',
+  'settings.ai.deploymentNameHelp':
+    'Введите имя развёртывания, заданное в Azure AI Foundry. Это не идентификатор модели.',
+  'settings.ai.deploymentNameLegacyHint':
+    'Это значение совпадает с идентификатором базовой модели из каталога поставщика. Azure маршрутизирует запросы по имени развёртывания, поэтому убедитесь, что это имя вашего развёртывания.',
+  'settings.ai.deploymentNameProviderHint':
+    'Обнаружена конечная точка Azure. Укажите имя развёртывания в поле модели после выбора этого поставщика.',
+  'settings.ai.chooseModelFromList': 'Выбрать из списка',
+  'settings.ai.enterModelIdManuallyAction': 'Ввести идентификатор модели вручную',
+  'settings.ai.enterDeploymentNameManuallyAction': 'Ввести имя развёртывания вручную',
+  'settings.ai.probeFailedHint':
+    'Не удалось прочитать список моделей этого провайдера. Этот список только заполняет выпадающее меню, поэтому вы всё равно можете добавить провайдера и ввести имя модели или развёртывания вручную.',
+  'settings.ai.probeFailedAddAnyway': 'Добавить без проверки',
+  'settings.ai.azureV1EndpointHint':
+    'Для Azure используйте базовый адрес v1: https://YOUR-RESOURCE.openai.azure.com/openai/v1. Старый адрес ресурса не отдаёт список моделей и ожидает другой заголовок аутентификации.',
   'settings.ai.temperatureOverride': 'Переопределение температуры',
   'settings.ai.temperatureOverrideSlider': 'Переопределение температуры (ползунок)',
   'settings.ai.temperatureOverrideValue': 'Переопределение температуры (значение)',
@@ -4771,6 +4821,20 @@ const messages: TranslationMap = {
   'settings.ai.modelVisionDesc':
     'Включите, если модель принимает изображения. Позволяет прикреплять изображения в чате, когда выбрана эта модель.',
   'settings.ai.testFailed': 'Тест не пройден.',
+  'settings.ai.providerTest.authRejected':
+    "Ключ сохранён, но '{slug}' его отклонил. Проверьте, что вы вставили ключ целиком и что он всё ещё активен в панели провайдера.",
+  'settings.ai.providerTest.modelNotRecognized':
+    "Ключ сохранён и принят, но '{slug}' не распознаёт выбранную модель. Укажите идентификатор модели, которую этот провайдер действительно обслуживает (модель по умолчанию задаётся в записи провайдера).",
+  'settings.ai.providerTest.quotaOrBilling':
+    "Ключ сохранён и принят, но '{slug}' отклонил запрос из-за квоты или оплаты. Проверьте баланс счёта и лимиты у провайдера.",
+  'settings.ai.providerTest.endpointNotFound':
+    "Ключ сохранён, но настроенный endpoint для '{slug}' вернул 404. Проверьте базовый URL: провайдеру, совместимому с OpenAI, обычно нужен суффикс '/v1' (например, https://api.openai.com/v1).",
+  'settings.ai.providerTest.timeout':
+    "Ключ сохранён, но '{slug}' не ответил вовремя. Проверьте URL endpoint и сеть, затем повторите проверку.",
+  'settings.ai.providerTest.emptyReply':
+    "Ключ сохранён, но '{slug}' вернул пустой ответ на тестовый запрос. Проверьте идентификатор модели, настроенный для этого провайдера.",
+  'settings.ai.providerTest.unknown':
+    "Ключ сохранён, но тестовый вызов к '{slug}' не удался. Проверьте страницу состояния провайдера и URL endpoint, затем повторите проверку.",
   'settings.ai.testingModel': 'Модель тестирования...',
   'settings.ai.modelResponse': 'Ответ модели',
   'settings.ai.providerWithValue': 'Поставщик: {value}',
