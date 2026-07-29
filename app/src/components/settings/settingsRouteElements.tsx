@@ -12,6 +12,7 @@ import AgentsPanel from './panels/AgentsPanel';
 import AppearancePanel from './panels/AppearancePanel';
 import ApprovalHistoryPanel from './panels/ApprovalHistoryPanel';
 import BillingPanel from './panels/BillingPanel';
+import BrowserCompanionPanel from './panels/BrowserCompanionPanel';
 import CoreConnectionPanel from './panels/CoreConnectionPanel';
 import CronJobsPanel from './panels/CronJobsPanel';
 import DeveloperOptionsPanel from './panels/DeveloperOptionsPanel';
@@ -156,6 +157,7 @@ export function settingsRouteElements(): ReactNode {
       />
       <Route path="agentbox" element={wrapSettingsPage(<AgentBoxPanel />)} />
       <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
+      <Route path="browser-companion" element={wrapSettingsPage(<BrowserCompanionPanel />)} />
       {/* Search engine settings moved to the Connections page. */}
       <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />
       {/* Agent Chat debug tester moved to the Connections page. */}

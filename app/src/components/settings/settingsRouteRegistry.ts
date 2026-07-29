@@ -585,6 +585,16 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'automationIntegrations',
     searchKeywords: ['mcp', 'server'],
   },
+  {
+    // Browser Companion — Chrome extension pairing (relay + shared tabs).
+    id: 'browser-companion',
+    titleKey: 'settings.browserCompanion.title',
+    descriptionKey: 'settings.browserCompanion.menuDesc',
+    section: 'developer',
+    devOnly: true,
+    navGroup: 'automationIntegrations',
+    searchKeywords: ['browser', 'chrome', 'extension', 'companion', 'pair', 'pairing', 'relay'],
+  },
   // dev-workflow (the cron-based GitHub dev-automation panel) was retired —
   // superseded by first-level Workflows (/flows) and the skills workflow runner.
   {

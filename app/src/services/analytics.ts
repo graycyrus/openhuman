@@ -103,6 +103,8 @@ const ALLOWED_EVENT_NAMES = [
   'automation_run_started',
   'automation_run_resumed',
   'automation_run_cancelled',
+  'browser_companion_enabled',
+  'browser_companion_paired',
   'skill_install',
   'skill_uninstall',
   'tab_bar_change',

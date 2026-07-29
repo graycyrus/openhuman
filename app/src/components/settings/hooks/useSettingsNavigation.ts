@@ -40,6 +40,7 @@ type SettingsRoute =
   | 'integrations'
   | 'composio-triggers'
   | 'mcp-server'
+  | 'browser-companion'
   | 'sandbox-settings'
   | 'permissions'
   | 'activity-level'

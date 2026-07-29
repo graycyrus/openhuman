@@ -159,6 +159,22 @@ const automationDebugGroup: DevGroup = {
         </svg>
       ),
     },
+    {
+      id: 'browser-companion',
+      titleKey: 'settings.browserCompanion.title',
+      descriptionKey: 'settings.browserCompanion.menuDesc',
+      route: 'browser-companion',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"
+          />
+        </svg>
+      ),
+    },
   ],
 };
 
