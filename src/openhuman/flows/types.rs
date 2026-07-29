@@ -22,6 +22,15 @@ pub enum FlowRunTrigger {
     AppEvent,
     /// A human-in-the-loop resume of a paused run (`flows_resume`).
     Resume,
+    /// A run started by the Chrome extension via the Browser Companion's
+    /// `CompanionRunHost` seam (Part 2 / E3c) —
+    /// `crate::openhuman::browser_companion::run_host::BrowserCompanionRunHost::start_run`.
+    /// Distinguished from [`FlowRunTrigger::Rpc`] purely for auditing/tagging
+    /// (Langfuse trace `trigger:browser_extension`): the run still goes
+    /// through the exact same `flows_run_with_browser_tab` pipeline —
+    /// `require_approval`, the run registry, and every other safety gate
+    /// apply identically.
+    BrowserExtension,
 }
 
 impl FlowRunTrigger {
@@ -32,6 +41,7 @@ impl FlowRunTrigger {
             FlowRunTrigger::Schedule => "schedule",
             FlowRunTrigger::AppEvent => "app_event",
             FlowRunTrigger::Resume => "resume",
+            FlowRunTrigger::BrowserExtension => "browser_extension",
         }
     }
 }
@@ -225,6 +235,19 @@ pub struct Flow {
     /// `src/openhuman/agent/turn_origin.rs::TrustedAutomationSource::Workflow`.
     #[serde(default)]
     pub require_approval: bool,
+    /// "Expose to browser extension" (Part 2 / E3b): when `true`, this flow is
+    /// surfaced by [`crate::openhuman::browser_companion::run_host::BrowserCompanionRunHost::list_workflows`]
+    /// to the Chrome extension's side panel and becomes triggerable from
+    /// there. `false` (the default for every newly created/duplicated flow)
+    /// keeps a flow invisible to and untriggerable from the extension — the
+    /// user must explicitly opt each flow in via `flows_update`. This is a
+    /// pure visibility/trigger-surface gate: it does NOT relax
+    /// `require_approval` or any other run-time safety check — an
+    /// extension-triggered run still goes through the exact same
+    /// `flows_run`/approval-gate pipeline as an RPC-triggered one. See
+    /// `src/openhuman/browser_companion/mod.rs`.
+    #[serde(default)]
+    pub expose_to_browser: bool,
 }
 
 /// One step of a persisted [`FlowRun`] (run-history inspector).
@@ -495,6 +518,7 @@ mod tests {
             last_run_at: None,
             last_status: None,
             require_approval: false,
+            expose_to_browser: false,
         };
         let json = serde_json::to_string(&flow).expect("serialize");
         let back: Flow = serde_json::from_str(&json).expect("deserialize");
@@ -502,6 +526,7 @@ mod tests {
         assert_eq!(back.graph, flow.graph);
         assert!(back.last_run_at.is_none());
         assert!(!back.require_approval);
+        assert!(!back.expose_to_browser);
     }
 
     #[test]
@@ -519,6 +544,24 @@ mod tests {
         });
         let flow: Flow = serde_json::from_value(json).expect("deserialize");
         assert!(!flow.require_approval);
+    }
+
+    #[test]
+    fn flow_expose_to_browser_defaults_false_when_omitted_from_json() {
+        // Same legacy-fixture contract as `require_approval` above (E3b): a
+        // flow persisted/serialized before this field existed must still
+        // deserialize, defaulting to not-exposed.
+        let json = serde_json::json!({
+            "id": "flow_1",
+            "name": "demo",
+            "enabled": true,
+            "graph": sample_graph(),
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "require_approval": false,
+        });
+        let flow: Flow = serde_json::from_value(json).expect("deserialize");
+        assert!(!flow.expose_to_browser);
     }
 
     #[test]

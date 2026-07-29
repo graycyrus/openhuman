@@ -31,8 +31,18 @@
 //!
 //! Spawned at boot by `core::runtime::services::spawn_companion_relay_service`,
 //! selected by `ServiceSet::companion_relay`.
+//!
+//! **Increment 4 (Part 2 / E3c)** wires [`run_host::BrowserCompanionRunHost`]
+//! into `ops::start_with_extension_id`'s `CompanionServerConfig::run_host`,
+//! removing the earlier `TODO(E3c)` marker: extension-initiated workflow
+//! listing/run/cancel now route through the `flows::` domain's own
+//! `flows_run_with_browser_tab`/`flows_cancel_run` (the exact same pipeline
+//! the Workflows UI "Run" button uses — `require_approval`, the run
+//! registry, and every other safety gate apply unchanged), gated by the
+//! per-flow `expose_to_browser` opt-in (E3b, `flows::types::Flow`).
 
 mod ops;
+pub mod run_host;
 mod schemas;
 mod store;
 mod types;
@@ -42,6 +52,7 @@ pub use ops::{
     rotate_secret, start_companion_server, stop_companion_server, unbind_run, unpair,
     BrowserCompanionSettingsPatch,
 };
+pub use run_host::BrowserCompanionRunHost;
 pub use schemas::{
     all_controller_schemas as all_browser_companion_controller_schemas,
     all_registered_controllers as all_browser_companion_registered_controllers,

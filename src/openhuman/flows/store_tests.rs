@@ -97,6 +97,7 @@ fn update_flow_graph_bumps_updated_at_and_preserves_created_at() {
         "renamed".to_string(),
         new_graph,
         false,
+        false,
         None,
         None,
     )
@@ -123,6 +124,7 @@ fn update_flow_graph_with_none_override_preserves_current_enabled_column() {
         &flow.id,
         flow.name.clone(),
         trigger_graph(),
+        false,
         false,
         None, // enabled_override
         None,
@@ -153,6 +155,7 @@ fn update_flow_graph_with_some_false_override_forces_disabled() {
         &flow.id,
         flow.name.clone(),
         trigger_graph(),
+        false,
         false,
         Some(false), // enabled_override
         None,
@@ -197,6 +200,7 @@ fn update_flow_graph_override_wins_over_concurrently_enabled_row() {
         &flow.id,
         flow.name.clone(),
         trigger_graph(),
+        false,
         false,
         Some(false), // the unconditional disarm override
         None,
@@ -308,6 +312,7 @@ fn update_flow_graph_can_change_require_approval() {
         flow.name.clone(),
         trigger_graph(),
         true,
+        false,
         None,
         None,
     )
@@ -340,6 +345,129 @@ fn legacy_flow_definitions_row_without_require_approval_column_defaults_false() 
 
     let loaded = get_flow(&config, "legacy-2").unwrap().expect("row present");
     assert!(!loaded.require_approval);
+}
+
+// ── expose_to_browser (Browser Companion Part 2 / E3b) ───────────────────
+
+#[test]
+fn create_flow_defaults_expose_to_browser_false() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    assert!(!flow.expose_to_browser);
+
+    let reloaded = get_flow(&config, &flow.id).unwrap().unwrap();
+    assert!(!reloaded.expose_to_browser);
+}
+
+#[test]
+fn update_flow_graph_can_set_expose_to_browser_and_it_survives_reload() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    assert!(!flow.expose_to_browser);
+
+    let updated = update_flow_graph(
+        &config,
+        &flow.id,
+        flow.name.clone(),
+        trigger_graph(),
+        false,
+        true, // expose_to_browser
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(updated.expose_to_browser);
+
+    let reloaded = get_flow(&config, &flow.id).unwrap().unwrap();
+    assert!(
+        reloaded.expose_to_browser,
+        "expose_to_browser must survive a reload"
+    );
+}
+
+#[test]
+fn update_flow_graph_can_unset_expose_to_browser() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+
+    let exposed = update_flow_graph(
+        &config,
+        &flow.id,
+        flow.name.clone(),
+        trigger_graph(),
+        false,
+        true,
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(exposed.expose_to_browser);
+
+    let unexposed = update_flow_graph(
+        &config,
+        &flow.id,
+        flow.name.clone(),
+        trigger_graph(),
+        false,
+        false,
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(!unexposed.expose_to_browser);
+
+    let reloaded = get_flow(&config, &flow.id).unwrap().unwrap();
+    assert!(!reloaded.expose_to_browser);
+}
+
+#[test]
+fn insert_duplicate_flow_carries_over_expose_to_browser() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
+    let exposed = update_flow_graph(
+        &config,
+        &flow.id,
+        flow.name.clone(),
+        trigger_graph(),
+        false,
+        true,
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(exposed.expose_to_browser);
+
+    let duplicate = insert_duplicate_flow(&config, &exposed, "demo copy".to_string()).unwrap();
+    assert!(duplicate.expose_to_browser);
+}
+
+#[test]
+fn legacy_flow_definitions_row_without_expose_to_browser_column_defaults_false() {
+    // Same post-hoc-column contract as `require_approval` above: a row
+    // inserted before the `expose_to_browser` column existed must still load
+    // cleanly, defaulting to not-exposed.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let legacy_graph_json = serde_json::to_string(&trigger_graph()).unwrap();
+    with_connection(&config, |conn| {
+        conn.execute(
+            "INSERT INTO flow_definitions
+                (id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status)
+             VALUES ('legacy-3', 'legacy', ?1, 1, '2020-01-01T00:00:00Z', '2020-01-01T00:00:00Z', NULL, NULL)",
+            rusqlite::params![legacy_graph_json],
+        )?;
+        Ok(())
+    })
+    .unwrap();
+
+    let loaded = get_flow(&config, "legacy-3").unwrap().expect("row present");
+    assert!(!loaded.expose_to_browser);
 }
 
 // ── list_enabled_flows ────────────────────────────────────────────────────

@@ -529,6 +529,7 @@ mod tests {
             last_run_at: None,
             last_status: None,
             require_approval: false,
+            expose_to_browser: false,
         }
     }
 

@@ -571,6 +571,7 @@ async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() 
         None,
         Some(true),
         None,
+        None,
     )
     .await
     .expect("metadata-only update should preserve access to a legacy graph");
@@ -641,6 +642,7 @@ async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
         Some(referenced_child_graph(&child.id)),
         None,
         None,
+        None,
     )
     .await
     .expect_err("update must reject an unsafe saved child");
@@ -697,6 +699,65 @@ async fn flows_create_get_list_delete_roundtrip() {
     flows_delete(&config, &flow_id).await.unwrap();
     assert!(flows_get(&config, &flow_id).await.is_err());
     assert!(flows_list(&config).await.unwrap().value.is_empty());
+}
+
+#[tokio::test]
+async fn list_browser_exposed_flows_returns_only_enabled_and_exposed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // Enabled + exposed — must be listed.
+    let exposed = flows_create(&config, "exposed".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap()
+        .value;
+    flows_update(&config, &exposed.id, None, None, None, Some(true), None)
+        .await
+        .unwrap();
+
+    // Enabled but never opted in — must NOT be listed.
+    flows_create(
+        &config,
+        "not exposed".to_string(),
+        trigger_only_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    // Exposed but disabled — must NOT be listed (mirrors
+    // `store::list_enabled_flows`'s enabled-only contract).
+    let exposed_but_disabled = flows_create(
+        &config,
+        "exposed but disabled".to_string(),
+        manual_trigger_graph(),
+        false,
+    )
+    .await
+    .unwrap()
+    .value;
+    flows_update(
+        &config,
+        &exposed_but_disabled.id,
+        None,
+        None,
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .unwrap();
+    flows_set_enabled(&config, &exposed_but_disabled.id, false)
+        .await
+        .unwrap();
+
+    let visible = list_browser_exposed_flows(&config).unwrap();
+    assert_eq!(
+        visible.len(),
+        1,
+        "only the enabled+exposed flow must be listed: {visible:?}"
+    );
+    assert_eq!(visible[0].id, exposed.id);
 }
 
 #[tokio::test]
@@ -777,6 +838,7 @@ async fn flows_update_replaces_name_and_graph() {
         Some(new_graph),
         None,
         None,
+        None,
     )
     .await
     .unwrap();
@@ -794,16 +856,92 @@ async fn flows_update_can_set_require_approval() {
         .unwrap();
     assert!(!created.value.require_approval);
 
-    let updated = flows_update(&config, &created.value.id, None, None, Some(true), None)
-        .await
-        .unwrap();
+    let updated = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        None,
+        Some(true),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
     assert!(updated.value.require_approval);
 
     // Omitting `require_approval` on a later update preserves the current value.
-    let unchanged = flows_update(&config, &created.value.id, None, None, None, None)
+    let unchanged = flows_update(&config, &created.value.id, None, None, None, None, None)
         .await
         .unwrap();
     assert!(unchanged.value.require_approval);
+}
+
+#[tokio::test]
+async fn flows_update_can_set_expose_to_browser() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+    assert!(!created.value.expose_to_browser);
+
+    let updated = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        None,
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(updated.value.expose_to_browser);
+
+    // Omitting `expose_to_browser` on a later update preserves the current value.
+    let unchanged = flows_update(&config, &created.value.id, None, None, None, None, None)
+        .await
+        .unwrap();
+    assert!(unchanged.value.expose_to_browser);
+
+    // The flag survives a fresh load too, not just the returned value.
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert!(reloaded.value.expose_to_browser);
+}
+
+#[tokio::test]
+async fn flows_update_can_unset_expose_to_browser() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let exposed = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        None,
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(exposed.value.expose_to_browser);
+
+    let unexposed = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        None,
+        None,
+        Some(false),
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(!unexposed.value.expose_to_browser);
 }
 
 #[tokio::test]
@@ -825,6 +963,7 @@ async fn flows_update_rejects_invalid_replacement_graph() {
         &created.value.id,
         None,
         Some(invalid_graph),
+        None,
         None,
         None,
     )
@@ -1309,6 +1448,7 @@ async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() 
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
         None,
+        None,
     )
     .await
     .unwrap();
@@ -1358,6 +1498,7 @@ async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
         None,
         None,
         None,
+        None,
     )
     .await
     .unwrap();
@@ -1404,6 +1545,7 @@ async fn flows_update_disables_on_manual_to_automatic_trigger_transition_when_en
         &created.value.id,
         None,
         Some(schedule_trigger_graph("0 8 * * *")),
+        None,
         None,
         None,
     )
@@ -1471,6 +1613,7 @@ async fn flows_update_disarms_manual_to_automatic_transition_even_when_already_d
         Some(schedule_trigger_graph("0 8 * * *")),
         None,
         None,
+        None,
     )
     .await
     .unwrap();
@@ -1513,6 +1656,7 @@ async fn flows_update_preserves_enabled_when_already_automatic() {
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
         None,
+        None,
     )
     .await
     .unwrap();
@@ -1544,6 +1688,7 @@ async fn flows_update_preserves_enabled_for_manual_target() {
         &created.value.id,
         None,
         Some(new_graph),
+        None,
         None,
         None,
     )
@@ -1647,6 +1792,7 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
         created.value.name.clone(),
         structurally_valid_graph(nested_conditional_fan_in_graph()),
         created.value.require_approval,
+        created.value.expose_to_browser,
         None,
         None,
     )
@@ -1706,6 +1852,7 @@ async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed
         created.value.name.clone(),
         structurally_valid_graph(referenced_child_graph(&child.id)),
         created.value.require_approval,
+        created.value.expose_to_browser,
         None,
         None,
     )
@@ -6433,6 +6580,7 @@ async fn flows_update_forces_require_approval_when_adding_side_effect_nodes() {
         Some(tool_call_graph()),
         Some(false),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -6466,6 +6614,7 @@ async fn flows_update_does_not_force_require_approval_on_readonly_graph() {
         &config,
         &created.value.id,
         Some("renamed".to_string()),
+        None,
         None,
         None,
         None,
@@ -6630,6 +6779,7 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
         flow_a.name.clone(),
         structurally_valid_graph(referenced_child_graph(&flow_b.id)),
         false,
+        false,
         None,
         None,
     )
@@ -6639,6 +6789,7 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
         &flow_b.id,
         flow_b.name.clone(),
         structurally_valid_graph(referenced_child_graph(&flow_a.id)),
+        false,
         false,
         None,
         None,
@@ -6749,6 +6900,7 @@ async fn flows_update_rejects_a_stale_expected_version() {
         Some("renamed".to_string()),
         None,
         None,
+        None,
         Some(flow.updated_at.clone()),
     )
     .await
@@ -6760,6 +6912,7 @@ async fn flows_update_rejects_a_stale_expected_version() {
         &config,
         &flow.id,
         Some("again".to_string()),
+        None,
         None,
         None,
         Some(flow.updated_at.clone()),
@@ -6790,7 +6943,7 @@ async fn update_records_revisions_and_rollback_restores() {
         ],
         "edges": [ { "from_node": "t", "to_node": "a" } ]
     });
-    flows_update(&config, &flow.id, None, Some(two_node), None, None)
+    flows_update(&config, &flow.id, None, Some(two_node), None, None, None)
         .await
         .unwrap();
 

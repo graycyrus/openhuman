@@ -176,6 +176,21 @@ fn require_approval_input() -> FieldSchema {
     }
 }
 
+/// Browser Companion Part 2 (E3b): per-flow opt-in for the Chrome extension
+/// surface. Mirrors [`require_approval_input`]'s shape exactly.
+fn expose_to_browser_input() -> FieldSchema {
+    FieldSchema {
+        name: "expose_to_browser",
+        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+        comment: "Opt this flow into the Browser Companion (Chrome extension) surface: when \
+                  `true`, it is listed and triggerable from the extension's side panel. \
+                  Defaults to `false` — a flow is invisible to and untriggerable from the \
+                  extension until explicitly exposed. Does not relax `require_approval` or any \
+                  other run-time safety gate.",
+        required: false,
+    }
+}
+
 fn expected_version_input() -> FieldSchema {
     FieldSchema {
         name: "expected_version",
@@ -626,6 +641,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 require_approval_input(),
+                expose_to_browser_input(),
                 strict_input(),
                 expected_version_input(),
             ],
@@ -1367,6 +1383,7 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("invalid 'name': {e}"))?;
         let graph = params.get("graph").filter(|v| !v.is_null()).cloned();
         let require_approval = params.get("require_approval").and_then(Value::as_bool);
+        let expose_to_browser = params.get("expose_to_browser").and_then(Value::as_bool);
         let expected_version = params
             .get("expected_version")
             .and_then(Value::as_str)
@@ -1390,6 +1407,7 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
                 name,
                 graph,
                 require_approval,
+                expose_to_browser,
                 expected_version,
             )
             .await?,
@@ -1925,6 +1943,18 @@ mod tests {
             .iter()
             .find(|f| f.name == "require_approval")
             .unwrap();
+        assert!(!field.required);
+    }
+
+    #[test]
+    fn schemas_update_expose_to_browser_is_optional() {
+        let s = schemas("update");
+        assert_eq!(s.namespace, "flows");
+        let field = s
+            .inputs
+            .iter()
+            .find(|f| f.name == "expose_to_browser")
+            .expect("update schema must declare expose_to_browser (E3b)");
         assert!(!field.required);
     }
 

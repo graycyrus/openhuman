@@ -3457,7 +3457,17 @@ impl Tool for SaveWorkflowTool {
             "[flows] save_workflow: agent-initiated save to existing flow"
         );
 
-        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None, None).await {
+        match ops::flows_update(
+            &self.config,
+            &flow_id,
+            name,
+            Some(graph_json),
+            None,
+            None,
+            None,
+        )
+        .await
+        {
             Ok(outcome) => {
                 let flow = outcome.value;
                 tracing::info!(

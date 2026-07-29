@@ -3718,6 +3718,29 @@ pub async fn flows_list(config: &Config) -> Result<RpcOutcome<Vec<Flow>>, String
     Ok(RpcOutcome::single_log(flows, "flows listed"))
 }
 
+/// Lists every **enabled** flow with `expose_to_browser == true` (Browser
+/// Companion Part 2 / E3b) — the visibility floor for
+/// [`crate::openhuman::browser_companion::run_host::BrowserCompanionRunHost::list_workflows`]
+/// (E3c): the Chrome extension's side panel, and thus `start_run`, can only
+/// ever see/trigger a flow the user explicitly opted in. A disabled flow is
+/// excluded even if it was previously exposed, mirroring
+/// `store::list_enabled_flows`'s existing enabled-only contract for automatic
+/// dispatch.
+///
+/// Sync (no `.await`) — `store::list_enabled_flows` is itself synchronous —
+/// so [`crate::openhuman::browser_companion::run_host::BrowserCompanionRunHost`]
+/// can call it directly without an extra executor hop.
+pub fn list_browser_exposed_flows(config: &Config) -> Result<Vec<Flow>, String> {
+    let flows = store::list_enabled_flows(config).map_err(|e| e.to_string())?;
+    let exposed: Vec<Flow> = flows.into_iter().filter(|f| f.expose_to_browser).collect();
+    tracing::debug!(
+        target: "flows",
+        exposed_count = exposed.len(),
+        "[flows] list_browser_exposed_flows: resolved browser-exposed flow set"
+    );
+    Ok(exposed)
+}
+
 /// Lists the connection sources a flow node's `connection_ref` can attach to:
 /// Composio connected accounts (`kind = "composio"`) and stored HTTP
 /// credentials (`kind = "http"`). This is the picker source for the Workflows
@@ -3973,9 +3996,9 @@ fn map_flow_update_error(e: store::FlowUpdateError) -> String {
     }
 }
 
-/// Updates a flow's name, graph, and/or `require_approval` toggle.
-/// Re-validates the graph (whether newly supplied or the existing one)
-/// before persisting, same as `flows_create`.
+/// Updates a flow's name, graph, and/or `require_approval`/`expose_to_browser`
+/// toggles. Re-validates the graph (whether newly supplied or the existing
+/// one) before persisting, same as `flows_create`.
 ///
 /// When the caller supplies a new `graph_json` and the flow is (still)
 /// enabled, re-binds the automatic-dispatch trigger if the trigger
@@ -4024,6 +4047,7 @@ pub async fn flows_update(
     name: Option<String>,
     graph_json: Option<Value>,
     require_approval: Option<bool>,
+    expose_to_browser: Option<bool>,
     expected_version: Option<String>,
 ) -> Result<RpcOutcome<Flow>, String> {
     let existing = store::get_flow(config, id)
@@ -4032,6 +4056,7 @@ pub async fn flows_update(
 
     let new_name = name.unwrap_or_else(|| existing.name.clone());
     let new_require_approval = require_approval.unwrap_or(existing.require_approval);
+    let new_expose_to_browser = expose_to_browser.unwrap_or(existing.expose_to_browser);
     let graph_changed = graph_json.is_some();
     let graph = match graph_json {
         Some(raw) => {
@@ -4090,19 +4115,21 @@ pub async fn flows_update(
         flow_id = %id,
         has_expected = expected_version.is_some(),
         require_approval = effective_require_approval,
+        expose_to_browser = new_expose_to_browser,
         side_effect_forced,
         "[flows] flows_update: persisting changes"
     );
     // `enabled_override` is threaded into the same guarded UPDATE as the
-    // graph/name/require_approval write (see `store::update_flow_graph`)
-    // rather than a follow-up `flows_set_enabled` call, so the disarm can
-    // never race a concurrent read/write of `enabled`.
+    // graph/name/require_approval/expose_to_browser write (see
+    // `store::update_flow_graph`) rather than a follow-up `flows_set_enabled`
+    // call, so the disarm can never race a concurrent read/write of `enabled`.
     let updated = store::update_flow_graph(
         config,
         id,
         new_name,
         graph,
         effective_require_approval,
+        new_expose_to_browser,
         enabled_override,
         expected_version.as_deref(),
     )
@@ -4177,12 +4204,17 @@ pub async fn flows_rollback(
         .ok_or_else(|| format!("revision '{revision_id}' not found for flow '{id}'"))?;
 
     tracing::debug!(target: "flows", flow_id = %id, %revision_id, "[flows] flows_rollback: restoring prior revision");
+    // `expose_to_browser` is deliberately `None` here (preserve current) — it
+    // is not part of a revision snapshot (see `store::update_flow_graph`'s
+    // doc): a rollback restores graph/name/require_approval, not the
+    // independent browser-exposure toggle.
     flows_update(
         config,
         id,
         Some(rev.name),
         Some(rev.graph),
         Some(rev.require_approval),
+        None,
         expected_version,
     )
     .await
@@ -4604,6 +4636,23 @@ pub async fn flows_run_detached(
     input: Value,
     trigger: FlowRunTrigger,
 ) -> Result<RpcOutcome<Value>, String> {
+    flows_run_detached_with_browser_tab(config, flow_id, input, trigger, None).await
+}
+
+/// Same as [`flows_run_detached`], plus an optional `browser_tab_id` bound to
+/// the spawned background run — so an extension-initiated run of a graph with a
+/// `tool_call { slug: "browser" }` node routes to that explicitly-shared Chrome
+/// tab instead of failing the run-time hard gate. This is the detached
+/// counterpart of [`flows_run_with_browser_tab`], used by the Browser Companion
+/// run host so `start_run` returns a `run_id` immediately without blocking the
+/// extension for the flow's full duration.
+pub async fn flows_run_detached_with_browser_tab(
+    config: &Config,
+    flow_id: &str,
+    input: Value,
+    trigger: FlowRunTrigger,
+    browser_tab_id: Option<u64>,
+) -> Result<RpcOutcome<Value>, String> {
     let prepared = prepare_flow_run(config, flow_id)?;
     let thread_id = prepared.thread_id.clone();
     let no_actionable_nodes = prepared.no_actionable_nodes;
@@ -4632,10 +4681,11 @@ pub async fn flows_run_detached(
     let flow_id_owned = flow_id.to_string();
     let body_thread_id = thread_id.clone();
     tokio::spawn(async move {
-        // Agent-initiated runs don't (yet) select a browser tab — a graph
-        // with a `tool_call { slug: "browser" }` node fails the run-time hard
-        // gate below with a "no browser tab was selected" error rather than
-        // running unrouted. See `flows_run_with_browser_tab`'s doc.
+        // `browser_tab_id` is `None` for agent-initiated detached runs (a graph
+        // with a `tool_call { slug: "browser" }` node then fails the run-time
+        // hard gate with "no browser tab was selected"), and `Some(tab)` for
+        // extension-initiated runs bound to an explicitly-shared Chrome tab.
+        // See `flows_run_with_browser_tab`'s doc.
         if let Err(e) = run_flow_body(
             config_arc,
             flow,
@@ -4646,7 +4696,7 @@ pub async fn flows_run_detached(
             no_actionable_nodes,
             cancel_token,
             run_guard,
-            None,
+            browser_tab_id,
         )
         .await
         {
@@ -7516,6 +7566,7 @@ pub async fn flows_draft_promote(
                 Some(draft.name.clone()),
                 Some(draft.graph.clone()),
                 require_approval,
+                None,
                 None,
             )
             .await?

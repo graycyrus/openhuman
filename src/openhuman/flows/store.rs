@@ -120,6 +120,17 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
         "INTEGER NOT NULL DEFAULT 0",
     )?;
 
+    // `expose_to_browser` (Browser Companion Part 2 / E3b) — same post-hoc
+    // additive-column idiom as `require_approval` above: a workspace created
+    // before this column existed still opens cleanly, defaulting every
+    // existing flow to not-exposed.
+    add_column_if_missing(
+        &conn,
+        "flow_definitions",
+        "expose_to_browser",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
+
     tracing::debug!(db = %db_path.display(), "[flows] store opened");
 
     f(&conn)
@@ -162,7 +173,7 @@ fn add_column_if_missing(conn: &Connection, table: &str, name: &str, sql_type: &
 /// Shared column list for every `flow_definitions` SELECT — keeps
 /// [`map_flow_row`]'s positional `row.get(N)` calls in sync with the query.
 const FLOW_DEFINITION_COLUMNS: &str = "id, name, graph_json, enabled, created_at, updated_at, \
-     last_run_at, last_status, require_approval";
+     last_run_at, last_status, require_approval, expose_to_browser";
 
 /// Inserts or fully replaces a flow definition row.
 pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
@@ -170,8 +181,8 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO flow_definitions
-                (id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status, require_approval)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                (id, name, graph_json, enabled, created_at, updated_at, last_run_at, last_status, require_approval, expose_to_browser)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 graph_json = excluded.graph_json,
@@ -179,7 +190,8 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
                 updated_at = excluded.updated_at,
                 last_run_at = excluded.last_run_at,
                 last_status = excluded.last_status,
-                require_approval = excluded.require_approval",
+                require_approval = excluded.require_approval,
+                expose_to_browser = excluded.expose_to_browser",
             params![
                 flow.id,
                 flow.name,
@@ -190,6 +202,7 @@ pub fn upsert_flow(config: &Config, flow: &Flow) -> Result<()> {
                 flow.last_run_at,
                 flow.last_status,
                 if flow.require_approval { 1 } else { 0 },
+                if flow.expose_to_browser { 1 } else { 0 },
             ],
         )
         .context("Failed to upsert flow definition")?;
@@ -217,6 +230,7 @@ pub fn insert_duplicate_flow(config: &Config, source: &Flow, new_name: String) -
         last_run_at: None,
         last_status: None,
         require_approval: source.require_approval,
+        expose_to_browser: source.expose_to_browser,
     };
     upsert_flow(config, &flow)?;
     tracing::debug!(target: "flows", source_id = %source.id, new_id = %flow.id, "[flows] inserted duplicate flow (disabled)");
@@ -249,6 +263,10 @@ pub fn create_flow(
         last_run_at: None,
         last_status: None,
         require_approval,
+        // Every newly created flow starts un-exposed (E3b) — the user must
+        // explicitly opt in per-flow via `flows_update`'s
+        // `expose_to_browser` param.
+        expose_to_browser: false,
     };
     upsert_flow(config, &flow)?;
     Ok(flow)
@@ -365,9 +383,21 @@ impl std::fmt::Display for FlowUpdateError {
     }
 }
 
-/// Replaces a flow's name/graph/`require_approval` (re-validated by the caller
-/// before this is invoked) in place, bumping `updated_at`, capturing the prior
-/// graph as a revision, and enforcing optimistic concurrency.
+/// Replaces a flow's name/graph/`require_approval`/`expose_to_browser`
+/// (re-validated by the caller before this is invoked) in place, bumping
+/// `updated_at`, capturing the prior graph as a revision, and enforcing
+/// optimistic concurrency. `expose_to_browser` (E3b) is written in the same
+/// guarded UPDATE as the rest but, unlike `require_approval`, is deliberately
+/// NOT captured into `flow_revisions` — it is a visibility/trigger-surface
+/// toggle independent of the graph, not a security-relevant snapshot a
+/// rollback needs to restore (mirrors how `enabled` itself is excluded from
+/// revisions).
+///
+/// When `expected_updated_at` is `Some`, the write is refused with
+/// [`FlowUpdateError::Conflict`] (carrying the current server flow) if the
+/// flow's `updated_at` no longer matches — so an agent save and a concurrent
+/// canvas save can't silently clobber each other. `None` keeps the prior
+/// last-write-wins behaviour for callers that don't track a version.
 ///
 /// When `expected_updated_at` is `Some`, the write is refused with
 /// [`FlowUpdateError::Conflict`] (carrying the current server flow) if the
@@ -389,6 +419,7 @@ pub fn update_flow_graph(
     name: String,
     graph: tinyflows::model::WorkflowGraph,
     require_approval: bool,
+    expose_to_browser: bool,
     enabled_override: Option<bool>,
     expected_updated_at: Option<&str>,
 ) -> std::result::Result<Flow, FlowUpdateError> {
@@ -422,13 +453,15 @@ pub fn update_flow_graph(
         let changed = conn
             .execute(
                 "UPDATE flow_definitions SET name = ?1, graph_json = ?2, updated_at = ?3, \
-                 require_approval = ?4, enabled = ?5 WHERE id = ?6 AND updated_at = ?7",
+                 require_approval = ?4, enabled = ?5, expose_to_browser = ?6 \
+                 WHERE id = ?7 AND updated_at = ?8",
                 params![
                     name,
                     graph_json,
                     now,
                     if require_approval { 1 } else { 0 },
                     if new_enabled { 1 } else { 0 },
+                    if expose_to_browser { 1 } else { 0 },
                     id,
                     current.updated_at,
                 ],
@@ -563,6 +596,7 @@ fn map_flow_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Flow> {
         last_run_at: row.get(6)?,
         last_status: row.get(7)?,
         require_approval: row.get::<_, i64>(8)? != 0,
+        expose_to_browser: row.get::<_, i64>(9)? != 0,
     })
 }
 
