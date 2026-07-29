@@ -431,6 +431,22 @@ describe('WorkflowProposalCard pre-authorization', () => {
     expect(mockSetFlowEnabled).not.toHaveBeenCalled();
   });
 
+  it('re-clicking Save while the card is open never creates a duplicate flow', async () => {
+    mockGetApprovalManifest.mockResolvedValue(MISSING_MANIFEST);
+    render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);
+
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-preauthorization-card')).toBeInTheDocument()
+    );
+    // The proposal's own Save button is clickable again (saving released
+    // while the decision is pending) — a second click must reuse the
+    // persisted flow id, not call createFlow again (greptile P1).
+    fireEvent.click(screen.getByText('chat.flowProposal.save'));
+    await waitFor(() => expect(mockGetApprovalManifest).toHaveBeenCalledTimes(2));
+    expect(mockCreateFlow).toHaveBeenCalledTimes(1);
+  });
+
   it('Deny leaves the flow saved but disabled with the informational note', async () => {
     mockGetApprovalManifest.mockResolvedValue(MISSING_MANIFEST);
     render(<WorkflowProposalCard threadId="t1" proposal={proposal()} />);

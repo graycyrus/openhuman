@@ -246,6 +246,10 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
         const flow = await createFlow(proposal.name, proposal.graph, proposal.requireApproval);
         flowId = flow.id;
         flowPersisted = true;
+        // Persisted — record the id BEFORE any branch releases `saving`, so a
+        // second click (e.g. while the pre-authorization card below is open)
+        // can never reach `createFlow` again and duplicate the flow.
+        setSavedFlowId(flow.id);
         if (flow.enabled) {
           // Already live — surface the pre-authorization card when grants
           // are missing; otherwise this is the terminal success state.
@@ -263,7 +267,6 @@ const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) 
         // is the user's own explicit "Save & enable" — not the copilot's
         // silent autosave Rule 1 guards against — so arm it now.
         log('save: createFlow returned disabled (Rule 1) — arming explicitly id=%s', flow.id);
-        setSavedFlowId(flow.id);
       }
       // Enable through the pre-authorization check: enables directly when no
       // grants are missing, otherwise the card renders below and the enable
