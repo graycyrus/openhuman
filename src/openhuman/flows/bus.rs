@@ -634,6 +634,32 @@ impl DedupCommitSubscriber {
     /// flow deleted between run-finish and this handler firing, or a
     /// transient store error, both degrade to "nothing to settle" rather than
     /// panicking the event bus.
+    ///
+    /// **Known limitation (issue #5265, Codex "P2" on the dedup engine PR):**
+    /// this reads the flow's CURRENT saved definition at settlement time, not
+    /// a snapshot of the graph the finishing run actually executed. Nothing
+    /// today persists a per-run graph/node-id snapshot — `prepare_flow_run`
+    /// loads `Flow` fresh into the spawned run's own task, and that copy is
+    /// discarded once the run starts; the `FlowRun` row has no `graph` field.
+    /// If a long-running flow is edited (or deleted) while a run is still in
+    /// flight:
+    /// - a `dedup` node the run wrote `tentative` keys under, then deleted or
+    ///   renamed before `FlowRunFinished` fires, is no longer found here — its
+    ///   tentative keys are neither committed nor released, so those items
+    ///   silently retry on the flow's next run (safe-direction: at worst a
+    ///   duplicate, never a lost item, matching this subsystem's existing
+    ///   safe-failure posture — see the module doc's "Best-effort throughout"
+    ///   paragraph);
+    /// - conversely a `dedup` node id newly added to the saved graph after the
+    ///   run started is settled here even though the run never executed it
+    ///   (a harmless no-op: it has no `tentative` keys to commit/release, see
+    ///   `commit`/`release`'s early returns).
+    ///
+    /// Closing this properly means persisting a per-run graph/dedup-node-id
+    /// snapshot at run-start (`start_flow_run_row` or a sibling write) and
+    /// having this method read that snapshot instead of `store::get_flow` —
+    /// a schema + call-site change bigger than this PR's scope; reported as a
+    /// follow-up rather than attempted here.
     fn dedup_node_ids(&self, flow_id: &str) -> Vec<String> {
         match store::get_flow(&self.config, flow_id) {
             Ok(Some(flow)) => flow
@@ -735,17 +761,17 @@ impl DedupCommitSubscriber {
 
     /// Failure path: clear `tentative` only, leaving `committed` untouched so
     /// the released keys retry on the flow's next run.
+    ///
+    /// Deliberately does NOT `load_key_set` first to report a count: that
+    /// would be a full `kv_get` + JSON deserialize + `HashSet` build purely
+    /// for a log line, and `kv_delete` already silently no-ops on a missing
+    /// key, so there is no early-return to save either (Greptile, issue
+    /// #5265).
     fn release(&self, namespace: &str, node_id: &str, flow_id: &str, run_id: &str) {
-        let released =
-            load_key_set(&self.config, namespace, &dedup_node::tentative_key(node_id)).len();
-        if released == 0 {
-            tracing::trace!(target: "flows", %flow_id, %run_id, node_id, "[dedup-commit] no tentative keys — nothing to release");
-            return;
-        }
         match store::kv_delete(&self.config, namespace, &dedup_node::tentative_key(node_id)) {
             Ok(()) => tracing::debug!(
-                target: "flows", %flow_id, %run_id, node_id, released,
-                "[dedup-commit] released tentative keys — will retry next run"
+                target: "flows", %flow_id, %run_id, node_id,
+                "[dedup-commit] released tentative keys (if any) — will retry next run"
             ),
             Err(e) => tracing::warn!(
                 target: "flows", %flow_id, %run_id, node_id, error = %e,

@@ -1934,6 +1934,22 @@ fn register_domain_subscribers(
     // set of already-registered groups lets a later, wider DomainSet install
     // exactly the newly-enabled groups (and no group twice). `insert` returns
     // `true` only the first time a group is seen.
+    //
+    // **Known limitation (issue #5265, CodeRabbit "Major" on the dedup engine
+    // PR):** this marks a group "done" the moment its `if group_first_time(…)`
+    // block is entered, not once every `subscribe_global` call inside it
+    // actually returns `Some`. A transient `subscribe_global` failure (the
+    // global bus not yet initialized) inside one of those blocks — e.g. the
+    // Flows block's `FlowTriggerSubscriber` / `FlowRunDigestSubscriber` /
+    // `DedupCommitSubscriber` registrations — only logs a warning; the group
+    // is still marked done, so no later call ever retries it, leaving that
+    // subscriber permanently absent for the process's lifetime. This is a
+    // pre-existing pattern shared by every `group_first_time(DomainGroup::…)`
+    // call site in this function, not something introduced by (or specific
+    // to) the dedup subscriber — reworking it (e.g. marking the group done
+    // only after every registration in its block succeeds, or making
+    // individual registrations retryable) is out of scope for the dedup PR
+    // and is reported as a separate follow-up issue instead of fixed here.
     fn group_first_time(group: DomainGroup) -> bool {
         static DONE: OnceLock<Mutex<HashSet<DomainGroup>>> = OnceLock::new();
         DONE.get_or_init(|| Mutex::new(HashSet::new()))

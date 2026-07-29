@@ -490,7 +490,7 @@ fn config_hint(node: &Node) -> Option<String> {
         NodeKind::Dedup => cfg
             .get("key")
             .and_then(Value::as_str)
-            .map(|k| format!("key: {k}")),
+            .map(|k| truncate_hint(&format!("key: {k}"))),
         NodeKind::Merge | NodeKind::OutputParser | NodeKind::Trigger => None,
     }
 }

@@ -84,12 +84,13 @@ fn apply_host_overlay(contract: NodeKindContract) -> NodeKindContract {
         "dedup" => contract
             .with_note(
                 "Commit is run-LEVEL, not node-level: the host settles every dedup node in the \
-                 flow off the run's single terminal FlowRunFinished status. \
+                 flow off the run's single terminal FlowRunFinished status. Only \
                  completed/completed_with_warnings unions this run's tentative keys into \
-                 committed for EVERY dedup node that ran; failed/cancelled/interrupted releases \
-                 tentative for ALL of them, untouched committed, so the whole run's items retry \
-                 next time — one node failing mid-run releases every dedup node's tentative in \
-                 that run, not just the failing one's.",
+                 committed for EVERY dedup node that ran; EVERY other status — \
+                 failed/cancelled/interrupted, unknown, or any status this host doesn't \
+                 recognize yet — releases tentative for ALL of them (untouched committed), so \
+                 the whole run's items retry next time — one node failing mid-run releases every \
+                 dedup node's tentative in that run, not just the failing one's.",
             )
             .with_note(
                 "Canonical placement: split_out → dedup [key=\"=item.id\"] → …action…, i.e. one \
@@ -198,6 +199,10 @@ mod tests {
         assert!(notes.contains("FlowRunFinished"), "{notes}");
         assert!(notes.contains("completed_with_warnings"), "{notes}");
         assert!(notes.contains("failed/cancelled/interrupted"), "{notes}");
+        // CodeRabbit (PR #5265): the release path is really "every status
+        // other than the two success strings" — `unknown` and any future
+        // status must be documented alongside the known failure statuses.
+        assert!(notes.contains("unknown"), "{notes}");
         assert!(notes.contains("split_out → dedup"), "{notes}");
     }
 

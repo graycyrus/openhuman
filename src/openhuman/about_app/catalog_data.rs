@@ -1538,10 +1538,15 @@ pub(super) const CAPABILITIES: &[Capability] = &[
                       involved. It drops an item whose per-item key was already committed by a \
                       prior successful run, and otherwise passes it through. Committing happens \
                       automatically: keys the node passes through are marked done only once the \
-                      whole run finishes successfully; a failed/cancelled/interrupted run leaves \
-                      them unmarked so the same items retry next time. Only the opaque per-item \
-                      key strings are stored in the flow's own private, flow-scoped state — never \
-                      the item's content, and never the user's personal memory.",
+                      whole run finishes successfully; a failed/cancelled/interrupted/unknown (or \
+                      any other non-success) run leaves them unmarked so the same items retry next \
+                      time. Only the resolved per-item key value is stored, locally, in the flow's \
+                      own private, flow-scoped state — never the item's full content, and never \
+                      the user's personal memory. The key is whatever the workflow author's \
+                      `config.key` expression resolves to, so it can carry item-derived data if \
+                      keyed off a sensitive field — author flows to key off an opaque, \
+                      non-sensitive stable id (an issue number, message id, url) rather than \
+                      personal data.",
         how_to: "Flows editor > add a `dedup` node right after the item source; set config.key \
                  to a stable per-item id expression, e.g. \"=item.id\".",
         status: CapabilityStatus::Beta,

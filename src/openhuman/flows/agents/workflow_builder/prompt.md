@@ -630,7 +630,7 @@ decision yourself.
 The correct pattern is ONE `dedup` node placed right after the items are
 produced and BEFORE the action that must run at most once per item:
 
-```
+```text
 trigger → fetch → split_out → dedup [key="=item.id"] → …action…
 ```
 
@@ -640,6 +640,13 @@ trigger → fetch → split_out → dedup [key="=item.id"] → …action…
   derived from the action's own output. A key that resolves to null,
   missing, or an empty string fails OPEN: the item passes through and is not
   recorded (never silently dropped just because a key couldn't be computed).
+  **Privacy:** `config.key` is an arbitrary `=`-expression, so whatever it
+  resolves to IS what gets durably stored in the flow's own private state —
+  the resolved key value can contain item-derived data if you key off one
+  (e.g. `"=item.email"`). Only that resolved key is stored, never the item's
+  full content, but the key itself is not guaranteed to be non-sensitive —
+  key off an opaque, stable, non-sensitive id (an issue number, message id,
+  url) rather than a field that itself carries PII.
 - **Place it BEFORE the work, not after.** Unlike the `memory` node's
   `remember` (which you place AFTER the action), `dedup` goes first in the
   chain — it already handles "mark seen only after success" internally, so
@@ -649,11 +656,13 @@ trigger → fetch → split_out → dedup [key="=item.id"] → …action…
 - **Commit is run-level.** A saved flow's dedup nodes are settled off the
   run's single terminal status: every dedup node that ran in a
   `completed`/`completed_with_warnings` run gets its newly-seen keys
-  committed; every dedup node in a `failed`/`cancelled`/`interrupted` run has
-  its newly-seen keys released so they retry next time. For a flow with one
-  action per run this is exactly what you want; a flow chaining several
-  independent actions after a single `dedup` should be aware that one
-  action's failure retries ALL of them next run, not just the failing one.
+  committed; every dedup node in any OTHER terminal status — `failed`,
+  `cancelled`, `interrupted`, `unknown`, or any status this host doesn't
+  recognize yet — has its newly-seen keys released so they retry next time.
+  For a flow with one action per run this is exactly what you want; a flow
+  chaining several independent actions after a single `dedup` should be
+  aware that one action's failure retries ALL of them next run, not just the
+  failing one.
 
 ### Expressions: the `=` / jq convention
 
