@@ -4960,6 +4960,7 @@ const en: TranslationMap = {
     'This workflow needs your permission for the actions below. Approving applies to this workflow only.',
   'flows.enableApproval.approveAll': 'Approve all',
   'flows.enableApproval.deny': 'Deny',
+  'flows.enableApproval.enableAnyway': 'Enable anyway',
   'flows.enableApproval.granting': 'Approving…',
   'flows.enableApproval.error': 'Could not save the approvals. Please try again.',
   'flows.enableApproval.blockedHint': 'Blocked by your agent access settings.',

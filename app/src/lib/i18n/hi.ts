@@ -4368,6 +4368,7 @@ const messages: TranslationMap = {
     'इस वर्कफ़्लो को नीचे दिए गए कार्यों के लिए आपकी अनुमति चाहिए। स्वीकृति केवल इसी वर्कफ़्लो पर लागू होती है।',
   'flows.enableApproval.approveAll': 'सभी को अनुमति दें',
   'flows.enableApproval.deny': 'अस्वीकार करें',
+  'flows.enableApproval.enableAnyway': 'फिर भी चालू करें',
   'flows.enableApproval.granting': 'स्वीकृत किया जा रहा है…',
   'flows.enableApproval.error': 'स्वीकृतियाँ सहेजी नहीं जा सकीं। कृपया फिर से प्रयास करें।',
   'flows.enableApproval.blockedHint': 'आपकी एजेंट पहुँच सेटिंग्स द्वारा अवरुद्ध।',

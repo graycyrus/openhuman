@@ -4428,6 +4428,7 @@ const messages: TranslationMap = {
     'Ten przepływ pracy potrzebuje Twojej zgody na poniższe działania. Zatwierdzenie dotyczy tylko tego przepływu pracy.',
   'flows.enableApproval.approveAll': 'Zatwierdź wszystko',
   'flows.enableApproval.deny': 'Odmów',
+  'flows.enableApproval.enableAnyway': 'Włącz mimo to',
   'flows.enableApproval.granting': 'Zatwierdzanie…',
   'flows.enableApproval.error': 'Nie udało się zapisać zatwierdzeń. Spróbuj ponownie.',
   'flows.enableApproval.blockedHint': 'Zablokowane przez ustawienia dostępu agenta.',

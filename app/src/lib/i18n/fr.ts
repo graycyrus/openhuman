@@ -4474,6 +4474,7 @@ const messages: TranslationMap = {
     'Ce workflow a besoin de votre autorisation pour les actions ci-dessous. L’approbation ne s’applique qu’à ce workflow.',
   'flows.enableApproval.approveAll': 'Tout approuver',
   'flows.enableApproval.deny': 'Refuser',
+  'flows.enableApproval.enableAnyway': 'Activer quand même',
   'flows.enableApproval.granting': 'Approbation en cours…',
   'flows.enableApproval.error': 'Impossible d’enregistrer les approbations. Veuillez réessayer.',
   'flows.enableApproval.blockedHint': 'Bloqué par vos paramètres d’accès de l’agent.',

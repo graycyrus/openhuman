@@ -4412,6 +4412,7 @@ const messages: TranslationMap = {
     'Этому рабочему процессу нужно ваше разрешение на действия ниже. Одобрение действует только для этого рабочего процесса.',
   'flows.enableApproval.approveAll': 'Одобрить всё',
   'flows.enableApproval.deny': 'Отклонить',
+  'flows.enableApproval.enableAnyway': 'Всё равно включить',
   'flows.enableApproval.granting': 'Одобрение…',
   'flows.enableApproval.error': 'Не удалось сохранить одобрения. Попробуйте ещё раз.',
   'flows.enableApproval.blockedHint': 'Заблокировано настройками доступа агента.',

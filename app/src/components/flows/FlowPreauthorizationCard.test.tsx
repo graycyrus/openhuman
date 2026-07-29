@@ -97,6 +97,24 @@ describe('FlowPreauthorizationCard', () => {
   });
 });
 
+describe('FlowPreauthorizationCard blocked-only', () => {
+  it("swaps the primary action to 'Enable anyway' when nothing is approvable", () => {
+    render(
+      <FlowPreauthorizationCard
+        entries={[
+          { kind: 'blocked', node_id: 'n1', tool_name: 'flows_http_request', label: 'Call API' },
+        ]}
+        busy={false}
+        onApproveAll={vi.fn()}
+        onDeny={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Enable anyway' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve all' })).not.toBeInTheDocument();
+  });
+});
+
 describe('FlowPreauthorizationOverlay', () => {
   it('wraps the card in a full-screen overlay for page contexts', () => {
     render(

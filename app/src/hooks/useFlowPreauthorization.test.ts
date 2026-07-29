@@ -168,6 +168,37 @@ describe('useFlowPreauthorization', () => {
     expect(onSettled).not.toHaveBeenCalled();
   });
 
+  it('blocked-only manifests still surface the card, and approve enables without granting', async () => {
+    // Readonly tier: nothing approvable, but the user must see the Block at
+    // save time instead of a silently-enabled flow whose runs then fail.
+    vi.mocked(getApprovalManifest).mockResolvedValue(
+      mockManifest({
+        entries: [
+          { kind: 'blocked', node_id: 'n1', tool_name: 'flows_http_request', label: 'Call API' },
+        ],
+        missing: [],
+      })
+    );
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useFlowPreauthorization({ onSettled }));
+
+    let enabledNow = true;
+    await act(async () => {
+      enabledNow = await result.current.beginEnable('flow-1');
+    });
+    expect(enabledNow).toBe(false);
+    expect(result.current.pending).not.toBeNull();
+    expect(setFlowEnabled).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.approveAll();
+    });
+    // Nothing to grant on a blocked-only card ("Enable anyway").
+    expect(preauthorizeFlow).not.toHaveBeenCalled();
+    expect(setFlowEnabled).toHaveBeenCalledWith('flow-1', true);
+    expect(onSettled).toHaveBeenCalledWith('approved', 'flow-1');
+  });
+
   it('checkAfterSave skips the card for a disabled flow', async () => {
     const { result } = renderHook(() => useFlowPreauthorization());
 

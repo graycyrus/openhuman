@@ -4319,6 +4319,7 @@ const messages: TranslationMap = {
     '이 워크플로는 아래 작업에 대한 권한이 필요합니다. 승인은 이 워크플로에만 적용됩니다.',
   'flows.enableApproval.approveAll': '모두 승인',
   'flows.enableApproval.deny': '거부',
+  'flows.enableApproval.enableAnyway': '그래도 켜기',
   'flows.enableApproval.granting': '승인하는 중…',
   'flows.enableApproval.error': '승인을 저장하지 못했습니다. 다시 시도해 주세요.',
   'flows.enableApproval.blockedHint': '에이전트 접근 설정에 의해 차단되었습니다.',

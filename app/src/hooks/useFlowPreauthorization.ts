@@ -10,6 +10,13 @@ import {
 
 const log = debug('openhuman:flows:preauthorization');
 
+/** Whether the manifest warrants the consolidated card at all: missing
+ * grants to approve, or tier-Blocked rows the user must see at save time
+ * (a Block only surfaces as a failed run otherwise — the autonomy model
+ * treats Block as its own gate decision, never a silent success path). */
+const needsCard = (manifest: ApprovalManifest): boolean =>
+  manifest.missing.length > 0 || manifest.entries.some(entry => entry.kind === 'blocked');
+
 /** The consolidated save+enable card waiting on a user decision. */
 export interface FlowPreauthorizationPending {
   flowId: string;
@@ -61,13 +68,17 @@ export function useFlowPreauthorization(opts?: {
       } catch (err) {
         log('beginEnable: manifest fetch failed, enabling without card: %o', err);
       }
-      if (!manifest || !manifest.gate_installed || manifest.missing.length === 0) {
+      if (!manifest || !manifest.gate_installed || !needsCard(manifest)) {
         await setFlowEnabled(flowId, true);
         log('beginEnable: enabled without card (missing=%d)', manifest?.missing.length ?? -1);
         onSettled?.('no-card', flowId);
         return true;
       }
-      log('beginEnable: %d grant(s) missing — showing card', manifest.missing.length);
+      log(
+        'beginEnable: %d grant(s) missing, blocked=%s — showing card',
+        manifest.missing.length,
+        manifest.entries.some(entry => entry.kind === 'blocked')
+      );
       setErrorKey(null);
       setPending({ flowId, manifest, enableOnApprove: true });
       return false;
@@ -86,11 +97,15 @@ export function useFlowPreauthorization(opts?: {
         log('checkAfterSave: manifest fetch failed — skipping card: %o', err);
         return false;
       }
-      if (!manifest.gate_installed || manifest.missing.length === 0) {
+      if (!manifest.gate_installed || !needsCard(manifest)) {
         onSettled?.('no-card', flowId);
         return false;
       }
-      log('checkAfterSave: %d grant(s) missing — showing card', manifest.missing.length);
+      log(
+        'checkAfterSave: %d grant(s) missing, blocked=%s — showing card',
+        manifest.missing.length,
+        manifest.entries.some(entry => entry.kind === 'blocked')
+      );
       setErrorKey(null);
       // Already enabled: approve keeps it on; deny turns it off.
       setPending({ flowId, manifest, enableOnApprove: false });
@@ -104,13 +119,20 @@ export function useFlowPreauthorization(opts?: {
     setBusy(true);
     setErrorKey(null);
     try {
-      const result = await preauthorizeFlow(pending.flowId, pending.manifest.missing);
-      log(
-        'approveAll: id=%s granted=%d already=%d',
-        pending.flowId,
-        result.granted.length,
-        result.already_trusted.length
-      );
+      // A blocked-only card has nothing to grant — skip the RPC and just
+      // proceed to the enable ("Enable anyway"): the tier gate keeps
+      // blocking at runtime, the card's job was the save-time warning.
+      if (pending.manifest.missing.length > 0) {
+        const result = await preauthorizeFlow(pending.flowId, pending.manifest.missing);
+        log(
+          'approveAll: id=%s granted=%d already=%d',
+          pending.flowId,
+          result.granted.length,
+          result.already_trusted.length
+        );
+      } else {
+        log('approveAll: id=%s nothing approvable (blocked-only card)', pending.flowId);
+      }
       if (pending.enableOnApprove) {
         await setFlowEnabled(pending.flowId, true);
       }

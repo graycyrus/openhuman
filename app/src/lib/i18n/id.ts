@@ -4386,6 +4386,7 @@ const messages: TranslationMap = {
     'Alur kerja ini memerlukan izin Anda untuk tindakan di bawah. Persetujuan hanya berlaku untuk alur kerja ini.',
   'flows.enableApproval.approveAll': 'Setujui semua',
   'flows.enableApproval.deny': 'Tolak',
+  'flows.enableApproval.enableAnyway': 'Tetap aktifkan',
   'flows.enableApproval.granting': 'Menyetujui…',
   'flows.enableApproval.error': 'Tidak dapat menyimpan persetujuan. Silakan coba lagi.',
   'flows.enableApproval.blockedHint': 'Diblokir oleh pengaturan akses agen Anda.',

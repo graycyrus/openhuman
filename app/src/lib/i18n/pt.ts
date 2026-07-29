@@ -4432,6 +4432,7 @@ const messages: TranslationMap = {
     'Este fluxo de trabalho precisa da sua permissão para as ações abaixo. A aprovação vale apenas para este fluxo de trabalho.',
   'flows.enableApproval.approveAll': 'Aprovar tudo',
   'flows.enableApproval.deny': 'Negar',
+  'flows.enableApproval.enableAnyway': 'Ativar mesmo assim',
   'flows.enableApproval.granting': 'Aprovando…',
   'flows.enableApproval.error': 'Não foi possível salvar as aprovações. Tente novamente.',
   'flows.enableApproval.blockedHint': 'Bloqueado pelas suas configurações de acesso do agente.',

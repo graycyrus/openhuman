@@ -4371,6 +4371,7 @@ const messages: TranslationMap = {
     'নিচের কাজগুলোর জন্য এই ওয়ার্কফ্লোর আপনার অনুমতি দরকার। অনুমোদন শুধু এই ওয়ার্কফ্লোর জন্য প্রযোজ্য।',
   'flows.enableApproval.approveAll': 'সব অনুমোদন করুন',
   'flows.enableApproval.deny': 'প্রত্যাখ্যান',
+  'flows.enableApproval.enableAnyway': 'তবুও চালু করুন',
   'flows.enableApproval.granting': 'অনুমোদন করা হচ্ছে…',
   'flows.enableApproval.error': 'অনুমোদনগুলো সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
   'flows.enableApproval.blockedHint': 'আপনার এজেন্ট অ্যাক্সেস সেটিংস দ্বারা অবরুদ্ধ।',

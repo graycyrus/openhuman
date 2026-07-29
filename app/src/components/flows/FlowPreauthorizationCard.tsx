@@ -32,6 +32,8 @@ export const FlowPreauthorizationCard: React.FC<Props> = ({
 }) => {
   const { t } = useT();
 
+  const hasApprovable = entries.some(entry => entry.kind === 'approvable');
+
   const hintFor = (kind: ApprovalManifestEntry['kind']): string | null => {
     switch (kind) {
       case 'blocked':
@@ -99,7 +101,11 @@ export const FlowPreauthorizationCard: React.FC<Props> = ({
               analyticsId="flow-preauth-approve-all"
               onClick={onApproveAll}
               disabled={busy}>
-              {busy ? t('flows.enableApproval.granting') : t('flows.enableApproval.approveAll')}
+              {busy
+                ? t('flows.enableApproval.granting')
+                : hasApprovable
+                  ? t('flows.enableApproval.approveAll')
+                  : t('flows.enableApproval.enableAnyway')}
             </Button>
             <Button
               variant="secondary"

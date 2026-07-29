@@ -4139,6 +4139,7 @@ const messages: TranslationMap = {
   'flows.enableApproval.intro': '此工作流需要您对以下操作的许可。批准仅适用于此工作流。',
   'flows.enableApproval.approveAll': '全部批准',
   'flows.enableApproval.deny': '拒绝',
+  'flows.enableApproval.enableAnyway': '仍然启用',
   'flows.enableApproval.granting': '正在批准…',
   'flows.enableApproval.error': '无法保存批准，请重试。',
   'flows.enableApproval.blockedHint': '已被您的代理访问设置阻止。',

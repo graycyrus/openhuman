@@ -4494,6 +4494,7 @@ const messages: TranslationMap = {
     'Dieser Workflow benötigt deine Erlaubnis für die folgenden Aktionen. Die Freigabe gilt nur für diesen Workflow.',
   'flows.enableApproval.approveAll': 'Alle genehmigen',
   'flows.enableApproval.deny': 'Ablehnen',
+  'flows.enableApproval.enableAnyway': 'Trotzdem aktivieren',
   'flows.enableApproval.granting': 'Wird genehmigt…',
   'flows.enableApproval.error':
     'Die Freigaben konnten nicht gespeichert werden. Bitte erneut versuchen.',

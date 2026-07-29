@@ -4444,6 +4444,7 @@ const messages: TranslationMap = {
     'Este flujo de trabajo necesita tu permiso para las acciones siguientes. La aprobación se aplica solo a este flujo de trabajo.',
   'flows.enableApproval.approveAll': 'Aprobar todo',
   'flows.enableApproval.deny': 'Denegar',
+  'flows.enableApproval.enableAnyway': 'Activar de todos modos',
   'flows.enableApproval.granting': 'Aprobando…',
   'flows.enableApproval.error': 'No se pudieron guardar las aprobaciones. Inténtalo de nuevo.',
   'flows.enableApproval.blockedHint': 'Bloqueado por tu configuración de acceso del agente.',

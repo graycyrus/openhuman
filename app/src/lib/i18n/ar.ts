@@ -4264,6 +4264,7 @@ const messages: TranslationMap = {
     'يحتاج سير العمل هذا إلى إذنك للإجراءات أدناه. تنطبق الموافقة على سير العمل هذا فقط.',
   'flows.enableApproval.approveAll': 'الموافقة على الكل',
   'flows.enableApproval.deny': 'رفض',
+  'flows.enableApproval.enableAnyway': 'التفعيل على أي حال',
   'flows.enableApproval.granting': 'جارٍ الموافقة…',
   'flows.enableApproval.error': 'تعذر حفظ الموافقات. يرجى المحاولة مرة أخرى.',
   'flows.enableApproval.blockedHint': 'محظور بموجب إعدادات وصول الوكيل لديك.',
