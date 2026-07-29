@@ -114,6 +114,19 @@ pub async fn start_companion_server(config: &Config) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Enabled but not paired yet: the relay CANNOT bind without a valid Chrome
+    // extension id (the tinyflows `Authenticator` rejects an empty/invalid id at
+    // construction), so starting here would hard-error. Persist the enabled
+    // intent (the caller already did) and defer the actual start to `pair`,
+    // which supplies the id. This makes the Settings "Enable" toggle safe to
+    // flip in any order relative to entering the extension id.
+    if config.browser_companion.extension_id.trim().is_empty() {
+        log::info!(
+            "{LOG_PREFIX} start_companion_server: enabled but no extension paired yet; relay will start on pair"
+        );
+        return Ok(());
+    }
+
     start_with_extension_id(config, config.browser_companion.extension_id.clone()).await
 }
 
@@ -531,6 +544,27 @@ mod tests {
         // is safe to run alongside any other test in this file.
         let result = start_companion_server(&config).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn start_is_graceful_noop_when_enabled_but_unpaired() {
+        // Regression: enabling before any extension is paired must NOT hard-error
+        // (the tinyflows Authenticator rejects an empty extension id at server
+        // construction). It returns Ok without starting; the relay starts on
+        // `pair`. Returns before touching the shared runtime static, so it's
+        // safe alongside the lifecycle test.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut config = test_config(tmp.path().to_path_buf());
+        config.browser_companion.enabled = true;
+        assert!(
+            config.browser_companion.extension_id.is_empty(),
+            "precondition: not paired"
+        );
+        let result = start_companion_server(&config).await;
+        assert!(
+            result.is_ok(),
+            "enable-before-pair must be a graceful no-op, got {result:?}"
+        );
     }
 
     #[tokio::test]
