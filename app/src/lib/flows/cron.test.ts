@@ -214,6 +214,22 @@ describe('weekdayShortLabel / weekdayNarrowLabel', () => {
   });
 });
 
+describe('weekdayShortLabel / weekdayNarrowLabel', () => {
+  it('names English weekdays via Intl.DateTimeFormat against a fixed reference date', () => {
+    expect(weekdayShortLabel(0, 'en')).toBe('Sun');
+    expect(weekdayShortLabel(3, 'en')).toBe('Wed');
+    expect(weekdayShortLabel(6, 'en')).toBe('Sat');
+  });
+
+  it('produces a single-glyph label for compact toggles', () => {
+    expect(weekdayNarrowLabel(1, 'en')).toBe('M');
+  });
+
+  it('falls back to English for an unsupported locale tag rather than throwing', () => {
+    expect(() => weekdayShortLabel(0, 'not-a-real-locale')).not.toThrow();
+  });
+});
+
 describe('describeCron', () => {
   it('describes the common shapes in plain language', () => {
     expect(describeCron('*/5 * * * *', t, locale)).toBe('Every 5 minutes');
