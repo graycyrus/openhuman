@@ -45,6 +45,13 @@ export interface FlowNodeData extends Record<string, unknown> {
   inputPorts: string[];
   /** Effective output port names: declared `ports` ∪ outgoing edges' `from_port` (`['main']` if neither). */
   outputPorts: string[];
+  /**
+   * 1-based execution-order index shown on the card ("3. Fetch Unread Emails"),
+   * so a node can be referred to by number in a run view, an error, or a
+   * conversation. Derived from the same BFS the layout uses — see
+   * {@link stepNumbers}. Presentation only: never persisted back into the graph.
+   */
+  stepNumber?: number;
 }
 
 export type FlowNode = Node<FlowNodeData>;
@@ -116,6 +123,7 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
   log('workflowGraphToXyflow: nodes=%d edges=%d', graph.nodes.length, graph.edges.length);
 
   const laidOut = autoLayout(graph.nodes, graph.edges);
+  const steps = stepNumbers(graph.nodes, graph.edges);
 
   const nodes: FlowNode[] = graph.nodes.map(node => {
     const position = node.position ?? laidOut.get(node.id) ?? { x: 0, y: 0 };
@@ -131,6 +139,7 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
         ports: node.ports,
         inputPorts: effectiveInputPorts(node, graph.edges),
         outputPorts: effectiveOutputPorts(node, graph.edges),
+        stepNumber: steps.get(node.id),
       },
     };
   });
@@ -424,4 +433,61 @@ export function autoLayout(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<st
   }
 
   return positions;
+}
+
+/**
+ * Assigns each node a 1-based execution-order index for display ("3. Fetch
+ * Unread Emails").
+ *
+ * Uses the same breadth-first walk as {@link autoLayout} — roots (no incoming
+ * edge, normally just the trigger) first, then each successor as it is reached
+ * — so a card's number always agrees with its position in the laid-out graph
+ * rather than with declaration order, which is arbitrary for a graph the agent
+ * authored.
+ *
+ * A DAG has no single "correct" ordering once it branches: two parallel
+ * branches genuinely run concurrently, so any numbering imposes an order that
+ * execution does not guarantee. BFS is chosen because it numbers breadth-first
+ * across a fan-out (both branches' first steps get adjacent numbers) rather
+ * than running one branch to its end before starting the next, which is what a
+ * depth-first walk would do and reads as wrong beside a two-column layout.
+ *
+ * Every node gets a number, including ones the walk cannot reach (a
+ * disconnected sub-graph, or a cycle with no zero-in-degree entry) — those are
+ * appended in declaration order after the reachable ones, so no card renders
+ * without an index.
+ */
+export function stepNumbers(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<string, number> {
+  const order = new Map<string, number>();
+  if (nodes.length === 0) return order;
+
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const incoming = new Map<string, number>(nodes.map(n => [n.id, 0]));
+  const adjacency = new Map<string, string[]>(nodes.map(n => [n.id, []]));
+  for (const edge of edges) {
+    if (!nodeIds.has(edge.from_node) || !nodeIds.has(edge.to_node)) continue;
+    adjacency.get(edge.from_node)?.push(edge.to_node);
+    incoming.set(edge.to_node, (incoming.get(edge.to_node) ?? 0) + 1);
+  }
+
+  const roots = nodes.filter(n => (incoming.get(n.id) ?? 0) === 0);
+  const queue: string[] = (roots.length > 0 ? roots : nodes).map(n => n.id);
+  const seen = new Set<string>(queue);
+
+  let head = 0;
+  let next = 1;
+  while (head < queue.length) {
+    const id = queue[head++];
+    order.set(id, next++);
+    for (const nextId of adjacency.get(id) ?? []) {
+      if (seen.has(nextId)) continue;
+      seen.add(nextId);
+      queue.push(nextId);
+    }
+  }
+
+  for (const node of nodes) {
+    if (!order.has(node.id)) order.set(node.id, next++);
+  }
+  return order;
 }

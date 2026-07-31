@@ -8,6 +8,7 @@ import {
   type FlowNode,
   isValidFlowConnection,
   normalizeWorkflowGraphForDirtyCheck,
+  stepNumbers,
   workflowGraphToXyflow,
   xyflowToWorkflowGraph,
 } from './graphAdapter';
@@ -548,5 +549,78 @@ describe('graphAdapter', () => {
         { from_node: 'new-trigger-0', from_port: 'main', to_node: 'new-agent-1', to_port: 'main' },
       ]);
     });
+  });
+});
+
+describe('stepNumbers', () => {
+  it('numbers from the roots outward, not in declaration order', () => {
+    // Declared tail-first on purpose: the agent is listed before the trigger
+    // that feeds it, so a numbering that trusted array order would label the
+    // agent "1". Graphs the copilot authors routinely come back unordered.
+    const nodes = [node({ id: 'b', kind: 'agent' }), node({ id: 'a', kind: 'trigger' })];
+    const edges = [edge({ from_node: 'a', to_node: 'b' })];
+
+    const steps = stepNumbers(nodes, edges);
+
+    expect(steps.get('a')).toBe(1);
+    expect(steps.get('b')).toBe(2);
+  });
+
+  it('numbers a fan-out breadth-first so sibling branches get adjacent numbers', () => {
+    // trigger → (x, y) → z. Depth-first would number one branch to its end
+    // before starting the other, which reads wrong beside a columnar layout.
+    const nodes = [
+      node({ id: 't', kind: 'trigger' }),
+      node({ id: 'x', kind: 'agent' }),
+      node({ id: 'y', kind: 'agent' }),
+      node({ id: 'z', kind: 'agent' }),
+    ];
+    const edges = [
+      edge({ from_node: 't', to_node: 'x' }),
+      edge({ from_node: 't', to_node: 'y' }),
+      edge({ from_node: 'x', to_node: 'z' }),
+    ];
+
+    const steps = stepNumbers(nodes, edges);
+
+    expect(steps.get('t')).toBe(1);
+    expect([steps.get('x'), steps.get('y')].sort()).toEqual([2, 3]);
+    expect(steps.get('z')).toBe(4);
+  });
+
+  it('still numbers nodes the walk cannot reach', () => {
+    // A disconnected node and a pure cycle both have no zero-in-degree entry.
+    // Every card must show an index, so these are appended after the reachable
+    // ones rather than left undefined.
+    const nodes = [
+      node({ id: 't', kind: 'trigger' }),
+      node({ id: 'orphan', kind: 'agent' }),
+      node({ id: 'c1', kind: 'agent' }),
+      node({ id: 'c2', kind: 'agent' }),
+    ];
+    const edges = [
+      edge({ from_node: 'c1', to_node: 'c2' }),
+      edge({ from_node: 'c2', to_node: 'c1' }),
+    ];
+
+    const steps = stepNumbers(nodes, edges);
+
+    expect(steps.size).toBe(4);
+    expect([...steps.values()].sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('exposes the number on the adapted node data', () => {
+    const graph: WorkflowGraph = {
+      schema_version: 1,
+      id: 'wf',
+      name: 'Flow',
+      nodes: [node({ id: 'a', kind: 'trigger' }), node({ id: 'b', kind: 'agent' })],
+      edges: [edge({ from_node: 'a', to_node: 'b' })],
+    };
+
+    const { nodes } = workflowGraphToXyflow(graph);
+
+    expect(nodes.find(n => n.id === 'a')?.data.stepNumber).toBe(1);
+    expect(nodes.find(n => n.id === 'b')?.data.stepNumber).toBe(2);
   });
 });
