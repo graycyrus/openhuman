@@ -9,6 +9,7 @@ import {
   isValidFlowConnection,
   normalizeWorkflowGraphForDirtyCheck,
   stepNumbers,
+  stepNumbersForFlow,
   workflowGraphToXyflow,
   xyflowToWorkflowGraph,
 } from './graphAdapter';
@@ -609,18 +610,68 @@ describe('stepNumbers', () => {
     expect([...steps.values()].sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
   });
 
-  it('exposes the number on the adapted node data', () => {
+  it('numbers the xyflow shape identically to the workflow shape', () => {
+    // The editable canvas only ever holds the xyflow shape, so both entry
+    // points must agree or a graph would renumber itself on save/reload.
+    const wfNodes = [node({ id: 'a', kind: 'trigger' }), node({ id: 'b', kind: 'agent' })];
+    const wfEdges = [edge({ from_node: 'a', to_node: 'b' })];
     const graph: WorkflowGraph = {
       schema_version: 1,
       id: 'wf',
       name: 'Flow',
-      nodes: [node({ id: 'a', kind: 'trigger' }), node({ id: 'b', kind: 'agent' })],
-      edges: [edge({ from_node: 'a', to_node: 'b' })],
+      nodes: wfNodes,
+      edges: wfEdges,
     };
 
-    const { nodes } = workflowGraphToXyflow(graph);
+    const { nodes: flowNodes, edges: flowEdges } = workflowGraphToXyflow(graph);
 
-    expect(nodes.find(n => n.id === 'a')?.data.stepNumber).toBe(1);
-    expect(nodes.find(n => n.id === 'b')?.data.stepNumber).toBe(2);
+    expect(stepNumbersForFlow(flowNodes, flowEdges)).toEqual(stepNumbers(wfNodes, wfEdges));
+  });
+
+  it('renumbers when a node is added or connected mid-edit', () => {
+    // Regression: numbers used to be baked into node `data` by
+    // `workflowGraphToXyflow`, which the editable canvas runs only at mount.
+    // A node added afterwards (via `createFlowNode`, which sets no number) had
+    // none at all, and connecting it left every other number stale until a
+    // save or remount.
+    const a = createFlowNode('trigger', { x: 0, y: 0 }, 'a', 'Trigger');
+    const b = createFlowNode('agent', { x: 280, y: 0 }, 'b', 'Agent');
+    const connected: FlowEdge[] = [{ id: 'e1', source: 'a', target: 'b' }];
+
+    expect(stepNumbersForFlow([a, b], connected)).toEqual(
+      new Map([
+        ['a', 1],
+        ['b', 2],
+      ])
+    );
+
+    // Add a third node the way the palette does — no number of its own.
+    const c = createFlowNode('tool_call', { x: 560, y: 0 }, 'c', 'Tool');
+    const afterAdd = stepNumbersForFlow([a, b, c], connected);
+    expect(afterAdd.get('c')).toBe(3);
+
+    // Connect it, and the numbering follows the new topology.
+    const afterConnect = stepNumbersForFlow(
+      [a, b, c],
+      [...connected, { id: 'e2', source: 'b', target: 'c' }]
+    );
+    expect(afterConnect).toEqual(
+      new Map([
+        ['a', 1],
+        ['b', 2],
+        ['c', 3],
+      ])
+    );
+
+    // Rewiring so `c` comes before `b` must renumber, not keep stale values.
+    const rewired = stepNumbersForFlow(
+      [a, b, c],
+      [
+        { id: 'e3', source: 'a', target: 'c' },
+        { id: 'e4', source: 'c', target: 'b' },
+      ]
+    );
+    expect(rewired.get('c')).toBe(2);
+    expect(rewired.get('b')).toBe(3);
   });
 });

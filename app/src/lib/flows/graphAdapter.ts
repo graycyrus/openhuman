@@ -45,13 +45,6 @@ export interface FlowNodeData extends Record<string, unknown> {
   inputPorts: string[];
   /** Effective output port names: declared `ports` ∪ outgoing edges' `from_port` (`['main']` if neither). */
   outputPorts: string[];
-  /**
-   * 1-based execution-order index shown on the card ("3. Fetch Unread Emails"),
-   * so a node can be referred to by number in a run view, an error, or a
-   * conversation. Derived from the same BFS the layout uses — see
-   * {@link stepNumbers}. Presentation only: never persisted back into the graph.
-   */
-  stepNumber?: number;
 }
 
 export type FlowNode = Node<FlowNodeData>;
@@ -123,7 +116,6 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
   log('workflowGraphToXyflow: nodes=%d edges=%d', graph.nodes.length, graph.edges.length);
 
   const laidOut = autoLayout(graph.nodes, graph.edges);
-  const steps = stepNumbers(graph.nodes, graph.edges);
 
   const nodes: FlowNode[] = graph.nodes.map(node => {
     const position = node.position ?? laidOut.get(node.id) ?? { x: 0, y: 0 };
@@ -139,7 +131,6 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
         ports: node.ports,
         inputPorts: effectiveInputPorts(node, graph.edges),
         outputPorts: effectiveOutputPorts(node, graph.edges),
-        stepNumber: steps.get(node.id),
       },
     };
   });
@@ -439,11 +430,11 @@ export function autoLayout(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<st
  * Assigns each node a 1-based execution-order index for display ("3. Fetch
  * Unread Emails").
  *
- * Uses the same breadth-first walk as {@link autoLayout} — roots (no incoming
- * edge, normally just the trigger) first, then each successor as it is reached
- * — so a card's number always agrees with its position in the laid-out graph
- * rather than with declaration order, which is arbitrary for a graph the agent
- * authored.
+ * Uses the same breadth-first walk as {@link autoLayout} — chain-starting roots
+ * (no incoming edge but at least one outgoing, normally just the trigger)
+ * first, then each successor as it is reached — so a card's number always
+ * agrees with its position in the laid-out graph rather than with declaration
+ * order, which is arbitrary for a graph the agent authored.
  *
  * A DAG has no single "correct" ordering once it branches: two parallel
  * branches genuinely run concurrently, so any numbering imposes an order that
@@ -452,26 +443,65 @@ export function autoLayout(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<st
  * than running one branch to its end before starting the next, which is what a
  * depth-first walk would do and reads as wrong beside a two-column layout.
  *
- * Every node gets a number, including ones the walk cannot reach (a
- * disconnected sub-graph, or a cycle with no zero-in-degree entry) — those are
- * appended in declaration order after the reachable ones, so no card renders
- * without an index.
+ * Every node gets a number, including ones the walk cannot reach — a node not
+ * yet wired up, a disconnected sub-graph, or a cycle with no zero-in-degree
+ * entry. Those are appended in declaration order after the reachable ones, so
+ * no card renders without an index and, crucially, dropping an unconnected node
+ * onto the canvas does not renumber the flow it has not joined yet.
  */
 export function stepNumbers(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<string, number> {
-  const order = new Map<string, number>();
-  if (nodes.length === 0) return order;
+  return stepNumbersFor(
+    nodes.map(n => n.id),
+    edges.map(e => [e.from_node, e.to_node])
+  );
+}
 
-  const nodeIds = new Set(nodes.map(n => n.id));
-  const incoming = new Map<string, number>(nodes.map(n => [n.id, 0]));
-  const adjacency = new Map<string, string[]>(nodes.map(n => [n.id, []]));
-  for (const edge of edges) {
-    if (!nodeIds.has(edge.from_node) || !nodeIds.has(edge.to_node)) continue;
-    adjacency.get(edge.from_node)?.push(edge.to_node);
-    incoming.set(edge.to_node, (incoming.get(edge.to_node) ?? 0) + 1);
+/**
+ * {@link stepNumbers} for the xyflow shape — the live editing state.
+ *
+ * The editable canvas holds its graph in `useNodesState`/`useEdgesState` and
+ * mutates it directly (`addNode` builds a node with `createFlowNode`,
+ * `onConnect` only calls `setEdges`), so `workflowGraphToXyflow` runs once at
+ * mount and never again. Numbering must therefore be derived from the live
+ * arrays on every change rather than baked into node `data` at adapt time — a
+ * node added mid-edit has no adapter-supplied number at all, and every existing
+ * number goes stale the moment the topology changes.
+ */
+export function stepNumbersForFlow(nodes: FlowNode[], edges: FlowEdge[]): Map<string, number> {
+  return stepNumbersFor(
+    nodes.map(n => n.id),
+    edges.map(e => [e.source, e.target])
+  );
+}
+
+/**
+ * Shared BFS behind both public entry points, over bare ids and `[from, to]`
+ * pairs so the two graph shapes cannot drift in ordering behaviour.
+ */
+function stepNumbersFor(ids: string[], pairs: Array<[string, string]>): Map<string, number> {
+  const order = new Map<string, number>();
+  if (ids.length === 0) return order;
+
+  const known = new Set(ids);
+  const incoming = new Map<string, number>(ids.map(id => [id, 0]));
+  const adjacency = new Map<string, string[]>(ids.map(id => [id, []]));
+  for (const [from, to] of pairs) {
+    if (!known.has(from) || !known.has(to)) continue;
+    adjacency.get(from)?.push(to);
+    incoming.set(to, (incoming.get(to) ?? 0) + 1);
   }
 
-  const roots = nodes.filter(n => (incoming.get(n.id) ?? 0) === 0);
-  const queue: string[] = (roots.length > 0 ? roots : nodes).map(n => n.id);
+  // Seed only with roots that actually start a chain — in-degree 0 AND at
+  // least one outgoing edge. A node with no edges at all is *not* step 2 just
+  // because it has no incoming one: on the editable canvas a node dropped from
+  // the palette is unwired for as long as it takes to connect it, and seeding
+  // it as a root would renumber the entire flow underneath the user each time
+  // they added one. Such nodes fall through to the trailing pass below and are
+  // numbered after the wired flow instead.
+  const roots = ids.filter(
+    id => (incoming.get(id) ?? 0) === 0 && (adjacency.get(id)?.length ?? 0) > 0
+  );
+  const queue: string[] = [...roots];
   const seen = new Set<string>(queue);
 
   let head = 0;
@@ -486,8 +516,11 @@ export function stepNumbers(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<s
     }
   }
 
-  for (const node of nodes) {
-    if (!order.has(node.id)) order.set(node.id, next++);
+  // Everything the walk never reached: unwired nodes, disconnected sub-graphs,
+  // and cycles with no zero-in-degree entry. Numbered in declaration order so
+  // every card still shows an index.
+  for (const id of ids) {
+    if (!order.has(id)) order.set(id, next++);
   }
   return order;
 }

@@ -50,6 +50,7 @@ import { NodeKindGlyph, nodeKindTile } from '../../../lib/flows/nodeKindIcons';
 import { describeNode } from '../../../lib/flows/nodeSummary';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCanvasActions } from './canvasActions';
+import { useStepNumber } from './stepNumbers';
 
 /**
  * Inline the handle into the port row instead of React Flow's default absolute
@@ -84,6 +85,7 @@ function portPillClass(port: string): string {
 function FlowNodeComponent({ id, data, selected }: NodeProps<FlowNode>) {
   const { t, locale } = useT();
   const actions = useCanvasActions();
+  const stepNumber = useStepNumber(id);
   // A native "Tool" node (provider=openhuman / oh: slug) reads differently from
   // the Composio "App action" node even though both are `tool_call` — the
   // former calls one of the assistant's own built-ins, the latter reaches a
@@ -142,10 +144,10 @@ function FlowNodeComponent({ id, data, selected }: NodeProps<FlowNode>) {
             {data.name}
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-[10px] leading-none text-content-muted">
-            {data.stepNumber !== undefined && (
+            {stepNumber !== undefined && (
               <>
                 <span data-testid="flow-node-step" className="font-semibold tabular-nums">
-                  {data.stepNumber}
+                  {stepNumber}
                 </span>
                 <span aria-hidden="true" className="opacity-40">
                   ·
