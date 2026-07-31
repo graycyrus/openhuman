@@ -443,11 +443,16 @@ export function autoLayout(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<st
  * than running one branch to its end before starting the next, which is what a
  * depth-first walk would do and reads as wrong beside a two-column layout.
  *
+ * Independent chains are kept contiguous rather than interleaved: each root's
+ * component is drained completely before the next root is seeded. Otherwise
+ * `a → b` plus `c → d` would number a=1, c=2, b=3, d=4, and drawing a second
+ * chain would renumber the first one's steps.
+ *
  * Every node gets a number, including ones the walk cannot reach — a node not
- * yet wired up, a disconnected sub-graph, or a cycle with no zero-in-degree
- * entry. Those are appended in declaration order after the reachable ones, so
- * no card renders without an index and, crucially, dropping an unconnected node
- * onto the canvas does not renumber the flow it has not joined yet.
+ * yet wired up, or a cycle with no zero-in-degree entry. Those are appended in
+ * declaration order after the reachable ones, so no card renders without an
+ * index and, crucially, adding disconnected work to the canvas never renumbers
+ * the flow it has not joined yet.
  */
 export function stepNumbers(nodes: WorkflowNode[], edges: WorkflowEdge[]): Map<string, number> {
   return stepNumbersFor(
@@ -501,18 +506,33 @@ function stepNumbersFor(ids: string[], pairs: Array<[string, string]>): Map<stri
   const roots = ids.filter(
     id => (incoming.get(id) ?? 0) === 0 && (adjacency.get(id)?.length ?? 0) > 0
   );
-  const queue: string[] = [...roots];
-  const seen = new Set<string>(queue);
 
-  let head = 0;
+  const seen = new Set<string>();
   let next = 1;
-  while (head < queue.length) {
-    const id = queue[head++];
-    order.set(id, next++);
-    for (const nextId of adjacency.get(id) ?? []) {
-      if (seen.has(nextId)) continue;
-      seen.add(nextId);
-      queue.push(nextId);
+
+  // One component at a time: drain each root's BFS completely before seeding
+  // the next. Seeding every root at once would interleave independent chains —
+  // for `a → b` and `c → d` that yields a=1, c=2, b=3, d=4, so drawing a second
+  // chain on the canvas renumbers the first one's steps. That is the same
+  // renumbering-underneath-the-user problem the root filter above avoids for
+  // lone nodes, and it would contradict this function's contract that
+  // disconnected work is numbered *after* the flow it has not joined.
+  //
+  // BFS still applies *within* a component, so a fan-out's sibling branches
+  // keep adjacent numbers; only whole components are kept contiguous.
+  for (const root of roots) {
+    if (seen.has(root)) continue;
+    const queue: string[] = [root];
+    seen.add(root);
+    let head = 0;
+    while (head < queue.length) {
+      const id = queue[head++];
+      order.set(id, next++);
+      for (const nextId of adjacency.get(id) ?? []) {
+        if (seen.has(nextId)) continue;
+        seen.add(nextId);
+        queue.push(nextId);
+      }
     }
   }
 

@@ -637,6 +637,46 @@ describe('stepNumbers', () => {
     expect(stepNumbersForFlow(flowNodes, flowEdges)).toEqual(stepNumbers(wfNodes, wfEdges));
   });
 
+  it('keeps disconnected chains contiguous instead of interleaving them', () => {
+    // Regression: seeding every root at once interleaved independent chains, so
+    // `a → b` plus `c → d` numbered a=1, c=2, b=3, d=4 — drawing a second chain
+    // renumbered the first one's steps underneath the user.
+    const nodes = [
+      node({ id: 'a', kind: 'trigger' }),
+      node({ id: 'b', kind: 'agent' }),
+      node({ id: 'c', kind: 'trigger' }),
+      node({ id: 'd', kind: 'agent' }),
+    ];
+    const edges = [edge({ from_node: 'a', to_node: 'b' }), edge({ from_node: 'c', to_node: 'd' })];
+
+    expect(stepNumbers(nodes, edges)).toEqual(
+      new Map([
+        ['a', 1],
+        ['b', 2],
+        ['c', 3],
+        ['d', 4],
+      ])
+    );
+  });
+
+  it('does not renumber the existing flow when a second chain is drawn', () => {
+    // The property that matters on the canvas: numbers already on screen must
+    // not shift because unrelated work appeared elsewhere.
+    const a = node({ id: 'a', kind: 'trigger' });
+    const b = node({ id: 'b', kind: 'agent' });
+    const firstChain = [edge({ from_node: 'a', to_node: 'b' })];
+
+    const before = stepNumbers([a, b], firstChain);
+
+    const after = stepNumbers(
+      [a, b, node({ id: 'c', kind: 'trigger' }), node({ id: 'd', kind: 'agent' })],
+      [...firstChain, edge({ from_node: 'c', to_node: 'd' })]
+    );
+
+    expect(after.get('a')).toBe(before.get('a'));
+    expect(after.get('b')).toBe(before.get('b'));
+  });
+
   it('renumbers when a node is added or connected mid-edit', () => {
     // Regression: numbers used to be baked into node `data` by
     // `workflowGraphToXyflow`, which the editable canvas runs only at mount.
