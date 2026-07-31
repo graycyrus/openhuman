@@ -14,6 +14,7 @@ import {
   NODE_KIND_TILE,
   NodeKindGlyph,
   nodeKindIcon,
+  NodeKindTile,
   nodeKindTile,
 } from './nodeKindIcons';
 import type { NodeKind } from './types';
@@ -59,5 +60,46 @@ describe('nodeKindIcons', () => {
     const Custom = () => <svg data-testid="custom-glyph" />;
     const { getByTestId } = render(<NodeKindGlyph kind="tool_call" icon={Custom} />);
     expect(getByTestId('custom-glyph')).toBeInTheDocument();
+  });
+});
+
+describe('NodeKindTile', () => {
+  it('renders the kind gradient and its glyph together', () => {
+    const { container } = render(<NodeKindTile kind="http_request" testId="tile" />);
+    const tile = container.querySelector('[data-testid="tile"]');
+    expect(tile?.className).toContain('bg-gradient-to-br');
+    expect(tile?.className).toContain('h-8 w-8');
+    expect(tile?.querySelector('svg')).not.toBeNull();
+  });
+
+  it('applies static size classes, never runtime-interpolated ones', () => {
+    // Tailwind's JIT discovers classes by scanning source text, so a class
+    // assembled from a template literal at runtime is never generated and the
+    // element silently renders unstyled. Both variants must be whole literals.
+    const { container: sm } = render(<NodeKindTile kind="code" size="sm" testId="sm" />);
+    const { container: md } = render(<NodeKindTile kind="code" size="md" testId="md" />);
+    expect(sm.querySelector('[data-testid="sm"]')?.className).toContain('h-5 w-5');
+    expect(md.querySelector('[data-testid="md"]')?.className).toContain('h-8 w-8');
+    expect(sm.innerHTML).not.toMatch(/h-\[undefined|w-\[undefined|\$\{/);
+  });
+
+  it('is hidden from assistive tech', () => {
+    // The card's accessible name is its node name; kind is conveyed by the
+    // textual kind label, not by the decorative tile.
+    const { container } = render(<NodeKindTile kind="agent" testId="tile" />);
+    expect(container.querySelector('[data-testid="tile"]')?.getAttribute('aria-hidden')).toBe(
+      'true'
+    );
+  });
+
+  it('honours the icon override and still uses the given kind gradient', () => {
+    const Custom = () => <svg data-testid="custom" />;
+    const { container, getByTestId } = render(
+      <NodeKindTile kind="agent" icon={Custom} testId="tile" />
+    );
+    expect(getByTestId('custom')).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="tile"]')?.className).toContain(
+      'from-accent-lavender'
+    );
   });
 });

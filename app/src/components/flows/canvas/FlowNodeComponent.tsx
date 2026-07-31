@@ -46,7 +46,7 @@ import { type CSSProperties, memo } from 'react';
 import { LuSparkles } from 'react-icons/lu';
 
 import type { FlowNode } from '../../../lib/flows/graphAdapter';
-import { NodeKindGlyph, nodeKindTile } from '../../../lib/flows/nodeKindIcons';
+import { NodeKindTile } from '../../../lib/flows/nodeKindIcons';
 import { describeNode } from '../../../lib/flows/nodeSummary';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCanvasActions } from './canvasActions';
@@ -125,18 +125,11 @@ function FlowNodeComponent({ id, data, selected }: NodeProps<FlowNode>) {
             Status stays legible because it is drawn as a ring around the whole
             card, so identity (filled square) and state (outline) never share
             pixels. See NODE_KIND_TILE for the hue grouping. */}
-        <span
-          aria-hidden="true"
-          data-testid="flow-node-icon"
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ring-1 ring-inset ring-white/15 ${nodeKindTile(
-            isNativeTool ? 'agent' : data.kind
-          )}`}>
-          <NodeKindGlyph
-            kind={data.kind}
-            icon={isNativeTool ? LuSparkles : undefined}
-            className="h-[18px] w-[18px]"
-          />
-        </span>
+        <NodeKindTile
+          kind={isNativeTool ? 'agent' : data.kind}
+          icon={isNativeTool ? LuSparkles : undefined}
+          testId="flow-node-icon"
+        />
         <div className="min-w-0 flex-1">
           <div
             className="min-w-0 truncate text-[13px] font-semibold leading-tight text-content"

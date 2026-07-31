@@ -20,7 +20,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useEscapeKey } from '../../../../hooks/useEscapeKey';
 import type { FlowEdge, FlowNode } from '../../../../lib/flows/graphAdapter';
-import { NodeKindGlyph, nodeKindTile } from '../../../../lib/flows/nodeKindIcons';
+import { NodeKindTile } from '../../../../lib/flows/nodeKindIcons';
 import { describeNode } from '../../../../lib/flows/nodeSummary';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { FlowConnection } from '../../../../services/api/flowsApi';
@@ -173,13 +173,7 @@ function NodeConfigDrawer({
       data-testid="node-config-drawer">
       <aside className="pointer-events-auto relative flex h-full w-full max-w-xs flex-col border-l border-line bg-surface shadow-xl">
         <header className="flex items-start gap-2 border-b border-line px-3.5 py-3">
-          <span
-            aria-hidden="true"
-            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ring-1 ring-inset ring-white/15 ${nodeKindTile(
-              node.data.kind
-            )}`}>
-            <NodeKindGlyph kind={node.data.kind} className="h-[18px] w-[18px]" />
-          </span>
+          <NodeKindTile kind={node.data.kind} className="mt-0.5" />
           <div className="min-w-0 flex-1">
             {/* Kind eyebrow — hidden when it just repeats the name (a default,
                 unrenamed node), so the header doesn't show the title twice. */}

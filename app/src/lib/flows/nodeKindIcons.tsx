@@ -162,3 +162,57 @@ const UNKNOWN_KIND_TILE = 'bg-gradient-to-br from-stone-400 to-stone-600';
 export function nodeKindTile(kind: NodeKind | string): string {
   return NODE_KIND_TILE[kind as NodeKind] ?? UNKNOWN_KIND_TILE;
 }
+
+/**
+ * Tile size variants. Deliberately whole static class strings rather than
+ * numeric props interpolated into `h-[${n}px]`: Tailwind's JIT compiler
+ * discovers classes by scanning source text, so a class assembled at runtime
+ * from a template literal is never generated and the element renders unstyled.
+ */
+const TILE_SIZES = {
+  /** Palette rows — small enough that the glyph needs the tighter radius. */
+  sm: { tile: 'h-5 w-5 rounded-md', glyph: 'h-3 w-3' },
+  /** Canvas cards and the config-drawer header. */
+  md: { tile: 'h-8 w-8 rounded-lg', glyph: 'h-[18px] w-[18px]' },
+} as const;
+
+export type NodeKindTileSize = keyof typeof TILE_SIZES;
+
+/**
+ * A kind's glyph on its colour-coded tile — the single element the canvas card,
+ * the palette row and the config-drawer header all render.
+ *
+ * Keeping the tile chrome (gradient, inset ring, shadow, radius) in one place
+ * means the swatch a user picks in the palette is provably the swatch that
+ * lands on the graph: the three surfaces cannot drift because they no longer
+ * each own a copy of the markup.
+ *
+ * `aria-hidden` because the tile is decorative — a card's accessible name is
+ * its node name, and the kind is conveyed textually by the kind label rather
+ * than by colour or glyph alone.
+ */
+export function NodeKindTile({
+  kind,
+  icon,
+  size = 'md',
+  className = '',
+  testId,
+}: {
+  kind: NodeKind | string;
+  /** Overrides the per-kind glyph. See {@link NodeKindGlyph}. */
+  icon?: IconType;
+  size?: NodeKindTileSize;
+  /** Extra positioning classes for the call site (e.g. `mt-0.5`). */
+  className?: string;
+  testId?: string;
+}) {
+  const { tile, glyph } = TILE_SIZES[size];
+  return (
+    <span
+      aria-hidden="true"
+      data-testid={testId}
+      className={`flex shrink-0 items-center justify-center text-white shadow-sm ring-1 ring-inset ring-white/15 ${tile} ${nodeKindTile(kind)} ${className}`}>
+      <NodeKindGlyph kind={kind} icon={icon} className={glyph} />
+    </span>
+  );
+}

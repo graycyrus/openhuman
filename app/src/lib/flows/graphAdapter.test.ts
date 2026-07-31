@@ -584,8 +584,12 @@ describe('stepNumbers', () => {
 
     const steps = stepNumbers(nodes, edges);
 
+    // Exact values, not a sorted set: sibling order is deterministic (adjacency
+    // follows edge declaration order), and a sorted assertion would still pass
+    // if the traversal reversed x and y.
     expect(steps.get('t')).toBe(1);
-    expect([steps.get('x'), steps.get('y')].sort()).toEqual([2, 3]);
+    expect(steps.get('x')).toBe(2);
+    expect(steps.get('y')).toBe(3);
     expect(steps.get('z')).toBe(4);
   });
 
@@ -606,8 +610,13 @@ describe('stepNumbers', () => {
 
     const steps = stepNumbers(nodes, edges);
 
+    // Pin the declaration-order fallback exactly — a sorted comparison would
+    // pass even if the fallback emitted them in some other order.
     expect(steps.size).toBe(4);
-    expect([...steps.values()].sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+    expect(steps.get('t')).toBe(1);
+    expect(steps.get('orphan')).toBe(2);
+    expect(steps.get('c1')).toBe(3);
+    expect(steps.get('c2')).toBe(4);
   });
 
   it('numbers the xyflow shape identically to the workflow shape', () => {
