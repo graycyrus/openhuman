@@ -46,7 +46,10 @@ vi.mock('../../features/human/chatMascot', () => ({
   MASCOT_TRANSITION_MS: 320,
   prefersReducedMotion: () => reduceMotion,
 }));
-vi.mock('../../store/mascotSlice', () => ({ selectChatMascotExpanded: () => false }));
+vi.mock('../../store/mascotSlice', () => ({
+  selectChatMascotExpanded: () => false,
+  selectChatMascotDismissed: () => false,
+}));
 vi.mock('../../features/conversations/Conversations', () => ({
   default: ({ variant }: { variant: string }) => <div data-testid="conversations">{variant}</div>,
   ConversationsPage: () => <div data-testid="agent-chat-panel" />,

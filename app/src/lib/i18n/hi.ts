@@ -2739,6 +2739,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'जवाब बोलकर सुनाएँ',
   'chat.mascot.speakRepliesHint':
     'मैस्कॉट खुला रहने तक जवाब बोलकर सुनाए जाते हैं। बातचीत को शांत रखने के लिए इसे बंद कर दें।',
+  'chat.mascot.dismiss': 'Tiny छिपाएँ',
+  'chat.mascot.dismissTitle': 'Tiny को हटा दें?',
+  'chat.mascot.dismissBody':
+    'अगर आप मैसेज बॉक्स अपने पास ही रखना चाहते हैं तो कोई बात नहीं। Tiny को कभी भी सेटिंग्स › रूप › चैट से वापस ला सकते हैं।',
+  'chat.mascot.dismissConfirm': 'Tiny छिपाएँ',
+  'chat.mascot.dismissCancel': 'Tiny रहने दें',
   'chat.turn': 'टर्न',
   'chat.turns': 'टर्न्स',
   'chat.openWorkerThread': 'वर्कर थ्रेड खोलें',
@@ -5845,6 +5851,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'एजेंट की सोच छिपाएँ',
   'settings.appearance.hideAgentInsightsDesc':
     'चैट में एजेंट की चरण-दर-चरण लाइव टाइमलाइन को छिपाएँ। एक ब्लिंक करता "प्रोसेसिंग" लिंक फिर भी आपको पूरी प्रक्रिया खोलने देता है।',
+  'settings.appearance.showChatMascot': 'मैसेज बॉक्स पर Tiny दिखाएँ',
+  'settings.appearance.showChatMascotDesc':
+    'मैस्कॉट लिखने के बॉक्स पर खड़ा रहता है। छिपाने पर चैट सिर्फ़ टेक्स्ट रहेगी, जब तक आप इसे दोबारा चालू न करें।',
   'settings.appearance.assistantTextModeDesc':
     'असिस्टेंट के जवाबों को बिना फ्रेम वाले टेक्स्ट के रूप में दिखाएं और आपके संदेश बबल में रखें।',
   'settings.mascot.active': 'एक्टिव',

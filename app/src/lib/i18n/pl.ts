@@ -2774,6 +2774,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'Czytaj odpowiedzi na głos',
   'chat.mascot.speakRepliesHint':
     'Odpowiedzi są czytane na głos, dopóki maskotka jest otwarta. Wyłącz tę opcję, aby rozmowa pozostała cicha.',
+  'chat.mascot.dismiss': 'Ukryj Tiny',
+  'chat.mascot.dismissTitle': 'Odesłać Tiny?',
+  'chat.mascot.dismissBody':
+    'Nic się nie stanie, jeśli wolisz mieć pole wiadomości tylko dla siebie. Tiny wróci w każdej chwili przez Ustawienia › Wygląd › Czat.',
+  'chat.mascot.dismissConfirm': 'Ukryj Tiny',
+  'chat.mascot.dismissCancel': 'Zostaw Tiny',
   'chat.turn': 'tura',
   'chat.turns': 'tury',
   'chat.openWorkerThread': 'Otwórz wątek workera',
@@ -5935,6 +5941,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'Ukryj myślenie agenta',
   'settings.appearance.hideAgentInsightsDesc':
     'Zwija oś czasu z krokami agenta na żywo w czacie. Migający link „Przetwarzanie” nadal pozwala otworzyć pełny przebieg.',
+  'settings.appearance.showChatMascot': 'Pokaż Tiny na polu wiadomości',
+  'settings.appearance.showChatMascotDesc':
+    'Maskotka stoi na polu pisania. Po ukryciu czat pozostaje tekstowy, dopóki nie włączysz tego z powrotem.',
   'settings.appearance.assistantTextModeDesc':
     'Wyświetla odpowiedzi asystenta jako tekst bez ramki, a Twoje wiadomości pozostawia w dymkach.',
   'settings.mascot.active': 'Aktywny',

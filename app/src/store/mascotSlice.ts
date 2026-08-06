@@ -181,6 +181,16 @@ interface MascotState {
    */
   chatMascotListening: boolean;
   /**
+   * Whether the mascot appears on the chat composer at all.
+   *
+   * Dismissing it from the composer is a real preference, not a session quirk —
+   * someone who does not want a character on their message box should not have
+   * to re-dismiss it on every launch. Re-enabled from
+   * Settings → Appearance → Chat, which is why the dismiss dialog names that
+   * path: a hidden control the user cannot find again is a trap.
+   */
+  chatMascotDismissed: boolean;
+  /**
    * Which voice-chat implementation the mascot's voice stage uses (#5399).
    * `classic` is
    * today's turn-based record → transcribe → reply → TTS pipeline; `realtime`
@@ -211,6 +221,7 @@ const initialState: MascotState = {
   chatMascotExpanded: false,
   speakReplies: true,
   chatMascotListening: false,
+  chatMascotDismissed: false,
   voiceMode: 'classic',
 };
 
@@ -400,6 +411,16 @@ const mascotSlice = createSlice({
       state.speakReplies = Boolean(action.payload);
       mascotLog('[mascot][voice] speakReplies=%s', state.speakReplies);
     },
+    setChatMascotDismissed(state, action: PayloadAction<boolean>) {
+      const next = Boolean(action.payload);
+      if (state.chatMascotDismissed === next) return;
+      state.chatMascotDismissed = next;
+      // Collapsing on dismiss keeps the two flags from disagreeing: a dismissed
+      // mascot that is still marked expanded would reopen its voice stage the
+      // moment it is restored, which is not what the user asked for.
+      if (next) state.chatMascotExpanded = false;
+      mascotLog('[mascot][chat-stage] dismissed=%s', next);
+    },
     setChatMascotListening(state, action: PayloadAction<boolean>) {
       const next = Boolean(action.payload);
       // Guard the no-op: `MicComposer` reports its state on every transition and
@@ -434,6 +455,7 @@ const mascotSlice = createSlice({
           customPrimaryColor?: unknown;
           customSecondaryColor?: unknown;
           chatMascotExpanded?: unknown;
+          chatMascotDismissed?: unknown;
           speakReplies?: unknown;
           voiceMode?: unknown;
         };
@@ -511,6 +533,10 @@ const mascotSlice = createSlice({
         typeof rehydrateAction.payload?.speakReplies === 'boolean'
           ? rehydrateAction.payload.speakReplies
           : initialState.speakReplies;
+      state.chatMascotDismissed =
+        typeof rehydrateAction.payload?.chatMascotDismissed === 'boolean'
+          ? rehydrateAction.payload.chatMascotDismissed
+          : initialState.chatMascotDismissed;
       // Never restored — see the field docs on `chatMascotListening`.
       state.chatMascotListening = false;
       const restoredVoiceMode = rehydrateAction.payload?.voiceMode;
@@ -531,6 +557,7 @@ export const {
   setCustomPrimaryColor,
   setCustomSecondaryColor,
   setChatMascotExpanded,
+  setChatMascotDismissed,
   setSpeakReplies,
   setChatMascotListening,
   setVoiceMode,
@@ -548,6 +575,10 @@ export const selectSpeakReplies = (state: { mascot: MascotState }): boolean =>
 
 export const selectChatMascotListening = (state: { mascot: MascotState }): boolean =>
   state.mascot.chatMascotListening ?? false;
+
+/** Whether the user has dismissed the mascot from the composer. */
+export const selectChatMascotDismissed = (state: { mascot: MascotState }): boolean =>
+  state.mascot.chatMascotDismissed ?? false;
 
 export const selectMascotColor = (state: { mascot: MascotState }): MascotColor =>
   state.mascot.color;

@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import reducer, {
   LEGACY_SPEAK_REPLIES_KEY,
   migrateLegacySpeakReplies,
+  selectChatMascotDismissed,
   selectChatMascotExpanded,
   selectChatMascotListening,
   selectSpeakReplies,
+  setChatMascotDismissed,
   setChatMascotExpanded,
   setChatMascotListening,
   setSpeakReplies,
@@ -43,6 +45,46 @@ describe('mascotSlice — chat mascot stage', () => {
     expect(listening.chatMascotListening).toBe(true);
     expect(reducer(listening, setChatMascotListening(true))).toBe(listening);
     expect(reducer(listening, setChatMascotListening(false)).chatMascotListening).toBe(false);
+  });
+
+  describe('dismissal', () => {
+    it('starts visible', () => {
+      expect(selectChatMascotDismissed({ mascot: reducer(undefined, { type: '@@INIT' }) })).toBe(
+        false
+      );
+    });
+
+    it('collapses the voice stage when dismissed', () => {
+      // Otherwise the two flags disagree, and restoring the mascot would pop its
+      // stage open again without the user asking.
+      const expanded = reducer(undefined, setChatMascotExpanded(true));
+      const dismissed = reducer(expanded, setChatMascotDismissed(true));
+      expect(dismissed.chatMascotDismissed).toBe(true);
+      expect(dismissed.chatMascotExpanded).toBe(false);
+    });
+
+    it('restores docked, not expanded', () => {
+      let state = reducer(undefined, setChatMascotExpanded(true));
+      state = reducer(state, setChatMascotDismissed(true));
+      state = reducer(state, setChatMascotDismissed(false));
+      expect(state.chatMascotDismissed).toBe(false);
+      expect(state.chatMascotExpanded).toBe(false);
+    });
+
+    it('ignores a repeat dismissal', () => {
+      const dismissed = reducer(undefined, setChatMascotDismissed(true));
+      expect(reducer(dismissed, setChatMascotDismissed(true))).toBe(dismissed);
+    });
+
+    it('survives a reload', () => {
+      const state = reducer(undefined, rehydrate('mascot', { chatMascotDismissed: true }));
+      expect(state.chatMascotDismissed).toBe(true);
+    });
+
+    it('defaults to visible for a blob that predates the setting', () => {
+      const state = reducer(undefined, rehydrate('mascot', { color: 'navy' }));
+      expect(state.chatMascotDismissed).toBe(false);
+    });
   });
 
   it('sets the speak-replies preference', () => {

@@ -2588,6 +2588,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': '朗读回复',
   'chat.mascot.speakRepliesHint': '吉祥物打开时会朗读回复。关闭后对话将保持静音。',
   'chat.turn': '轮',
+  'chat.mascot.dismiss': '隐藏 Tiny',
+  'chat.mascot.dismissTitle': '让 Tiny 离开？',
+  'chat.mascot.dismissBody':
+    '如果你更想独占消息框，也没关系。随时可以在设置 › 外观 › 聊天中把 Tiny 请回来。',
+  'chat.mascot.dismissConfirm': '隐藏 Tiny',
+  'chat.mascot.dismissCancel': '留下 Tiny',
   'chat.turns': '轮',
   'chat.openWorkerThread': '打开工作线程',
   'chat.attachment.attach': '添加图片',
@@ -5538,6 +5544,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': '隐藏智能体思考过程',
   'settings.appearance.hideAgentInsightsDesc':
     '折叠聊天中智能体逐步执行的实时时间线。闪烁的“处理中”链接仍可让你打开完整过程。',
+  'settings.appearance.showChatMascot': '在消息框上显示 Tiny',
+  'settings.appearance.showChatMascotDesc':
+    '吉祥物会站在输入框上。隐藏后，聊天将只保留文字，直到你重新开启。',
   'settings.appearance.assistantTextModeDesc': '将助手回复渲染为无边框文本，同时保留你的消息气泡。',
   'settings.mascot.active': '活跃',
   'settings.mascot.characterDesc': '选择你的 OpenHuman 角色',

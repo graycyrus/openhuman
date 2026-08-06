@@ -180,6 +180,7 @@ const mascotPersistConfig = {
     'selectedMascotId',
     'voiceMode',
     'chatMascotExpanded',
+    'chatMascotDismissed',
     'speakReplies',
   ],
   // Folds the pre-Redux `human.speakReplies` localStorage key into the blob

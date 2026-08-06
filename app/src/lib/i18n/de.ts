@@ -2820,6 +2820,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'Antworten vorlesen',
   'chat.mascot.speakRepliesHint':
     'Antworten werden vorgelesen, solange das Maskottchen geöffnet ist. Schalte dies aus, damit das Gespräch stumm bleibt.',
+  'chat.mascot.dismiss': 'Tiny ausblenden',
+  'chat.mascot.dismissTitle': 'Tiny wegschicken?',
+  'chat.mascot.dismissBody':
+    'Kein Problem, wenn du das Nachrichtenfeld lieber für dich hast. Du kannst Tiny jederzeit über Einstellungen › Darstellung › Chat zurückholen.',
+  'chat.mascot.dismissConfirm': 'Tiny ausblenden',
+  'chat.mascot.dismissCancel': 'Tiny behalten',
   'chat.turn': 'drehen',
   'chat.turns': 'dreht sich',
   'chat.openWorkerThread': 'Arbeitsthread öffnen',
@@ -6009,6 +6015,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'Agent-Denkprozess ausblenden',
   'settings.appearance.hideAgentInsightsDesc':
     'Blendet die schrittweise Live-Zeitleiste des Agenten im Chat aus. Über einen blinkenden „Wird verarbeitet“-Link lässt sich der vollständige Ablauf weiterhin öffnen.',
+  'settings.appearance.showChatMascot': 'Tiny am Nachrichtenfeld anzeigen',
+  'settings.appearance.showChatMascotDesc':
+    'Das Maskottchen bleibt auf dem Eingabefeld stehen. Ausgeblendet ist der Chat nur Text, bis du dies wieder einschaltest.',
   'settings.appearance.assistantTextModeDesc':
     'Zeigt Assistentenantworten als ungerahmten Text an und lässt deine Nachrichten in Blasen.',
   'settings.mascot.active': 'Aktiv',

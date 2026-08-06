@@ -2749,6 +2749,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'Bacakan balasan dengan suara',
   'chat.mascot.speakRepliesHint':
     'Balasan dibacakan selama maskot terbuka. Matikan agar percakapan tetap senyap.',
+  'chat.mascot.dismiss': 'Sembunyikan Tiny',
+  'chat.mascot.dismissTitle': 'Singkirkan Tiny?',
+  'chat.mascot.dismissBody':
+    'Tidak masalah kalau Anda ingin kotak pesan untuk diri sendiri. Anda bisa memunculkan Tiny lagi kapan saja lewat Pengaturan › Tampilan › Obrolan.',
+  'chat.mascot.dismissConfirm': 'Sembunyikan Tiny',
+  'chat.mascot.dismissCancel': 'Biarkan Tiny',
   'chat.turn': 'giliran',
   'chat.turns': 'giliran',
   'chat.openWorkerThread': 'Buka thread worker',
@@ -5875,6 +5881,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'Sembunyikan proses berpikir agen',
   'settings.appearance.hideAgentInsightsDesc':
     'Ciutkan lini masa langkah demi langkah agen secara langsung di obrolan. Tautan "Memproses" yang berkedip tetap memungkinkan Anda membuka proses lengkapnya.',
+  'settings.appearance.showChatMascot': 'Tampilkan Tiny di kotak pesan',
+  'settings.appearance.showChatMascotDesc':
+    'Maskot tetap berdiri di kotak tulis. Jika disembunyikan, obrolan hanya berupa teks sampai Anda menyalakannya lagi.',
   'settings.appearance.assistantTextModeDesc':
     'Tampilkan balasan asisten sebagai teks tanpa bingkai, sementara pesan Anda tetap dalam gelembung.',
   'settings.mascot.active': 'Aktif',

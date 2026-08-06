@@ -10,6 +10,7 @@ const mockDispatch = vi.fn();
 let reduceMotion = false;
 
 let mascotExpanded = false;
+let mascotDismissed = false;
 let activeAccountId = '__agent__';
 
 const state = () => ({ accounts: { accounts: {}, order: [], activeAccountId } });
@@ -22,7 +23,10 @@ vi.mock('../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (selector: (s: ReturnType<typeof state>) => unknown) => selector(state()),
 }));
-vi.mock('../../store/mascotSlice', () => ({ selectChatMascotExpanded: () => mascotExpanded }));
+vi.mock('../../store/mascotSlice', () => ({
+  selectChatMascotExpanded: () => mascotExpanded,
+  selectChatMascotDismissed: () => mascotDismissed,
+}));
 vi.mock('../../features/conversations/Conversations', () => ({
   ConversationsPage: () => <div data-testid="agent-chat-panel" />,
 }));
@@ -118,5 +122,35 @@ describe('Accounts — merged chat + mascot surface', () => {
     expect(screen.queryByTestId('chat-mascot-overlay')).not.toBeInTheDocument();
     expect(screen.queryByTestId('chat-mascot-stage')).not.toBeInTheDocument();
     expect(screen.queryByTestId('agent-chat-panel')).not.toBeInTheDocument();
+  });
+
+  it('unmounts the mascot entirely once dismissed', () => {
+    // Not merely hidden: a dismissed mascot leaves no anchor to fly to, so the
+    // overlay would sit off-screen at opacity 0 with its Rive canvas still
+    // re-rendering every lipsync frame and a poll hunting an anchor that never
+    // arrives.
+    mascotExpanded = false;
+    mascotDismissed = true;
+    activeAccountId = '__agent__';
+    try {
+      renderPage();
+      expect(screen.queryByTestId('chat-mascot-overlay')).not.toBeInTheDocument();
+      expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument();
+    } finally {
+      mascotDismissed = false;
+    }
+  });
+
+  it('keeps the stage shut for a dismissed mascot even if it was left expanded', () => {
+    mascotExpanded = true;
+    mascotDismissed = true;
+    activeAccountId = '__agent__';
+    try {
+      renderPage();
+      expect(screen.getByTestId('chat-mascot-stage-column').style.width).toBe('0px');
+      expect(screen.queryByTestId('chat-mascot-stage')).not.toBeInTheDocument();
+    } finally {
+      mascotDismissed = false;
+    }
   });
 });

@@ -2787,6 +2787,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'Ler as respostas em voz alta',
   'chat.mascot.speakRepliesHint':
     'As respostas são lidas em voz alta enquanto o mascote está aberto. Desative para manter a conversa em silêncio.',
+  'chat.mascot.dismiss': 'Ocultar o Tiny',
+  'chat.mascot.dismissTitle': 'Dispensar o Tiny?',
+  'chat.mascot.dismissBody':
+    'Sem ressentimentos se preferir a caixa de mensagem só para você. Pode trazer o Tiny de volta quando quiser em Configurações › Aparência › Conversa.',
+  'chat.mascot.dismissConfirm': 'Ocultar o Tiny',
+  'chat.mascot.dismissCancel': 'Manter o Tiny',
   'chat.turn': 'turno',
   'chat.turns': 'turnos',
   'chat.openWorkerThread': 'Abrir thread de worker',
@@ -5938,6 +5944,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'Ocultar o raciocínio do agente',
   'settings.appearance.hideAgentInsightsDesc':
     'Recolhe a linha do tempo passo a passo do agente no chat. Um link “Processando” piscando ainda permite abrir o processo completo.',
+  'settings.appearance.showChatMascot': 'Mostrar o Tiny na caixa de mensagem',
+  'settings.appearance.showChatMascotDesc':
+    'O mascote fica em pé sobre o campo de escrita. Oculto, a conversa fica apenas em texto até você ativar de novo.',
   'settings.appearance.assistantTextModeDesc':
     'Renderiza as respostas do assistente como texto sem moldura e mantém suas mensagens em balões.',
   'settings.mascot.active': 'Ativo',

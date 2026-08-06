@@ -2677,6 +2677,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'نطق الردود بصوت مسموع',
   'chat.mascot.speakRepliesHint':
     'تُقرأ الردود بصوت مسموع طالما التميمة مفتوحة. أوقف هذا الخيار لإبقاء المحادثة صامتة.',
+  'chat.mascot.dismiss': 'إخفاء Tiny',
+  'chat.mascot.dismissTitle': 'هل تريد إخفاء Tiny؟',
+  'chat.mascot.dismissBody':
+    'لا مشكلة إذا كنت تفضّل صندوق الرسائل لنفسك. يمكنك إعادة Tiny في أي وقت من الإعدادات › المظهر › المحادثة.',
+  'chat.mascot.dismissConfirm': 'إخفاء Tiny',
+  'chat.mascot.dismissCancel': 'الإبقاء على Tiny',
   'chat.turn': 'دورة',
   'chat.turns': 'دورات',
   'chat.openWorkerThread': 'فتح محادثة العامل',
@@ -5716,6 +5722,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'إخفاء تفكير الوكيل',
   'settings.appearance.hideAgentInsightsDesc':
     'طيّ الجدول الزمني المباشر لخطوات الوكيل في المحادثة. سيظل رابط "قيد المعالجة" الوامض يتيح لك فتح العملية الكاملة.',
+  'settings.appearance.showChatMascot': 'إظهار Tiny على صندوق الرسائل',
+  'settings.appearance.showChatMascotDesc':
+    'يبقى التميمة واقفة على صندوق الكتابة. عند الإخفاء تصبح المحادثة نصية فقط حتى تعيد تفعيل الخيار.',
   'settings.appearance.assistantTextModeDesc':
     'اعرض ردود المساعد كنص بلا إطار مع إبقاء رسائلك داخل فقاعات.',
   'settings.mascot.active': 'نشط',

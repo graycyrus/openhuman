@@ -14,7 +14,7 @@ import { usePrewarmMostRecentAccount } from '../hooks/usePrewarmMostRecentAccoun
 import { startWebviewAccountService } from '../services/webviewAccountService';
 import { setActiveAccount } from '../store/accountsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { selectChatMascotExpanded } from '../store/mascotSlice';
+import { selectChatMascotDismissed, selectChatMascotExpanded } from '../store/mascotSlice';
 import type { Account } from '../types/accounts';
 import { AGENT_ACCOUNT_ID as AGENT_ID } from '../utils/accountsFullscreen';
 
@@ -48,7 +48,11 @@ const Accounts = () => {
   const accountsById = useAppSelector(state => state.accounts.accounts);
   const order = useAppSelector(state => state.accounts.order);
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
-  const mascotExpanded = useAppSelector(selectChatMascotExpanded);
+  const mascotDismissed = useAppSelector(selectChatMascotDismissed);
+  // Dismissing hides the dock, which would leave the overlay parked off-screen
+  // at opacity 0 — an invisible Rive canvas still re-rendering on every lipsync
+  // frame, and a poll hunting for an anchor that will never mount. Unmount it.
+  const mascotExpanded = useAppSelector(selectChatMascotExpanded) && !mascotDismissed;
   // Read per render rather than once: the OS setting can change while the app
   // is open, and every toggle re-renders this component anyway.
   const reduceMotion = prefersReducedMotion();
@@ -128,7 +132,7 @@ const Accounts = () => {
               )}
             </div>
           </main>
-          <ChatMascotOverlay />
+          {!mascotDismissed && <ChatMascotOverlay />}
         </ChatMascotProvider>
       ) : (
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden" />

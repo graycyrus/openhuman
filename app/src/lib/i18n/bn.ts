@@ -2743,6 +2743,12 @@ const messages: TranslationMap = {
   'chat.mascot.speakReplies': 'উত্তর জোরে পড়ে শোনানো হোক',
   'chat.mascot.speakRepliesHint':
     'ম্যাসকট খোলা থাকলে উত্তরগুলি জোরে পড়ে শোনানো হয়। কথোপকথন নীরব রাখতে এটি বন্ধ করুন।',
+  'chat.mascot.dismiss': 'Tiny লুকান',
+  'chat.mascot.dismissTitle': 'Tiny-কে সরিয়ে দেবেন?',
+  'chat.mascot.dismissBody':
+    'মেসেজ বক্সটি নিজের মতো রাখতে চাইলে কোনও অসুবিধা নেই। সেটিংস › চেহারা › চ্যাট থেকে যেকোনো সময় Tiny-কে ফিরিয়ে আনতে পারবেন।',
+  'chat.mascot.dismissConfirm': 'Tiny লুকান',
+  'chat.mascot.dismissCancel': 'Tiny থাক',
   'chat.turn': 'টার্ন',
   'chat.turns': 'টার্ন',
   'chat.openWorkerThread': 'ওয়ার্কার থ্রেড খুলুন',
@@ -5848,6 +5854,9 @@ const messages: TranslationMap = {
   'settings.appearance.hideAgentInsights': 'এজেন্টের চিন্তা লুকান',
   'settings.appearance.hideAgentInsightsDesc':
     'চ্যাটে এজেন্টের ধাপে ধাপে লাইভ টাইমলাইন সংকুচিত করুন। একটি ব্লিঙ্কিং "প্রসেসিং" লিঙ্ক এখনও আপনাকে সম্পূর্ণ প্রক্রিয়া খুলতে দেয়।',
+  'settings.appearance.showChatMascot': 'মেসেজ বক্সে Tiny দেখান',
+  'settings.appearance.showChatMascotDesc':
+    'ম্যাসকটটি লেখার বাক্সের উপরে দাঁড়িয়ে থাকবে। লুকালে আবার চালু না করা পর্যন্ত চ্যাট শুধু টেক্সট থাকবে।',
   'settings.appearance.assistantTextModeDesc':
     'আপনার বার্তাগুলি বাবলে রেখে অ্যাসিস্ট্যান্টের উত্তর ফ্রেমহীন টেক্সট হিসেবে দেখান।',
   'settings.mascot.active': 'সক্রিয়',
