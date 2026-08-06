@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { useAppDispatch } from '../../../store/hooks';
-import { setChatMascotExpanded, toggleChatMascotExpanded } from '../../../store/mascotSlice';
+import { setChatMascotExpanded } from '../../../store/mascotSlice';
 import { type ChatMascotSendBinding, ChatMascotSendStore } from './sendBinding';
 
 const mascotLog = debug('human:chat-mascot');
@@ -41,7 +41,6 @@ export interface ChatMascotContextValue {
   sendStore: ChatMascotSendStore;
   expand: () => void;
   collapse: () => void;
-  toggle: () => void;
 }
 
 const ChatMascotContext = createContext<ChatMascotContextValue | null>(null);
@@ -70,10 +69,6 @@ export const ChatMascotProvider = ({ children }: { children: ReactNode }) => {
       collapse: () => {
         mascotLog('[chat-mascot] collapse requested');
         dispatch(setChatMascotExpanded(false));
-      },
-      toggle: () => {
-        mascotLog('[chat-mascot] toggle requested');
-        dispatch(toggleChatMascotExpanded());
       },
     }),
     [dispatch, sendStore]

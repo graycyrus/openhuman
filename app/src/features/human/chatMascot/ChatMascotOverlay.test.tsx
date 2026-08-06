@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../../test/test-utils';
 import { ChatMascotProvider, useChatMascot } from './ChatMascotContext';
 import ChatMascotOverlay from './ChatMascotOverlay';
-import { STAGE_RENDER_PX } from './geometry';
+import { STAGE_RENDER_PX, TRANSITION_MS } from './geometry';
 
 const useHumanMascot = vi.fn((_opts: unknown) => ({
   face: 'idle',
@@ -66,6 +66,39 @@ const renderOverlay = (expanded: boolean) =>
     { preloadedState: { mascot: { chatMascotExpanded: expanded } } }
   );
 
+/** Captured ResizeObserver callbacks, so tests can fire a layout change. */
+const resizeObservers: Array<() => void> = [];
+
+interface FrameRunner {
+  /** Run the single queued frame with `timestamp`. */
+  flushOne: (timestamp: number) => void;
+  pending: () => number;
+}
+
+/** Replace rAF with a hand-driven queue so travel frames are deterministic. */
+function driveAnimationFrames(): FrameRunner {
+  let queue: FrameRequestCallback[] = [];
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+    queue.push(cb);
+    return queue.length;
+  });
+  return {
+    flushOne: (timestamp: number) => {
+      const due = queue;
+      queue = [];
+      due.forEach(cb => cb(timestamp));
+    },
+    pending: () => queue.length,
+  };
+}
+
+/** Pull the translate offsets back out of a `translate3d(...) scale(...)`. */
+function readTranslate(el: HTMLElement): { x: number; y: number } {
+  const m = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(el.style.transform);
+  if (!m) throw new Error(`no translate in transform: ${el.style.transform}`);
+  return { x: Number(m[1]), y: Number(m[2]) };
+}
+
 const setReducedMotion = (reduce: boolean) => {
   window.matchMedia = vi
     .fn()
@@ -85,9 +118,13 @@ describe('ChatMascotOverlay', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setReducedMotion(false);
+    resizeObservers.length = 0;
     vi.stubGlobal(
       'ResizeObserver',
       class {
+        constructor(cb: () => void) {
+          resizeObservers.push(cb);
+        }
         observe() {}
         unobserve() {}
         disconnect() {}
@@ -205,6 +242,88 @@ describe('ChatMascotOverlay', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('travels from the dock to the stage, landing exactly on the anchor', () => {
+    // The centrepiece animation. Drives rAF by hand so each frame's transform is
+    // deterministic rather than wall-clock dependent.
+    const frames: FrameRunner = driveAnimationFrames();
+    let now = 0;
+    vi.spyOn(window.performance, 'now').mockImplementation(() => now);
+
+    const { store } = renderOverlay(false);
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    const docked = overlay.style.transform;
+
+    act(() => {
+      store.dispatch({ type: 'mascot/setChatMascotExpanded', payload: true });
+    });
+
+    // Halfway: between the two anchors, and hinted to the compositor.
+    now = TRANSITION_MS / 2;
+    act(() => frames.flushOne(now));
+    const mid = readTranslate(overlay);
+    expect(mid.x).toBeGreaterThan(DOCK_RECT.left);
+    expect(mid.x).toBeLessThan(STAGE_RECT.left);
+    expect(overlay.style.willChange).toBe('transform');
+
+    // Past the end: lands on the stage anchor and releases the compositor hint.
+    now = TRANSITION_MS + 1;
+    act(() => frames.flushOne(now));
+    expect(overlay.style.transform).not.toBe(docked);
+    expect(overlay.style.transform).toBe('translate3d(800.00px, 100.00px, 0) scale(0.52083)');
+    expect(overlay.style.willChange).toBe('auto');
+  });
+
+  it('cancels an in-flight travel when the mascot unmounts', () => {
+    const frames = driveAnimationFrames();
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame');
+
+    const { store, unmount } = renderOverlay(false);
+    act(() => {
+      store.dispatch({ type: 'mascot/setChatMascotExpanded', payload: true });
+    });
+    expect(frames.pending()).toBeGreaterThan(0);
+
+    unmount();
+
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  it('re-settles onto its anchor when the layout moves underneath it', () => {
+    // The dock rides the composer, which moves whenever a draft grows or an
+    // attachment strip appears. Nothing resizes the dock itself, so this is
+    // driven by the observer on its ancestors.
+    renderOverlay(false);
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    expect(readTranslate(overlay)).toEqual({ x: DOCK_RECT.left, y: DOCK_RECT.top });
+
+    DOCK_RECT.top = 320;
+    act(() => resizeObservers.forEach(cb => cb()));
+
+    expect(readTranslate(overlay)).toEqual({ x: DOCK_RECT.left, y: 320 });
+    DOCK_RECT.top = 500;
+  });
+
+  it('leaves the mascot alone mid-travel when the layout moves', () => {
+    // The travel loop is already re-measuring every frame; a second writer would
+    // fight it and make the mascot stutter.
+    const frames = driveAnimationFrames();
+    let now = 0;
+    vi.spyOn(window.performance, 'now').mockImplementation(() => now);
+
+    const { store } = renderOverlay(false);
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    act(() => {
+      store.dispatch({ type: 'mascot/setChatMascotExpanded', payload: true });
+    });
+    now = TRANSITION_MS / 2;
+    act(() => frames.flushOne(now));
+    const midTravel = overlay.style.transform;
+
+    act(() => window.dispatchEvent(new Event('resize')));
+
+    expect(overlay.style.transform).toBe(midTravel);
   });
 
   it('only speaks replies while the stage is open', () => {

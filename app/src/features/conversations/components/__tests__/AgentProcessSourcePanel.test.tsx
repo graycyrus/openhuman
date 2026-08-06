@@ -239,11 +239,10 @@ describe('AgentProcessSourcePanel', () => {
 
   it('closes on backdrop click', async () => {
     const onClose = vi.fn();
-    const { container } = renderPanel(
-      <AgentProcessSourcePanel open entries={[]} onClose={onClose} />
-    );
+    renderPanel(<AgentProcessSourcePanel open entries={[]} onClose={onClose} />);
     // The backdrop is the first (full-bleed) Close button.
-    const backdrop = container.querySelector('button[aria-label="Close"]');
+    // The panel portals to document.body, so it is not inside `container`.
+    const backdrop = document.body.querySelector('button[aria-label="Close"]');
     expect(backdrop).not.toBeNull();
     await userEvent.click(backdrop as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);

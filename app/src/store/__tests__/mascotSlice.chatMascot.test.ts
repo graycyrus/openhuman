@@ -10,7 +10,6 @@ import reducer, {
   setChatMascotExpanded,
   setChatMascotListening,
   setSpeakReplies,
-  toggleChatMascotExpanded,
 } from '../mascotSlice';
 
 const rehydrate = (key: string, payload?: unknown) => ({ type: REHYDRATE, key, payload });
@@ -26,11 +25,10 @@ describe('mascotSlice — chat mascot stage', () => {
     expect(selectChatMascotListening({ mascot: state })).toBe(false);
   });
 
-  it('toggles the stage open and closed', () => {
-    let state = reducer(undefined, toggleChatMascotExpanded());
-    expect(state.chatMascotExpanded).toBe(true);
-    state = reducer(state, toggleChatMascotExpanded());
-    expect(state.chatMascotExpanded).toBe(false);
+  it('opens and closes the stage', () => {
+    const open = reducer(undefined, setChatMascotExpanded(true));
+    expect(open.chatMascotExpanded).toBe(true);
+    expect(reducer(open, setChatMascotExpanded(false)).chatMascotExpanded).toBe(false);
   });
 
   it('keeps the same state object when setting the value it already has', () => {

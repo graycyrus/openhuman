@@ -380,10 +380,6 @@ const mascotSlice = createSlice({
       state.chatMascotExpanded = next;
       mascotLog('[mascot][chat-stage] expanded=%s', next);
     },
-    toggleChatMascotExpanded(state) {
-      state.chatMascotExpanded = !state.chatMascotExpanded;
-      mascotLog('[mascot][chat-stage] toggled expanded=%s', state.chatMascotExpanded);
-    },
     setSpeakReplies(state, action: PayloadAction<boolean>) {
       state.speakReplies = Boolean(action.payload);
       mascotLog('[mascot][voice] speakReplies=%s', state.speakReplies);
@@ -511,7 +507,6 @@ export const {
   setCustomPrimaryColor,
   setCustomSecondaryColor,
   setChatMascotExpanded,
-  toggleChatMascotExpanded,
   setSpeakReplies,
   setChatMascotListening,
 } = mascotSlice.actions;
