@@ -347,6 +347,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'Inactif',
   'nav.home': 'Accueil',
   'nav.chat': 'Chat',
+  'nav.human': 'Humain',
   'nav.assistant': 'Assistant',
   'assistant.faceMode.on': 'Parle avec Tiny',
   'assistant.faceMode.off': 'Parler à Tiny',
@@ -6502,6 +6503,9 @@ const messages: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Retour au chat',
   'walkthrough.steps.chatTab.content':
     'Utilisez l’onglet Chat dès que vous voulez revenir à vos conversations.',
+  'walkthrough.steps.humanTab.title': 'Votre profil humain',
+  'walkthrough.steps.humanTab.content':
+    'Human réunit votre contexte personnel, votre identité et le profil visible par l’assistant.',
   'walkthrough.steps.brainTab.title': 'Ouvrez votre Brain',
   'walkthrough.steps.brainTab.content':
     'Brain est le graphe de mémoire : l’endroit où vérifier ce qu’OpenHuman sait et comment les idées se relient.',

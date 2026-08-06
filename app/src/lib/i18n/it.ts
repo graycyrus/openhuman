@@ -340,6 +340,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'Inattivo',
   'nav.home': 'Home',
   'nav.chat': 'Chat',
+  'nav.human': 'Umano',
   'nav.assistant': 'Assistente',
   'assistant.faceMode.on': 'Sta parlando con Tiny',
   'assistant.faceMode.off': 'Parla con Tiny',
@@ -6456,6 +6457,9 @@ const messages: TranslationMap = {
     'Preferenze, privacy e notifiche sono qui. Puoi riavviare questo tour da questa pagina in qualsiasi momento.',
   'walkthrough.steps.chatTab.title': 'Torna alla chat',
   'walkthrough.steps.chatTab.content': 'Usa la scheda Chat quando vuoi tornare alle conversazioni.',
+  'walkthrough.steps.humanTab.title': 'Scopri il tuo profilo umano',
+  'walkthrough.steps.humanTab.content':
+    'Human riunisce contesto personale, identità e profilo visibile all’assistente.',
   'walkthrough.steps.brainTab.title': 'Apri il tuo Brain',
   'walkthrough.steps.brainTab.content':
     'Brain è il grafo della memoria: il posto dove vedere cosa sa OpenHuman e come si collegano le idee.',

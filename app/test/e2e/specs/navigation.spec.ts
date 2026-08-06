@@ -30,7 +30,7 @@ interface Route {
 
 // Phase 2/3/6 IA revamp:
 //   /home        → /chat        (Phase 6 — /home is now the merged chat surface)
-//   /human       → /chat        (Human merged into the chat surface)
+//   /human       → renders the Human surface (first-class tab)
 //   /skills      → /connections (Phase 2 — back-compat redirect)
 //   /intelligence → /settings/notifications (Phase 3 — back-compat redirect)
 //   /activity     → /settings/notifications (back-compat redirect)

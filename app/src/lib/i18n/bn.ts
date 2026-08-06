@@ -328,6 +328,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'নিষ্ক্রিয়',
   'nav.home': 'হোম',
   'nav.chat': 'চ্যাট',
+  'nav.human': 'হিউম্যান',
   'nav.assistant': 'সহকারী',
   'assistant.faceMode.on': 'Tiny-র সাথে কথা বলছে',
   'assistant.faceMode.off': 'Tiny-র সাথে কথা বলুন',
@@ -6354,6 +6355,9 @@ const messages: TranslationMap = {
     'পছন্দ, গোপনীয়তা ও নোটিফিকেশন এখানে আছে। এই পেজ থেকে যেকোনো সময় ট্যুরটি আবার শুরু করতে পারেন।',
   'walkthrough.steps.chatTab.title': 'চ্যাটে ফিরে যান',
   'walkthrough.steps.chatTab.content': 'কথোপকথনে ফিরতে চাইলে Chat ট্যাব ব্যবহার করুন।',
+  'walkthrough.steps.humanTab.title': 'আপনার Human প্রোফাইল দেখুন',
+  'walkthrough.steps.humanTab.content':
+    'Human আপনার ব্যক্তিগত প্রসঙ্গ, পরিচয় এবং সহকারীর দেখা প্রোফাইল একত্র করে।',
   'walkthrough.steps.brainTab.title': 'আপনার Brain খুলুন',
   'walkthrough.steps.brainTab.content':
     'Brain হলো মেমোরি গ্রাফ: OpenHuman কী জানে এবং ধারণাগুলো কীভাবে যুক্ত তা দেখার জায়গা।',

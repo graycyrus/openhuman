@@ -25,6 +25,7 @@ const en: TranslationMap = {
   // Navigation
   'nav.home': 'Home',
   'nav.chat': 'Chat',
+  'nav.human': 'Human',
   'nav.assistant': 'Assistant',
 
   // Assistant surface: face mode toggle (Phase 6)
@@ -6960,6 +6961,9 @@ const en: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Jump back to chat',
   'walkthrough.steps.chatTab.content':
     'Use the Chat tab whenever you want to return to conversations.',
+  'walkthrough.steps.humanTab.title': 'Meet your human profile',
+  'walkthrough.steps.humanTab.content':
+    'Human is where your personal context, identity, and assistant-facing profile come together.',
   'walkthrough.steps.brainTab.title': 'Open your Brain',
   'walkthrough.steps.brainTab.content':
     'Brain is the memory graph: the place to inspect what OpenHuman knows and how ideas connect.',

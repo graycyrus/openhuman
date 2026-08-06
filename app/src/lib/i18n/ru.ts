@@ -335,6 +335,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'Простаивает',
   'nav.home': 'Главная',
   'nav.chat': 'Чат',
+  'nav.human': 'Человек',
   'nav.assistant': 'Ассистент',
   'assistant.faceMode.on': 'Говорит с Tiny',
   'assistant.faceMode.off': 'Поговорить с Tiny',
@@ -6412,6 +6413,9 @@ const messages: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Вернуться в чат',
   'walkthrough.steps.chatTab.content':
     'Используйте вкладку Chat, когда хотите вернуться к разговорам.',
+  'walkthrough.steps.humanTab.title': 'Ваш профиль Human',
+  'walkthrough.steps.humanTab.content':
+    'Human объединяет личный контекст, идентичность и профиль, видимый ассистенту.',
   'walkthrough.steps.brainTab.title': 'Откройте Brain',
   'walkthrough.steps.brainTab.content':
     'Brain: это граф памяти: здесь можно увидеть, что знает OpenHuman и как связаны идеи.',

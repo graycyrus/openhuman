@@ -330,6 +330,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'निष्क्रिय',
   'nav.home': 'होम',
   'nav.chat': 'चैट',
+  'nav.human': 'मानव',
   'nav.assistant': 'सहायक',
   'assistant.faceMode.on': 'Tiny से बात हो रही है',
   'assistant.faceMode.off': 'Tiny से बात करें',
@@ -6351,6 +6352,9 @@ const messages: TranslationMap = {
     'पसंद, गोपनीयता और सूचनाएं यहां हैं। आप इस पेज से यह टूर कभी भी फिर शुरू कर सकते हैं।',
   'walkthrough.steps.chatTab.title': 'चैट पर वापस जाएं',
   'walkthrough.steps.chatTab.content': 'जब भी बातचीत पर लौटना हो, Chat टैब का उपयोग करें।',
+  'walkthrough.steps.humanTab.title': 'अपनी Human प्रोफ़ाइल देखें',
+  'walkthrough.steps.humanTab.content':
+    'Human आपका निजी संदर्भ, पहचान और सहायक को दिखने वाली प्रोफ़ाइल एक साथ रखता है।',
   'walkthrough.steps.brainTab.title': 'अपना Brain खोलें',
   'walkthrough.steps.brainTab.content':
     'Brain मेमोरी ग्राफ है: यहां देखें कि OpenHuman क्या जानता है और विचार कैसे जुड़े हैं।',

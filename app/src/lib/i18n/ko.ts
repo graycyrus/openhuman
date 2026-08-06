@@ -325,6 +325,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': '대기 중',
   'nav.home': '홈',
   'nav.chat': '채팅',
+  'nav.human': '휴먼',
   'nav.assistant': '어시스턴트',
   'assistant.faceMode.on': 'Tiny와 대화 중',
   'assistant.faceMode.off': 'Tiny와 대화하기',
@@ -6280,6 +6281,9 @@ const messages: TranslationMap = {
     '환경설정, 개인정보, 알림이 모두 여기에 있습니다. 이 페이지에서 언제든 투어를 다시 시작할 수 있습니다.',
   'walkthrough.steps.chatTab.title': '채팅으로 돌아가기',
   'walkthrough.steps.chatTab.content': '대화로 돌아가고 싶을 때 Chat 탭을 사용하세요.',
+  'walkthrough.steps.humanTab.title': 'Human 프로필 보기',
+  'walkthrough.steps.humanTab.content':
+    'Human은 개인 맥락, 정체성, 어시스턴트가 보는 프로필을 한곳에 모읍니다.',
   'walkthrough.steps.brainTab.title': 'Brain 열기',
   'walkthrough.steps.brainTab.content':
     'Brain은 메모리 그래프입니다. OpenHuman이 무엇을 알고 아이디어가 어떻게 연결되는지 확인하는 곳입니다.',

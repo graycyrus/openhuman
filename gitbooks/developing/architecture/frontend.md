@@ -334,13 +334,17 @@ Example: `SocketProvider` owns the socket instance; Redux stores connection stat
 
 ## Human Mascot Surface
 
-The mascot lives on the unified chat surface (`/chat`), not on a page of its
-own — the standalone Human page was merged into chat and `/human` is now a
-back-compat redirect. `app/src/features/human/chatMascot/` owns the merged
-surface:
+The mascot appears on **two** surfaces, deliberately. `/human`
+(`app/src/features/human/HumanPage.tsx`) is the dedicated full-bleed stage with a
+right-rail chat. `/chat` carries the same mascot docked on its composer, where it
+expands into a voice stage in place. Both read one set of mascot preferences from
+`mascotSlice` — colour, voice, speak-replies, dismissal — so the two can never
+disagree about the same setting.
 
-| Module                  | Role                                                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+`app/src/features/human/chatMascot/` owns the chat-side surface:
+
+| Module                  | Role                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
 | `ChatMascotContext.tsx` | Shared dock/stage refs and the send binding. Every value is stable — see the re-render note below.        |
 | `ChatMascotDock.tsx`    | The small mascot standing on the composer's input box. An anchor + hit area; it draws nothing.            |
 | `ChatMascotStage.tsx`   | The scaled-up voice surface: `MicComposer`, input-device selector, speak-replies switch, collapse button. |
@@ -360,7 +364,7 @@ mascot context value is deliberately non-reactive — reactive state lives in
 Redux or in the send-binding external store instead. A reactive context value
 would reconcile the whole chat tree every frame, which is the stall #5357 had to
 fix. And the overlay only mounts while the agent account is selected: HTML paints
-*behind* the native CEF provider webviews, so a fixed overlay left alive under
+_behind_ the native CEF provider webviews, so a fixed overlay left alive under
 WhatsApp/Slack would be an invisible canvas still burning frames.
 
 The mascot face comes from `useHumanMascot`, which subscribes to chat lifecycle
@@ -390,7 +394,7 @@ orchestration layer around the main mascot.
 
 ## Pages & Routing
 
-The application uses HashRouter with protected and public route guards. Desktop routes live in **`app/src/AppRoutes.tsx`**; on mobile (iOS/Android) `AppRoutesIOS.tsx` renders a reduced Chat/Settings set instead.
+The application uses HashRouter with protected and public route guards. Desktop routes live in **`app/src/AppRoutes.tsx`**; on mobile (iOS/Android) `AppRoutesIOS.tsx` renders a reduced Human/Chat/Settings set instead.
 
 ### Route map
 
@@ -401,7 +405,7 @@ Current desktop routes (read `AppRoutes.tsx` for the authoritative table — the
 /auth                  → WebCallbackPage (auth callback)
 /callback/:kind[/:status] → WebCallbackPage (generic OAuth/provider callbacks)
 /onboarding/*          → Onboarding stepper (ProtectedRoute)
-/human                 → /chat (back-compat redirect; the mascot merged into chat)
+/human                 → HumanPage (dedicated mascot stage)
 /brain                 → Brain (memory knowledge-graph)
 /flows                 → FlowsPage · /flows/draft → draft canvas · /flows/:id → FlowCanvasPage
 /orchestration         → OrchestrationPage (TinyPlace multi-agent coordination)

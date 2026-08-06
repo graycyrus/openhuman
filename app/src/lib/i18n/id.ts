@@ -337,6 +337,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'Diam',
   'nav.home': 'Beranda',
   'nav.chat': 'Obrolan',
+  'nav.human': 'Manusia',
   'nav.assistant': 'Asisten',
   'assistant.faceMode.on': 'Berbicara dengan Tiny',
   'assistant.faceMode.off': 'Bicara dengan Tiny',
@@ -6383,6 +6384,9 @@ const messages: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Kembali ke chat',
   'walkthrough.steps.chatTab.content':
     'Gunakan tab Chat kapan pun Anda ingin kembali ke percakapan.',
+  'walkthrough.steps.humanTab.title': 'Kenali profil Human Anda',
+  'walkthrough.steps.humanTab.content':
+    'Human menyatukan konteks pribadi, identitas, dan profil yang dilihat asisten.',
   'walkthrough.steps.brainTab.title': 'Buka Brain Anda',
   'walkthrough.steps.brainTab.content':
     'Brain adalah grafik memori: tempat melihat apa yang diketahui OpenHuman dan bagaimana ide saling terhubung.',

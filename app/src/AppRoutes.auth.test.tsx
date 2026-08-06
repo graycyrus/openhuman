@@ -26,6 +26,7 @@ vi.mock('./agentworld/AgentWorldShell', () => ({
 }));
 vi.mock('./agentworld/pages/AgentWorld', () => ({ default: () => <div /> }));
 vi.mock('./AppRoutesIOS', () => ({ default: () => <div /> }));
+vi.mock('./features/human/HumanPage', () => ({ default: () => <div /> }));
 vi.mock('./pages/Accounts', () => ({ default: () => <div /> }));
 vi.mock('./pages/Brain', () => ({ default: () => <div /> }));
 vi.mock('./pages/dev/AgentInsightsPreview', () => ({ default: () => <div /> }));

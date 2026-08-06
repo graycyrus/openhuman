@@ -318,6 +318,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderIdle': 'خامل',
   'nav.home': 'الرئيسية',
   'nav.chat': 'المحادثة',
+  'nav.human': 'إنسان',
   'nav.assistant': 'المساعد',
   'assistant.faceMode.on': 'يتحدث إلى Tiny',
   'assistant.faceMode.off': 'تحدث إلى Tiny',
@@ -6214,6 +6215,8 @@ const messages: TranslationMap = {
     'التفضيلات والخصوصية والإشعارات كلها هنا. يمكنك إعادة تشغيل هذه الجولة من هذه الصفحة في أي وقت.',
   'walkthrough.steps.chatTab.title': 'ارجع إلى الدردشة',
   'walkthrough.steps.chatTab.content': 'استخدم تبويب Chat عندما تريد الرجوع إلى محادثاتك.',
+  'walkthrough.steps.humanTab.title': 'تعرّف إلى ملف Human',
+  'walkthrough.steps.humanTab.content': 'يجمع Human سياقك الشخصي وهويتك والملف الذي يراه المساعد.',
   'walkthrough.steps.brainTab.title': 'افتح Brain',
   'walkthrough.steps.brainTab.content':
     'Brain هو مخطط الذاكرة: المكان الذي تفحص فيه ما يعرفه OpenHuman وكيف ترتبط الأفكار.',

@@ -63,7 +63,7 @@ describe('SidebarNav active matching', () => {
     expect(active.className).not.toContain('bg-white');
 
     // Inactive tabs carry no active fill.
-    expect(tabButton('Brain').className).not.toContain('bg-primary-500/12');
+    expect(tabButton('Human').className).not.toContain('bg-primary-500/12');
   });
 
   it('clears an active provider selection when clicking the already-active nav item', () => {
