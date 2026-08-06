@@ -2589,7 +2589,7 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint': '吉祥物打开时会朗读回复。关闭后对话将保持静音。',
   'chat.turn': '轮',
   'chat.mascot.dismiss': '隐藏 Tiny',
-  'chat.mascot.dismissTitle': '让 Tiny 离开？',
+  'chat.mascot.dismissTitle': '隐藏 Tiny？',
   'chat.mascot.dismissBody':
     '如果你更想独占消息框，也没关系。随时可以在设置 › 外观 › 聊天中把 Tiny 请回来。',
   'chat.mascot.dismissConfirm': '隐藏 Tiny',

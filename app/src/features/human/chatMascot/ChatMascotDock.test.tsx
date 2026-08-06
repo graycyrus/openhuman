@@ -58,15 +58,17 @@ describe('ChatMascotDock', () => {
 
       fireEvent.click(screen.getByTestId('chat-mascot-dismiss'));
 
-      expect(screen.getByText('Send Tiny away?')).toBeInTheDocument();
+      expect(screen.getByText('Hide Tiny?')).toBeInTheDocument();
       // Still visible — the click opened a question, not a deletion.
       expect(selectChatMascotDismissed(store.getState())).toBe(false);
       expect(screen.getByTestId('chat-mascot-dock')).toBeInTheDocument();
     });
 
-    it('tells the user where to get it back', () => {
-      // A control that vanishes with no route back is a trap; the copy has to
-      // name the settings path.
+    it('tells the user where to get it back, using the real menu labels', () => {
+      // A control that vanishes with no route back is a trap — and a path that
+      // names menu items the UI does not actually have is the same trap with
+      // extra steps. These three strings are the live `nav.settings`,
+      // `settings.appearance.title` and `settings.appearance.chatHeading`.
       renderDock();
       fireEvent.click(screen.getByTestId('chat-mascot-dismiss'));
       expect(screen.getByText(/Settings › Appearance › Chat/)).toBeInTheDocument();

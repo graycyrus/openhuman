@@ -2710,9 +2710,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     '마스코트가 열려 있는 동안 답변을 소리 내어 읽어 줍니다. 조용히 대화하려면 끄세요.',
   'chat.mascot.dismiss': 'Tiny 숨기기',
-  'chat.mascot.dismissTitle': 'Tiny를 보낼까요?',
+  'chat.mascot.dismissTitle': 'Tiny를 숨길까요?',
   'chat.mascot.dismissBody':
-    '메시지 상자를 혼자 쓰고 싶다면 괜찮아요. 설정 › 화면 › 채팅에서 언제든지 Tiny를 다시 부를 수 있습니다.',
+    '메시지 상자를 혼자 쓰고 싶다면 괜찮아요. 설정 › 외관 › 채팅에서 언제든지 Tiny를 다시 부를 수 있습니다.',
   'chat.mascot.dismissConfirm': 'Tiny 숨기기',
   'chat.mascot.dismissCancel': 'Tiny 두기',
   'chat.turn': '턴',

@@ -2763,7 +2763,7 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Пока маскот открыт, ответы читаются вслух. Отключите, чтобы разговор оставался беззвучным.',
   'chat.mascot.dismiss': 'Скрыть Tiny',
-  'chat.mascot.dismissTitle': 'Отпустить Tiny?',
+  'chat.mascot.dismissTitle': 'Скрыть Tiny?',
   'chat.mascot.dismissBody':
     'Ничего страшного, если поле сообщения вам нужнее. Вернуть Tiny можно в любой момент через Настройки › Внешний вид › Чат.',
   'chat.mascot.dismissConfirm': 'Скрыть Tiny',

@@ -2821,9 +2821,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Antworten werden vorgelesen, solange das Maskottchen geöffnet ist. Schalte dies aus, damit das Gespräch stumm bleibt.',
   'chat.mascot.dismiss': 'Tiny ausblenden',
-  'chat.mascot.dismissTitle': 'Tiny wegschicken?',
+  'chat.mascot.dismissTitle': 'Tiny ausblenden?',
   'chat.mascot.dismissBody':
-    'Kein Problem, wenn du das Nachrichtenfeld lieber für dich hast. Du kannst Tiny jederzeit über Einstellungen › Darstellung › Chat zurückholen.',
+    'Kein Problem, wenn du das Nachrichtenfeld lieber für dich hast. Du kannst Tiny jederzeit über Einstellungen › Aussehen › Chat zurückholen.',
   'chat.mascot.dismissConfirm': 'Tiny ausblenden',
   'chat.mascot.dismissCancel': 'Tiny behalten',
   'chat.turn': 'drehen',

@@ -2816,9 +2816,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Les réponses sont lues à voix haute tant que la mascotte est ouverte. Désactivez cette option pour garder la conversation silencieuse.',
   'chat.mascot.dismiss': 'Masquer Tiny',
-  'chat.mascot.dismissTitle': 'Faire partir Tiny ?',
+  'chat.mascot.dismissTitle': 'Masquer Tiny ?',
   'chat.mascot.dismissBody':
-    'Aucun souci si vous préférez garder la zone de message pour vous. Vous pouvez faire revenir Tiny à tout moment depuis Réglages › Apparence › Discussion.',
+    'Aucun souci si vous préférez garder la zone de message pour vous. Vous pouvez faire revenir Tiny à tout moment depuis Paramètres › Apparence › Chat.',
   'chat.mascot.dismissConfirm': 'Masquer Tiny',
   'chat.mascot.dismissCancel': 'Garder Tiny',
   'chat.turn': 'tour',

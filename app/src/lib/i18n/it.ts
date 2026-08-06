@@ -2790,7 +2790,7 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Le risposte vengono lette ad alta voce finché la mascotte è aperta. Disattiva questa opzione per mantenere silenziosa la conversazione.',
   'chat.mascot.dismiss': 'Nascondi Tiny',
-  'chat.mascot.dismissTitle': 'Vuoi salutare Tiny?',
+  'chat.mascot.dismissTitle': 'Nascondere Tiny?',
   'chat.mascot.dismissBody':
     'Nessun problema se preferisci avere il campo messaggi tutto per te. Puoi far tornare Tiny quando vuoi da Impostazioni › Aspetto › Chat.',
   'chat.mascot.dismissConfirm': 'Nascondi Tiny',

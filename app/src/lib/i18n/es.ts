@@ -2793,9 +2793,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Las respuestas se leen en voz alta mientras la mascota está abierta. Desactívalo para mantener la conversación en silencio.',
   'chat.mascot.dismiss': 'Ocultar a Tiny',
-  'chat.mascot.dismissTitle': '¿Despedir a Tiny?',
+  'chat.mascot.dismissTitle': '¿Ocultar a Tiny?',
   'chat.mascot.dismissBody':
-    'Sin rencores si prefieres tener el cuadro de mensaje para ti. Puedes traer a Tiny de vuelta cuando quieras desde Ajustes › Apariencia › Chat.',
+    'Sin rencores si prefieres tener el cuadro de mensaje para ti. Puedes traer a Tiny de vuelta cuando quieras desde Configuración › Apariencia › Chat.',
   'chat.mascot.dismissConfirm': 'Ocultar a Tiny',
   'chat.mascot.dismissCancel': 'Conservar a Tiny',
   'chat.turn': 'turno',

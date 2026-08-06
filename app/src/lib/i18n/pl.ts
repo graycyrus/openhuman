@@ -2775,7 +2775,7 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Odpowiedzi są czytane na głos, dopóki maskotka jest otwarta. Wyłącz tę opcję, aby rozmowa pozostała cicha.',
   'chat.mascot.dismiss': 'Ukryj Tiny',
-  'chat.mascot.dismissTitle': 'Odesłać Tiny?',
+  'chat.mascot.dismissTitle': 'Ukryć Tiny?',
   'chat.mascot.dismissBody':
     'Nic się nie stanie, jeśli wolisz mieć pole wiadomości tylko dla siebie. Tiny wróci w każdej chwili przez Ustawienia › Wygląd › Czat.',
   'chat.mascot.dismissConfirm': 'Ukryj Tiny',

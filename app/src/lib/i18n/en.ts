@@ -2881,7 +2881,7 @@ const en: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Replies are read aloud while the mascot is open. Turn this off to keep the conversation silent.',
   'chat.mascot.dismiss': 'Hide Tiny',
-  'chat.mascot.dismissTitle': 'Send Tiny away?',
+  'chat.mascot.dismissTitle': 'Hide Tiny?',
   'chat.mascot.dismissBody':
     "No hard feelings if you'd rather have the message box to yourself. You can bring Tiny back any time from Settings › Appearance › Chat.",
   'chat.mascot.dismissConfirm': 'Hide Tiny',

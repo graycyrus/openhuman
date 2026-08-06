@@ -2744,11 +2744,11 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'ম্যাসকট খোলা থাকলে উত্তরগুলি জোরে পড়ে শোনানো হয়। কথোপকথন নীরব রাখতে এটি বন্ধ করুন।',
   'chat.mascot.dismiss': 'Tiny লুকান',
-  'chat.mascot.dismissTitle': 'Tiny-কে সরিয়ে দেবেন?',
+  'chat.mascot.dismissTitle': 'Tiny লুকাবেন?',
   'chat.mascot.dismissBody':
-    'মেসেজ বক্সটি নিজের মতো রাখতে চাইলে কোনও অসুবিধা নেই। সেটিংস › চেহারা › চ্যাট থেকে যেকোনো সময় Tiny-কে ফিরিয়ে আনতে পারবেন।',
+    'মেসেজ বক্সটি নিজের মতো রাখতে চাইলে কোনও অসুবিধা নেই। সেটিংস › উপস্থিতি › চ্যাট থেকে যেকোনো সময় Tiny-কে ফিরিয়ে আনতে পারবেন।',
   'chat.mascot.dismissConfirm': 'Tiny লুকান',
-  'chat.mascot.dismissCancel': 'Tiny থাক',
+  'chat.mascot.dismissCancel': 'Tiny-কে রাখুন',
   'chat.turn': 'টার্ন',
   'chat.turns': 'টার্ন',
   'chat.openWorkerThread': 'ওয়ার্কার থ্রেড খুলুন',

@@ -1,3 +1,4 @@
+import debug from 'debug';
 import { useState } from 'react';
 
 import { ConfirmDialog } from '../../../components/ui';
@@ -10,6 +11,8 @@ import {
 } from '../../../store/mascotSlice';
 import { useChatMascot } from './ChatMascotContext';
 import { DOCK_PX } from './geometry';
+
+const dockLog = debug('human:chat-mascot');
 
 /**
  * The small mascot standing on the top-right corner of the composer's input box.
@@ -68,7 +71,10 @@ const ChatMascotDock = () => {
           title={t('chat.mascot.dismiss')}
           data-testid="chat-mascot-dismiss"
           data-analytics-id="chat-mascot-dismiss"
-          onClick={() => setConfirmingDismiss(true)}>
+          onClick={() => {
+            dockLog('[chat-mascot][dismiss] prompt opened');
+            setConfirmingDismiss(true);
+          }}>
           <svg
             className="h-2.5 w-2.5"
             fill="none"
@@ -93,10 +99,14 @@ const ChatMascotDock = () => {
           confirmLabel={t('chat.mascot.dismissConfirm')}
           cancelLabel={t('chat.mascot.dismissCancel')}
           onConfirm={() => {
+            dockLog('[chat-mascot][dismiss] confirmed — hiding until re-enabled in settings');
             setConfirmingDismiss(false);
             dispatch(setChatMascotDismissed(true));
           }}
-          onCancel={() => setConfirmingDismiss(false)}
+          onCancel={() => {
+            dockLog('[chat-mascot][dismiss] cancelled — mascot kept');
+            setConfirmingDismiss(false);
+          }}
         />
       )}
     </>

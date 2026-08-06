@@ -2750,9 +2750,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'Balasan dibacakan selama maskot terbuka. Matikan agar percakapan tetap senyap.',
   'chat.mascot.dismiss': 'Sembunyikan Tiny',
-  'chat.mascot.dismissTitle': 'Singkirkan Tiny?',
+  'chat.mascot.dismissTitle': 'Sembunyikan Tiny?',
   'chat.mascot.dismissBody':
-    'Tidak masalah kalau Anda ingin kotak pesan untuk diri sendiri. Anda bisa memunculkan Tiny lagi kapan saja lewat Pengaturan › Tampilan › Obrolan.',
+    'Tidak masalah kalau Anda ingin kotak pesan untuk diri sendiri. Anda bisa memunculkan Tiny lagi kapan saja lewat Pengaturan › Tampilan › Chat.',
   'chat.mascot.dismissConfirm': 'Sembunyikan Tiny',
   'chat.mascot.dismissCancel': 'Biarkan Tiny',
   'chat.turn': 'giliran',

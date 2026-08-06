@@ -2678,9 +2678,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'تُقرأ الردود بصوت مسموع طالما التميمة مفتوحة. أوقف هذا الخيار لإبقاء المحادثة صامتة.',
   'chat.mascot.dismiss': 'إخفاء Tiny',
-  'chat.mascot.dismissTitle': 'هل تريد إخفاء Tiny؟',
+  'chat.mascot.dismissTitle': 'إخفاء Tiny؟',
   'chat.mascot.dismissBody':
-    'لا مشكلة إذا كنت تفضّل صندوق الرسائل لنفسك. يمكنك إعادة Tiny في أي وقت من الإعدادات › المظهر › المحادثة.',
+    'لا مشكلة إذا كنت تفضّل صندوق الرسائل لنفسك. يمكنك إعادة Tiny في أي وقت من الإعدادات › المظهر › الدردشة.',
   'chat.mascot.dismissConfirm': 'إخفاء Tiny',
   'chat.mascot.dismissCancel': 'الإبقاء على Tiny',
   'chat.turn': 'دورة',

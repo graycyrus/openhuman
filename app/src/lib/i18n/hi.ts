@@ -2740,9 +2740,9 @@ const messages: TranslationMap = {
   'chat.mascot.speakRepliesHint':
     'मैस्कॉट खुला रहने तक जवाब बोलकर सुनाए जाते हैं। बातचीत को शांत रखने के लिए इसे बंद कर दें।',
   'chat.mascot.dismiss': 'Tiny छिपाएँ',
-  'chat.mascot.dismissTitle': 'Tiny को हटा दें?',
+  'chat.mascot.dismissTitle': 'Tiny छिपाएँ?',
   'chat.mascot.dismissBody':
-    'अगर आप मैसेज बॉक्स अपने पास ही रखना चाहते हैं तो कोई बात नहीं। Tiny को कभी भी सेटिंग्स › रूप › चैट से वापस ला सकते हैं।',
+    'अगर आप मैसेज बॉक्स अपने पास ही रखना चाहते हैं तो कोई बात नहीं। Tiny को कभी भी सेटिंग्स › दिखावट › चैट से वापस ला सकते हैं।',
   'chat.mascot.dismissConfirm': 'Tiny छिपाएँ',
   'chat.mascot.dismissCancel': 'Tiny रहने दें',
   'chat.turn': 'टर्न',
