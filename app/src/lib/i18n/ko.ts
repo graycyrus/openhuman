@@ -2398,6 +2398,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': 'Piper가 준비되었습니다.',
   'voice.providers.piperInstallStarted': 'Piper 설치가 시작되었습니다.',
   'voice.providers.failedToInstallPiper': 'Piper를 설치하지 못했습니다.',
+  'voice.mode.title': '음성 모드',
+  'voice.mode.desc': 'Human 탭에서 어시스턴트가 말하는 방식을 선택하세요.',
+  'voice.mode.realtime': '실시간 음성 (베타)',
+  'voice.mode.realtimeDesc': '번갈아 말하는 대신 실시간으로 대화하세요.',
+  'voice.mode.start': '음성 채팅 시작',
+  'voice.mode.stop': '음성 채팅 종료',
+  'voice.mode.connecting': '연결 중…',
+  'voice.mode.listening': '듣는 중',
+  'voice.mode.speaking': '말하는 중',
   'voice.providers.title': '음성 공급자',
   'voice.providers.desc':
     '전사 및 합성이 실행되는 위치를 선택하세요. 로컬 설치 버튼을 사용하여 바이너리 및 모델을 워크스페이스에 다운로드하세요. 로컬 공급자는 설치 완료 전에도 저장할 수 있으며 WHISPER_BIN 또는 PIPER_BIN 수동 설정이 필요 없습니다.',
@@ -6755,6 +6764,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': '비밀 저장 모드 및 키체인 상태',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': '저하됨',
+  'memoryTree.status.statusBudgetExhausted': '일시 중지됨: 임베딩 예산 소진',
   'memoryTree.status.degradedRecall': '의미 기반 검색 비활성화됨',
   'memoryTree.status.degradedStructure': '위키 구조 불완전',
   'memoryTree.status.extractionCoverage': '추출 범위: 청크의 {pct}%에 구조가 있음',
@@ -7075,6 +7085,7 @@ const messages: TranslationMap = {
   'userErrors.dismiss': '닫기',
   'userErrors.action.openBilling': '결제 열기',
   'userErrors.action.openProviderSettings': '제공업체 설정',
+  'userErrors.action.openEmbeddingsSettings': '임베딩 설정',
   'userErrors.budgetExceeded.title': '관리형 예산 소진',
   'userErrors.budgetExceeded.body': '관리형 AI 예산이 모두 소진되었습니다.',
   'userErrors.insufficientCredits.title': '제공업체 크레딧 필요',
@@ -7082,8 +7093,23 @@ const messages: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'API 키 필요',
   'userErrors.apiKeyMissing.body':
     'AI 제공업체에 API 키가 설정되지 않았습니다. 제공업체 설정에서 추가하세요.',
+  'userErrors.localModelUnavailable.title': '로컬 모델을 사용할 수 없음',
+  'userErrors.localModelUnavailable.body':
+    '구성된 엔드포인트에서 Ollama에 연결할 수 없거나 필요한 모델이 그곳에 설치되어 있지 않습니다. Ollama를 실행하고 해당 엔드포인트에 모델을 내려받거나, 이 작업을 클라우드 제공업체로 전환하세요.',
   'userErrors.scope.chat': '채팅',
   'userErrors.scope.cron': '예약된 작업',
+  'userErrors.scope.workspace': '작업 공간',
+  'userErrors.memoryBudgetExhausted.title': '메모리가 더 이상 늘어나지 않습니다',
+  'userErrors.memoryBudgetExhausted.body':
+    '임베딩 예산을 모두 사용해 새 콘텐츠가 메모리에 추가되지 않습니다. 로컬 임베딩을 설정하거나 본인의 API 키를 추가하면 다시 시작됩니다.',
+  'memoryBudget.approachingTitle': '메모리가 임베딩 한도에 근접했습니다',
+  'memoryBudget.approachingMessage':
+    '임베딩 예산의 {pct}%를 사용했습니다. 로컬 임베딩을 설정하거나 본인의 API 키를 추가하면 메모리가 끊김 없이 계속 쌓입니다.',
+  'memoryBudget.exhaustedTitle': '메모리가 더 이상 늘어나지 않습니다',
+  'memoryBudget.exhaustedMessage':
+    '임베딩 예산을 모두 사용해 새 콘텐츠가 메모리에 추가되지 않습니다. 로컬 임베딩을 설정하거나 본인의 API 키를 추가하면 다시 시작됩니다.',
+  'memoryBudget.cta': '임베딩 설정',
+  'userErrors.scope.memory': '메모리',
   // Agent World: Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': '금액',
   'agentWorld.trading.networkLabel': '네트워크',
@@ -7144,8 +7170,14 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': '코딩 에이전트 세션',
   'memorySources.codingSessions.description':
     'Codex와 Claude Code의 결정 및 수정 사항을 비공개 페르소나 메모리로 변환합니다.',
-  'memorySources.codingSessions.ingest': '새 세션 수집',
-  'memorySources.codingSessions.ingesting': '수집 중…',
+  'memorySources.codingSessions.importAll': '모든 세션 가져오기',
+  'memorySources.codingSessions.draining': '가져오는 중… {passes}회차',
+  'memorySources.codingSessions.stop': '중지',
+  'memorySources.codingSessions.progress': '{processed}개 세션 가져옴 · 관찰 {observations}개',
+  'memorySources.codingSessions.remaining': '약 {remaining}개 남음',
+  'memorySources.codingSessions.stopped': '가져오기 일시중지됨',
+  'memorySources.codingSessions.stoppedMessage':
+    '{processed}개 세션을 가져왔습니다. 남은 {remaining}개를 계속하려면 가져오기를 다시 실행하세요.',
   'memorySources.codingSessions.claude': '클로드 코드',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': '세션 {files}개 · 사용자 입력 {evidence}개',
@@ -7157,8 +7189,6 @@ const messages: TranslationMap = {
     '세션 {processed}개에서 페르소나 관찰 {observations}개를 만들었습니다.',
   'memorySources.codingSessions.partialFailure':
     '세션 {processed}개를 처리하는 동안 {failed}개가 실패했습니다. 다시 시도하려면 수집을 다시 실행하세요.',
-  'memorySources.codingSessions.moreRemaining':
-    '세션 배치 한도에 도달했습니다. 기록 가져오기를 계속하려면 수집을 다시 실행하세요.',
   'memorySources.codingSessions.failed': '코딩 세션 수집 실패',
   'flows.canvas.sidePanelToggle': '사이드 패널',
   'flows.canvas.legendTab': '수동',

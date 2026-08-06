@@ -6,10 +6,13 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
   selectSpeakReplies,
+  selectVoiceMode,
   setChatMascotListening,
   setSpeakReplies,
 } from '../../../store/mascotSlice';
+import { VOICE_MODE_FLAG_ENABLED } from '../../../utils/config';
 import MicComposer from '../MicComposer';
+import RealtimeVoiceControls from '../RealtimeVoiceControls';
 import { useChatMascot } from './ChatMascotContext';
 
 /**
@@ -29,6 +32,12 @@ const ChatMascotStage = () => {
   const dispatch = useAppDispatch();
   const { stageRef, collapse, sendStore } = useChatMascot();
   const speakReplies = useAppSelector(selectSpeakReplies);
+  // Realtime voice agents (#5399) landed on the Human page while this surface
+  // was replacing it, so the gate moves here rather than being dropped: the
+  // stage IS the voice surface now. Same two conditions as before — build flag
+  // on AND the persisted mode set to realtime — so it still ships dark.
+  const voiceMode = useAppSelector(selectVoiceMode);
+  const realtimeEnabled = VOICE_MODE_FLAG_ENABLED && voiceMode === 'realtime';
 
   // Subscribing to the store (rather than reading a context field) keeps the
   // chat tree out of this component's update path — see ChatMascotContext.
@@ -101,16 +110,20 @@ const ChatMascotStage = () => {
         data-analytics-id="chat-mascot-toggle"
       />
 
-      <MicComposer
-        // Mirrors the mic-cloud call site in Conversations: without the
-        // binding's own `disabled` (which folds in `!selectedThreadId`) a mic
-        // submit before a thread exists is silently dropped.
-        disabled={binding == null || binding.disabled}
-        onSubmit={handleSubmit}
-        onError={handleError}
-        onRecordingChange={handleRecordingChange}
-        showDeviceSelector
-      />
+      {realtimeEnabled ? (
+        <RealtimeVoiceControls />
+      ) : (
+        <MicComposer
+          // Mirrors the mic-cloud call site in Conversations: without the
+          // binding's own `disabled` (which folds in `!selectedThreadId`) a mic
+          // submit before a thread exists is silently dropped.
+          disabled={binding == null || binding.disabled}
+          onSubmit={handleSubmit}
+          onError={handleError}
+          onRecordingChange={handleRecordingChange}
+          showDeviceSelector
+        />
+      )}
 
       <label
         htmlFor="chat-mascot-speak-replies"

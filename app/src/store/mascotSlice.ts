@@ -180,7 +180,22 @@ interface MascotState {
    * no mic running.
    */
   chatMascotListening: boolean;
+  /**
+   * Which voice-chat implementation the mascot's voice stage uses (#5399).
+   * `classic` is
+   * today's turn-based record → transcribe → reply → TTS pipeline; `realtime`
+   * is the streaming ElevenLabs Agents session. Defaults to `classic` and is
+   * only togglable when `VOICE_MODE_FLAG_ENABLED` is on, so the realtime path
+   * ships dark until it is ready.
+   */
+  voiceMode: VoiceMode;
 }
+
+/** Voice-chat implementation used by the mascot's voice stage. */
+export type VoiceMode = 'classic' | 'realtime';
+
+const isVoiceMode = (value: unknown): value is VoiceMode =>
+  value === 'classic' || value === 'realtime';
 
 const initialState: MascotState = {
   color: DEFAULT_MASCOT_COLOR,
@@ -196,6 +211,7 @@ const initialState: MascotState = {
   chatMascotExpanded: false,
   speakReplies: true,
   chatMascotListening: false,
+  voiceMode: 'classic',
 };
 
 /**
@@ -392,6 +408,11 @@ const mascotSlice = createSlice({
       state.chatMascotListening = next;
       mascotLog('[mascot][voice] listening=%s', next);
     },
+    setVoiceMode(state, action: PayloadAction<VoiceMode>) {
+      if (isVoiceMode(action.payload)) {
+        state.voiceMode = action.payload;
+      }
+    },
   },
   extraReducers: builder => {
     builder.addCase(resetUserScopedState, () => initialState);
@@ -414,6 +435,7 @@ const mascotSlice = createSlice({
           customSecondaryColor?: unknown;
           chatMascotExpanded?: unknown;
           speakReplies?: unknown;
+          voiceMode?: unknown;
         };
       };
       if (rehydrateAction.key !== 'mascot') return;
@@ -491,6 +513,8 @@ const mascotSlice = createSlice({
           : initialState.speakReplies;
       // Never restored — see the field docs on `chatMascotListening`.
       state.chatMascotListening = false;
+      const restoredVoiceMode = rehydrateAction.payload?.voiceMode;
+      state.voiceMode = isVoiceMode(restoredVoiceMode) ? restoredVoiceMode : 'classic';
     });
   },
 });
@@ -509,6 +533,7 @@ export const {
   setChatMascotExpanded,
   setSpeakReplies,
   setChatMascotListening,
+  setVoiceMode,
 } = mascotSlice.actions;
 
 /**
@@ -544,6 +569,9 @@ export const selectSecondaryMascotId = (state: { mascot: MascotState }): string 
 
 export const selectMascotVoices = (state: { mascot: MascotState }): Record<string, string> =>
   state.mascot.mascotVoices ?? {};
+
+export const selectVoiceMode = (state: { mascot: MascotState }): VoiceMode =>
+  state.mascot.voiceMode ?? 'classic';
 
 /**
  * Explicit per-mascot voice override for `mascotId`, or `null` when none

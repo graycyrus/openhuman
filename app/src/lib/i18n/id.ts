@@ -2440,6 +2440,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': 'Piper sudah siap.',
   'voice.providers.piperInstallStarted': 'Penginstalan Piper dimulai',
   'voice.providers.failedToInstallPiper': 'Gagal menginstal Piper',
+  'voice.mode.title': 'Mode suara',
+  'voice.mode.desc': 'Pilih cara asisten berbicara di tab Human.',
+  'voice.mode.realtime': 'Suara realtime (beta)',
+  'voice.mode.realtimeDesc': 'Lakukan percakapan langsung alih-alih bergantian.',
+  'voice.mode.start': 'Mulai obrolan suara',
+  'voice.mode.stop': 'Akhiri obrolan suara',
+  'voice.mode.connecting': 'Menghubungkan…',
+  'voice.mode.listening': 'Mendengarkan',
+  'voice.mode.speaking': 'Berbicara',
   'voice.providers.title': 'Penyedia Suara',
   'voice.providers.desc':
     'Pilih tempat transkripsi dan sintesis dijalankan. Gunakan tombol Instal secara lokal untuk mengunduh biner dan model ke workspace Anda. Penyedia lokal dapat disimpan sebelum instalasi selesai: tidak perlu pengaturan WHISPER_BIN atau PIPER_BIN secara manual.',
@@ -6863,6 +6872,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': 'Mode penyimpanan rahasia dan status keychain',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': 'Terdegradasi',
+  'memoryTree.status.statusBudgetExhausted': 'Dijeda: batas embedding tercapai',
   'memoryTree.status.degradedRecall': 'Recall semantik dinonaktifkan',
   'memoryTree.status.degradedStructure': 'Struktur wiki tidak lengkap',
   'memoryTree.status.extractionCoverage': 'Cakupan ekstraksi: {pct}% bagian memiliki struktur',
@@ -7190,6 +7200,7 @@ const messages: TranslationMap = {
   'userErrors.dismiss': 'Tutup',
   'userErrors.action.openBilling': 'Buka penagihan',
   'userErrors.action.openProviderSettings': 'Pengaturan penyedia',
+  'userErrors.action.openEmbeddingsSettings': 'Siapkan embedding',
   'userErrors.budgetExceeded.title': 'Anggaran terkelola habis',
   'userErrors.budgetExceeded.body':
     'Anggaran AI terkelola Anda sudah habis. Tambahkan anggaran atau ubah paket.',
@@ -7199,8 +7210,23 @@ const messages: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'Kunci API diperlukan',
   'userErrors.apiKeyMissing.body':
     'Penyedia AI Anda belum memiliki kunci API. Tambahkan satu di pengaturan penyedia untuk melanjutkan.',
+  'userErrors.localModelUnavailable.title': 'Model lokal tidak tersedia',
+  'userErrors.localModelUnavailable.body':
+    'Ollama tidak dapat dijangkau di endpoint yang dikonfigurasi, atau model yang dibutuhkan belum terpasang di sana. Jalankan Ollama dan unduh modelnya di endpoint tersebut, atau alihkan pekerjaan ini ke penyedia cloud.',
   'userErrors.scope.chat': 'Obrolan',
   'userErrors.scope.cron': 'Tugas terjadwal',
+  'userErrors.scope.workspace': 'Ruang kerja',
+  'userErrors.memoryBudgetExhausted.title': 'Memori berhenti bertambah',
+  'userErrors.memoryBudgetExhausted.body':
+    'Anggaran embedding Anda sudah habis, sehingga konten baru tidak lagi ditambahkan ke memori. Siapkan embedding lokal atau tambahkan kunci API Anda sendiri untuk melanjutkan.',
+  'memoryBudget.approachingTitle': 'Memori hampir mencapai batas embedding',
+  'memoryBudget.approachingMessage':
+    'Anda telah memakai {pct}% anggaran embedding. Siapkan embedding lokal atau tambahkan kunci API Anda sendiri agar memori terus bertambah tanpa gangguan.',
+  'memoryBudget.exhaustedTitle': 'Memori berhenti bertambah',
+  'memoryBudget.exhaustedMessage':
+    'Anggaran embedding Anda sudah habis, sehingga konten baru tidak lagi ditambahkan ke memori. Siapkan embedding lokal atau tambahkan kunci API Anda sendiri untuk melanjutkan.',
+  'memoryBudget.cta': 'Siapkan embedding',
+  'userErrors.scope.memory': 'Memori',
   // Agent World: Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': 'Jumlah',
   'agentWorld.trading.networkLabel': 'Jaringan',
@@ -7262,8 +7288,14 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': 'Sesi agen pemrograman',
   'memorySources.codingSessions.description':
     'Ubah keputusan dan koreksi Codex serta Claude Code menjadi memori persona pribadi.',
-  'memorySources.codingSessions.ingest': 'Serap sesi baru',
-  'memorySources.codingSessions.ingesting': 'Menyerap…',
+  'memorySources.codingSessions.importAll': 'Impor semua sesi',
+  'memorySources.codingSessions.draining': 'Mengimpor… lintasan {passes}',
+  'memorySources.codingSessions.stop': 'Hentikan',
+  'memorySources.codingSessions.progress': '{processed} sesi diimpor · {observations} observasi',
+  'memorySources.codingSessions.remaining': 'sekitar {remaining} tersisa',
+  'memorySources.codingSessions.stopped': 'Impor dijeda',
+  'memorySources.codingSessions.stoppedMessage':
+    '{processed} sesi diimpor. Jalankan impor lagi untuk melanjutkan {remaining} yang tersisa.',
   'memorySources.codingSessions.claude': 'Riwayat Claude Code',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': '{files} sesi · {evidence} masukan manusia',
@@ -7275,8 +7307,6 @@ const messages: TranslationMap = {
     '{processed} sesi menghasilkan {observations} pengamatan persona.',
   'memorySources.codingSessions.partialFailure':
     '{failed} sesi gagal sementara {processed} berhasil diproses. Jalankan penyerapan lagi untuk mencoba ulang.',
-  'memorySources.codingSessions.moreRemaining':
-    'Batas batch sesi tercapai. Jalankan penyerapan lagi untuk melanjutkan impor riwayat Anda.',
   'memorySources.codingSessions.failed': 'Gagal menyerap sesi pemrograman',
   'flows.canvas.sidePanelToggle': 'Panel samping',
   'flows.canvas.legendTab': 'Manual',

@@ -2474,6 +2474,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': 'Piper está pronto.',
   'voice.providers.piperInstallStarted': 'Instalação do Piper iniciada',
   'voice.providers.failedToInstallPiper': 'Falha ao instalar o Piper',
+  'voice.mode.title': 'Modo de voz',
+  'voice.mode.desc': 'Escolha como o assistente fala na aba Human.',
+  'voice.mode.realtime': 'Voz em tempo real (beta)',
+  'voice.mode.realtimeDesc': 'Tenha uma conversa ao vivo em vez de alternar turnos.',
+  'voice.mode.start': 'Iniciar chat de voz',
+  'voice.mode.stop': 'Encerrar chat de voz',
+  'voice.mode.connecting': 'Conectando…',
+  'voice.mode.listening': 'Ouvindo',
+  'voice.mode.speaking': 'Falando',
   'voice.providers.title': 'Provedores de voz',
   'voice.providers.desc':
     'Escolha onde a transcrição e a síntese são executadas. Use os botões Instalar localmente para baixar os binários e modelos no seu workspace. Os provedores locais podem ser salvos antes da conclusão da instalação: não é necessária configuração manual de WHISPER_BIN ou PIPER_BIN.',
@@ -6935,6 +6944,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': 'Modo de armazenamento de segredos e status do chaveiro',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': 'Degradado',
+  'memoryTree.status.statusBudgetExhausted': 'Em pausa: limite de embeddings atingido',
   'memoryTree.status.degradedRecall': 'Recuperação semântica desativada',
   'memoryTree.status.degradedStructure': 'Estrutura do wiki incompleta',
   'memoryTree.status.extractionCoverage':
@@ -7270,6 +7280,7 @@ const messages: TranslationMap = {
   'userErrors.dismiss': 'Dispensar',
   'userErrors.action.openBilling': 'Abrir faturamento',
   'userErrors.action.openProviderSettings': 'Configurações do provedor',
+  'userErrors.action.openEmbeddingsSettings': 'Configurar embeddings',
   'userErrors.budgetExceeded.title': 'Orçamento gerenciado esgotado',
   'userErrors.budgetExceeded.body':
     'Seu orçamento de IA gerenciado acabou. Adicione orçamento ou altere seu plano.',
@@ -7279,8 +7290,23 @@ const messages: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'Chave de API necessária',
   'userErrors.apiKeyMissing.body':
     'Seu provedor de IA não tem uma chave de API definida. Adicione uma nas configurações do provedor para continuar.',
+  'userErrors.localModelUnavailable.title': 'Modelo local indisponível',
+  'userErrors.localModelUnavailable.body':
+    'O Ollama não está acessível no endpoint configurado, ou o modelo necessário não está instalado nele. Inicie o Ollama e baixe o modelo nesse endpoint, ou mude este trabalho para um provedor na nuvem.',
   'userErrors.scope.chat': 'Chat',
   'userErrors.scope.cron': 'Tarefa agendada',
+  'userErrors.scope.workspace': 'Espaço de trabalho',
+  'userErrors.memoryBudgetExhausted.title': 'A memória parou de crescer',
+  'userErrors.memoryBudgetExhausted.body':
+    'Seu orçamento de embeddings acabou, então novos conteúdos não estão mais sendo adicionados à memória. Configure embeddings locais ou adicione sua própria chave de API para retomar.',
+  'memoryBudget.approachingTitle': 'A memória está chegando ao limite de embeddings',
+  'memoryBudget.approachingMessage':
+    'Você já usou {pct}% do seu orçamento de embeddings. Configure embeddings locais ou adicione sua própria chave de API para a memória continuar crescendo sem interrupção.',
+  'memoryBudget.exhaustedTitle': 'A memória parou de crescer',
+  'memoryBudget.exhaustedMessage':
+    'Seu orçamento de embeddings acabou, então novos conteúdos não estão mais sendo adicionados à memória. Configure embeddings locais ou adicione sua própria chave de API para retomar.',
+  'memoryBudget.cta': 'Configurar embeddings',
+  'userErrors.scope.memory': 'Memória',
   // Agent World: Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': 'Valor',
   'agentWorld.trading.networkLabel': 'Rede',
@@ -7342,8 +7368,15 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': 'Sessões de agentes de programação',
   'memorySources.codingSessions.description':
     'Transforme decisões e correções do Codex e Claude Code em memória privada de persona.',
-  'memorySources.codingSessions.ingest': 'Ingerir novas sessões',
-  'memorySources.codingSessions.ingesting': 'Ingerindo…',
+  'memorySources.codingSessions.importAll': 'Importar todas as sessões',
+  'memorySources.codingSessions.draining': 'Importando… passagem {passes}',
+  'memorySources.codingSessions.stop': 'Parar',
+  'memorySources.codingSessions.progress':
+    '{processed} sessões importadas · {observations} observações',
+  'memorySources.codingSessions.remaining': 'restam cerca de {remaining}',
+  'memorySources.codingSessions.stopped': 'Importação pausada',
+  'memorySources.codingSessions.stoppedMessage':
+    '{processed} sessões importadas. Execute a importação novamente para continuar as {remaining} restantes.',
   'memorySources.codingSessions.claude': 'Histórico do Claude Code',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': '{files} sessões · {evidence} mensagens humanas',
@@ -7356,8 +7389,6 @@ const messages: TranslationMap = {
     '{processed} sessões produziram {observations} observações de persona.',
   'memorySources.codingSessions.partialFailure':
     '{failed} sessões falharam enquanto {processed} foram processadas. Execute a ingestão novamente para tentar de novo.',
-  'memorySources.codingSessions.moreRemaining':
-    'O limite de sessões do lote foi atingido. Execute a ingestão novamente para continuar importando seu histórico.',
   'memorySources.codingSessions.failed': 'Falha ao ingerir sessões de programação',
   'flows.canvas.sidePanelToggle': 'Painel lateral',
   'flows.canvas.legendTab': 'Manual',

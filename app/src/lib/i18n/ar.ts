@@ -2371,6 +2371,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': 'Piper جاهز.',
   'voice.providers.piperInstallStarted': 'بدأ تثبيت Piper',
   'voice.providers.failedToInstallPiper': 'فشل تثبيت Piper',
+  'voice.mode.title': 'وضع الصوت',
+  'voice.mode.desc': 'اختر طريقة تحدث المساعد في تبويب Human.',
+  'voice.mode.realtime': 'الصوت في الوقت الفعلي (تجريبي)',
+  'voice.mode.realtimeDesc': 'أجرِ محادثة مباشرة ومتدفقة بدلاً من تبادل الأدوار.',
+  'voice.mode.start': 'بدء المحادثة الصوتية',
+  'voice.mode.stop': 'إنهاء المحادثة الصوتية',
+  'voice.mode.connecting': 'جارٍ الاتصال…',
+  'voice.mode.listening': 'يستمع',
+  'voice.mode.speaking': 'يتحدث',
   'voice.providers.title': 'موفري الصوت',
   'voice.providers.desc':
     'اختر مكان تشغيل النسخ والتوليف. استخدم أزرار «التثبيت محلياً» لتنزيل الملفات الثنائية والنماذج في مساحة عملك. يمكن حفظ الموفرين المحليين قبل اكتمال التثبيت: لا حاجة لإعداد WHISPER_BIN أو PIPER_BIN يدوياً.',
@@ -6683,6 +6692,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': 'وضع تخزين الأسرار وحالة سلسلة المفاتيح',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': 'متدهور',
+  'memoryTree.status.statusBudgetExhausted': 'متوقف مؤقتًا: انتهت ميزانية التضمينات',
   'memoryTree.status.degradedRecall': 'الاسترجاع الدلالي معطّل',
   'memoryTree.status.degradedStructure': 'بنية الويكي غير مكتملة',
   'memoryTree.status.extractionCoverage': 'تغطية الاستخراج: {pct}% من الأجزاء لها بنية',
@@ -6998,6 +7008,7 @@ const messages: TranslationMap = {
   'userErrors.dismiss': 'تجاهل',
   'userErrors.action.openBilling': 'فتح الفوترة',
   'userErrors.action.openProviderSettings': 'إعدادات المزود',
+  'userErrors.action.openEmbeddingsSettings': 'إعداد التضمينات',
   'userErrors.budgetExceeded.title': 'تم استنفاد الميزانية المُدارة',
   'userErrors.budgetExceeded.body': 'نفدت الميزانية المُدارة. أضف ميزانية أو غيّر خطتك.',
   'userErrors.insufficientCredits.title': 'مطلوب رصيد المزود',
@@ -7005,8 +7016,23 @@ const messages: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'مطلوب مفتاح API',
   'userErrors.apiKeyMissing.body':
     'لا يوجد مفتاح API لمزوّد الذكاء الاصطناعي. أضِفه في إعدادات المزوّد للمتابعة.',
+  'userErrors.localModelUnavailable.title': 'النموذج المحلي غير متاح',
+  'userErrors.localModelUnavailable.body':
+    'لا يمكن الوصول إلى Ollama على النقطة الطرفية المُهيأة، أو أن النموذج المطلوب غير مثبّت عليها. شغّل Ollama ونزّل النموذج على تلك النقطة الطرفية، أو حوّل هذا العمل إلى مزوّد سحابي.',
   'userErrors.scope.chat': 'الدردشة',
   'userErrors.scope.cron': 'مهمة مجدوَلة',
+  'userErrors.scope.workspace': 'مساحة العمل',
+  'userErrors.memoryBudgetExhausted.title': 'توقفت الذاكرة عن النمو',
+  'userErrors.memoryBudgetExhausted.body':
+    'انتهت ميزانية التضمينات لديك، لذلك لم يعد المحتوى الجديد يُضاف إلى الذاكرة. أعدّ تضمينات محلية أو أضف مفتاح API الخاص بك للمتابعة.',
+  'memoryBudget.approachingTitle': 'الذاكرة تقترب من حد التضمينات',
+  'memoryBudget.approachingMessage':
+    'لقد استخدمت {pct}% من ميزانية التضمينات. أعدّ تضمينات محلية أو أضف مفتاح API الخاص بك كي تستمر الذاكرة في النمو دون انقطاع.',
+  'memoryBudget.exhaustedTitle': 'توقفت الذاكرة عن النمو',
+  'memoryBudget.exhaustedMessage':
+    'انتهت ميزانية التضمينات لديك، لذلك لم يعد المحتوى الجديد يُضاف إلى الذاكرة. أعدّ تضمينات محلية أو أضف مفتاح API الخاص بك للمتابعة.',
+  'memoryBudget.cta': 'إعداد التضمينات',
+  'userErrors.scope.memory': 'الذاكرة',
   // Agent World: Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': 'المبلغ',
   'agentWorld.trading.networkLabel': 'الشبكة',
@@ -7066,8 +7092,14 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': 'جلسات وكلاء البرمجة',
   'memorySources.codingSessions.description':
     'حوّل قرارات وتصحيحات Codex وClaude Code إلى ذاكرة شخصية خاصة.',
-  'memorySources.codingSessions.ingest': 'استيعاب الجلسات الجديدة',
-  'memorySources.codingSessions.ingesting': 'جارٍ الاستيعاب…',
+  'memorySources.codingSessions.importAll': 'استيراد كل الجلسات',
+  'memorySources.codingSessions.draining': 'جارٍ الاستيراد… الدفعة {passes}',
+  'memorySources.codingSessions.stop': 'إيقاف',
+  'memorySources.codingSessions.progress': 'تم استيراد {processed} جلسة · {observations} ملاحظة',
+  'memorySources.codingSessions.remaining': 'يتبقى نحو {remaining}',
+  'memorySources.codingSessions.stopped': 'تم إيقاف الاستيراد مؤقتًا',
+  'memorySources.codingSessions.stoppedMessage':
+    'تم استيراد {processed} جلسة. شغّل الاستيراد مرة أخرى لمتابعة الـ {remaining} المتبقية.',
   'memorySources.codingSessions.claude': 'كلود كود',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': '{files} جلسات · {evidence} مداخلات بشرية',
@@ -7079,8 +7111,6 @@ const messages: TranslationMap = {
     'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',
   'memorySources.codingSessions.partialFailure':
     'فشلت {failed} جلسات بينما تمت معالجة {processed}. شغّل الاستيعاب مرة أخرى لإعادة المحاولة.',
-  'memorySources.codingSessions.moreRemaining':
-    'تم بلوغ حد دفعة الجلسات. شغّل الاستيعاب مرة أخرى لمتابعة استيراد سجلك.',
   'memorySources.codingSessions.failed': 'فشل استيعاب جلسات البرمجة',
   'flows.canvas.sidePanelToggle': 'اللوحة الجانبية',
   'flows.canvas.legendTab': 'يدوي',

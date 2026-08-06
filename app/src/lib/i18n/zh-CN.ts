@@ -2292,6 +2292,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': '派珀准备好了。',
   'voice.providers.piperInstallStarted': 'Piper 安装开始',
   'voice.providers.failedToInstallPiper': '安装 Piper 失败',
+  'voice.mode.title': '语音模式',
+  'voice.mode.desc': '选择助手在 Human 标签页中的说话方式。',
+  'voice.mode.realtime': '实时语音（测试版）',
+  'voice.mode.realtimeDesc': '进行实时连续对话，而不是轮流发言。',
+  'voice.mode.start': '开始语音聊天',
+  'voice.mode.stop': '结束语音聊天',
+  'voice.mode.connecting': '连接中…',
+  'voice.mode.listening': '正在聆听',
+  'voice.mode.speaking': '正在讲话',
   'voice.providers.title': '语音提供商',
   'voice.providers.desc':
     '选择转录和合成的运行位置。使用「本地安装」按钮将二进制文件和模型下载到您的工作区。本地服务提供商可在安装完成前保存：无需手动配置 WHISPER_BIN 或 PIPER_BIN。',
@@ -6467,6 +6476,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': '密钥存储模式和密钥链状态',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': '已降级',
+  'memoryTree.status.statusBudgetExhausted': '已暂停：嵌入额度已用尽',
   'memoryTree.status.degradedRecall': '语义召回已禁用',
   'memoryTree.status.degradedStructure': 'Wiki 结构不完整',
   'memoryTree.status.extractionCoverage': '提取覆盖率：{pct}% 的片段具有结构',
@@ -6771,14 +6781,30 @@ const messages: TranslationMap = {
   'userErrors.dismiss': '忽略',
   'userErrors.action.openBilling': '打开账单',
   'userErrors.action.openProviderSettings': '提供商设置',
+  'userErrors.action.openEmbeddingsSettings': '设置嵌入',
   'userErrors.budgetExceeded.title': '托管预算已用尽',
   'userErrors.budgetExceeded.body': '托管 AI 预算已用尽，请增加预算或更改套餐。',
   'userErrors.insufficientCredits.title': '需要提供商额度',
   'userErrors.insufficientCredits.body': '提供商额度已用完，请充值或更新 API 密钥。',
   'userErrors.apiKeyMissing.title': '需要 API 密钥',
   'userErrors.apiKeyMissing.body': '您的 AI 提供商未设置 API 密钥，请在提供商设置中添加以继续。',
+  'userErrors.localModelUnavailable.title': '本地模型不可用',
+  'userErrors.localModelUnavailable.body':
+    '无法在配置的端点连接 Ollama，或所需模型未安装在该端点。请启动 Ollama 并在该端点拉取模型，或将此工作切换到云端提供商。',
   'userErrors.scope.chat': '聊天',
   'userErrors.scope.cron': '定时任务',
+  'userErrors.scope.workspace': '工作区',
+  'userErrors.memoryBudgetExhausted.title': '记忆已停止增长',
+  'userErrors.memoryBudgetExhausted.body':
+    '你的嵌入额度已用尽，新内容不会再加入记忆。设置本地嵌入或添加你自己的 API 密钥即可恢复。',
+  'memoryBudget.approachingTitle': '记忆即将达到嵌入额度上限',
+  'memoryBudget.approachingMessage':
+    '你已使用 {pct}% 的嵌入额度。设置本地嵌入或添加你自己的 API 密钥，让记忆不中断地继续增长。',
+  'memoryBudget.exhaustedTitle': '记忆已停止增长',
+  'memoryBudget.exhaustedMessage':
+    '你的嵌入额度已用尽，新内容不会再加入记忆。设置本地嵌入或添加你自己的 API 密钥即可恢复。',
+  'memoryBudget.cta': '设置嵌入',
+  'userErrors.scope.memory': '记忆',
   // Agent World：Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': '金额',
   'agentWorld.trading.networkLabel': '网络',
@@ -6836,8 +6862,14 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': '编程智能体会话',
   'memorySources.codingSessions.description':
     '将 Codex 和 Claude Code 中的决策与纠正转化为私有人格记忆。',
-  'memorySources.codingSessions.ingest': '摄取新会话',
-  'memorySources.codingSessions.ingesting': '正在摄取…',
+  'memorySources.codingSessions.importAll': '导入所有会话',
+  'memorySources.codingSessions.draining': '正在导入…第 {passes} 轮',
+  'memorySources.codingSessions.stop': '停止',
+  'memorySources.codingSessions.progress': '已导入 {processed} 个会话 · {observations} 条观察',
+  'memorySources.codingSessions.remaining': '约剩 {remaining} 个',
+  'memorySources.codingSessions.stopped': '导入已暂停',
+  'memorySources.codingSessions.stoppedMessage':
+    '已导入 {processed} 个会话。再次运行导入以继续剩余的 {remaining} 个。',
   'memorySources.codingSessions.claude': '克劳德代码',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': '{files} 个会话 · {evidence} 条证据',
@@ -6849,8 +6881,6 @@ const messages: TranslationMap = {
     '{processed} 个会话生成了 {observations} 条人格观察。',
   'memorySources.codingSessions.partialFailure':
     '{processed} 个会话已处理，{failed} 个失败。请再次运行摄取以重试。',
-  'memorySources.codingSessions.moreRemaining':
-    '已达到本批次的会话上限。请再次运行摄取以继续导入历史记录。',
   'memorySources.codingSessions.failed': '编程会话摄取失败',
   'flows.canvas.sidePanelToggle': '侧边栏',
   'flows.canvas.legendTab': '手动',

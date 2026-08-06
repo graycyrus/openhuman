@@ -162,9 +162,10 @@ const persistedThreadReducer = persistReducer(threadPersistConfig, threadReducer
 const layoutPersistConfig = { key: 'layout', storage, whitelist: ['panels'] };
 const persistedLayoutReducer = persistReducer(layoutPersistConfig, layoutReducer);
 
-// Persist the mascot appearance fields, the custom GIF override, and the
-// selected mascot id (so the chosen GitHub-manifest mascot survives a reload —
-// the slice's REHYDRATE guard re-validates it). `chatMascotExpanded` and
+// Persist the mascot appearance fields, the custom GIF override, the selected
+// mascot id (so the chosen GitHub-manifest mascot survives a reload — the
+// slice's REHYDRATE guard re-validates it), and the chosen voice mode (so
+// realtime doesn't reset to classic on restart). `chatMascotExpanded` and
 // `speakReplies` join them so the merged chat surface reopens in the mode the
 // user left it in; `chatMascotListening` is deliberately excluded (transient mic
 // state — see the field docs in mascotSlice). Other mascot fields stay as
@@ -177,6 +178,7 @@ const mascotPersistConfig = {
     'voiceId',
     'customMascotGifUrl',
     'selectedMascotId',
+    'voiceMode',
     'chatMascotExpanded',
     'speakReplies',
   ],

@@ -2447,6 +2447,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': 'Piper готов.',
   'voice.providers.piperInstallStarted': 'Началась установка Piper.',
   'voice.providers.failedToInstallPiper': 'Не удалось установить Piper.',
+  'voice.mode.title': 'Голосовой режим',
+  'voice.mode.desc': 'Выберите, как ассистент говорит на вкладке Human.',
+  'voice.mode.realtime': 'Голос в реальном времени (бета)',
+  'voice.mode.realtimeDesc': 'Ведите живой разговор вместо поочерёдного обмена репликами.',
+  'voice.mode.start': 'Начать голосовой чат',
+  'voice.mode.stop': 'Завершить голосовой чат',
+  'voice.mode.connecting': 'Подключение…',
+  'voice.mode.listening': 'Слушает',
+  'voice.mode.speaking': 'Говорит',
   'voice.providers.title': 'Поставщики голоса.',
   'voice.providers.desc':
     'Выберите, где выполняется транскрипция и синтез речи. Используйте кнопки «Установить локально» для загрузки бинарных файлов и моделей в вашу рабочую область. Локальные провайдеры можно сохранить до завершения установки: ручная настройка WHISPER_BIN или PIPER_BIN не требуется.',
@@ -6902,6 +6911,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': 'Режим хранения секретов и статус связки ключей',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': 'Ухудшено',
+  'memoryTree.status.statusBudgetExhausted': 'Приостановлено: бюджет эмбеддингов исчерпан',
   'memoryTree.status.degradedRecall': 'Семантический поиск отключён',
   'memoryTree.status.degradedStructure': 'Структура вики неполная',
   'memoryTree.status.extractionCoverage': 'Охват извлечения: {pct}% фрагментов имеют структуру',
@@ -7234,6 +7244,7 @@ const messages: TranslationMap = {
   'userErrors.dismiss': 'Отклонить',
   'userErrors.action.openBilling': 'Открыть оплату',
   'userErrors.action.openProviderSettings': 'Настройки провайдера',
+  'userErrors.action.openEmbeddingsSettings': 'Настроить эмбеддинги',
   'userErrors.budgetExceeded.title': 'Управляемый бюджет исчерпан',
   'userErrors.budgetExceeded.body': 'Управляемый бюджет ИИ исчерпан. Измените план.',
   'userErrors.insufficientCredits.title': 'Требуются кредиты провайдера',
@@ -7241,8 +7252,23 @@ const messages: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'Требуется ключ API',
   'userErrors.apiKeyMissing.body':
     'У провайдера ИИ не задан ключ API. Добавьте его в настройках провайдера.',
+  'userErrors.localModelUnavailable.title': 'Локальная модель недоступна',
+  'userErrors.localModelUnavailable.body':
+    'Ollama недоступен по настроенному адресу, либо нужная модель там не установлена. Запустите Ollama и загрузите модель по этому адресу или переведите эту работу на облачного провайдера.',
   'userErrors.scope.chat': 'Чат',
   'userErrors.scope.cron': 'Запланированная задача',
+  'userErrors.scope.workspace': 'Рабочая область',
+  'userErrors.memoryBudgetExhausted.title': 'Память перестала расти',
+  'userErrors.memoryBudgetExhausted.body':
+    'Бюджет эмбеддингов израсходован, поэтому новые данные больше не добавляются в память. Настройте локальные эмбеддинги или добавьте свой ключ API, чтобы продолжить.',
+  'memoryBudget.approachingTitle': 'Память приближается к лимиту эмбеддингов',
+  'memoryBudget.approachingMessage':
+    'Вы израсходовали {pct}% бюджета эмбеддингов. Настройте локальные эмбеддинги или добавьте свой ключ API, чтобы память продолжала расти без перерывов.',
+  'memoryBudget.exhaustedTitle': 'Память перестала расти',
+  'memoryBudget.exhaustedMessage':
+    'Бюджет эмбеддингов израсходован, поэтому новые данные больше не добавляются в память. Настройте локальные эмбеддинги или добавьте свой ключ API, чтобы продолжить.',
+  'memoryBudget.cta': 'Настроить эмбеддинги',
+  'userErrors.scope.memory': 'Память',
   // Agent World: Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': 'Сумма',
   'agentWorld.trading.networkLabel': 'Сеть',
@@ -7303,8 +7329,15 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': 'Сеансы агентов программирования',
   'memorySources.codingSessions.description':
     'Превратите решения и исправления из Codex и Claude Code в приватную память персоны.',
-  'memorySources.codingSessions.ingest': 'Загрузить новые сеансы',
-  'memorySources.codingSessions.ingesting': 'Загрузка…',
+  'memorySources.codingSessions.importAll': 'Импортировать все сеансы',
+  'memorySources.codingSessions.draining': 'Импорт… проход {passes}',
+  'memorySources.codingSessions.stop': 'Остановить',
+  'memorySources.codingSessions.progress':
+    'Импортировано {processed} сеансов · {observations} наблюдений',
+  'memorySources.codingSessions.remaining': 'осталось около {remaining}',
+  'memorySources.codingSessions.stopped': 'Импорт приостановлен',
+  'memorySources.codingSessions.stoppedMessage':
+    'Импортировано {processed} сеансов. Запустите импорт снова, чтобы продолжить оставшиеся {remaining}.',
   'memorySources.codingSessions.claude': 'Клод Код',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': 'Сеансы: {files} · Сообщения пользователя: {evidence}',
@@ -7316,8 +7349,6 @@ const messages: TranslationMap = {
     'Обработано сеансов: {processed}; наблюдений персоны: {observations}.',
   'memorySources.codingSessions.partialFailure':
     'Не удалось обработать сеансов: {failed}; обработано: {processed}. Запустите загрузку ещё раз для повтора.',
-  'memorySources.codingSessions.moreRemaining':
-    'Достигнут лимит сеансов в пакете. Запустите загрузку ещё раз, чтобы продолжить импорт истории.',
   'memorySources.codingSessions.failed': 'Не удалось загрузить сеансы программирования',
   'flows.canvas.sidePanelToggle': 'Боковая панель',
   'flows.canvas.legendTab': 'Вручную',

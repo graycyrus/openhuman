@@ -2424,6 +2424,15 @@ const messages: TranslationMap = {
   'voice.providers.piperReady': 'पाइपर तैयार है.',
   'voice.providers.piperInstallStarted': 'पाइपर स्थापित करना प्रारंभ हो गया',
   'voice.providers.failedToInstallPiper': 'पाइपर स्थापित करने में विफल',
+  'voice.mode.title': 'वॉइस मोड',
+  'voice.mode.desc': 'चुनें कि Human टैब में असिस्टेंट कैसे बात करे।',
+  'voice.mode.realtime': 'रियलटाइम वॉइस (बीटा)',
+  'voice.mode.realtimeDesc': 'बारी-बारी के बजाय सीधे लाइव बातचीत करें।',
+  'voice.mode.start': 'वॉइस चैट शुरू करें',
+  'voice.mode.stop': 'वॉइस चैट समाप्त करें',
+  'voice.mode.connecting': 'कनेक्ट हो रहा है…',
+  'voice.mode.listening': 'सुन रहा है',
+  'voice.mode.speaking': 'बोल रहा है',
   'voice.providers.title': 'आवाज प्रदाता',
   'voice.providers.desc':
     'चुनें कि ट्रांसक्रिप्शन और सिंथेसिस कहाँ चलें। बाइनरी और मॉडल डाउनलोड करने के लिए Install locally बटन उपयोग करें। स्थानीय प्रोवाइडर इंस्टॉल पूरा होने से पहले भी सहेजे जा सकते हैं: कोई मैन्युअल WHISPER_BIN या PIPER_BIN सेटअप आवश्यक नहीं।',
@@ -6831,6 +6840,7 @@ const messages: TranslationMap = {
   'pages.settings.account.securityDesc': 'रहस्य भंडारण मोड और कीचेन स्थिति',
   // #002 memory-pipeline-hardening: degraded badges + typed remediation.
   'memoryTree.status.statusDegraded': 'अवक्रमित',
+  'memoryTree.status.statusBudgetExhausted': 'रुका हुआ: एम्बेडिंग बजट समाप्त',
   'memoryTree.status.degradedRecall': 'सिमेंटिक रिकॉल अक्षम',
   'memoryTree.status.degradedStructure': 'विकी संरचना अधूरी',
   'memoryTree.status.extractionCoverage': 'एक्सट्रैक्शन कवरेज: {pct}% खंडों में संरचना है',
@@ -7153,6 +7163,7 @@ const messages: TranslationMap = {
   'userErrors.dismiss': 'खारिज करें',
   'userErrors.action.openBilling': 'बिलिंग खोलें',
   'userErrors.action.openProviderSettings': 'प्रदाता सेटिंग्स',
+  'userErrors.action.openEmbeddingsSettings': 'एम्बेडिंग सेट करें',
   'userErrors.budgetExceeded.title': 'प्रबंधित बजट समाप्त',
   'userErrors.budgetExceeded.body': 'प्रबंधित AI बजट समाप्त। बजट जोड़ें या प्लान बदलें।',
   'userErrors.insufficientCredits.title': 'प्रदाता क्रेडिट आवश्यक',
@@ -7161,8 +7172,23 @@ const messages: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'API कुंजी आवश्यक',
   'userErrors.apiKeyMissing.body':
     'आपके AI प्रदाता के लिए कोई API कुंजी सेट नहीं है। जारी रखने के लिए प्रदाता सेटिंग्स में एक जोड़ें।',
+  'userErrors.localModelUnavailable.title': 'लोकल मॉडल उपलब्ध नहीं है',
+  'userErrors.localModelUnavailable.body':
+    'कॉन्फ़िगर किए गए एंडपॉइंट पर Ollama तक पहुँच नहीं है, या ज़रूरी मॉडल वहाँ इंस्टॉल नहीं है। Ollama शुरू करके उसी एंडपॉइंट पर मॉडल पुल करें, या इस काम को किसी क्लाउड प्रोवाइडर पर ले जाएँ।',
   'userErrors.scope.chat': 'चैट',
   'userErrors.scope.cron': 'निर्धारित कार्य',
+  'userErrors.scope.workspace': 'वर्कस्पेस',
+  'userErrors.memoryBudgetExhausted.title': 'मेमोरी बढ़ना बंद हो गई है',
+  'userErrors.memoryBudgetExhausted.body':
+    'आपका एम्बेडिंग बजट खत्म हो गया है, इसलिए नई सामग्री अब मेमोरी में नहीं जुड़ रही। दोबारा शुरू करने के लिए लोकल एम्बेडिंग सेट करें या अपनी API कुंजी जोड़ें।',
+  'memoryBudget.approachingTitle': 'मेमोरी अपनी एम्बेडिंग सीमा के पास पहुंच रही है',
+  'memoryBudget.approachingMessage':
+    'आपने अपने एम्बेडिंग बजट का {pct}% इस्तेमाल कर लिया है। मेमोरी बिना रुकावट बढ़ती रहे, इसके लिए लोकल एम्बेडिंग सेट करें या अपनी API कुंजी जोड़ें।',
+  'memoryBudget.exhaustedTitle': 'मेमोरी बढ़ना बंद हो गई है',
+  'memoryBudget.exhaustedMessage':
+    'आपका एम्बेडिंग बजट खत्म हो गया है, इसलिए नई सामग्री अब मेमोरी में नहीं जुड़ रही। दोबारा शुरू करने के लिए लोकल एम्बेडिंग सेट करें या अपनी API कुंजी जोड़ें।',
+  'memoryBudget.cta': 'एम्बेडिंग सेट करें',
+  'userErrors.scope.memory': 'मेमोरी',
   // Agent World: Identity trading (confirm-before-spend + balance gate)
   'agentWorld.trading.amountLabel': 'राशि',
   'agentWorld.trading.networkLabel': 'नेटवर्क',
@@ -7224,8 +7250,14 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.title': 'कोडिंग-एजेंट सत्र',
   'memorySources.codingSessions.description':
     'Codex और Claude Code के निर्णयों व सुधारों को निजी व्यक्तित्व स्मृति में बदलें।',
-  'memorySources.codingSessions.ingest': 'नए सत्र शामिल करें',
-  'memorySources.codingSessions.ingesting': 'शामिल किया जा रहा है…',
+  'memorySources.codingSessions.importAll': 'सभी सत्र आयात करें',
+  'memorySources.codingSessions.draining': 'आयात हो रहा है… पास {passes}',
+  'memorySources.codingSessions.stop': 'रोकें',
+  'memorySources.codingSessions.progress': '{processed} सत्र आयात किए गए · {observations} अवलोकन',
+  'memorySources.codingSessions.remaining': 'लगभग {remaining} शेष',
+  'memorySources.codingSessions.stopped': 'आयात रोका गया',
+  'memorySources.codingSessions.stoppedMessage':
+    '{processed} सत्र आयात किए गए। शेष {remaining} जारी रखने के लिए फिर से आयात चलाएँ।',
   'memorySources.codingSessions.claude': 'क्लॉड कोड',
   'memorySources.codingSessions.codex': 'Codex',
   'memorySources.codingSessions.counts': '{files} सत्र · {evidence} मानवीय संदेश',
@@ -7237,8 +7269,6 @@ const messages: TranslationMap = {
     '{processed} सत्रों से {observations} व्यक्तित्व अवलोकन बने।',
   'memorySources.codingSessions.partialFailure':
     '{processed} सत्र संसाधित हुए, जबकि {failed} विफल रहे। दोबारा प्रयास करने के लिए अंतर्ग्रहण फिर चलाएँ।',
-  'memorySources.codingSessions.moreRemaining':
-    'सत्र बैच की सीमा पूरी हो गई है। अपना इतिहास आयात करना जारी रखने के लिए फिर से अंतर्ग्रहण चलाएँ।',
   'memorySources.codingSessions.failed': 'कोडिंग सत्र शामिल करना विफल रहा',
   'flows.canvas.sidePanelToggle': 'साइड पैनल',
   'flows.canvas.legendTab': 'मैनुअल',
