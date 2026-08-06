@@ -6,6 +6,9 @@ import Accounts from '../Accounts';
 
 const mockDispatch = vi.fn();
 
+// Flipped by the reduced-motion test; read through the chatMascot mock below.
+let reduceMotion = false;
+
 let mascotExpanded = false;
 let activeAccountId = '__agent__';
 
@@ -28,6 +31,7 @@ vi.mock('../../features/human/chatMascot', () => ({
   ChatMascotOverlay: () => <div data-testid="chat-mascot-overlay" />,
   ChatMascotStage: () => <div data-testid="chat-mascot-stage" />,
   MASCOT_TRANSITION_MS: 320,
+  prefersReducedMotion: () => reduceMotion,
 }));
 
 const renderPage = () =>
@@ -78,6 +82,29 @@ describe('Accounts — merged chat + mascot surface', () => {
       expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument();
       unmount();
     }
+  });
+
+  it('drops the column transition when the user prefers reduced motion', () => {
+    // The transition is inline (it shares a duration with the mascot's travel),
+    // and an inline declaration beats a `motion-reduce:` class — so the
+    // preference has to be applied in JS or the column slides while the mascot
+    // snaps.
+    mascotExpanded = true;
+    activeAccountId = '__agent__';
+    reduceMotion = true;
+    try {
+      renderPage();
+      expect(screen.getByTestId('chat-mascot-stage-column').style.transition).toBe('');
+    } finally {
+      reduceMotion = false;
+    }
+  });
+
+  it('animates the column when reduced motion is not requested', () => {
+    mascotExpanded = true;
+    activeAccountId = '__agent__';
+    renderPage();
+    expect(screen.getByTestId('chat-mascot-stage-column').style.transition).toContain('width');
   });
 
   it('drops the mascot entirely while a connected app is selected', () => {

@@ -16,7 +16,7 @@ import { DOCK_PX } from './geometry';
  */
 const ChatMascotDock = () => {
   const { t } = useT();
-  const { dockRef, expand } = useChatMascot();
+  const { setDockNode, expand } = useChatMascot();
   const expanded = useAppSelector(selectChatMascotExpanded);
 
   // Nothing is painted here once the mascot has flown to the stage, so keeping
@@ -26,9 +26,7 @@ const ChatMascotDock = () => {
 
   return (
     <button
-      ref={node => {
-        dockRef.current = node;
-      }}
+      ref={setDockNode}
       type="button"
       // `bottom-full` puts the slot's base exactly on the input box's top edge;
       // the negative margin drops it a few px so the mascot reads as standing

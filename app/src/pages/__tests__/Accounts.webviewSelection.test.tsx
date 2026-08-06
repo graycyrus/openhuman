@@ -6,6 +6,10 @@ import Accounts from '../Accounts';
 
 const mockDispatch = vi.fn();
 
+// This suite never exercises the reduced-motion branch; the mock just needs a
+// stable value so `Accounts` can read the preference.
+const reduceMotion = false;
+
 const agentState = {
   accounts: {
     accounts: {
@@ -40,6 +44,7 @@ vi.mock('../../features/human/chatMascot', () => ({
   ChatMascotOverlay: () => <div data-testid="chat-mascot-overlay" />,
   ChatMascotStage: () => <div data-testid="chat-mascot-stage" />,
   MASCOT_TRANSITION_MS: 320,
+  prefersReducedMotion: () => reduceMotion,
 }));
 vi.mock('../../store/mascotSlice', () => ({ selectChatMascotExpanded: () => false }));
 vi.mock('../../features/conversations/Conversations', () => ({

@@ -242,7 +242,10 @@ describe('AgentProcessSourcePanel', () => {
     renderPanel(<AgentProcessSourcePanel open entries={[]} onClose={onClose} />);
     // The backdrop is the first (full-bleed) Close button.
     // The panel portals to document.body, so it is not inside `container`.
-    const backdrop = document.body.querySelector('button[aria-label="Close"]');
+    // Scoped to the panel root so unrelated body content cannot satisfy this.
+    const panel = document.body.querySelector('[data-testid="agent-process-source-panel"]');
+    expect(panel).not.toBeNull();
+    const backdrop = panel!.querySelector('button[aria-label="Close"]');
     expect(backdrop).not.toBeNull();
     await userEvent.click(backdrop as HTMLElement);
     expect(onClose).toHaveBeenCalledTimes(1);

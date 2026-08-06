@@ -20,7 +20,7 @@ import {
 } from '../Mascot';
 import { useMascotManifest } from '../Mascot/manifest/useMascotManifest';
 import { useHumanMascot } from '../useHumanMascot';
-import { useChatMascot } from './ChatMascotContext';
+import { useChatMascot, useDockNode } from './ChatMascotContext';
 import {
   boxTransform,
   easeInOutCubic,
@@ -78,6 +78,7 @@ function measure(el: HTMLElement | null): MascotBox | null {
  */
 const ChatMascotOverlay = () => {
   const { dockRef, stageRef } = useChatMascot();
+  const dockNode = useDockNode();
   const expanded = useAppSelector(selectChatMascotExpanded);
   const listening = useAppSelector(selectChatMascotListening);
   const speakRepliesPref = useAppSelector(selectSpeakReplies);
@@ -231,8 +232,12 @@ const ChatMascotOverlay = () => {
     // Each of those resizes an ancestor of the dock, so walk a few levels up —
     // that covers the composer's input box and its surrounding footer without
     // resorting to a permanent per-frame position poll.
+    //
+    // Driven by `dockNode` (state), not `dockRef.current`: this effect must
+    // re-subscribe when the dock mounts late or remounts, otherwise it observes
+    // nothing — or keeps watching detached nodes — for the rest of the session.
     const DOCK_ANCESTORS_WATCHED = 3;
-    let node: HTMLElement | null = dockRef.current;
+    let node: HTMLElement | null = dockNode;
     for (let i = 0; node && i <= DOCK_ANCESTORS_WATCHED; i += 1) {
       observer.observe(node);
       node = node.parentElement;
@@ -242,7 +247,7 @@ const ChatMascotOverlay = () => {
       window.removeEventListener('resize', resettle);
       observer.disconnect();
     };
-  }, [expanded, dockRef, stageRef]);
+  }, [expanded, dockNode, dockRef, stageRef]);
 
   return (
     <div

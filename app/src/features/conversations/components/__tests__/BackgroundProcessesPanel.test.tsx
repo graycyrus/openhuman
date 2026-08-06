@@ -163,8 +163,11 @@ describe('BackgroundProcessesPanel', () => {
       <BackgroundProcessesPanel open processes={rows} onClose={vi.fn()} onOpenProcess={vi.fn()} />
     );
     // The panel portals to document.body, so it is not inside `container`.
-    expect(document.body.textContent).toContain('1 tool call'); // singular branch (NoGoal row)
-    expect(document.body.textContent).toContain('3 steps'); // iterations branch
+    // Scoped to the panel root so unrelated body content cannot satisfy this.
+    const panel = document.body.querySelector('[data-testid="background-processes-panel"]');
+    expect(panel).not.toBeNull();
+    expect(panel!.textContent).toContain('1 tool call'); // singular branch (NoGoal row)
+    expect(panel!.textContent).toContain('3 steps'); // iterations branch
     // The goal renders for the row that has one; the goal-less row adds no copy.
     expect(screen.getAllByText('investigate the bridge')).toHaveLength(1);
   });

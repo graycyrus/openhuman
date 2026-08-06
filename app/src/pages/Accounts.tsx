@@ -8,6 +8,7 @@ import {
   ChatMascotProvider,
   ChatMascotStage,
   MASCOT_TRANSITION_MS,
+  prefersReducedMotion,
 } from '../features/human/chatMascot';
 import { usePrewarmMostRecentAccount } from '../hooks/usePrewarmMostRecentAccount';
 import { startWebviewAccountService } from '../services/webviewAccountService';
@@ -48,6 +49,9 @@ const Accounts = () => {
   const order = useAppSelector(state => state.accounts.order);
   const activeAccountId = useAppSelector(state => state.accounts.activeAccountId);
   const mascotExpanded = useAppSelector(selectChatMascotExpanded);
+  // Read per render rather than once: the OS setting can change while the app
+  // is open, and every toggle re-renders this component anyway.
+  const reduceMotion = prefersReducedMotion();
 
   useEffect(() => {
     startWebviewAccountService();
@@ -97,8 +101,17 @@ const Accounts = () => {
             </div>
 
             <div
-              className="relative flex-none overflow-hidden motion-reduce:transition-none"
-              style={{ width: mascotExpanded ? STAGE_WIDTH : '0px', transition: STAGE_TRANSITION }}
+              className="relative flex-none overflow-hidden"
+              // The transition is inline rather than a class because it shares
+              // MASCOT_TRANSITION_MS with the mascot's own travel. That means a
+              // `motion-reduce:` class cannot switch it off — an inline
+              // declaration wins — so the preference is applied here instead,
+              // matching `prefersReducedMotion()` in ChatMascotOverlay. Without
+              // this the mascot snaps while the column slides.
+              style={{
+                width: mascotExpanded ? STAGE_WIDTH : '0px',
+                transition: reduceMotion ? undefined : STAGE_TRANSITION,
+              }}
               data-testid="chat-mascot-stage-column"
               data-expanded={mascotExpanded ? 'true' : 'false'}>
               {/* Unmounted while docked rather than merely clipped: a

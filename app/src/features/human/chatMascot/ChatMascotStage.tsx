@@ -75,7 +75,7 @@ const ChatMascotStage = () => {
           onClick={collapse}
           aria-label={t('chat.mascot.collapse')}
           title={t('chat.mascot.collapse')}
-          data-analytics-id="chat-mascot-collapse"
+          analyticsId="chat-mascot-collapse"
           data-testid="chat-mascot-collapse"
           className="rounded-full">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

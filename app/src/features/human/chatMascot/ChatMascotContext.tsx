@@ -3,10 +3,12 @@ import {
   createContext,
   type ReactNode,
   type RefObject,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { useAppDispatch } from '../../../store/hooks';
@@ -35,6 +37,11 @@ const mascotLog = debug('human:chat-mascot');
 export interface ChatMascotContextValue {
   /** The small mascot slot standing on the composer. Supplies the docked rect. */
   dockRef: RefObject<HTMLElement | null>;
+  /**
+   * Ref callback the dock passes to its element. Keeps `dockRef` in sync and
+   * publishes the node on `ChatMascotDockNodeContext` — see `useDockNode`.
+   */
+  setDockNode: (node: HTMLElement | null) => void;
   /** The large square inside the voice stage. Supplies the expanded rect. */
   stageRef: RefObject<HTMLElement | null>;
   /** How the stage reaches the chat's send path. */
@@ -46,6 +53,22 @@ export interface ChatMascotContextValue {
 const ChatMascotContext = createContext<ChatMascotContextValue | null>(null);
 
 /**
+ * The dock element, published separately from the main context.
+ *
+ * A ref alone cannot drive the overlay's `ResizeObserver`: refs are stable, so
+ * an effect keyed on one runs once and reads whatever `dockRef.current` happened
+ * to be at that moment. The dock can mount *after* the overlay (the case the
+ * anchor poll exists for) or remount with the composer — in both cases the
+ * observer would end up watching nothing, or watching detached nodes.
+ *
+ * It lives in its own context rather than on `ChatMascotContextValue` because
+ * that value must stay referentially stable: `Conversations` consumes it, and
+ * re-rendering the chat tree every time the dock mounts would chip away at the
+ * guarantee documented above. Only the overlay subscribes here.
+ */
+const ChatMascotDockNodeContext = createContext<HTMLElement | null>(null);
+
+/**
  * Mounted by the merged chat surface (`pages/Accounts.tsx`) around the chat
  * column, the mascot stage, and the mascot overlay.
  */
@@ -53,6 +76,11 @@ export const ChatMascotProvider = ({ children }: { children: ReactNode }) => {
   const dispatch = useAppDispatch();
   const dockRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLElement | null>(null);
+  const [dockNode, setDockNodeState] = useState<HTMLElement | null>(null);
+  const setDockNode = useCallback((node: HTMLElement | null) => {
+    dockRef.current = node;
+    setDockNodeState(prev => (prev === node ? prev : node));
+  }, []);
   const sendStoreRef = useRef<ChatMascotSendStore | null>(null);
   sendStoreRef.current ??= new ChatMascotSendStore();
   const sendStore = sendStoreRef.current;
@@ -60,6 +88,7 @@ export const ChatMascotProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo<ChatMascotContextValue>(
     () => ({
       dockRef,
+      setDockNode,
       stageRef,
       sendStore,
       expand: () => {
@@ -71,10 +100,16 @@ export const ChatMascotProvider = ({ children }: { children: ReactNode }) => {
         dispatch(setChatMascotExpanded(false));
       },
     }),
-    [dispatch, sendStore]
+    [dispatch, sendStore, setDockNode]
   );
 
-  return <ChatMascotContext.Provider value={value}>{children}</ChatMascotContext.Provider>;
+  return (
+    <ChatMascotContext.Provider value={value}>
+      <ChatMascotDockNodeContext.Provider value={dockNode}>
+        {children}
+      </ChatMascotDockNodeContext.Provider>
+    </ChatMascotContext.Provider>
+  );
 };
 
 /**
@@ -86,6 +121,11 @@ export const ChatMascotProvider = ({ children }: { children: ReactNode }) => {
  */
 export function useChatMascotOptional(): ChatMascotContextValue | null {
   return useContext(ChatMascotContext);
+}
+
+/** The live dock element, or `null` before it mounts. Overlay-only. */
+export function useDockNode(): HTMLElement | null {
+  return useContext(ChatMascotDockNodeContext);
 }
 
 /** Same, but for components that only ever render inside the provider. */
