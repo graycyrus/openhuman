@@ -324,7 +324,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': '최근 동기화됨',
   'conversations.backgroundTasks.memProviderIdle': '대기 중',
   'nav.home': '홈',
-  'nav.human': '휴먼',
   'nav.chat': '채팅',
   'nav.assistant': '어시스턴트',
   'assistant.faceMode.on': 'Tiny와 대화 중',
@@ -2695,6 +2694,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': '음성 응답 재생 중',
   'chat.voiceHint': '마이크를 사용해 말하세요',
   'chat.micUnavailable': '마이크를 사용할 수 없습니다',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': '어시스턴트와 대화하기',
+  'chat.mascot.collapse': '채팅으로 돌아가기',
+  'chat.mascot.speakReplies': '답변을 소리 내어 읽기',
+  'chat.mascot.speakRepliesHint':
+    '마스코트가 열려 있는 동안 답변을 소리 내어 읽어 줍니다. 조용히 대화하려면 끄세요.',
   'chat.turn': '턴',
   'chat.turns': '턴',
   'chat.openWorkerThread': '워커 스레드 열기',
@@ -6257,9 +6262,6 @@ const messages: TranslationMap = {
     '환경설정, 개인정보, 알림이 모두 여기에 있습니다. 이 페이지에서 언제든 투어를 다시 시작할 수 있습니다.',
   'walkthrough.steps.chatTab.title': '채팅으로 돌아가기',
   'walkthrough.steps.chatTab.content': '대화로 돌아가고 싶을 때 Chat 탭을 사용하세요.',
-  'walkthrough.steps.humanTab.title': 'Human 프로필 보기',
-  'walkthrough.steps.humanTab.content':
-    'Human은 개인 맥락, 정체성, 어시스턴트가 보는 프로필을 한곳에 모읍니다.',
   'walkthrough.steps.brainTab.title': 'Brain 열기',
   'walkthrough.steps.brainTab.content':
     'Brain은 메모리 그래프입니다. OpenHuman이 무엇을 알고 아이디어가 어떻게 연결되는지 확인하는 곳입니다.',

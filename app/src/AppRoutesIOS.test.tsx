@@ -4,9 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Stub out the surfaces the mobile shell routes to so we can mount
 // `<AppRoutesIOS />` without dragging the full Redux + provider tree along.
-vi.mock('./features/human/HumanPage', () => ({
-  default: () => <div data-testid="page-human">human</div>,
-}));
 vi.mock('./pages/Accounts', () => ({ default: () => <div data-testid="page-chat">chat</div> }));
 vi.mock('./pages/Settings', () => ({
   default: () => <div data-testid="page-settings">settings</div>,
@@ -48,18 +45,19 @@ describe('AppRoutesIOS', () => {
     });
 
     it('bounces /human back to /pair when no profile exists', () => {
+      // /human redirects to /chat, which then bounces on the pairing gate.
       renderAt('/human');
       expect(screen.getByTestId('page-pair')).toBeInTheDocument();
-      expect(screen.queryByTestId('page-human')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('page-chat')).not.toBeInTheDocument();
     });
   });
 
   describe('paired (profile exists)', () => {
     beforeEach(() => listProfiles.mockReturnValue([{ id: 'p1' }]));
 
-    it('renders HumanPage with the mobile tab bar', () => {
+    it('redirects the retired /human route onto the merged chat surface', () => {
       renderAt('/human');
-      expect(screen.getByTestId('page-human')).toBeInTheDocument();
+      expect(screen.getByTestId('page-chat')).toBeInTheDocument();
       expect(screen.getByTestId('mobile-tab-bar')).toBeInTheDocument();
     });
 
@@ -75,9 +73,9 @@ describe('AppRoutesIOS', () => {
       expect(screen.getByTestId('mobile-tab-bar')).toBeInTheDocument();
     });
 
-    it('redirects unknown paths to /human when paired', () => {
+    it('redirects unknown paths to /chat when paired', () => {
       renderAt('/');
-      expect(screen.getByTestId('page-human')).toBeInTheDocument();
+      expect(screen.getByTestId('page-chat')).toBeInTheDocument();
     });
   });
 });

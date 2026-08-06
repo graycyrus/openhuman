@@ -5,6 +5,7 @@ import {
   FLUSH,
   PAUSE,
   PERSIST,
+  type PersistConfig,
   persistReducer,
   persistStore,
   PURGE,
@@ -30,7 +31,7 @@ import coreModeReducer from './coreModeSlice';
 import githubStarReducer from './githubStarSlice';
 import layoutReducer from './layoutSlice';
 import localeReducer from './localeSlice';
-import mascotReducer from './mascotSlice';
+import mascotReducer, { migrateLegacySpeakReplies } from './mascotSlice';
 import notificationReducer from './notificationSlice';
 import personaReducer from './personaSlice';
 import providerSurfacesReducer from './providerSurfaceSlice';
@@ -163,12 +164,27 @@ const persistedLayoutReducer = persistReducer(layoutPersistConfig, layoutReducer
 
 // Persist the mascot appearance fields, the custom GIF override, and the
 // selected mascot id (so the chosen GitHub-manifest mascot survives a reload —
-// the slice's REHYDRATE guard re-validates it). Other mascot fields stay as
+// the slice's REHYDRATE guard re-validates it). `chatMascotExpanded` and
+// `speakReplies` join them so the merged chat surface reopens in the mode the
+// user left it in; `chatMascotListening` is deliberately excluded (transient mic
+// state — see the field docs in mascotSlice). Other mascot fields stay as
 // runtime state.
 const mascotPersistConfig = {
   key: 'mascot',
   storage,
-  whitelist: ['color', 'voiceId', 'customMascotGifUrl', 'selectedMascotId'],
+  whitelist: [
+    'color',
+    'voiceId',
+    'customMascotGifUrl',
+    'selectedMascotId',
+    'chatMascotExpanded',
+    'speakReplies',
+  ],
+  // Folds the pre-Redux `human.speakReplies` localStorage key into the blob
+  // before REHYDRATE. Lives here rather than in the reducer so the reducer stays
+  // a pure function of (state, action) — see migrateLegacySpeakReplies.
+  migrate: (async (state?: Record<string, unknown>) =>
+    migrateLegacySpeakReplies(state)) as PersistConfig<unknown>['migrate'],
 };
 const persistedMascotReducer = persistReducer(mascotPersistConfig, mascotReducer);
 

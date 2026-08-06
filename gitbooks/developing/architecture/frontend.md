@@ -334,10 +334,38 @@ Example: `SocketProvider` owns the socket instance; Redux stores connection stat
 
 ## Human Mascot Surface
 
-The Human page (`app/src/features/human/HumanPage.tsx`) renders the main
-`YellowMascot` beside the conversation sidebar. The mascot face still comes
-from `useHumanMascot`, which subscribes to chat lifecycle events for thinking,
-speaking, acknowledgement, and error states.
+The mascot lives on the unified chat surface (`/chat`), not on a page of its
+own — the standalone Human page was merged into chat and `/human` is now a
+back-compat redirect. `app/src/features/human/chatMascot/` owns the merged
+surface:
+
+| Module                  | Role                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ChatMascotContext.tsx` | Shared dock/stage refs and the send binding. Every value is stable — see the re-render note below.        |
+| `ChatMascotDock.tsx`    | The small mascot standing on the composer's input box. An anchor + hit area; it draws nothing.            |
+| `ChatMascotStage.tsx`   | The scaled-up voice surface: `MicComposer`, input-device selector, speak-replies switch, collapse button. |
+| `ChatMascotOverlay.tsx` | The single Rive instance, moved between dock and stage with a `transform`.                                |
+| `geometry.ts`           | Pure dock ⇄ stage transform maths (`inscribedSquare`, `lerpBox`, `boxTransform`).                         |
+
+Clicking the dock expands the mascot into a right-hand stage column while the
+transcript and the text composer stay live in the left column, so voice and text
+are the same conversation. `pages/Accounts.tsx` animates the column width;
+`ChatMascotOverlay` re-measures both anchors per frame so the mascot stays glued
+to a destination that is still moving. Expanded/collapsed and the speak-replies
+preference are persisted in `mascotSlice`.
+
+**Two invariants worth keeping.** The mascot re-renders at ~60fps during TTS
+lipsync, so (a) it is rendered as a leaf with nothing beneath it, and (b) the
+mascot context value is deliberately non-reactive — reactive state lives in
+Redux or in the send-binding external store instead. A reactive context value
+would reconcile the whole chat tree every frame, which is the stall #5357 had to
+fix. And the overlay only mounts while the agent account is selected: HTML paints
+*behind* the native CEF provider webviews, so a fixed overlay left alive under
+WhatsApp/Slack would be an invisible canvas still burning frames.
+
+The mascot face comes from `useHumanMascot`, which subscribes to chat lifecycle
+events for thinking, speaking, acknowledgement, and error states, plus a
+`listening` pose driven by `MicComposer`'s `onRecordingChange`.
 
 Sub-agent delegation is visualized by `SubMascotLayer`. It does not introduce a
 new socket protocol. Instead, it reads the selected or active thread's
@@ -362,7 +390,7 @@ orchestration layer around the main mascot.
 
 ## Pages & Routing
 
-The application uses HashRouter with protected and public route guards. Desktop routes live in **`app/src/AppRoutes.tsx`**; on mobile (iOS/Android) `AppRoutesIOS.tsx` renders a reduced Human/Chat/Settings set instead.
+The application uses HashRouter with protected and public route guards. Desktop routes live in **`app/src/AppRoutes.tsx`**; on mobile (iOS/Android) `AppRoutesIOS.tsx` renders a reduced Chat/Settings set instead.
 
 ### Route map
 
@@ -373,7 +401,7 @@ Current desktop routes (read `AppRoutes.tsx` for the authoritative table — the
 /auth                  → WebCallbackPage (auth callback)
 /callback/:kind[/:status] → WebCallbackPage (generic OAuth/provider callbacks)
 /onboarding/*          → Onboarding stepper (ProtectedRoute)
-/human                 → HumanPage (mascot surface)
+/human                 → /chat (back-compat redirect; the mascot merged into chat)
 /brain                 → Brain (memory knowledge-graph)
 /flows                 → FlowsPage · /flows/draft → draft canvas · /flows/:id → FlowCanvasPage
 /orchestration         → OrchestrationPage (TinyPlace multi-agent coordination)

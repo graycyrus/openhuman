@@ -311,7 +311,7 @@ test.describe('Settings - Feature Preferences', () => {
     await expect(page.getByTestId('mascot-color-burgundy')).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('persists manifest mascot selection and uses it on the Human page', async ({ page }) => {
+  test('persists manifest mascot selection and uses it on the chat mascot', async ({ page }) => {
     await installMascotManifestMock(page);
     await openAuthenticatedRoute(page, 'pw-settings-manifest-mascot', '/settings/mascot');
 
@@ -332,8 +332,11 @@ test.describe('Settings - Feature Preferences', () => {
       'true'
     );
 
+    // /human now redirects onto the merged chat surface, where the same
+    // manifest mascot renders in the composer dock.
     await page.goto('/#/human');
     await waitForAppReady(page);
+    await expect(page).toHaveURL(/#\/chat/);
     await expect.poll(() => getSelectedMascotId(page)).toBe('river-guide');
   });
 

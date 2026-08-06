@@ -303,7 +303,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': '最近已同步',
   'conversations.backgroundTasks.memProviderIdle': '空闲',
   'nav.home': '首页',
-  'nav.human': '助手',
   'nav.chat': '对话',
   'nav.assistant': '助手',
   'assistant.faceMode.on': '正在与 Tiny 对话',
@@ -2574,6 +2573,11 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': '正在播放语音回复',
   'chat.voiceHint': '使用麦克风说话',
   'chat.micUnavailable': '麦克风不可用',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': '和你的助手说话',
+  'chat.mascot.collapse': '返回聊天',
+  'chat.mascot.speakReplies': '朗读回复',
+  'chat.mascot.speakRepliesHint': '吉祥物打开时会朗读回复。关闭后对话将保持静音。',
   'chat.turn': '轮',
   'chat.turns': '轮',
   'chat.openWorkerThread': '打开工作线程',
@@ -5993,8 +5997,6 @@ const messages: TranslationMap = {
     '偏好、隐私和通知都在这里。你可以随时从此页面重新开始本引导。',
   'walkthrough.steps.chatTab.title': '返回聊天',
   'walkthrough.steps.chatTab.content': '想回到对话时，使用 Chat 标签。',
-  'walkthrough.steps.humanTab.title': '了解你的 Human 资料',
-  'walkthrough.steps.humanTab.content': 'Human 汇集你的个人上下文、身份以及助手可见的资料。',
   'walkthrough.steps.brainTab.title': '打开 Brain',
   'walkthrough.steps.brainTab.content':
     'Brain 是记忆图谱，用来查看 OpenHuman 知道什么，以及想法如何相互连接。',

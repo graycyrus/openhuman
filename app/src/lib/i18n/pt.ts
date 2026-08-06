@@ -333,7 +333,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': 'Sincronizado recentemente',
   'conversations.backgroundTasks.memProviderIdle': 'Ocioso',
   'nav.home': 'Início',
-  'nav.human': 'Humano',
   'nav.chat': 'Bate-papo',
   'nav.assistant': 'Assistente',
   'assistant.faceMode.on': 'Falando com o Tiny',
@@ -2773,6 +2772,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': 'Reproduzindo resposta de voz',
   'chat.voiceHint': 'Use o microfone para falar',
   'chat.micUnavailable': 'Microfone indisponível',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'Fale com seu assistente',
+  'chat.mascot.collapse': 'Voltar para o chat',
+  'chat.mascot.speakReplies': 'Ler as respostas em voz alta',
+  'chat.mascot.speakRepliesHint':
+    'As respostas são lidas em voz alta enquanto o mascote está aberto. Desative para manter a conversa em silêncio.',
   'chat.turn': 'turno',
   'chat.turns': 'turnos',
   'chat.openWorkerThread': 'Abrir thread de worker',
@@ -6424,9 +6429,6 @@ const messages: TranslationMap = {
     'Preferências, privacidade e notificações ficam aqui. Você pode reiniciar este tour por esta página a qualquer momento.',
   'walkthrough.steps.chatTab.title': 'Volte ao chat',
   'walkthrough.steps.chatTab.content': 'Use a aba Chat sempre que quiser retornar às conversas.',
-  'walkthrough.steps.humanTab.title': 'Conheça seu perfil humano',
-  'walkthrough.steps.humanTab.content':
-    'Human reúne seu contexto pessoal, identidade e perfil visível ao assistente.',
   'walkthrough.steps.brainTab.title': 'Abra seu Brain',
   'walkthrough.steps.brainTab.content':
     'Brain é o grafo de memória: o lugar para ver o que o OpenHuman sabe e como as ideias se conectam.',

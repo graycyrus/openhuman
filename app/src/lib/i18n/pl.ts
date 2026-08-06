@@ -340,7 +340,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': 'Niedawno zsynchronizowano',
   'conversations.backgroundTasks.memProviderIdle': 'Bezczynne',
   'nav.home': 'Start',
-  'nav.human': 'Człowiek',
   'nav.chat': 'Czat',
   'nav.assistant': 'Asystent',
   'assistant.faceMode.on': 'Rozmawia z Tiny',
@@ -2760,6 +2759,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': 'Odtwarzanie odpowiedzi głosowej',
   'chat.voiceHint': 'Użyj mikrofonu, aby mówić',
   'chat.micUnavailable': 'Mikrofon niedostępny',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'Porozmawiaj z asystentem',
+  'chat.mascot.collapse': 'Wróć do czatu',
+  'chat.mascot.speakReplies': 'Czytaj odpowiedzi na głos',
+  'chat.mascot.speakRepliesHint':
+    'Odpowiedzi są czytane na głos, dopóki maskotka jest otwarta. Wyłącz tę opcję, aby rozmowa pozostała cicha.',
   'chat.turn': 'tura',
   'chat.turns': 'tury',
   'chat.openWorkerThread': 'Otwórz wątek workera',
@@ -6419,9 +6424,6 @@ const messages: TranslationMap = {
     'Preferencje, prywatność i powiadomienia są tutaj. Możesz uruchomić tę prezentację ponownie z tej strony.',
   'walkthrough.steps.chatTab.title': 'Wróć do czatu',
   'walkthrough.steps.chatTab.content': 'Użyj karty Chat, gdy chcesz wrócić do rozmów.',
-  'walkthrough.steps.humanTab.title': 'Poznaj profil Human',
-  'walkthrough.steps.humanTab.content':
-    'Human łączy Twój kontekst osobisty, tożsamość i profil widoczny dla asystenta.',
   'walkthrough.steps.brainTab.title': 'Otwórz Brain',
   'walkthrough.steps.brainTab.content':
     'Brain to graf pamięci: miejsce, w którym sprawdzisz, co wie OpenHuman i jak łączą się idee.',

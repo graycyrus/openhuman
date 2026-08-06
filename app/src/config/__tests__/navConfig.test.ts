@@ -3,14 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { AVATAR_MENU_ITEMS, NAV_TABS } from '../navConfig';
 
 describe('NAV_TABS', () => {
-  it('has exactly 6 entries', () => {
-    expect(NAV_TABS).toHaveLength(6);
+  it('has exactly 5 entries', () => {
+    expect(NAV_TABS).toHaveLength(5);
   });
 
   it('has the correct ids in order', () => {
     expect(NAV_TABS.map(t => t.id)).toEqual([
       'chat',
-      'human',
       'brain',
       'flows',
       'agent-world',
@@ -21,7 +20,6 @@ describe('NAV_TABS', () => {
   it('has the correct paths', () => {
     expect(NAV_TABS.map(t => t.path)).toEqual([
       '/chat',
-      '/human',
       '/brain',
       '/flows',
       '/agent-world',
@@ -32,7 +30,6 @@ describe('NAV_TABS', () => {
   it('has the correct labelKeys', () => {
     expect(NAV_TABS.map(t => t.labelKey)).toEqual([
       'nav.chat',
-      'nav.human',
       'nav.brain',
       'nav.flows',
       'nav.agentWorld',
@@ -43,12 +40,15 @@ describe('NAV_TABS', () => {
   it('has the correct walkthroughAttrs', () => {
     expect(NAV_TABS.map(t => t.walkthroughAttr)).toEqual([
       'tab-chat',
-      'tab-human',
       'tab-brain',
       'tab-flows',
       'tab-agent-world',
       'tab-connections',
     ]);
+  });
+
+  it('no longer contains a human tab (merged into the chat surface)', () => {
+    expect(NAV_TABS.find(t => t.id === 'human')).toBeUndefined();
   });
 
   it('no longer contains a top-level orchestration tab (folded under Brain)', () => {

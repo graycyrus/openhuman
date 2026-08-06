@@ -33,21 +33,15 @@ vi.mock('../../store/hooks', () => ({
   useAppDispatch: () => mockDispatch,
   useAppSelector: (selector: (state: typeof agentState) => unknown) => selector(mockState),
 }));
-vi.mock('../../features/human/Mascot', () => ({
-  CustomGifMascot: () => null,
-  RiveMascot: () => null,
-  getMascotPalette: () => ({ bodyFill: '#000000', neckShadowColor: '#111111' }),
-  hexToArgbInt: () => 0,
+// The mascot is exercised by its own suite; here it would only drag Rive and
+// the manifest fetch into a test about which pane mounts for which account.
+vi.mock('../../features/human/chatMascot', () => ({
+  ChatMascotProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  ChatMascotOverlay: () => <div data-testid="chat-mascot-overlay" />,
+  ChatMascotStage: () => <div data-testid="chat-mascot-stage" />,
+  MASCOT_TRANSITION_MS: 320,
 }));
-vi.mock('../../features/human/useHumanMascot', () => ({
-  useHumanMascot: () => ({ face: null, visemeCode: null }),
-}));
-vi.mock('../../store/mascotSlice', () => ({
-  selectCustomMascotGifUrl: () => null,
-  selectCustomPrimaryColor: () => '#000000',
-  selectCustomSecondaryColor: () => '#111111',
-  selectMascotColor: () => 'blue',
-}));
+vi.mock('../../store/mascotSlice', () => ({ selectChatMascotExpanded: () => false }));
 vi.mock('../../features/conversations/Conversations', () => ({
   default: ({ variant }: { variant: string }) => <div data-testid="conversations">{variant}</div>,
   ConversationsPage: () => <div data-testid="agent-chat-panel" />,

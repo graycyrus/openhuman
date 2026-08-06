@@ -1,0 +1,95 @@
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, it, vi } from 'vitest';
+
+import Accounts from '../Accounts';
+
+const mockDispatch = vi.fn();
+
+let mascotExpanded = false;
+let activeAccountId = '__agent__';
+
+const state = () => ({ accounts: { accounts: {}, order: [], activeAccountId } });
+
+vi.mock('../../hooks/usePrewarmMostRecentAccount', () => ({
+  usePrewarmMostRecentAccount: vi.fn(),
+}));
+vi.mock('../../services/webviewAccountService', () => ({ startWebviewAccountService: vi.fn() }));
+vi.mock('../../store/hooks', () => ({
+  useAppDispatch: () => mockDispatch,
+  useAppSelector: (selector: (s: ReturnType<typeof state>) => unknown) => selector(state()),
+}));
+vi.mock('../../store/mascotSlice', () => ({ selectChatMascotExpanded: () => mascotExpanded }));
+vi.mock('../../features/conversations/Conversations', () => ({
+  ConversationsPage: () => <div data-testid="agent-chat-panel" />,
+}));
+vi.mock('../../features/human/chatMascot', () => ({
+  ChatMascotProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  ChatMascotOverlay: () => <div data-testid="chat-mascot-overlay" />,
+  ChatMascotStage: () => <div data-testid="chat-mascot-stage" />,
+  MASCOT_TRANSITION_MS: 320,
+}));
+
+const renderPage = () =>
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <Accounts />
+    </MemoryRouter>
+  );
+
+describe('Accounts — merged chat + mascot surface', () => {
+  it('collapses the stage column to zero width while the mascot is docked', () => {
+    mascotExpanded = false;
+    activeAccountId = '__agent__';
+    renderPage();
+
+    const column = screen.getByTestId('chat-mascot-stage-column');
+    expect(column.style.width).toBe('0px');
+    expect(column.dataset.expanded).toBe('false');
+  });
+
+  it('unmounts the stage while docked so its controls leave the tab order', () => {
+    mascotExpanded = false;
+    activeAccountId = '__agent__';
+    renderPage();
+
+    expect(screen.queryByTestId('chat-mascot-stage')).not.toBeInTheDocument();
+  });
+
+  it('opens the stage column and mounts the stage when expanded', () => {
+    mascotExpanded = true;
+    activeAccountId = '__agent__';
+    renderPage();
+
+    const column = screen.getByTestId('chat-mascot-stage-column');
+    // jsdom drops the `min()` width (it does not implement CSS math functions),
+    // so assert the column is no longer pinned shut rather than its exact value.
+    expect(column.style.width).not.toBe('0px');
+    expect(column.dataset.expanded).toBe('true');
+    expect(screen.getByTestId('chat-mascot-stage')).toBeInTheDocument();
+  });
+
+  it('keeps the transcript mounted in both states', () => {
+    // The whole point of the merge: voice and text are one conversation.
+    for (const expanded of [false, true]) {
+      mascotExpanded = expanded;
+      activeAccountId = '__agent__';
+      const { unmount } = renderPage();
+      expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('drops the mascot entirely while a connected app is selected', () => {
+    // HTML paints *behind* the native CEF provider webviews, so a fixed overlay
+    // left alive under WhatsApp/Slack would be an invisible canvas still
+    // burning frames.
+    mascotExpanded = true;
+    activeAccountId = 'acct-whatsapp';
+    renderPage();
+
+    expect(screen.queryByTestId('chat-mascot-overlay')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chat-mascot-stage')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('agent-chat-panel')).not.toBeInTheDocument();
+  });
+});

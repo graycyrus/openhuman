@@ -21,17 +21,21 @@ const renderAt = (path: string) =>
 describe('MobileTabBar', () => {
   beforeEach(() => navigate.mockReset());
 
-  it('renders Human, Chat, Settings tabs', () => {
-    renderAt('/human');
-    expect(screen.getByRole('button', { name: 'Human' })).toBeInTheDocument();
+  it('renders Chat and Settings tabs', () => {
+    renderAt('/chat');
     expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
+  });
+
+  it('no longer renders a Human tab (merged into Chat)', () => {
+    renderAt('/chat');
+    expect(screen.queryByRole('button', { name: 'Human' })).not.toBeInTheDocument();
   });
 
   it('marks the active tab with aria-current=page', () => {
     renderAt('/chat');
     expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: 'Human' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('button', { name: 'Settings' })).not.toHaveAttribute('aria-current');
   });
 
   it('treats a deeper /settings/* path as the settings tab being active', () => {
@@ -43,7 +47,7 @@ describe('MobileTabBar', () => {
   });
 
   it('navigates when a tab is clicked', async () => {
-    renderAt('/human');
+    renderAt('/settings');
     await userEvent.click(screen.getByRole('button', { name: 'Chat' }));
     expect(navigate).toHaveBeenCalledWith('/chat');
     await userEvent.click(screen.getByRole('button', { name: 'Settings' }));

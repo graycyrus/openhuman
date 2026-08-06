@@ -317,7 +317,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': 'تمت المزامنة مؤخرًا',
   'conversations.backgroundTasks.memProviderIdle': 'خامل',
   'nav.home': 'الرئيسية',
-  'nav.human': 'إنسان',
   'nav.chat': 'المحادثة',
   'nav.assistant': 'المساعد',
   'assistant.faceMode.on': 'يتحدث إلى Tiny',
@@ -2663,6 +2662,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': 'تشغيل الرد الصوتي',
   'chat.voiceHint': 'استخدم الميكروفون للتحدث',
   'chat.micUnavailable': 'الميكروفون غير متاح',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'تحدّث إلى مساعدك',
+  'chat.mascot.collapse': 'العودة إلى المحادثة',
+  'chat.mascot.speakReplies': 'نطق الردود بصوت مسموع',
+  'chat.mascot.speakRepliesHint':
+    'تُقرأ الردود بصوت مسموع طالما التميمة مفتوحة. أوقف هذا الخيار لإبقاء المحادثة صامتة.',
   'chat.turn': 'دورة',
   'chat.turns': 'دورات',
   'chat.openWorkerThread': 'فتح محادثة العامل',
@@ -6191,8 +6196,6 @@ const messages: TranslationMap = {
     'التفضيلات والخصوصية والإشعارات كلها هنا. يمكنك إعادة تشغيل هذه الجولة من هذه الصفحة في أي وقت.',
   'walkthrough.steps.chatTab.title': 'ارجع إلى الدردشة',
   'walkthrough.steps.chatTab.content': 'استخدم تبويب Chat عندما تريد الرجوع إلى محادثاتك.',
-  'walkthrough.steps.humanTab.title': 'تعرّف إلى ملف Human',
-  'walkthrough.steps.humanTab.content': 'يجمع Human سياقك الشخصي وهويتك والملف الذي يراه المساعد.',
   'walkthrough.steps.brainTab.title': 'افتح Brain',
   'walkthrough.steps.brainTab.content':
     'Brain هو مخطط الذاكرة: المكان الذي تفحص فيه ما يعرفه OpenHuman وكيف ترتبط الأفكار.',

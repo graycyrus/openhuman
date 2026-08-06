@@ -6,7 +6,6 @@ import AppRoutesIOS from './AppRoutesIOS';
 import DefaultRedirect from './components/DefaultRedirect';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
-import HumanPage from './features/human/HumanPage';
 import { getIsMobile } from './lib/platform';
 import Accounts from './pages/Accounts';
 import Activity from './pages/Activity';
@@ -121,17 +120,10 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
           (the chat's empty "new window" state is the former Home greeting). */}
       <Route path="/home" element={<Navigate to="/chat" replace />} />
 
-      {/* Human — first-class destination again (restored after the IA Phase 6
-          merge into Assistant). Renders the Human/mascot surface. iOS serves
-          /human via AppRoutesIOS. */}
-      <Route
-        path="/human"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <HumanPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Human is merged into the unified chat surface — the mascot docks on the
+          chat composer and expands into a voice stage there, so there is no
+          separate page left to route to. */}
+      <Route path="/human" element={<Navigate to="/chat" replace />} />
 
       {/* Brain — the centerpiece memory knowledge-graph surface, reached from
           the raised center button in the bottom bar. Full-page, graph-only. */}

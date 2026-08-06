@@ -26,7 +26,7 @@ const ROUTE_TIMEOUT = 10_000;
 //   /skills → /connections (back-compat redirect); use canonical route here
 //   /intelligence → /activity (back-compat redirect); use canonical route here
 //   /channels → /connections?tab=messaging (redirect)
-//   /human → /chat (Phase 6 redirect)
+//   /human → /chat (Human merged into the chat surface)
 interface RouteCheck {
   hash: string;
   markers: string[];

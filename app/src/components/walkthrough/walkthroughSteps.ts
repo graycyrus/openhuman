@@ -141,16 +141,11 @@ export function createWalkthroughSteps(
       },
     },
 
-    // ── Step 8 — primary nav: Human ───────────────────────────────────────
-    {
-      target: '[data-walkthrough="tab-human"]',
-      title: t('walkthrough.steps.humanTab.title'),
-      content: t('walkthrough.steps.humanTab.content'),
-      placement: 'top',
-      skipBeacon: true,
-    },
+    // The Human tab used to be step 8. It merged into Chat (the mascot now
+    // docks on the composer), so there is no `tab-human` target left to point
+    // at — a step whose target never resolves stalls the tour.
 
-    // ── Step 9 — primary nav: Brain ───────────────────────────────────────
+    // ── Step 8 — primary nav: Brain ───────────────────────────────────────
     {
       target: '[data-walkthrough="tab-brain"]',
       title: t('walkthrough.steps.brainTab.title'),
@@ -159,7 +154,7 @@ export function createWalkthroughSteps(
       skipBeacon: true,
     },
 
-    // ── Step 10 — primary nav: Agent World ────────────────────────────────
+    // ── Step 9 — primary nav: Agent World ────────────────────────────────
     {
       target: '[data-walkthrough="tab-agent-world"]',
       title: t('walkthrough.steps.agentWorldTab.title'),
@@ -168,7 +163,7 @@ export function createWalkthroughSteps(
       skipBeacon: true,
     },
 
-    // ── Step 11 — primary nav: Connections ────────────────────────────────
+    // ── Step 10 — primary nav: Connections ────────────────────────────────
     {
       target: '[data-walkthrough="tab-connections"]',
       title: t('walkthrough.steps.connectionsTab.title'),
@@ -177,7 +172,7 @@ export function createWalkthroughSteps(
       skipBeacon: true,
     },
 
-    // ── Step 12 — primary nav: Feedback ───────────────────────────────────
+    // ── Step 11 — primary nav: Feedback ───────────────────────────────────
     {
       target: '[data-walkthrough="tab-feedback"]',
       title: t('walkthrough.steps.feedbackTab.title'),
@@ -186,7 +181,7 @@ export function createWalkthroughSteps(
       skipBeacon: true,
     },
 
-    // ── Step 13 — /chat (pre-seeded welcome message) ──────────────────────
+    // ── Step 12 — /chat (pre-seeded welcome message) ──────────────────────
     {
       target: '[data-walkthrough="chat-agent-panel"]',
       title: t('walkthrough.steps.allSet.title'),

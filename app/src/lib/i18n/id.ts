@@ -336,7 +336,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': 'Baru saja disinkronkan',
   'conversations.backgroundTasks.memProviderIdle': 'Diam',
   'nav.home': 'Beranda',
-  'nav.human': 'Manusia',
   'nav.chat': 'Obrolan',
   'nav.assistant': 'Asisten',
   'assistant.faceMode.on': 'Berbicara dengan Tiny',
@@ -2735,6 +2734,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': 'Memutar balasan suara',
   'chat.voiceHint': 'Gunakan mikrofon untuk bicara',
   'chat.micUnavailable': 'Mikrofon tidak tersedia',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'Bicara dengan asisten Anda',
+  'chat.mascot.collapse': 'Kembali ke obrolan',
+  'chat.mascot.speakReplies': 'Bacakan balasan dengan suara',
+  'chat.mascot.speakRepliesHint':
+    'Balasan dibacakan selama maskot terbuka. Matikan agar percakapan tetap senyap.',
   'chat.turn': 'giliran',
   'chat.turns': 'giliran',
   'chat.openWorkerThread': 'Buka thread worker',
@@ -6360,9 +6365,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Kembali ke chat',
   'walkthrough.steps.chatTab.content':
     'Gunakan tab Chat kapan pun Anda ingin kembali ke percakapan.',
-  'walkthrough.steps.humanTab.title': 'Kenali profil Human Anda',
-  'walkthrough.steps.humanTab.content':
-    'Human menyatukan konteks pribadi, identitas, dan profil yang dilihat asisten.',
   'walkthrough.steps.brainTab.title': 'Buka Brain Anda',
   'walkthrough.steps.brainTab.content':
     'Brain adalah grafik memori: tempat melihat apa yang diketahui OpenHuman dan bagaimana ide saling terhubung.',

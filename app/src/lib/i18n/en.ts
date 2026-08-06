@@ -24,7 +24,6 @@ const en: TranslationMap = {
   'skills.recallCalendar.description': 'Auto-join Google Meet calls via Recall.ai',
   // Navigation
   'nav.home': 'Home',
-  'nav.human': 'Human',
   'nav.chat': 'Chat',
   'nav.assistant': 'Assistant',
 
@@ -2863,6 +2862,12 @@ const en: TranslationMap = {
   'chat.playingVoiceReply': 'Playing voice reply',
   'chat.voiceHint': 'Use the mic to speak',
   'chat.micUnavailable': 'Microphone unavailable',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'Talk to your assistant',
+  'chat.mascot.collapse': 'Back to the chat',
+  'chat.mascot.speakReplies': 'Speak replies out loud',
+  'chat.mascot.speakRepliesHint':
+    'Replies are read aloud while the mascot is open. Turn this off to keep the conversation silent.',
   'chat.turn': 'turn',
   'chat.turns': 'turns',
   'chat.openWorkerThread': 'Open worker thread',
@@ -6934,9 +6939,6 @@ const en: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Jump back to chat',
   'walkthrough.steps.chatTab.content':
     'Use the Chat tab whenever you want to return to conversations.',
-  'walkthrough.steps.humanTab.title': 'Meet your human profile',
-  'walkthrough.steps.humanTab.content':
-    'Human is where your personal context, identity, and assistant-facing profile come together.',
   'walkthrough.steps.brainTab.title': 'Open your Brain',
   'walkthrough.steps.brainTab.content':
     'Brain is the memory graph: the place to inspect what OpenHuman knows and how ideas connect.',

@@ -10,14 +10,15 @@ interface RouteEntry {
 
 // Phase 2/3/6 IA revamp routes.
 // Back-compat redirects are included so the router redirect itself is tested.
-//   /human       → renders the Human surface (first-class route, restored)
+//   /human       → /chat (Human merged into the chat surface: the mascot
+//                  now docks on the composer)
 //   /skills      → /connections (Phase 2)
 //   /activity    → /settings/notifications (Phase 6)
 //   /intelligence → /settings/notifications (Phase 6)
 //   /home        → /chat (Home folded into the unified two-panel chat surface)
 const ROUTES: RouteEntry[] = [
   { route: '/home', expectedHash: '/chat' }, // back-compat redirect (Home → chat)
-  { route: '/human' }, // first-class route again (no longer redirects to /chat)
+  { route: '/human', expectedHash: '/chat' }, // back-compat redirect (Human → chat)
   { route: '/chat' },
   { route: '/connections' },
   { route: '/skills', expectedHash: '/connections' }, // back-compat redirect

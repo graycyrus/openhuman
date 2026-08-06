@@ -327,7 +327,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': 'সম্প্রতি সিঙ্ক হয়েছে',
   'conversations.backgroundTasks.memProviderIdle': 'নিষ্ক্রিয়',
   'nav.home': 'হোম',
-  'nav.human': 'হিউম্যান',
   'nav.chat': 'চ্যাট',
   'nav.assistant': 'সহকারী',
   'assistant.faceMode.on': 'Tiny-র সাথে কথা বলছে',
@@ -2729,6 +2728,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': 'ভয়েস রিপ্লি বাজছে',
   'chat.voiceHint': 'কথা বলতে মাইক ব্যবহার করুন',
   'chat.micUnavailable': 'মাইক্রোফোন পাওয়া যাচ্ছে না',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'আপনার সহকারীর সঙ্গে কথা বলুন',
+  'chat.mascot.collapse': 'চ্যাটে ফিরে যান',
+  'chat.mascot.speakReplies': 'উত্তর জোরে পড়ে শোনানো হোক',
+  'chat.mascot.speakRepliesHint':
+    'ম্যাসকট খোলা থাকলে উত্তরগুলি জোরে পড়ে শোনানো হয়। কথোপকথন নীরব রাখতে এটি বন্ধ করুন।',
   'chat.turn': 'টার্ন',
   'chat.turns': 'টার্ন',
   'chat.openWorkerThread': 'ওয়ার্কার থ্রেড খুলুন',
@@ -6331,9 +6336,6 @@ const messages: TranslationMap = {
     'পছন্দ, গোপনীয়তা ও নোটিফিকেশন এখানে আছে। এই পেজ থেকে যেকোনো সময় ট্যুরটি আবার শুরু করতে পারেন।',
   'walkthrough.steps.chatTab.title': 'চ্যাটে ফিরে যান',
   'walkthrough.steps.chatTab.content': 'কথোপকথনে ফিরতে চাইলে Chat ট্যাব ব্যবহার করুন।',
-  'walkthrough.steps.humanTab.title': 'আপনার Human প্রোফাইল দেখুন',
-  'walkthrough.steps.humanTab.content':
-    'Human আপনার ব্যক্তিগত প্রসঙ্গ, পরিচয় এবং সহকারীর দেখা প্রোফাইল একত্র করে।',
   'walkthrough.steps.brainTab.title': 'আপনার Brain খুলুন',
   'walkthrough.steps.brainTab.content':
     'Brain হলো মেমোরি গ্রাফ: OpenHuman কী জানে এবং ধারণাগুলো কীভাবে যুক্ত তা দেখার জায়গা।',

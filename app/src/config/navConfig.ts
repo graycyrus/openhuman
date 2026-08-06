@@ -22,24 +22,23 @@ export interface NavTab {
 
 /**
  * Ordered list of sidebar nav entries:
- *   chat → human → brain → flows → agent-world → connections
+ *   chat → brain → flows → agent-world → connections
  *
  * Orchestration (TinyPlace multi-agent coordination) is no longer a top-level
  * tab — it was folded back under Brain as the `/brain?tab=orchestration`
  * sub-tab, so the sidebar stays lean.
  *
  * Settings has no primary tab — it's reached via the gear icon in the sidebar
- * header. Chat is the default landing and the merged Home surface: its empty
- * "new window" state shows the former Home greeting + banners (Home was
- * folded into chat, so there is no separate Home entry). The Human tab is a
- * first-class destination again (briefly merged into Assistant in IA Phase 6,
- * then restored): `/human` renders the Human page on desktop. Ids/paths/
- * walkthroughAttrs travel with each tab so analytics and the walkthrough tour
- * stay attached to the right feature regardless of position.
+ * header. Chat is the default landing and the merged Home + Human surface: its
+ * empty "new window" state shows the former Home greeting + banners, and the
+ * mascot that used to own its own `/human` tab now docks on the chat composer
+ * and expands into a voice stage in place. `/human` is a back-compat redirect
+ * to `/chat`. Ids/paths/walkthroughAttrs travel with each tab so analytics and
+ * the walkthrough tour stay attached to the right feature regardless of
+ * position.
  */
 export const NAV_TABS: NavTab[] = [
   { id: 'chat', labelKey: 'nav.chat', path: '/chat', walkthroughAttr: 'tab-chat' },
-  { id: 'human', labelKey: 'nav.human', path: '/human', walkthroughAttr: 'tab-human' },
   { id: 'brain', labelKey: 'nav.brain', path: '/brain', walkthroughAttr: 'tab-brain' },
   { id: 'flows', labelKey: 'nav.flows', path: '/flows', walkthroughAttr: 'tab-flows' },
   {

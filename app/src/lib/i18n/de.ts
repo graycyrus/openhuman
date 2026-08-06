@@ -350,7 +350,6 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.memProviderRecent': 'Kürzlich synchronisiert',
   'conversations.backgroundTasks.memProviderIdle': 'Inaktiv',
   'nav.home': 'Start',
-  'nav.human': 'Mensch',
   'nav.chat': 'Chat',
   'nav.assistant': 'Assistent',
   'assistant.faceMode.on': 'Spricht mit Tiny',
@@ -2806,6 +2805,12 @@ const messages: TranslationMap = {
   'chat.playingVoiceReply': 'Sprachantwort wird abgespielt',
   'chat.voiceHint': 'Nutze das Mikrofon zum Sprechen',
   'chat.micUnavailable': 'Mikrofon nicht verfügbar',
+  // Chat mascot: the figure standing on the composer, and its voice stage.
+  'chat.mascot.expand': 'Mit deinem Assistenten sprechen',
+  'chat.mascot.collapse': 'Zurück zum Chat',
+  'chat.mascot.speakReplies': 'Antworten vorlesen',
+  'chat.mascot.speakRepliesHint':
+    'Antworten werden vorgelesen, solange das Maskottchen geöffnet ist. Schalte dies aus, damit das Gespräch stumm bleibt.',
   'chat.turn': 'drehen',
   'chat.turns': 'dreht sich',
   'chat.openWorkerThread': 'Arbeitsthread öffnen',
@@ -6499,9 +6504,6 @@ const messages: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'Zurück zum Chat',
   'walkthrough.steps.chatTab.content':
     'Nutze den Chat-Tab, wenn du zu deinen Unterhaltungen zurückkehren möchtest.',
-  'walkthrough.steps.humanTab.title': 'Dein Human-Profil',
-  'walkthrough.steps.humanTab.content':
-    'Human bündelt deinen persönlichen Kontext, deine Identität und dein Assistentenprofil.',
   'walkthrough.steps.brainTab.title': 'Öffne dein Brain',
   'walkthrough.steps.brainTab.content':
     'Brain ist der Wissensgraph: Hier prüfst du, was OpenHuman weiß und wie Ideen verbunden sind.',

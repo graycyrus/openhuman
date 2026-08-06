@@ -1,0 +1,246 @@
+import { act, screen } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { renderWithProviders } from '../../../test/test-utils';
+import { ChatMascotProvider, useChatMascot } from './ChatMascotContext';
+import ChatMascotOverlay from './ChatMascotOverlay';
+import { STAGE_RENDER_PX } from './geometry';
+
+const useHumanMascot = vi.fn((_opts: unknown) => ({
+  face: 'idle',
+  viseme: 'REST',
+  visemeCode: 'sil',
+}));
+vi.mock('../useHumanMascot', () => ({ useHumanMascot: (opts: unknown) => useHumanMascot(opts) }));
+vi.mock('../Mascot', () => ({
+  CustomGifMascot: () => <div data-testid="mascot-gif" />,
+  ManifestRiveMascot: () => <div data-testid="mascot-manifest" />,
+  RiveMascot: () => <div data-testid="mascot-rive" />,
+  getMascotPalette: () => ({ bodyFill: '#F7D145', neckShadowColor: '#B23C05' }),
+  hexToArgbInt: () => 0,
+}));
+vi.mock('../Mascot/manifest/useMascotManifest', () => ({
+  useMascotManifest: () => ({ manifest: null, entry: null, loading: false, error: null }),
+}));
+
+const DOCK_RECT = { left: 40, top: 500, width: 64, height: 64 };
+const STAGE_RECT = { left: 800, top: 100, width: 400, height: 400 };
+
+/** Mounts anchors whose rects are fixed, so the transform maths is deterministic. */
+const Anchors = () => {
+  const { dockRef, stageRef } = useChatMascot();
+  useLayoutEffect(() => {
+    const attach = (el: HTMLElement | null, rect: typeof DOCK_RECT) => {
+      if (!el) return;
+      el.getBoundingClientRect = () =>
+        ({ ...rect, right: rect.left + rect.width, bottom: rect.top + rect.height }) as DOMRect;
+    };
+    attach(dockRef.current, DOCK_RECT);
+    attach(stageRef.current, STAGE_RECT);
+  });
+  return (
+    <>
+      <div
+        ref={node => {
+          dockRef.current = node;
+        }}
+        data-testid="dock-anchor"
+      />
+      <div
+        ref={node => {
+          stageRef.current = node;
+        }}
+        data-testid="stage-anchor"
+      />
+    </>
+  );
+};
+
+const renderOverlay = (expanded: boolean) =>
+  renderWithProviders(
+    <ChatMascotProvider>
+      <Anchors />
+      <ChatMascotOverlay />
+    </ChatMascotProvider>,
+    { preloadedState: { mascot: { chatMascotExpanded: expanded } } }
+  );
+
+const setReducedMotion = (reduce: boolean) => {
+  window.matchMedia = vi
+    .fn()
+    .mockImplementation((query: string) => ({
+      matches: reduce && query.includes('prefers-reduced-motion'),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      onchange: null,
+    })) as unknown as typeof window.matchMedia;
+};
+
+describe('ChatMascotOverlay', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setReducedMotion(false);
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('lays the mascot out at a constant render size so the canvas never resizes', () => {
+    renderOverlay(false);
+
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    expect(overlay.style.width).toBe(`${STAGE_RENDER_PX}px`);
+    expect(overlay.style.height).toBe(`${STAGE_RENDER_PX}px`);
+    expect(overlay.style.transformOrigin).toBe('top left');
+  });
+
+  it('scales the render box down onto the dock when collapsed', () => {
+    renderOverlay(false);
+
+    // First placement never animates, so the transform is final on mount.
+    // 64 / 768 ≈ 0.08333, translated to the dock's top-left.
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    expect(overlay.style.transform).toBe('translate3d(40.00px, 500.00px, 0) scale(0.08333)');
+    expect(overlay.dataset.expanded).toBe('false');
+  });
+
+  it('scales onto the stage anchor when expanded', () => {
+    renderOverlay(true);
+
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    expect(overlay.style.transform).toBe('translate3d(800.00px, 100.00px, 0) scale(0.52083)');
+    expect(overlay.dataset.expanded).toBe('true');
+  });
+
+  it('snaps rather than travelling when the user prefers reduced motion', () => {
+    setReducedMotion(true);
+    const raf = vi.spyOn(window, 'requestAnimationFrame');
+    const { rerenderWithState } = renderOverlayWithToggle();
+
+    act(() => rerenderWithState(true));
+
+    expect(raf).not.toHaveBeenCalled();
+    expect(screen.getByTestId('chat-mascot-overlay').style.transform).toBe(
+      'translate3d(800.00px, 100.00px, 0) scale(0.52083)'
+    );
+  });
+
+  it('renders exactly one mascot instance', () => {
+    // The whole point of the overlay: a second instance would load the `.riv`
+    // twice and turn the dock ⇄ stage travel into a crossfade.
+    renderOverlay(true);
+
+    expect(screen.getAllByTestId('mascot-rive')).toHaveLength(1);
+  });
+
+  it('stays hidden until an anchor is measurable, then lands on it', () => {
+    // The dock can mount after the overlay. A ResizeObserver can only watch
+    // elements that already exist, so without the poll a late anchor would
+    // leave the mascot parked off-screen for good.
+    vi.useFakeTimers();
+    try {
+      // The overlay stays FIRST in both trees on purpose: appending the anchor
+      // after it keeps its position stable, so React updates it in place. Insert
+      // the anchor *before* it instead and React unmounts and remounts the
+      // overlay, whose fresh layout effect then measures the anchor directly —
+      // the poll would never run and this test would pass for the wrong reason.
+      const tree = (withAnchor: boolean) => (
+        <ChatMascotProvider>
+          <ChatMascotOverlay />
+          {withAnchor ? <Anchors /> : null}
+        </ChatMascotProvider>
+      );
+
+      const { rerender } = renderWithProviders(tree(false), {
+        preloadedState: { mascot: { chatMascotExpanded: false } },
+      });
+
+      const overlay = screen.getByTestId('chat-mascot-overlay');
+      expect(overlay.style.opacity).toBe('0');
+
+      // The dock arrives. The overlay's layout effect does not re-run (its deps
+      // are all stable refs) — only the poll can notice.
+      rerender(tree(true));
+      expect(overlay.style.opacity).toBe('0');
+
+      act(() => void vi.advanceTimersByTime(200));
+
+      expect(screen.getByTestId('chat-mascot-overlay')).toBe(overlay);
+      expect(overlay.style.transform).toBe('translate3d(40.00px, 500.00px, 0) scale(0.08333)');
+      expect(overlay.style.opacity).toBe('1');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops polling for an anchor that never arrives', () => {
+    // A surface that mounts the overlay without a dock must not leave a timer
+    // ticking for the rest of the session.
+    vi.useFakeTimers();
+    try {
+      const clearInterval = vi.spyOn(window, 'clearInterval');
+      renderWithProviders(
+        <ChatMascotProvider>
+          <ChatMascotOverlay />
+        </ChatMascotProvider>,
+        { preloadedState: { mascot: { chatMascotExpanded: false } } }
+      );
+
+      act(() => void vi.advanceTimersByTime(4_000));
+
+      expect(clearInterval).toHaveBeenCalled();
+      expect(screen.getByTestId('chat-mascot-overlay').style.opacity).toBe('0');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('only speaks replies while the stage is open', () => {
+    // A docked mascot must not start talking over a text conversation just
+    // because the persisted preference defaults on.
+    renderWithProviders(
+      <ChatMascotProvider>
+        <Anchors />
+        <ChatMascotOverlay />
+      </ChatMascotProvider>,
+      { preloadedState: { mascot: { chatMascotExpanded: false, speakReplies: true } } }
+    );
+
+    expect(useHumanMascot).toHaveBeenCalledWith(expect.objectContaining({ speakReplies: false }));
+  });
+
+  it('speaks replies once expanded with the preference on', () => {
+    renderWithProviders(
+      <ChatMascotProvider>
+        <Anchors />
+        <ChatMascotOverlay />
+      </ChatMascotProvider>,
+      { preloadedState: { mascot: { chatMascotExpanded: true, speakReplies: true } } }
+    );
+
+    expect(useHumanMascot).toHaveBeenCalledWith(expect.objectContaining({ speakReplies: true }));
+  });
+});
+
+/** Render collapsed, then flip the store so the travel path is exercised. */
+function renderOverlayWithToggle() {
+  const utils = renderOverlay(false);
+  return {
+    ...utils,
+    rerenderWithState: (expanded: boolean) => {
+      utils.store.dispatch({ type: 'mascot/setChatMascotExpanded', payload: expanded });
+    },
+  };
+}
