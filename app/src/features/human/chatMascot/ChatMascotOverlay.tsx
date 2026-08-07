@@ -131,9 +131,33 @@ const ChatMascotOverlay = () => {
     currentBoxRef.current = applied;
     const el = boxRef.current;
     if (!el) return;
-    el.style.transform = boxTransform(applied, STAGE_RENDER_PX);
+
+    if (travelling) {
+      // Mid-flight: a fixed layout box moved by transform. Cheap (composited,
+      // no canvas reallocation) and any softness is invisible while moving.
+      el.style.width = `${STAGE_RENDER_PX}px`;
+      el.style.height = `${STAGE_RENDER_PX}px`;
+      el.style.transform = boxTransform(applied, STAGE_RENDER_PX);
+      el.style.willChange = 'transform';
+    } else {
+      // At rest: lay the mascot out at its TRUE size and translate only — no
+      // scale at all.
+      //
+      // This is not a nicety. Rive's renderer sizes its canvas backing store
+      // from `getBoundingClientRect()`, which includes ancestor transforms, and
+      // `ResizeObserver` does not fire on transform changes. So a permanently
+      // transform-scaled canvas gets a backing store matching whatever scale it
+      // happened to be measured at — docked, that is ~64px — and expanding only
+      // changes the transform, so Rive never re-measures and stretches that
+      // 64px texture across the whole stage. Measured: backing 127x127 for a
+      // 768px box. Changing the layout size instead makes the observer fire and
+      // Rive reallocate at the right resolution.
+      el.style.width = `${applied.size}px`;
+      el.style.height = `${applied.size}px`;
+      el.style.transform = `translate3d(${applied.left}px, ${applied.top}px, 0)`;
+      el.style.willChange = 'auto';
+    }
     el.style.opacity = applied.size > 0 ? '1' : '0';
-    el.style.willChange = travelling ? 'transform' : 'auto';
   };
 
   useLayoutEffect(() => {

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../../test/test-utils';
 import { ChatMascotProvider, useChatMascot } from './ChatMascotContext';
 import ChatMascotOverlay from './ChatMascotOverlay';
-import { STAGE_RENDER_PX, TRANSITION_MS } from './geometry';
+import { TRANSITION_MS } from './geometry';
 
 const useHumanMascot = vi.fn((_opts: unknown) => ({
   face: 'idle',
@@ -134,22 +134,37 @@ describe('ChatMascotOverlay', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it('lays the mascot out at a constant render size so the canvas never resizes', () => {
+  it("lays out at the anchor's true size at rest, so Rive allocates a matching canvas", () => {
+    // Load-bearing, not cosmetic. Rive sizes its canvas backing store from
+    // `getBoundingClientRect()` — which includes ancestor transforms — and
+    // `ResizeObserver` never fires on a transform change. A permanently
+    // scaled box therefore gets a backing store matching whatever scale it was
+    // measured at (docked: ~64px) and stretches that texture across the whole
+    // stage forever. Measured before this fix: a 127x127 backing store behind a
+    // 768px box. Changing the layout size is what makes Rive re-allocate.
     renderOverlay(false);
 
     const overlay = screen.getByTestId('chat-mascot-overlay');
-    expect(overlay.style.width).toBe(`${STAGE_RENDER_PX}px`);
-    expect(overlay.style.height).toBe(`${STAGE_RENDER_PX}px`);
+    expect(overlay.style.width).toBe(`${DOCK_RECT.width}px`);
+    expect(overlay.style.height).toBe(`${DOCK_RECT.width}px`);
     expect(overlay.style.transformOrigin).toBe('top left');
+  });
+
+  it('never scales the canvas at rest — translate only', () => {
+    renderOverlay(true);
+    const overlay = screen.getByTestId('chat-mascot-overlay');
+    expect(overlay.style.transform).not.toContain('scale');
+    expect(overlay.style.width).toBe('400px'); // the stage anchor's inscribed square
   });
 
   it('scales the render box down onto the dock when collapsed', () => {
     renderOverlay(false);
 
-    // First placement never animates, so the transform is final on mount.
-    // 64 / 768 ≈ 0.08333, translated to the dock's top-left.
+    // First placement never animates, so this is final on mount: laid out at the
+    // dock's own size and simply moved there.
     const overlay = screen.getByTestId('chat-mascot-overlay');
-    expect(overlay.style.transform).toBe('translate3d(40.00px, 500.00px, 0) scale(0.08333)');
+    expect(overlay.style.transform).toBe('translate3d(40px, 500px, 0)');
+    expect(overlay.style.width).toBe('64px');
     expect(overlay.dataset.expanded).toBe('false');
   });
 
@@ -157,7 +172,8 @@ describe('ChatMascotOverlay', () => {
     renderOverlay(true);
 
     const overlay = screen.getByTestId('chat-mascot-overlay');
-    expect(overlay.style.transform).toBe('translate3d(800.00px, 100.00px, 0) scale(0.52083)');
+    expect(overlay.style.transform).toBe('translate3d(800px, 100px, 0)');
+    expect(overlay.style.width).toBe('400px');
     expect(overlay.dataset.expanded).toBe('true');
   });
 
@@ -170,7 +186,7 @@ describe('ChatMascotOverlay', () => {
 
     expect(raf).not.toHaveBeenCalled();
     expect(screen.getByTestId('chat-mascot-overlay').style.transform).toBe(
-      'translate3d(800.00px, 100.00px, 0) scale(0.52083)'
+      'translate3d(800px, 100px, 0)'
     );
   });
 
@@ -215,7 +231,7 @@ describe('ChatMascotOverlay', () => {
       act(() => void vi.advanceTimersByTime(200));
 
       expect(screen.getByTestId('chat-mascot-overlay')).toBe(overlay);
-      expect(overlay.style.transform).toBe('translate3d(40.00px, 500.00px, 0) scale(0.08333)');
+      expect(overlay.style.transform).toBe('translate3d(40px, 500px, 0)');
       expect(overlay.style.opacity).toBe('1');
     } finally {
       vi.useRealTimers();
@@ -271,7 +287,9 @@ describe('ChatMascotOverlay', () => {
     now = TRANSITION_MS + 1;
     act(() => frames.flushOne(now));
     expect(overlay.style.transform).not.toBe(docked);
-    expect(overlay.style.transform).toBe('translate3d(800.00px, 100.00px, 0) scale(0.52083)');
+    // Landed: real layout size, translate only, compositor hint released.
+    expect(overlay.style.transform).toBe('translate3d(800px, 100px, 0)');
+    expect(overlay.style.width).toBe('400px');
     expect(overlay.style.willChange).toBe('auto');
   });
 
