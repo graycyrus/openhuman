@@ -122,3 +122,49 @@ describe('gateway mode is a remote core, not a local one', () => {
     expect(getActiveUserIdFromCore).not.toHaveBeenCalled();
   });
 });
+
+describe('identity-flip seed marker (#4545, local-core variant)', () => {
+  // The loop this guards: sign in with TinyHumans after using "Continue
+  // Locally". `handleIdentityFlip` corrects the seed and restarts, but a LOCAL
+  // core re-primes from `active_user.toml`, which still names the local user.
+  // The next refresh sees the same mismatch and restarts again, forever.
+  it('prefers a pending flip seed over the core file, and consumes it once', async () => {
+    const getActiveUserIdFromCore = vi.fn().mockResolvedValue('local-stale-user');
+    const consumeIdentityFlipSeed = vi
+      .fn()
+      .mockReturnValueOnce('tinyhumans-user')
+      .mockReturnValue(null);
+
+    const first = await resolveActiveUserBootstrap({
+      isStandaloneNativeWindow: false,
+      coreMode: 'local',
+      getActiveUserIdFromCore,
+      consumeIdentityFlipSeed,
+    });
+    expect(first).toBe('tinyhumans-user');
+    // The stale file is never consulted while a flip is pending.
+    expect(getActiveUserIdFromCore).not.toHaveBeenCalled();
+
+    // Second boot: the marker is spent, so the normal source takes over.
+    const second = await resolveActiveUserBootstrap({
+      isStandaloneNativeWindow: false,
+      coreMode: 'local',
+      getActiveUserIdFromCore,
+      consumeIdentityFlipSeed,
+    });
+    expect(second).toBe('local-stale-user');
+    expect(getActiveUserIdFromCore).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves cloud mode on its existing path when no flip is pending', async () => {
+    const getActiveUserIdFromCore = vi.fn().mockResolvedValue('should-not-be-read');
+    const resolved = await resolveActiveUserBootstrap({
+      isStandaloneNativeWindow: false,
+      coreMode: 'cloud',
+      getActiveUserIdFromCore,
+      consumeIdentityFlipSeed: () => null,
+    });
+    expect(resolved).toBeNull();
+    expect(getActiveUserIdFromCore).not.toHaveBeenCalled();
+  });
+});

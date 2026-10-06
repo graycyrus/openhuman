@@ -56,8 +56,15 @@ describe('ProviderAuthSection managed row', () => {
 
   it('hides the managed row for a local ("Continue Locally") session', () => {
     renderSection(createLocalSessionToken());
-    expect(screen.getByTestId('provider-group-connected')).toBeInTheDocument();
     expect(screen.queryByTestId('provider-row-openhuman')).not.toBeInTheDocument();
+  });
+
+  it('drops the whole Connected group when nothing is connected', () => {
+    // The group used to be guaranteed non-empty by the always-on managed row.
+    // With that row gated on a real session, a local user who has not added a
+    // key yet was left with a "Connected" heading over an empty card.
+    renderSection(createLocalSessionToken());
+    expect(screen.queryByTestId('provider-group-connected')).not.toBeInTheDocument();
   });
 
   it('hides the managed row when signed out', () => {
@@ -86,9 +93,10 @@ describe('ProviderAuthSection wizard affordances', () => {
     );
     managed.unmount();
 
+    // A local session has nothing connected, so the group — and with it the
+    // claim about a managed fallback and the Routing tab — is gone entirely.
     renderSection(createLocalSessionToken());
-    expect(screen.getByTestId('provider-group-connected')).not.toHaveTextContent(
-      'Managed is always on as a fallback'
-    );
+    expect(screen.queryByTestId('provider-group-connected')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Managed is always on as a fallback/)).not.toBeInTheDocument();
   });
 });

@@ -21,6 +21,41 @@
  * `userScopedStorage.ts::primeActiveUserId` and the "cloud-mode reload
  * survival" test.
  */
+/**
+ * Written by `handleIdentityFlip` immediately before it restarts the app, and
+ * consumed exactly once on the next boot.
+ *
+ * Without it, a LOCAL core whose `active_user.toml` still names the previous
+ * user re-primes the seed that the flip just corrected, so the next refresh
+ * sees the same mismatch and restarts again -- the #4545 loop, reached from a
+ * different direction than cloud/gateway: sign in with TinyHumans after having
+ * used "Continue Locally", and the file names the local user forever while the
+ * session names the real one.
+ *
+ * The marker is strictly newer than the file, so it wins, once.
+ */
+export const IDENTITY_FLIP_SEED_KEY = 'OPENHUMAN_IDENTITY_FLIP_SEED';
+
+/** Record the id the flip is restarting into. */
+export function markIdentityFlipSeed(userId: string): void {
+  try {
+    localStorage.setItem(IDENTITY_FLIP_SEED_KEY, userId);
+  } catch {
+    // Storage unavailable: the loop guard is best-effort, not load-bearing.
+  }
+}
+
+/** Read and clear the marker. Returns null when no flip is pending. */
+export function consumeIdentityFlipSeed(): string | null {
+  try {
+    const id = localStorage.getItem(IDENTITY_FLIP_SEED_KEY);
+    if (id) localStorage.removeItem(IDENTITY_FLIP_SEED_KEY);
+    return id && id.trim() ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Every core mode the picker and the gateway section can persist. */
 type StoredCoreMode = 'local' | 'cloud' | 'gateway' | null;
 
@@ -28,6 +63,8 @@ interface BootstrapContext {
   isStandaloneNativeWindow: boolean;
   coreMode: StoredCoreMode;
   getActiveUserIdFromCore: () => Promise<string | null>;
+  /** Injectable for tests; defaults to the module-level reader. */
+  consumeIdentityFlipSeed?: () => string | null;
 }
 
 export function shouldSkipLocalActiveUserRead(opts: {
@@ -43,6 +80,13 @@ export function shouldSkipLocalActiveUserRead(opts: {
 }
 
 export function resolveActiveUserBootstrap(ctx: BootstrapContext): Promise<string | null> {
+  // A pending flip outranks every other source: it is the id this process was
+  // restarted in order to adopt.
+  const flipped = ctx.consumeIdentityFlipSeed?.() ?? consumeIdentityFlipSeed();
+  if (flipped) {
+    return Promise.resolve<string | null>(flipped);
+  }
+
   if (
     shouldSkipLocalActiveUserRead({
       isStandaloneNativeWindow: ctx.isStandaloneNativeWindow,
