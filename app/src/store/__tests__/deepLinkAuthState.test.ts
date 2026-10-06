@@ -17,6 +17,11 @@ import {
  * before each test's assertions. The ad-hoc store persists across tests.
  */
 afterEach(() => {
+  // `beginAwaitingAuthCallback` arms a module-level 300s timer and
+  // `completeDeepLinkAuthProcessing` deliberately leaves it (and the flag)
+  // alone, so drop both here or they leak into the next test.
+  endAwaitingAuthCallback();
+  vi.useRealTimers();
   completeDeepLinkAuthProcessing();
 });
 
@@ -221,5 +226,23 @@ describe('awaitingCallback', () => {
     expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
     endAwaitingAuthCallback();
     expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
+  });
+
+  it('gives up by itself after 300s, with no component mounted to do it', () => {
+    vi.useFakeTimers();
+    beginAwaitingAuthCallback();
+
+    vi.advanceTimersByTime(299_999);
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(true);
+
+    vi.advanceTimersByTime(1);
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
+  });
+
+  it('a callback arriving cancels the pending timeout', () => {
+    vi.useFakeTimers();
+    beginAwaitingAuthCallback();
+    beginDeepLinkAuthProcessing();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

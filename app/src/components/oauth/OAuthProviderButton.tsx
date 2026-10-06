@@ -196,8 +196,9 @@ const OAuthProviderButton = ({
       // coming back on its own, and a spinner with no end is worse than a
       // screen that says so.
       endAwaitingAuthCallback();
-      // 90s with no deep-link is a strong "something went wrong" signal even
-      // if the user never refocused the app. Probe so we can attribute it.
+      // Five minutes with no deep-link is a strong "something went wrong"
+      // signal even if the user never refocused the app. Probe so we can
+      // attribute it.
       probeBackendOnReturn('timeout');
     }, OAUTH_LOADING_TIMEOUT_MS);
 

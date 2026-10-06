@@ -1,3 +1,5 @@
+import { consumeIdentityFlipSeed, markIdentityFlipSeed } from '../store/userScopedStorage';
+
 /**
  * Decide which async source seeds `userScopedStorage`'s active-user id at
  * boot, before `primeActiveUserId(...)` runs.
@@ -21,40 +23,11 @@
  * `userScopedStorage.ts::primeActiveUserId` and the "cloud-mode reload
  * survival" test.
  */
-/**
- * Written by `handleIdentityFlip` immediately before it restarts the app, and
- * consumed exactly once on the next boot.
- *
- * Without it, a LOCAL core whose `active_user.toml` still names the previous
- * user re-primes the seed that the flip just corrected, so the next refresh
- * sees the same mismatch and restarts again -- the #4545 loop, reached from a
- * different direction than cloud/gateway: sign in with TinyHumans after having
- * used "Continue Locally", and the file names the local user forever while the
- * session names the real one.
- *
- * The marker is strictly newer than the file, so it wins, once.
- */
-export const IDENTITY_FLIP_SEED_KEY = 'OPENHUMAN_IDENTITY_FLIP_SEED';
-
-/** Record the id the flip is restarting into. */
-export function markIdentityFlipSeed(userId: string): void {
-  try {
-    localStorage.setItem(IDENTITY_FLIP_SEED_KEY, userId);
-  } catch {
-    // Storage unavailable: the loop guard is best-effort, not load-bearing.
-  }
-}
-
-/** Read and clear the marker. Returns null when no flip is pending. */
-export function consumeIdentityFlipSeed(): string | null {
-  try {
-    const id = localStorage.getItem(IDENTITY_FLIP_SEED_KEY);
-    if (id) localStorage.removeItem(IDENTITY_FLIP_SEED_KEY);
-    return id && id.trim() ? id : null;
-  } catch {
-    return null;
-  }
-}
+// The marker itself lives with `OPENHUMAN_ACTIVE_USER_ID` in
+// `userScopedStorage.ts`: both are unscoped by necessity because they are read
+// to *decide* the active user. Re-exported here because this is where the
+// bootstrap reads it.
+export { consumeIdentityFlipSeed, markIdentityFlipSeed };
 
 /** Every core mode the picker and the gateway section can persist. */
 type StoredCoreMode = 'local' | 'cloud' | 'gateway' | null;

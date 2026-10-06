@@ -1,9 +1,14 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearBackendUrlCache } from '../../services/backendUrl';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../../services/coreRpcClient';
-import { useDeepLinkAuthState } from '../../store/deepLinkAuthState';
+import {
+  endAwaitingAuthCallback,
+  getDeepLinkAuthState,
+  useDeepLinkAuthState,
+} from '../../store/deepLinkAuthState';
 import { renderWithProviders } from '../../test/test-utils';
 import {
   clearStoredCoreMode,
@@ -54,7 +59,11 @@ vi.mock('../../components/oauth/providerConfigs', () => ({
   ],
 }));
 
-vi.mock('../../store/deepLinkAuthState', () => ({ useDeepLinkAuthState: vi.fn() }));
+vi.mock('../../store/deepLinkAuthState', () => ({
+  useDeepLinkAuthState: vi.fn(),
+  getDeepLinkAuthState: vi.fn(),
+  endAwaitingAuthCallback: vi.fn(),
+}));
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -229,6 +238,68 @@ describe('Welcome auth entrypoint', () => {
     expect(screen.queryByTestId('welcome-card-tinyhumans')).not.toBeInTheDocument();
   });
 
+  it('shows the hand-off panel while awaiting the browser callback, even though no auth step is running', () => {
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      awaitingCallback: true,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+
+    renderWithProviders(<Welcome />);
+
+    expect(screen.getByTestId('welcome-handoff')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Finishing sign-in in your browser');
+    expect(screen.queryByTestId('welcome-card-tinyhumans')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'google' })).not.toBeInTheDocument();
+  });
+
+  it('ends the wait when the window regains focus with no callback (cancelled browser flow)', () => {
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      awaitingCallback: true,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+    vi.mocked(getDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      awaitingCallback: true,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+    vi.mocked(endAwaitingAuthCallback).mockClear();
+
+    renderWithProviders(<Welcome />);
+    act(() => {
+      window.dispatchEvent(new FocusEvent('focus'));
+    });
+
+    expect(endAwaitingAuthCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps waiting on focus when a callback is already being redeemed', () => {
+    const redeeming = {
+      isProcessing: true,
+      awaitingCallback: true,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    };
+    vi.mocked(useDeepLinkAuthState).mockReturnValue(redeeming);
+    vi.mocked(getDeepLinkAuthState).mockReturnValue(redeeming);
+    vi.mocked(endAwaitingAuthCallback).mockClear();
+
+    renderWithProviders(<Welcome />);
+    act(() => {
+      window.dispatchEvent(new FocusEvent('focus'));
+    });
+
+    expect(endAwaitingAuthCallback).not.toHaveBeenCalled();
+  });
+
   it('offers retry and a self-hosted fallback when the browser hand-off fails', async () => {
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
@@ -245,6 +316,12 @@ describe('Welcome auth entrypoint', () => {
     // screen — the alert deliberately does not repeat them, which would put
     // two Google buttons in the document.
     expect(screen.getAllByRole('button', { name: 'google' })).toHaveLength(1);
+
+    // The retry itself: clicking the provider starts a sign-in again.
+    oauthButtonSpy.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'google' }));
+    expect(oauthButtonSpy).toHaveBeenCalledTimes(1);
+    expect(oauthButtonSpy).toHaveBeenCalledWith('google');
 
     fireEvent.click(screen.getByTestId('welcome-handoff-fallback-self'));
     await waitFor(() => expect(mockStoreSessionToken).toHaveBeenCalledTimes(1));
