@@ -35,6 +35,8 @@ vi.mock('../../../utils/desktopDeepLinkListener', () => ({
 vi.mock('../../../store/deepLinkAuthState', () => ({
   beginDeepLinkAuthProcessing: vi.fn(),
   completeDeepLinkAuthProcessing: vi.fn(),
+  beginAwaitingAuthCallback: vi.fn(),
+  endAwaitingAuthCallback: vi.fn(),
   getDeepLinkAuthState: vi.fn(),
 }));
 
@@ -67,6 +69,7 @@ describe('OAuthProviderButton', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     vi.mocked(getDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -124,6 +127,7 @@ describe('OAuthProviderButton', () => {
   it('does NOT reset isLoading on focus when a deep-link auth round-trip is processing', async () => {
     vi.mocked(getDeepLinkAuthState).mockReturnValue({
       isProcessing: true,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -485,6 +489,7 @@ describe('OAuthProviderButton web dev redirect', () => {
     vi.mocked(isTauri).mockReturnValue(false);
     vi.mocked(getDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -543,6 +548,7 @@ describe('OAuthProviderButton — every configured provider reaches its own back
     vi.mocked(isTauri).mockReturnValue(true);
     vi.mocked(getDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,

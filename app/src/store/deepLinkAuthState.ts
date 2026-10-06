@@ -1,7 +1,19 @@
 import { useSyncExternalStore } from 'react';
 
 interface DeepLinkAuthState {
+  /**
+   * An auth STEP is executing. True twice per sign-in and briefly each time:
+   * once while the login URL is being prepared and the browser opened, and
+   * again while an arriving deep link is redeemed. It is NOT "waiting for the
+   * user to finish in the browser" — `awaitingCallback` is.
+   */
   isProcessing: boolean;
+  /**
+   * The user has been handed to the system browser and the callback has not
+   * come back yet. Spans the whole time the app is idle waiting on another
+   * window, which is exactly the window a hand-off screen must cover.
+   */
+  awaitingCallback: boolean;
   errorMessage: string | null;
   // i18n key to render INSTEAD of `errorMessage`, for failures whose copy is
   // translated. This module is reached from non-React code (the deep-link
@@ -19,6 +31,7 @@ interface DeepLinkAuthState {
 
 const initialState: DeepLinkAuthState = {
   isProcessing: false,
+  awaitingCallback: false,
   errorMessage: null,
   errorMessageKey: null,
   requiresAppDataReset: false,
@@ -50,6 +63,8 @@ export const subscribeDeepLinkAuthState = (listener: () => void): (() => void) =
 export const beginDeepLinkAuthProcessing = (): void => {
   setDeepLinkAuthState({
     isProcessing: true,
+    // A callback that has arrived is no longer awaited.
+    awaitingCallback: false,
     errorMessage: null,
     errorMessageKey: null,
     requiresAppDataReset: false,
@@ -59,6 +74,7 @@ export const beginDeepLinkAuthProcessing = (): void => {
 export const completeDeepLinkAuthProcessing = (): void => {
   setDeepLinkAuthState({
     isProcessing: false,
+    awaitingCallback: deepLinkAuthState.awaitingCallback,
     errorMessage: null,
     errorMessageKey: null,
     requiresAppDataReset: false,
@@ -71,10 +87,27 @@ export const failDeepLinkAuthProcessing = (
 ): void => {
   setDeepLinkAuthState({
     isProcessing: false,
+    awaitingCallback: false,
     errorMessage: message,
     errorMessageKey: options.messageKey ?? null,
     requiresAppDataReset: Boolean(options.requiresAppDataReset),
   });
+};
+
+/**
+ * The browser is open and we are waiting on it. Called right after `openUrl`
+ * succeeds, because `completeDeepLinkAuthProcessing()` fires immediately after
+ * that and would otherwise drop the UI back to the sign-in screen while the
+ * user is still in the browser.
+ */
+export const beginAwaitingAuthCallback = (): void => {
+  setDeepLinkAuthState({ ...deepLinkAuthState, awaitingCallback: true });
+};
+
+/** Stop waiting — the callback arrived, failed, or the user gave up. */
+export const endAwaitingAuthCallback = (): void => {
+  if (!deepLinkAuthState.awaitingCallback) return;
+  setDeepLinkAuthState({ ...deepLinkAuthState, awaitingCallback: false });
 };
 
 export const useDeepLinkAuthState = (): DeepLinkAuthState =>

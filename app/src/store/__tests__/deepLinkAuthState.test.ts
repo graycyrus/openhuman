@@ -23,6 +23,7 @@ describe('deepLinkAuthState transitions', () => {
     completeDeepLinkAuthProcessing();
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -36,6 +37,7 @@ describe('deepLinkAuthState transitions', () => {
     beginDeepLinkAuthProcessing();
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: true,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -47,6 +49,7 @@ describe('deepLinkAuthState transitions', () => {
     completeDeepLinkAuthProcessing();
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -58,6 +61,7 @@ describe('deepLinkAuthState transitions', () => {
     failDeepLinkAuthProcessing('token expired');
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: 'token expired',
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -68,6 +72,7 @@ describe('deepLinkAuthState transitions', () => {
     failDeepLinkAuthProcessing('cannot decrypt', { requiresAppDataReset: true });
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: 'cannot decrypt',
       errorMessageKey: null,
       requiresAppDataReset: true,
@@ -81,6 +86,7 @@ describe('deepLinkAuthState transitions', () => {
     failDeepLinkAuthProcessing('', { messageKey: 'welcome.coreConfigUnreadable' });
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: '',
       errorMessageKey: 'welcome.coreConfigUnreadable',
       requiresAppDataReset: false,
@@ -152,6 +158,7 @@ describe('useDeepLinkAuthState hook', () => {
     const { result } = renderHook(() => useDeepLinkAuthState());
     expect(result.current).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -162,6 +169,7 @@ describe('useDeepLinkAuthState hook', () => {
     });
     expect(result.current).toEqual({
       isProcessing: true,
+      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -172,6 +180,7 @@ describe('useDeepLinkAuthState hook', () => {
     });
     expect(result.current).toEqual({
       isProcessing: false,
+      awaitingCallback: false,
       errorMessage: 'denied',
       errorMessageKey: null,
       requiresAppDataReset: false,

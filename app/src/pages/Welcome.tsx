@@ -2,6 +2,7 @@ import createDebug from 'debug';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import LanguageSelect from '../components/LanguageSelect';
 import OAuthProviderButton from '../components/oauth/OAuthProviderButton';
 import { oauthProviderConfigs } from '../components/oauth/providerConfigs';
 import { Alert, AlertDescription, Button, Card } from '../components/ui';
@@ -41,7 +42,7 @@ const Welcome = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { storeSessionToken } = useCoreState();
-  const { isProcessing, errorMessage, errorMessageKey, requiresAppDataReset } =
+  const { isProcessing, awaitingCallback, errorMessage, errorMessageKey, requiresAppDataReset } =
     useDeepLinkAuthState();
   // Deep-link auth runs outside React and cannot translate its own copy, so it
   // hands over a key for the failures whose copy is localized. Everything else
@@ -53,7 +54,6 @@ const Welcome = () => {
 
   const [isClearingAppData, setIsClearingAppData] = useState(false);
   const [isLocalSigningIn, setIsLocalSigningIn] = useState(false);
-  const [showProviders, setShowProviders] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [localLoginError, setLocalLoginError] = useState<string | null>(null);
 
@@ -136,7 +136,11 @@ const Welcome = () => {
   return (
     <div className="min-h-full flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-3xl animate-fade-up">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-2">
+          {/* Language sits with the other presentation control rather than on
+              the boot-check panel, which is now a failure-only fallback most
+              people never see. */}
+          <LanguageSelect id="welcome-language" ariaLabel={t('settings.language')} />
           <Button
             iconOnly
             variant="tertiary"
@@ -201,9 +205,9 @@ const Welcome = () => {
                   take the self-hosted path instead. */}
               {!requiresAppDataReset ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <div data-testid="welcome-handoff-retry">
-                    <ProviderButtons />
-                  </div>
+                  {/* No provider buttons here: the TinyHumans card below shows
+                      them permanently now, so repeating them put two Google
+                      buttons on screen. Retrying is clicking one of those. */}
                   <Button
                     variant="secondary"
                     size="sm"
@@ -242,7 +246,12 @@ const Welcome = () => {
           </Alert>
         ) : null}
 
-        {isProcessing ? (
+        {/* `isProcessing` alone is wrong here: it covers an auth STEP, and the
+            launch step ends the instant the browser opens — so the hand-off
+            appeared for about a second and then dropped the user back to the
+            sign-in buttons while they were still in the browser.
+            `awaitingCallback` is the actual wait. */}
+        {isProcessing || awaitingCallback ? (
           /* Screen B — the browser hand-off. Sign-in leaves the app entirely,
              so the window the user comes back to has to say where they are and
              give them a way out. A bare spinner said neither. */
@@ -257,20 +266,19 @@ const Welcome = () => {
                 <p className="text-base font-semibold text-content">{t('welcome.handoff.title')}</p>
                 <p className="mt-1 text-sm text-content-muted">{t('welcome.handoff.body')}</p>
               </div>
-              {/* The real action, not a button that sets state nothing reads:
-                  the provider buttons only render in the non-processing branch,
-                  so toggling `showProviders` from here did nothing at all. */}
-              <div data-testid="welcome-handoff-reopen">
-                <p className="mb-2 text-xs text-content-muted">{t('welcome.handoff.reopen')}</p>
-                <ProviderButtons />
-              </div>
+              {/* No sign-in buttons here. By this point a provider has been
+                  picked and the browser is open; repeating the row just asks
+                  the same question twice. If the browser never comes back, the
+                  90s timeout swaps this panel for the failure state, which is
+                  where the way out belongs. */}
             </div>
           </Card>
         ) : (
           <>
-            {/* Deliberately asymmetric: the TinyHumans card is wider and denser, and
-                neither card carries a "Recommended" badge. */}
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-[3fr_2fr]">
+            {/* Equal columns. The two paths are a genuine either/or, so neither
+                card is sized to argue for itself; the TinyHumans one leads by
+                being first and denser. Stacks to one column at phone width. */}
+            <div className="mt-8 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
               <Card
                 data-testid="welcome-card-tinyhumans"
                 padded
@@ -292,7 +300,12 @@ const Welcome = () => {
                       </li>
                     ))}
                   </ul>
-                  <div className="rounded-lg bg-primary-50 px-3 py-2 text-center text-sm font-medium text-primary-700">
+                  {/* A quiet highlight, not a second button. `bg-primary-50`
+                      alone rendered near-white in dark mode, because the accent
+                      ramps are identical in both themes and only the shade
+                      chosen changes — so the dark shade has to be picked
+                      explicitly. */}
+                  <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-center text-xs font-medium text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-300">
                     {t('welcome.th.credit')}
                   </div>
                   <div className="mt-auto space-y-3">
@@ -301,31 +314,25 @@ const Welcome = () => {
                         `openhuman://auth?token=...&state=...`. That hosted single-login page
                         does not exist yet, so for now the CTA reveals the three existing
                         OAuth provider buttons (google, github, twitter). */}
-                    <Button
-                      data-testid="welcome-cta-tinyhumans"
-                      variant="primary"
-                      size="md"
-                      onClick={() => setShowProviders(true)}
-                      aria-expanded={showProviders}
-                      className="w-full py-3">
-                      {t('welcome.th.cta')}
-                    </Button>
-                    {showProviders ? (
-                      <div className="flex flex-wrap items-center justify-center gap-3">
-                        {oauthProviderConfigs
-                          .filter(provider => provider.showOnWelcome)
-                          .map(provider => (
-                            <OAuthProviderButton
-                              key={provider.id}
-                              provider={provider}
-                              className="rounded-full! px-4! py-2!"
-                            />
-                          ))}
-                      </div>
-                    ) : null}
+                    {/* The providers are the action, so they are on screen.
+                        A "Continue with TinyHumans" button used to sit here and
+                        reveal them on click, which was a tap that bought the
+                        user nothing.
+
+                        WHEN THE HOSTED LOGIN LANDS: put that single button back
+                        in place of this row and have it `openUrl` to the
+                        tinyhumans.ai login page with `redirectUri` +`state`;
+                        the page returns `openhuman://auth?token=…&state=…`,
+                        which `desktopDeepLinkListener` already redeems through
+                        `loginWithToken` → `POST /auth/login-token/consume`.
+                        Every piece of that exists except the page itself, which
+                        is why provider selection is still in the app. */}
                     <p className="text-center text-xs text-content-muted">
                       {t('welcome.th.providers')}
                     </p>
+                    <div data-testid="welcome-cta-tinyhumans">
+                      <ProviderButtons />
+                    </div>
                   </div>
                 </div>
               </Card>
