@@ -82,7 +82,11 @@ export function shouldSkipLocalActiveUserRead(opts: {
 export function resolveActiveUserBootstrap(ctx: BootstrapContext): Promise<string | null> {
   // A pending flip outranks every other source: it is the id this process was
   // restarted in order to adopt.
-  const flipped = ctx.consumeIdentityFlipSeed?.() ?? consumeIdentityFlipSeed();
+  // `?? consumeIdentityFlipSeed()` would fall through to the module reader
+  // whenever an injected one returned null, so a test that deliberately says
+  // "no flip pending" still hit real storage.
+  const readFlipSeed = ctx.consumeIdentityFlipSeed ?? consumeIdentityFlipSeed;
+  const flipped = readFlipSeed();
   if (flipped) {
     return Promise.resolve<string | null>(flipped);
   }

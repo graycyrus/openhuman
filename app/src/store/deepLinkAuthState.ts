@@ -61,6 +61,7 @@ export const subscribeDeepLinkAuthState = (listener: () => void): (() => void) =
 };
 
 export const beginDeepLinkAuthProcessing = (): void => {
+  clearAwaitTimer();
   setDeepLinkAuthState({
     isProcessing: true,
     // A callback that has arrived is no longer awaited.
@@ -85,6 +86,7 @@ export const failDeepLinkAuthProcessing = (
   message: string,
   options: { requiresAppDataReset?: boolean; messageKey?: string } = {}
 ): void => {
+  clearAwaitTimer();
   setDeepLinkAuthState({
     isProcessing: false,
     awaitingCallback: false,
@@ -95,17 +97,42 @@ export const failDeepLinkAuthProcessing = (
 };
 
 /**
+ * How long to hold the hand-off before giving up on the browser.
+ *
+ * Matches the loopback listener's own lifetime: past this point no callback
+ * can arrive, so continuing to show a spinner is a lie.
+ */
+const AWAIT_CALLBACK_TIMEOUT_MS = 300_000;
+let awaitTimer: ReturnType<typeof setTimeout> | null = null;
+
+const clearAwaitTimer = (): void => {
+  if (awaitTimer === null) return;
+  clearTimeout(awaitTimer);
+  awaitTimer = null;
+};
+
+/**
  * The browser is open and we are waiting on it. Called right after `openUrl`
  * succeeds, because `completeDeepLinkAuthProcessing()` fires immediately after
  * that and would otherwise drop the UI back to the sign-in screen while the
  * user is still in the browser.
  */
 export const beginAwaitingAuthCallback = (): void => {
+  clearAwaitTimer();
+  // The timer lives here, not in the component that started the sign-in: the
+  // hand-off screen unmounts that component, which would take the only way of
+  // ever clearing this flag with it and strand the user on a spinner with no
+  // control. Module scope outlives any mount.
+  awaitTimer = setTimeout(() => {
+    awaitTimer = null;
+    endAwaitingAuthCallback();
+  }, AWAIT_CALLBACK_TIMEOUT_MS);
   setDeepLinkAuthState({ ...deepLinkAuthState, awaitingCallback: true });
 };
 
 /** Stop waiting — the callback arrived, failed, or the user gave up. */
 export const endAwaitingAuthCallback = (): void => {
+  clearAwaitTimer();
   if (!deepLinkAuthState.awaitingCallback) return;
   setDeepLinkAuthState({ ...deepLinkAuthState, awaitingCallback: false });
 };

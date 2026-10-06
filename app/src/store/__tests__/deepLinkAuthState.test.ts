@@ -2,8 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  beginAwaitingAuthCallback,
   beginDeepLinkAuthProcessing,
   completeDeepLinkAuthProcessing,
+  endAwaitingAuthCallback,
   failDeepLinkAuthProcessing,
   getDeepLinkAuthState,
   subscribeDeepLinkAuthState,
@@ -185,5 +187,39 @@ describe('useDeepLinkAuthState hook', () => {
       errorMessageKey: null,
       requiresAppDataReset: false,
     });
+  });
+});
+
+describe('awaitingCallback', () => {
+  // This flag exists because `isProcessing` ends the moment the browser opens,
+  // which made the hand-off screen vanish while the user was still in it.
+  it('spans the browser round-trip and is cleared by the arriving callback', () => {
+    beginAwaitingAuthCallback();
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(true);
+
+    // The launch step finishing must NOT end the wait.
+    completeDeepLinkAuthProcessing();
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(true);
+
+    // Redeeming an arriving deep link does.
+    beginDeepLinkAuthProcessing();
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
+  });
+
+  it('is cleared by a failure and by an explicit end', () => {
+    beginAwaitingAuthCallback();
+    failDeepLinkAuthProcessing('nope');
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
+
+    beginAwaitingAuthCallback();
+    endAwaitingAuthCallback();
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
+  });
+
+  it('ending when not waiting is a no-op', () => {
+    completeDeepLinkAuthProcessing();
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
+    endAwaitingAuthCallback();
+    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import createDebug from 'debug';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import LanguageSelect from '../components/LanguageSelect';
@@ -11,7 +11,11 @@ import { useCoreState } from '../providers/CoreStateProvider';
 import { clearBackendUrlCache } from '../services/backendUrl';
 import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../services/coreRpcClient';
 import { resetCoreMode } from '../store/coreModeSlice';
-import { useDeepLinkAuthState } from '../store/deepLinkAuthState';
+import {
+  endAwaitingAuthCallback,
+  getDeepLinkAuthState,
+  useDeepLinkAuthState,
+} from '../store/deepLinkAuthState';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { resolveTheme, setThemeMode, type ThemeMode } from '../store/themeSlice';
 import { clearAllAppData } from '../utils/clearAllAppData';
@@ -104,6 +108,21 @@ const Welcome = () => {
       setIsLocalSigningIn(false);
     }
   };
+
+  // Coming back to the app without a callback means the user cancelled, closed
+  // the tab, or the redirect failed. End the wait so they get the cards back
+  // instead of a spinner that only the 5-minute timeout would clear. An
+  // arriving deep link flips `isProcessing` first, and that path clears
+  // `awaitingCallback` itself, so a genuine success is not cut short.
+  useEffect(() => {
+    if (!awaitingCallback) return;
+    const onFocus = () => {
+      if (getDeepLinkAuthState().isProcessing) return;
+      endAwaitingAuthCallback();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [awaitingCallback]);
 
   const toggleTheme = () => {
     dispatch(setThemeMode(isDark ? 'light' : 'dark'));

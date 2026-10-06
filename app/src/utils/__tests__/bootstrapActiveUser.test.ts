@@ -14,7 +14,12 @@
  */
 import { describe, expect, test, vi } from 'vitest';
 
-import { resolveActiveUserBootstrap, shouldSkipLocalActiveUserRead } from '../bootstrapActiveUser';
+import {
+  consumeIdentityFlipSeed,
+  markIdentityFlipSeed,
+  resolveActiveUserBootstrap,
+  shouldSkipLocalActiveUserRead,
+} from '../bootstrapActiveUser';
 
 describe('shouldSkipLocalActiveUserRead', () => {
   test('cloud mode skips the local read', () => {
@@ -166,5 +171,32 @@ describe('identity-flip seed marker (#4545, local-core variant)', () => {
     });
     expect(resolved).toBeNull();
     expect(getActiveUserIdFromCore).not.toHaveBeenCalled();
+  });
+});
+
+describe('consumeIdentityFlipSeed storage failures', () => {
+  // Private windows, cleared site data and quota errors all make localStorage
+  // throw. The loop guard is best-effort: it must degrade to "no flip pending"
+  // rather than take the boot path down with it.
+  it('returns null when reading localStorage throws', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+    try {
+      expect(consumeIdentityFlipSeed()).toBeNull();
+    } finally {
+      getItem.mockRestore();
+    }
+  });
+
+  it('round-trips a marker and clears it so the next boot sees nothing', () => {
+    markIdentityFlipSeed('user-abc');
+    expect(consumeIdentityFlipSeed()).toBe('user-abc');
+    expect(consumeIdentityFlipSeed()).toBeNull();
+  });
+
+  it('treats a blank marker as no flip pending', () => {
+    markIdentityFlipSeed('   ');
+    expect(consumeIdentityFlipSeed()).toBeNull();
   });
 });

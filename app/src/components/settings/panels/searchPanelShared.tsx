@@ -84,7 +84,15 @@ export const canUseManaged = (provider: SearchProviderInfo, managedUnavailable: 
 export const isStrandedManaged = (
   provider: SearchProviderInfo,
   managedUnavailable: boolean
-): boolean => managedUnavailable && provider.enabled && provider.route === 'managed';
+): boolean =>
+  managedUnavailable &&
+  provider.enabled &&
+  provider.route === 'managed' &&
+  // Only move it if the catalogue can actually offer something: a provider
+  // with no direct route would land in a blocked tile with no switch and no
+  // action, leaving it enabled in core settings and uncontrollable from here.
+  // Those keep their Connected row, where the toggle can still turn them off.
+  provider.routes.includes('direct');
 
 /** A provider that can be reached with the user's own key or instance. */
 export const canUseDirect = (provider: SearchProviderInfo) => provider.routes.includes('direct');
