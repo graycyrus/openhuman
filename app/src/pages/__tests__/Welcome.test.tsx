@@ -272,12 +272,62 @@ describe('Welcome auth entrypoint', () => {
     });
     vi.mocked(endAwaitingAuthCallback).mockClear();
 
+    vi.useFakeTimers();
     renderWithProviders(<Welcome />);
     act(() => {
       window.dispatchEvent(new FocusEvent('focus'));
     });
 
+    // The grace window has to elapse first: a successful callback arrives
+    // after the focus event, so ending the wait on focus alone would cut a
+    // good sign-in short.
+    expect(endAwaitingAuthCallback).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1_500);
+    });
     expect(endAwaitingAuthCallback).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('keeps the hand-off when the callback lands during the grace window', () => {
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      awaitingCallback: true,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+    // The real ordering: focus fires while the store still says no auth step
+    // is running, and the deep link lands a moment later. Reading the store
+    // the instant focus arrives therefore says "cancelled" during a perfectly
+    // good sign-in, which is why the decision is deferred.
+    let storeProcessing = false;
+    vi.mocked(getDeepLinkAuthState).mockImplementation(() => ({
+      isProcessing: storeProcessing,
+      awaitingCallback: true,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    }));
+    vi.mocked(endAwaitingAuthCallback).mockClear();
+
+    vi.useFakeTimers();
+    renderWithProviders(<Welcome />);
+    act(() => {
+      window.dispatchEvent(new FocusEvent('focus'));
+    });
+    // The callback arrives inside the grace window.
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    storeProcessing = true;
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+
+    expect(endAwaitingAuthCallback).not.toHaveBeenCalled();
+    expect(screen.getByTestId('welcome-handoff')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it('keeps waiting on focus when a callback is already being redeemed', () => {
@@ -292,12 +342,17 @@ describe('Welcome auth entrypoint', () => {
     vi.mocked(getDeepLinkAuthState).mockReturnValue(redeeming);
     vi.mocked(endAwaitingAuthCallback).mockClear();
 
+    vi.useFakeTimers();
     renderWithProviders(<Welcome />);
     act(() => {
       window.dispatchEvent(new FocusEvent('focus'));
     });
+    act(() => {
+      vi.advanceTimersByTime(1_500);
+    });
 
     expect(endAwaitingAuthCallback).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it('offers retry and a self-hosted fallback when the browser hand-off fails', async () => {

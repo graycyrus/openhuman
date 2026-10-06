@@ -41,6 +41,13 @@ const ProviderButtons = () => (
   </div>
 );
 
+/**
+ * How long a regained focus waits for a deep link before concluding there
+ * isn't one. The callback is delivered after the OS focus event, so this has
+ * to outlast that gap; it only ever delays *giving up*, never a success.
+ */
+const CALLBACK_GRACE_MS = 1_500;
+
 const Welcome = () => {
   const { t } = useT();
   const navigate = useNavigate();
@@ -111,17 +118,32 @@ const Welcome = () => {
 
   // Coming back to the app without a callback means the user cancelled, closed
   // the tab, or the redirect failed. End the wait so they get the cards back
-  // instead of a spinner that only the 5-minute timeout would clear. An
-  // arriving deep link flips `isProcessing` first, and that path clears
-  // `awaitingCallback` itself, so a genuine success is not cut short.
+  // instead of a spinner that only the 5-minute timeout would clear.
+  //
+  // The check cannot be synchronous. On a *successful* sign-in the OS focus
+  // event arrives BEFORE the deep link does (see the same race documented at
+  // `OAuthProviderButton`'s `skipDuringDeepLink`), so reading `isProcessing`
+  // the instant focus fires would say "no callback" during a perfectly good
+  // round-trip and flash the cards back mid-sign-in. Give the callback a grace
+  // window to land, then decide.
   useEffect(() => {
     if (!awaitingCallback) return;
+    let graceTimer: ReturnType<typeof setTimeout> | null = null;
     const onFocus = () => {
-      if (getDeepLinkAuthState().isProcessing) return;
-      endAwaitingAuthCallback();
+      if (graceTimer !== null) return;
+      graceTimer = setTimeout(() => {
+        graceTimer = null;
+        const state = getDeepLinkAuthState();
+        // Redeeming a callback, or something already ended the wait: leave it.
+        if (state.isProcessing || !state.awaitingCallback) return;
+        endAwaitingAuthCallback();
+      }, CALLBACK_GRACE_MS);
     };
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    return () => {
+      if (graceTimer !== null) clearTimeout(graceTimer);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [awaitingCallback]);
 
   const toggleTheme = () => {
