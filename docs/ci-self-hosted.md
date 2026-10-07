@@ -91,10 +91,13 @@ with everything else when the EX63 runs the commit.
 
 Who runs what:
 
-- **Org members:** `ci-fast.yml` on `pull_request_target`, routed by
-  `scripts/ci/ci-fast-route.sh` (shared with `ci-fast-hosted.yml`). The route
-  decision falls back to the hosted lanes when no EX63 run starts within three
-  minutes, or when routing errors.
+- **Org members:** `ci-fast.yml` on `pull_request_target` makes the decision in
+  its `route` job, and `ci-fast-hosted.yml` follows it through
+  `scripts/ci/ci-fast-route.sh`. The script polls for that run's verdict; a
+  skipped `Lanes` job means outsider. With no usable verdict it falls back to
+  the author association and the actor: an `OWNER` or `MEMBER` author acting as
+  themselves writes `outsider=false`, so the hosted lanes do **not** run. It
+  also records whether the decision came from `ci-fast` or from that fallback.
 - **Outsiders:** CI Lite and CI Fast (hosted) both run, and the first to pass
   cancels the other.
 - **Pushes to `main`:** CI Lite runs, and the gate ignores them.

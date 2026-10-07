@@ -50,15 +50,15 @@ Seven scripts under `scripts/profile/` (each has `-h`/`--help`):
   ```bash
   ./scripts/profile/library-bench.sh                     # default build, all scenarios
   ./scripts/profile/library-bench.sh --slim               # --no-default-features recipe
-  ./scripts/profile/library-bench.sh --scenarios "long-agent,subagents" --turns 50 --warm
+  ./scripts/profile/library-bench.sh --scenarios "long-agent,subagent-storm" --turns 50 --warm
   ```
 
 - **`library-cpu.sh`** — a `samply` wrapper for one scenario's CPU profile,
   isolated from persistence/timezone noise by default.
 
   ```bash
-  ./scripts/profile/library-cpu.sh subagents
-  samply load target/profile/rust-library/subagents-cpu.json.gz
+  ./scripts/profile/library-cpu.sh subagent-storm
+  samply load target/profile/rust-library/subagent-storm-cpu.json.gz
   ```
 
 - **`library-heap.sh`** — builds the `rss-bench-dhat` variant and runs a

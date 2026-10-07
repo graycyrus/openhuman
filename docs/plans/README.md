@@ -20,7 +20,7 @@ because several of those lines no longer hold.
 | `migrate-agent-sessions-to-tinyagents-session.md` | **Landed.** The transcript model and JSONL codec live in `vendor/tinyagents/crates/tinyagents-session/src/transcript/`. |
 | `migrate-agent-runtime-helper-packages.md` | **Landed.** All four slices are complete; what remains host-side is what the plan prescribes keeping. |
 | `migrate-agent-orchestration-to-tinyagents.md` | **Landed except O6.** `tinyagents-orchestration/src/` holds `subagent/`, `teams/` and `workflow/`; there is no `parallel/`. |
-| `migrate-agent-runtime-to-tinyagents.md` | **Live.** Tasks 4, 10 and 11 are outstanding: 25 `task_local!` declarations remain in the core, and `agent/tinyagents/harness_assembly.rs` and `agent/tinyagents/turn_runner.rs` both still exist with live callers. |
+| `migrate-agent-runtime-to-tinyagents.md` | **Live.** Tasks 4, 10 and 11 are outstanding: 19 `task_local!` declarations remain in the core, and `agent/tinyagents/harness_assembly.rs` and `agent/tinyagents/turn_runner.rs` both still exist with live callers. |
 | `migrate-agent-runtime-waves.md` | **Live.** Gate 4 is unmet: `scripts/ci/agent-runtime-boundary-baseline.json` is still checked in, with 213 baselined violations, and the gate requires it deleted. |
 | `jev-tool-search-baseline.md` | **Not a plan.** A dated measurement report (2026-09-22) for `tool_search` ranking. It is linked from the root `README.md`, `crates/openhuman-tinyhumans/src/jev/README.md` and `gitbooks/developing/jev.md`, so its path is a contract; leave it where it is. |
 
@@ -30,21 +30,39 @@ and why, and the two live plans point at them.
 
 ## Reproducing the status check
 
+Each check below fails loudly when its condition stops holding. A bare `ls` of
+a parent directory would not: it succeeds whether or not the retired child is
+still there.
+
 ```bash
-# landed trees are gone, their replacements are present
-ls crates/openhuman-core/src/agent/harness/            # no session/ subagent_runner/ run_queue/
-ls crates/openhuman-core/src/agent/session_host/ crates/openhuman-core/src/agent/subagent_host/
+# The three retired trees are gone and their replacements are present.
+for d in session subagent_runner run_queue; do
+  test ! -e "crates/openhuman-core/src/agent/harness/$d" || echo "STILL PRESENT: $d"
+done
+test ! -e crates/openhuman-core/src/agent/task_dispatcher || echo "STILL PRESENT: task_dispatcher"
+test -d crates/openhuman-core/src/agent/session_host
+test -d crates/openhuman-core/src/agent/subagent_host
 
-# O6
-ls vendor/tinyagents/crates/tinyagents-orchestration/src/
+# The transcript model and JSONL codec moved upstream.
+test -d vendor/tinyagents/crates/tinyagents-session/src/transcript
 
-# Task 4
-grep -rn 'task_local!' crates/openhuman-core/src --include='*.rs' | grep -v _tests | wc -l
+# O6: parallel/ would be the outstanding slice.
+test ! -e vendor/tinyagents/crates/tinyagents-orchestration/src/parallel || echo "O6 LANDED"
+for d in subagent teams workflow; do
+  test -d "vendor/tinyagents/crates/tinyagents-orchestration/src/$d" || echo "MISSING: $d"
+done
 
-# Tasks 10 and 11
+# Task 4: count declarations, not every line that mentions the macro.
+grep -rn --include='*.rs' -E '(tokio::)?task_local! *\{' crates/openhuman-core/src \
+  | grep -v '_tests' | grep -v '^[^:]*:[0-9]*: *//' | wc -l
+
+# Tasks 10 and 11: the files exist *and* still have callers.
 ls crates/openhuman-core/src/agent/tinyagents/harness_assembly.rs \
    crates/openhuman-core/src/agent/tinyagents/turn_runner.rs
+grep -rln --include='*.rs' 'harness_assembly\|turn_runner' crates/openhuman-core/src \
+  | grep -v 'tinyagents/\(harness_assembly\|turn_runner\)\.rs$'
 
-# Gate 4
-python3 -c "import json;print(len(json.load(open('scripts/ci/agent-runtime-boundary-baseline.json'))))"
+# Gate 4: the gate requires this file deleted.
+test ! -e scripts/ci/agent-runtime-boundary-baseline.json && echo "GATE 4 MET" \
+  || python3 -c "import json;print(len(json.load(open('scripts/ci/agent-runtime-boundary-baseline.json'))), 'baselined violations')"
 ```
